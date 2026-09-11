@@ -1,0 +1,290 @@
+<template>
+<div class="er-studio">
+
+    <!-- CONTEXT MENU -->
+    <template if:true={ctxMenu}>
+        <div class="ctx-menu" style={ctxMenuStyle}>
+            <div class="ctx-item" onclick={handleCtxOpen}>Open</div>
+            <div class="ctx-item" onclick={handleCtxDuplicate}>Duplicate</div>
+            <div class="ctx-divider"></div>
+            <div class="ctx-item ctx-danger" onclick={handleCtxDelete}>Delete</div>
+        </div>
+    </template>
+
+    <!-- EXPORT MODAL -->
+    <template if:true={exportModalOpen}>
+        <div class="modal-backdrop" onclick={handleCloseExport}>
+            <div class="modal-box" onclick={stopProp}>
+                <div class="modal-header">
+                    <span class="modal-title">Export Diagram</span>
+                    <button class="modal-close" onclick={handleCloseExport}>x</button>
+                </div>
+                <div class="modal-body">
+                    <div class="export-field">
+                        <label class="export-label" for="exportPageSize">Page Size</label>
+                        <select id="exportPageSize" class="export-select" onchange={handleExportSizeChange}>
+                            <template for:each={exportSizeOptions} for:item="opt">
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            </template>
+                        </select>
+                    </div>
+                    <p class="hint-text slds-m-top_small">The PNG will be saved to Salesforce Files and downloaded to your browser.</p>
+                </div>
+                <div class="modal-footer">
+                    <lightning-button label="Cancel" variant="neutral" onclick={handleCloseExport}></lightning-button>
+                    <lightning-button label="Export and Download" variant="brand" disabled={exportModalSaveDisabled} onclick={handleDoExport}></lightning-button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- TOP MENU BAR -->
+    <div class="menu-bar">
+        <span class="app-logo">ER</span>
+        <span class="app-name">Diagram Studio</span>
+        <div class="menu-spacer"></div>
+        <span class={statusClass}>{statusLabel}</span>
+        <template if:true={currentId}>
+            <button class="menu-btn" onclick={handleCopyId} title="Copy record Id">Copy Id</button>
+        </template>
+    </div>
+
+    <!-- ACTION TOOLBAR -->
+    <div class="toolbar">
+        <button class="tb-icon-btn" onclick={handleToggleSidebar} title="Toggle file explorer">|||</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" onclick={handleNew}>+ New</button>
+        <button class="tb-btn tb-btn-primary" onclick={handleSave}>Save  Ctrl+S</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" onclick={handleToggleImport}>Import</button>
+        <button class="tb-btn" onclick={handleOpenExport}>Export</button>
+        <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
+        <div class="tb-spacer"></div>
+        <input class="diag-name-input" type="text" value={fileName} onchange={handleNameChange} placeholder="Diagram name" />
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tab-bar">
+        <template for:each={computedTabs} for:item="tab">
+            <div key={tab.id}
+                 class={tab.tabClass}
+                 data-tabid={tab.id}
+                 onclick={handleTabClick}
+                 title={tab.name}>
+                <template if:false={tab.renaming}>
+                    <span class="tab-name">{tab.name}</span>
+                    <template if:true={tab.dirty}>
+                        <span class="tab-dirty">*</span>
+                    </template>
+                    <button class="tab-close" data-tabid={tab.id} onclick={handleTabClose}>x</button>
+                </template>
+                <template if:true={tab.renaming}>
+                    <input class="tab-rename-input"
+                           type="text"
+                           value={tab.renameValue}
+                           data-tabid={tab.id}
+                           onchange={handleTabRenameChange}
+                           onkeydown={handleTabRenameCommit}
+                           onblur={handleTabRenameBlur} />
+                </template>
+            </div>
+        </template>
+        <button class="tab-new-btn" onclick={handleNew}>+</button>
+    </div>
+
+    <!-- MAIN BODY -->
+    <div class="studio-body">
+
+        <!-- FILE EXPLORER SIDEBAR -->
+        <div class={sidebarClass}>
+            <div class="sidebar-head">EXPLORER</div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-sec-head">
+                    <span>SAVED DIAGRAMS</span>
+                    <button class="sb-icon-btn" onclick={handleNew}>+</button>
+                </div>
+                <div class="file-list">
+                    <template for:each={files} for:item="f">
+                        <div key={f.id}
+                             class={f.rowClass}
+                             data-id={f.id}
+                             onclick={handleOpen}
+                             oncontextmenu={handleFileContextMenu}>
+                            <span class="file-name">{f.name}</span>
+                            <span class="file-date">{f.modified}</span>
+                            <button class="file-del-btn" data-id={f.id} onclick={handleDeleteFile}>x</button>
+                        </div>
+                    </template>
+                    <template if:true={noFiles}>
+                        <p class="empty-msg">No saved diagrams yet. Click + to create one.</p>
+                    </template>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-sec-head" onclick={handleToggleImport}>
+                    <span>IMPORT FROM ORG</span>
+                </div>
+                <template if:true={importPanelOpen}>
+                    <div class="import-panel">
+                        <textarea class="import-textarea"
+                                  placeholder="Account, Contact, Case"
+                                  value={importObjectNames}
+                                  oninput={handleImportNamesChange}></textarea>
+                        <button class="sb-full-btn" onclick={handleImportSchema}>Import Schema</button>
+                    </div>
+                </template>
+            </div>
+
+            <div class="sidebar-section palette-section">
+                <div class="sidebar-sec-head">DRAG TO CANVAS</div>
+                <input class="palette-search" type="text"
+                       placeholder="Search objects"
+                       value={paletteFilter}
+                       oninput={handlePaletteFilterChange} />
+                <div class="palette-chips">
+                    <template for:each={filteredPaletteObjects} for:item="obj">
+                        <div key={obj} class="palette-chip"
+                             draggable="true"
+                             data-name={obj}
+                             ondragstart={handlePaletteDragStart}>{obj}</div>
+                    </template>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CANVAS AREA -->
+        <div class="canvas-outer">
+
+            <template if:true={errorMessage}>
+                <div class="error-bar" role="alert">
+                    {errorMessage}
+                    <button class="error-dismiss" onclick={clearError}>x</button>
+                </div>
+            </template>
+
+            <!-- Legend -->
+            <div class="legend-overlay">
+                <p class="legend-title">Relationships</p>
+                <div class="legend-row">
+                    <svg width="52" height="14"><line x1="2" y1="7" x2="40" y2="7" stroke="#5c2d91" stroke-width="2.5"></line><polygon points="38,4 50,7 38,10" fill="#5c2d91"></polygon></svg>
+                    <span>Master-Detail</span>
+                </div>
+                <div class="legend-row">
+                    <svg width="52" height="14"><line x1="2" y1="7" x2="38" y2="7" stroke="#0070d2" stroke-width="1.75"></line><polyline points="34,4 48,7 34,10" fill="none" stroke="#0070d2" stroke-width="1.75"></polyline></svg>
+                    <span>Lookup</span>
+                </div>
+                <div class="legend-row">
+                    <svg width="52" height="14"><line x1="2" y1="7" x2="38" y2="7" stroke="#ea4335" stroke-width="1.75" stroke-dasharray="4,2"></line><polygon points="38,4 50,7 38,10" fill="none" stroke="#ea4335" stroke-width="1.5"></polygon></svg>
+                    <span>Polymorphic</span>
+                </div>
+            </div>
+
+            <!-- Scrollable canvas -->
+            <div class="canvas-wrap" ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
+                <svg data-role="er-svg"
+                     viewBox={svgViewBox}
+                     width={svgWidth}
+                     height={svgHeight}
+                     class="er-svg"
+                     xmlns="http://www.w3.org/2000/svg"
+                     onpointermove={handleSvgPointerMove}
+                     onpointerup={handleSvgPointerUp}>
+
+                    <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#f4f6f9"></rect>
+
+                    <!-- Connectors rendered under boxes -->
+                    <template for:each={erConnectors} for:item="c">
+                        <g key={c.key}>
+                            <path d={c.d} fill="none" stroke="rgba(0,0,0,0)" stroke-width="10"></path>
+                            <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
+                            <text x={c.midX} y={c.midY} text-anchor="middle" font-size="10" class="conn-label" fill={c.stroke}>{c.label}</text>
+                            <circle cx={c.cardStartX} cy={c.cardStartY} r="9" fill="#ffffff" stroke={c.stroke} stroke-width="1.5"></circle>
+                            <text x={c.cardStartX} y={c.cardStartY} dy="4" text-anchor="middle" font-size="9" font-weight="bold" fill={c.stroke}>{c.cardStartText}</text>
+                            <circle cx={c.cardEndX} cy={c.cardEndY} r="9" fill="#ffffff" stroke={c.stroke} stroke-width="1.5"></circle>
+                            <text x={c.cardEndX} y={c.cardEndY} dy="4" text-anchor="middle" font-size="9" font-weight="bold" fill={c.stroke}>{c.cardEndText}</text>
+                        </g>
+                    </template>
+
+                    <!-- Entity boxes -->
+                    <template for:each={erBoxes} for:item="b">
+                        <g key={b.name}
+                           data-name={b.name}
+                           class="entity-group">
+
+                            <!-- Shadow -->
+                            <rect x={b.shadowX} y={b.shadowY} width={b.width} height={b.height} rx="7" fill="#c8cdd6"></rect>
+                            <!-- Body -->
+                            <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill="#ffffff" stroke="#d0d5dd" stroke-width="1.5"></rect>
+                            <!-- Header drag handle -->
+                            <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown}></rect>
+                            <!-- Header bottom strip (covers rounded corners gap) -->
+                            <rect x={b.x} y={b.headerBodyY} width={b.width} height="10" fill={b.headerFill}></rect>
+                            <!-- Entity name -->
+                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.name}</text>
+                            <!-- Delete button -->
+                            <g data-name={b.name} class="delete-btn" onclick={handleDeleteEntity} transform={b.deleteTransform}>
+                                <circle cx="0" cy="0" r="10" fill="#c23934"></circle>
+                                <text x="0" y="0" font-size="14" fill="#ffffff" text-anchor="middle" dy="5">x</text>
+                            </g>
+                            <!-- Divider -->
+                            <line x1={b.x} y1={b.dividerY} x2={b.xEnd} y2={b.dividerY} stroke="#e4e7ec" stroke-width="1"></line>
+
+                            <!-- Field rows — primary key -->
+                            <template for:each={b.pkFields} for:item="fld">
+                                <g key={fld.key}>
+                                    <text x={b.x} y={fld.rowY} dx="10" font-size="10" fill="#d4a72c">*</text>
+                                    <text x={b.x} y={fld.rowY} dx="22" font-size="11" font-weight="600" fill="#101828">{fld.text}</text>
+                                </g>
+                            </template>
+                            <!-- Field rows — relationship fields -->
+                            <template for:each={b.relFields} for:item="fld">
+                                <g key={fld.key}>
+                                    <text x={b.x} y={fld.rowY} dx="10" font-size="10" fill="#7b5ea7">~</text>
+                                    <text x={b.x} y={fld.rowY} dx="22" font-size="11" font-style="italic" fill="#667085">{fld.text}</text>
+                                </g>
+                            </template>
+                            <!-- Field rows — plain fields -->
+                            <template for:each={b.plainFields} for:item="fld">
+                                <g key={fld.key}>
+                                    <text x={b.x} y={fld.rowY} dx="22" font-size="11" fill="#344054">{fld.text}</text>
+                                </g>
+                            </template>
+
+                            <!-- More fields indicator -->
+                            <template if:true={b.hasHidden}>
+                                <text x={b.x} y={b.moreTextY} dx="12" font-size="10" fill="#98a2b3">{b.moreLabel}</text>
+                            </template>
+
+                            <!-- Bottom resize handle -->
+                            <rect data-name={b.name} data-role="resize"
+                                  x={b.x} y={b.resizeY}
+                                  width={b.width} height="14"
+                                  fill="rgba(0,0,0,0)"
+                                  class="resize-handle"
+                                  onpointerdown={handleResizePointerDown}
+                                  onpointermove={handleResizePointerMove}
+                                  onpointerup={handleResizePointerUp}></rect>
+                            <line x1={b.resizeDotX1} y1={b.resizeLineY} x2={b.resizeDotX2} y2={b.resizeLineY}
+                                  stroke="#d0d5dd" stroke-width="2" stroke-dasharray="3,3" stroke-linecap="round"></line>
+                            <!-- Right resize handle -->
+                            <rect data-name={b.name} data-role="resize-right"
+                                  x={b.resizeRightX} y={b.resizeRightY}
+                                  width="14" height={b.resizeRightHeight}
+                                  fill="rgba(0,0,0,0)"
+                                  class="resize-handle-right"
+                                  onpointerdown={handleResizeRightPointerDown}
+                                  onpointermove={handleResizeRightPointerMove}
+                                  onpointerup={handleResizeRightPointerUp}></rect>
+                        </g>
+                    </template>
+
+                </svg>
+            </div>
+        </div>
+
+    </div>
+</div>
+</template>

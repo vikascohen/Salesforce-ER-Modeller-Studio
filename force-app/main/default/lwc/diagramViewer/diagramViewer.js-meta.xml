@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__AppPage</target>
+        <target>lightning__RecordPage</target>
+        <target>lightning__HomePage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__AppPage,lightning__RecordPage,lightning__HomePage">
+            <property name="diagramId" type="String" label="Diagram Id"
+                       description="Paste the Id of the saved Diagram Studio record to pin here. Copy it from the Diagram Studio sidebar (Copy Id button next to the open file)."/>
+            <property name="title" type="String" label="Title override"
+                       description="Optional. Leave blank to use the diagram's saved name."/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

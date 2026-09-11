@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Diagram_Type__c</fullName>
+    <label>Diagram Type</label>
+    <type>Picklist</type>
+    <required>true</required>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Sequence</fullName>
+                <default>true</default>
+                <label>Sequence</label>
+            </value>
+            <value>
+                <fullName>ER</fullName>
+                <default>false</default>
+                <label>ER</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

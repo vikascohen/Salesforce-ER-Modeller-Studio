@@ -1,0 +1,902 @@
+import { LightningElement, track, wire, api } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
+import { refreshApex } from '@salesforce/apex';
+import listFiles      from '@salesforce/apex/DiagramFileController.listFiles';
+import getFile        from '@salesforce/apex/DiagramFileController.getFile';
+import saveFile       from '@salesforce/apex/DiagramFileController.saveFile';
+import deleteFile     from '@salesforce/apex/DiagramFileController.deleteFile';
+import renameFile     from '@salesforce/apex/DiagramFileController.renameFile';
+import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagramAsFile';
+import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
+import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
+import { exportSvgAsPng } from 'c/diagramExportUtils';
+import { ER_SAMPLE, parseEr, buildErGeometry } from 'c/erDiagramLogic';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function injectDefs(svg) {
+    if (!svg || svg.querySelector('defs')) return;
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    [
+        { id: 'er-arrow',        w: 10, h: 10, rx: 8,  ry: 3, d: 'M0,0 L8,3 L0,6',         fill: 'none',          stroke: 'context-stroke' },
+        { id: 'er-diamond',      w: 14, h: 10, rx: 12, ry: 3, d: 'M0,3 L6,0 L12,3 L6,6 Z', fill: 'context-stroke', stroke: null },
+        { id: 'er-diamond-open', w: 14, h: 10, rx: 12, ry: 3, d: 'M0,3 L6,0 L12,3 L6,6 Z', fill: 'none',          stroke: 'context-stroke' }
+    ].forEach(({ id, w, h, rx, ry, d, fill, stroke }) => {
+        const m = document.createElementNS(SVG_NS, 'marker');
+        m.setAttribute('id', id); m.setAttribute('markerWidth', w); m.setAttribute('markerHeight', h);
+        m.setAttribute('refX', rx); m.setAttribute('refY', ry); m.setAttribute('orient', 'auto');
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', d); path.setAttribute('fill', fill);
+        if (stroke) path.setAttribute('stroke', stroke);
+        m.appendChild(path); defs.appendChild(m);
+    });
+    svg.insertBefore(defs, svg.firstChild);
+}
+
+// ── page-size options for the export modal ──
+const EXPORT_SIZE_OPTIONS = [
+    { label: 'PNG  –  native diagram size',   value: 'PNG' },
+    { label: 'A4 Landscape  (1123 × 794 px)', value: 'A4'  },
+    { label: 'A3 Landscape  (1587 × 1123 px)', value: 'A3'  }
+];
+
+export default class DiagramStudio extends NavigationMixin(LightningElement) {
+    @api diagramId;
+
+    // ── sidebar file list ──
+    @track files        = [];
+    @track sidebarOpen  = true;
+    wiredFilesResult;
+
+    // ── open-tab strip (VS Code style) ──
+    @track openTabs = []; // { id, name, dirty, active, renaming, renameValue }
+
+    // ── active diagram state ──
+    @track currentId   = null;
+    @track fileName    = 'Untitled ER Diagram';
+    @track sourceText  = ER_SAMPLE;
+    @track errorMessage = '';
+    @track isDirty     = false;
+
+    // ── import panel ──
+    @track importObjectNames = '';
+    @track importPanelOpen   = false;
+
+    // ── palette ──
+    @track paletteFilter  = '';
+    @track paletteObjects = [];
+
+    // ── export modal ──
+    @track exportModalOpen   = false;
+    @track exportPageSize    = 'PNG';
+    @track exportSaveToFiles = false;
+    @track exportBusy        = false;
+    exportSizeOptions = EXPORT_SIZE_OPTIONS;
+
+    // ── context menu ──
+    @track ctxMenu       = null; // { x, y, fileId, fileName }
+
+    // ── canvas ──
+    @track _erBoxes     = [];
+    @track erConnectors = [];
+    @track svgWidth     = 800;
+    @track svgHeight    = 600;
+
+    erPositions       = {};
+    boxHeightOverrides = {};
+    boxWidthOverrides  = {};
+    draggingEntity    = null;
+    dragOffsetX       = 0;
+    dragOffsetY       = 0;
+    resizingEntity    = null;
+    resizeStartY      = 0;
+    resizeStartHeight = 0;
+    resizingWidthEntity = null;
+    resizeStartX      = 0;
+    resizeStartWidth  = 0;
+    draggedObjectName = null;
+    renderTimer       = null;
+
+    // ────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ────────────────────────────────────────────────────────
+
+    connectedCallback() {
+        window.addEventListener('keydown', this._handleKeyDown = this.handleKeyDown.bind(this));
+        window.addEventListener('click',   this._handleGlobalClick = this.handleGlobalClick.bind(this));
+        if (this.diagramId) {
+            this.loadById(this.diagramId);
+        } else {
+            this.openNewUnsaved();
+        }
+    }
+
+    disconnectedCallback() {
+        window.removeEventListener('keydown', this._handleKeyDown);
+        window.removeEventListener('click',   this._handleGlobalClick);
+    }
+
+    renderedCallback() {
+        injectDefs(this.template.querySelector('svg[data-role="er-svg"]'));
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Wire adapters
+    // ────────────────────────────────────────────────────────
+
+    @wire(listFiles)
+    wiredFiles(result) {
+        this.wiredFilesResult = result;
+        if (result.data) {
+            this.files = result.data.map((f) => this.toFileRow(f));
+        } else if (result.error) {
+            this.errorMessage = this.reduceError(result.error);
+        }
+    }
+
+    @wire(getAllObjectNames)
+    wiredObjectNames({ data }) {
+        if (data) this.paletteObjects = data;
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Getters
+    // ────────────────────────────────────────────────────────
+
+    get filteredPaletteObjects() {
+        const f = (this.paletteFilter || '').toLowerCase();
+        const list = f ? this.paletteObjects.filter((n) => n.toLowerCase().includes(f)) : this.paletteObjects;
+        return list.slice(0, 80);
+    }
+
+    get svgViewBox() { return `0 0 ${this.svgWidth} ${this.svgHeight}`; }
+
+    get erBoxes() {
+        if (!this._erBoxes) return [];
+        return this._erBoxes.map((b) => {
+            const pkFields    = b.fields.filter((f) => f.isPrimaryKey);
+            const relFields   = b.fields.filter((f) => f.isRelationship);
+            const plainFields = b.fields.filter((f) => f.isPlain);
+            return {
+                ...b,
+                pkFields,
+                relFields,
+                plainFields,
+                hasHidden:       b.hiddenCount > 0,
+                moreLabel:       b.hiddenCount > 0 ? '+' + b.hiddenCount + ' more (drag bottom to expand)' : '',
+                xEnd:            b.x + b.width,
+                shadowX:         b.x + 3,
+                shadowY:         b.y + 4,
+                headerBodyY:     b.y + 26,
+                dividerY:        b.y + 36,
+                deleteTransform: `translate(${b.x + b.width - 16},${b.y + 18})`,
+                moreTextY:       b.y + b.height - 8,
+                resizeY:         b.y + b.height - 6,
+                resizeDotX1:     b.x + b.width / 2 - 18,
+                resizeDotX2:     b.x + b.width / 2 + 18,
+                resizeLineY:     b.y + b.height - 2,
+                resizeRightX:    b.x + b.width - 6,
+                resizeRightY:    b.y,
+                resizeRightHeight: b.height
+            };
+        });
+    }
+
+    set erBoxes(val) { this._erBoxes = val; }
+
+    get statusLabel() { return this.isDirty ? '●  Unsaved' : '✓  Saved'; }
+    get statusClass()  { return this.isDirty ? 'status-label status-dirty' : 'status-label status-saved'; }
+
+    get sidebarClass() { return this.sidebarOpen ? 'sidebar sidebar-open' : 'sidebar sidebar-closed'; }
+    get toggleSidebarIcon() { return this.sidebarOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
+
+    get hasOpenTabs() { return this.openTabs.length > 0; }
+    get noFiles() { return !this.files || this.files.length === 0; }
+
+    get computedTabs() {
+        return this.openTabs.map((t) => ({
+            ...t,
+            tabClass: 'tab' + (t.active ? ' tab-active' : '') + (t.dirty ? ' tab-dirty' : '')
+        }));
+    }
+
+    stopProp(event) { event.stopPropagation(); }
+
+    clearError() { this.errorMessage = ''; }
+
+    handleClearCanvas() {
+        // eslint-disable-next-line no-alert
+        if (!window.confirm('Clear the entire canvas? This cannot be undone.')) return;
+        this._erBoxes     = [];
+        this.erConnectors = [];
+        this.erPositions  = {};
+        this.boxHeightOverrides = {};
+        this.boxWidthOverrides  = {};
+        this.sourceText   = '';
+        this.svgWidth  = 1600;
+        this.svgHeight = 900;
+        this.isDirty   = true;
+        this._markTabDirty(this.activeTabId, true);
+    }
+
+    get exportModalSaveDisabled() { return this.exportBusy; }
+
+    // ────────────────────────────────────────────────────────
+    //  File row helpers
+    // ────────────────────────────────────────────────────────
+
+    toFileRow(f) {
+        const isOpen   = this.openTabs.some((t) => t.id === f.id);
+        const isActive = f.id === this.currentId;
+        return {
+            id:       f.id,
+            name:     f.name,
+            modified: f.lastModified ? f.lastModified.substring(0, 10) : '',
+            rowClass: 'file-row' + (isActive ? ' file-row-active' : '') + (isOpen ? ' file-row-open' : '')
+        };
+    }
+
+    refreshFileList() {
+        this.files = this.files.map((f) => this.toFileRow(f));
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Tab management
+    // ────────────────────────────────────────────────────────
+
+    openNewUnsaved() {
+        const tabId = 'new-' + Date.now();
+        this.currentId   = null;
+        this.fileName    = 'Untitled ER Diagram';
+        this.sourceText  = '';
+        this.erPositions = {};
+        this.boxHeightOverrides = {};
+        this.boxWidthOverrides  = {};
+        this._erBoxes     = [];
+        this.erConnectors = [];
+        this.isDirty     = false;
+        this.errorMessage = '';
+        this._addTab({ id: tabId, name: this.fileName, dirty: false, isUnsaved: true });
+        this._activateTabId(tabId);
+    }
+
+    _addTab(tab) {
+        // Don't duplicate
+        if (this.openTabs.find((t) => t.id === tab.id)) {
+            this._activateTabId(tab.id);
+            return;
+        }
+        this.openTabs = [...this.openTabs.map((t) => ({ ...t, active: false })), {
+            ...tab,
+            active:       true,
+            renaming:     false,
+            renameValue:  tab.name
+        }];
+    }
+
+    _activateTabId(tabId) {
+        this.openTabs = this.openTabs.map((t) => ({ ...t, active: t.id === tabId }));
+    }
+
+    _markTabDirty(tabId, dirty) {
+        this.openTabs = this.openTabs.map((t) => t.id === tabId ? { ...t, dirty } : t);
+    }
+
+    _renameTabLabel(tabId, name) {
+        this.openTabs = this.openTabs.map((t) => t.id === tabId ? { ...t, name, renameValue: name } : t);
+    }
+
+    get activeTabId() {
+        const t = this.openTabs.find((t) => t.active);
+        return t ? t.id : null;
+    }
+
+    handleTabClick(event) {
+        const tabId = event.currentTarget.dataset.tabid;
+        if (tabId === this.activeTabId) return;
+        // Save current state before switching? Just mark — state is already in properties
+        this._activateTabId(tabId);
+        // Find which saved file this tab corresponds to
+        const tab = this.openTabs.find((t) => t.id === tabId);
+        if (tab && !tab.isUnsaved) {
+            this.loadById(tab.id);
+        } else if (tab && tab.isUnsaved) {
+            this.currentId   = null;
+            this.fileName    = tab.name;
+            this.sourceText  = '';
+            this.erPositions = {};
+            this.boxHeightOverrides = {};
+            this.boxWidthOverrides  = {};
+            this._erBoxes     = [];
+            this.erConnectors = [];
+            this.isDirty     = tab.dirty;
+        }
+    }
+
+    handleTabClose(event) {
+        event.stopPropagation();
+        const tabId = event.currentTarget.dataset.tabid;
+        const tab   = this.openTabs.find((t) => t.id === tabId);
+        if (tab && tab.dirty) {
+            // eslint-disable-next-line no-alert
+            if (!window.confirm(`"${tab.name}" has unsaved changes. Close anyway?`)) return;
+        }
+        const remaining = this.openTabs.filter((t) => t.id !== tabId);
+        this.openTabs   = remaining;
+        if (this.activeTabId === tabId || !remaining.length) {
+            if (remaining.length) {
+                const last = remaining[remaining.length - 1];
+                this._activateTabId(last.id);
+                if (!last.isUnsaved) this.loadById(last.id);
+                else this.openNewUnsaved();
+            } else {
+                this.openNewUnsaved();
+            }
+        }
+    }
+
+    // ── Tab rename (double-click) ──
+
+    handleTabDblClick(event) {
+        const tabId = event.currentTarget.dataset.tabid;
+        this.openTabs = this.openTabs.map((t) => t.id === tabId
+            ? { ...t, renaming: true, renameValue: t.name }
+            : { ...t, renaming: false });
+    }
+
+    handleTabRenameChange(event) {
+        const tabId = event.currentTarget.dataset.tabid;
+        const val   = event.target.value;
+        this.openTabs = this.openTabs.map((t) => t.id === tabId ? { ...t, renameValue: val } : t);
+    }
+
+    async handleTabRenameCommit(event) {
+        if (event.key && event.key !== 'Enter' && event.key !== 'Escape') return;
+        const tabId = event.currentTarget.dataset.tabid;
+        const tab   = this.openTabs.find((t) => t.id === tabId);
+        if (!tab) return;
+        if (event.key === 'Escape') {
+            this.openTabs = this.openTabs.map((t) => t.id === tabId ? { ...t, renaming: false } : t);
+            return;
+        }
+        const newName = (tab.renameValue || '').trim() || tab.name;
+        this.openTabs = this.openTabs.map((t) => t.id === tabId ? { ...t, renaming: false, name: newName } : t);
+        if (tab.id === this.currentId) {
+            this.fileName = newName;
+            this.isDirty  = true;
+            this._markTabDirty(tabId, true);
+        }
+        // If it's a persisted file, also rename in org
+        if (!tab.isUnsaved) {
+            try { await renameFile({ fileId: tab.id, newName }); } catch (_) {}
+        }
+    }
+
+    handleTabRenameBlur(event) {
+        this.handleTabRenameCommit(event);
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Sidebar toggle
+    // ────────────────────────────────────────────────────────
+
+    handleToggleSidebar() {
+        this.sidebarOpen = !this.sidebarOpen;
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Keyboard shortcuts
+    // ────────────────────────────────────────────────────────
+
+    handleKeyDown(event) {
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+            event.preventDefault();
+            this.handleSave();
+        }
+    }
+
+    handleGlobalClick() {
+        if (this.ctxMenu) this.ctxMenu = null;
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Toolbar / file actions
+    // ────────────────────────────────────────────────────────
+
+    handleNew() {
+        this.openNewUnsaved();
+    }
+
+    handleNameChange(event) {
+        this.fileName = event.target.value;
+        this.isDirty  = true;
+        this._markTabDirty(this.activeTabId, true);
+    }
+
+    handleTextChange(event) {
+        this.sourceText = event.target.value;
+        this.isDirty    = true;
+        this._markTabDirty(this.activeTabId, true);
+        clearTimeout(this.renderTimer);
+        this.renderTimer = setTimeout(() => this.renderDiagram(), 200);
+    }
+
+    async handleSave() {
+        try {
+            const id = await saveFile({
+                fileId:      this.currentId,
+                fileName:    this.fileName,
+                diagramType: 'ER',
+                sourceCode:  this.sourceText
+            });
+            const wasNew    = !this.currentId;
+            this.currentId  = id;
+            this.isDirty    = false;
+            this.errorMessage = '';
+            // Update tab: replace unsaved-tab id with real record id
+            const activeId = this.activeTabId;
+            if (activeId) {
+                this.openTabs = this.openTabs.map((t) => t.id === activeId
+                    ? { ...t, id: wasNew ? id : t.id, name: this.fileName, dirty: false, isUnsaved: false }
+                    : t);
+            }
+            await refreshApex(this.wiredFilesResult);
+            this.refreshFileList();
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    async handleOpen(event) {
+        const id = event.currentTarget.dataset.id;
+        // If already open in a tab, just switch to it
+        if (this.openTabs.find((t) => t.id === id)) {
+            this._activateTabId(id);
+            await this.loadById(id);
+            return;
+        }
+        await this.loadById(id);
+    }
+
+    async loadById(id) {
+        try {
+            const rec = await getFile({ fileId: id });
+            if (rec) {
+                this.currentId  = rec.Id;
+                this.fileName   = rec.Name;
+                this.sourceText = rec.Source_Code__c || '';
+                this.erPositions = {};
+                this.boxHeightOverrides = {};
+                this.boxWidthOverrides  = {};
+                this.isDirty    = false;
+                this.errorMessage = '';
+                this.renderDiagram();
+                this._addTab({ id: rec.Id, name: rec.Name, dirty: false, isUnsaved: false });
+                this._activateTabId(rec.Id);
+                this.refreshFileList();
+            } else {
+                this.errorMessage = `No saved diagram found for Id "${id}".`;
+            }
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    async handleDeleteFile(event) {
+        event.stopPropagation();
+        const id   = event.currentTarget.dataset.id;
+        const file = this.files.find((f) => f.id === id);
+        // eslint-disable-next-line no-alert
+        if (!window.confirm(`Delete "${file ? file.name : id}"? This cannot be undone.`)) return;
+        try {
+            await deleteFile({ fileId: id });
+            // Close tab if open
+            this.openTabs = this.openTabs.filter((t) => t.id !== id);
+            if (id === this.currentId) this.openNewUnsaved();
+            await refreshApex(this.wiredFilesResult);
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    // ── Context menu (right-click on file row) ──
+
+    handleFileContextMenu(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const id   = event.currentTarget.dataset.id;
+        const file = this.files.find((f) => f.id === id);
+        this.ctxMenu = { x: event.clientX, y: event.clientY, fileId: id, fileName: file ? file.name : '' };
+    }
+
+    get ctxMenuStyle() {
+        if (!this.ctxMenu) return '';
+        return `left:${this.ctxMenu.x}px;top:${this.ctxMenu.y}px`;
+    }
+
+    async handleCtxOpen() {
+        const id = this.ctxMenu.fileId;
+        this.ctxMenu = null;
+        await this.loadById(id);
+    }
+
+    async handleCtxDuplicate() {
+        const id = this.ctxMenu.fileId;
+        this.ctxMenu = null;
+        const rec = await getFile({ fileId: id });
+        if (!rec) return;
+        const newName = rec.Name + ' (copy)';
+        await saveFile({ fileId: null, fileName: newName, diagramType: 'ER', sourceCode: rec.Source_Code__c });
+        await refreshApex(this.wiredFilesResult);
+    }
+
+    async handleCtxDelete() {
+        const id   = this.ctxMenu.fileId;
+        const name = this.ctxMenu.fileName;
+        this.ctxMenu = null;
+        // eslint-disable-next-line no-alert
+        if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+        try {
+            await deleteFile({ fileId: id });
+            this.openTabs = this.openTabs.filter((t) => t.id !== id);
+            if (id === this.currentId) this.openNewUnsaved();
+            await refreshApex(this.wiredFilesResult);
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    // ── Copy ID ──
+
+    handleCopyId() {
+        if (!this.currentId) return;
+        if (navigator.clipboard) navigator.clipboard.writeText(this.currentId).catch(() => {});
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Import panel
+    // ────────────────────────────────────────────────────────
+
+    handleToggleImport() {
+        this.importPanelOpen = !this.importPanelOpen;
+    }
+
+    handleImportNamesChange(event) {
+        this.importObjectNames = event.target.value;
+    }
+
+    async handleImportSchema() {
+        const names = this.importObjectNames.split(',').map((n) => n.trim()).filter(Boolean);
+        if (!names.length) { this.errorMessage = 'Enter one or more object API names, e.g. Account, Contact'; return; }
+        try {
+            const objects = await describeObjects({ objectApiNames: names });
+            if (!objects || !objects.length) { this.errorMessage = 'No matching objects found, or you lack access.'; return; }
+            this.sourceText = this.buildErSource(objects);
+            this.isDirty    = true;
+            this.erPositions = {};
+            this.boxHeightOverrides = {};
+            this.errorMessage = '';
+            this.importPanelOpen = false;
+            this._markTabDirty(this.activeTabId, true);
+            this.renderDiagram();
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    buildErSource(objects) {
+        const presentNames = new Set(objects.map((o) => o.apiName));
+        const lines = [];
+        objects.forEach((o) => {
+            const plain = o.fields.filter((f) => !f.isRelationship).map((f) => f.apiName);
+            lines.push(`entity ${o.apiName} : ${plain.join(', ')}`);
+        });
+        lines.push('');
+        objects.forEach((o) => {
+            o.fields.filter((f) => f.isRelationship && presentNames.has(f.relatesTo)).forEach((f) => {
+                const a = f.relationshipType === 'Master-Detail' ? '=>' : f.relationshipType === 'Polymorphic Lookup' ? '~>' : '->';
+                lines.push(`${o.apiName}.${f.apiName} ${a} ${f.relatesTo}`);
+            });
+        });
+        return lines.join('\n');
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Export modal
+    // ────────────────────────────────────────────────────────
+
+    handleOpenExport() {
+        this.exportModalOpen   = true;
+        this.exportPageSize    = 'PNG';
+        this.exportSaveToFiles = false;
+        this.exportBusy        = false;
+    }
+
+    handleCloseExport() {
+        this.exportModalOpen = false;
+    }
+
+    handleExportSizeChange(event) {
+        this.exportPageSize = event.target.value;
+    }
+
+    handleExportSaveToFilesChange(event) {
+        this.exportSaveToFiles = event.target.checked;
+    }
+
+    async handleDoExport() {
+        this.exportBusy = true;
+        try {
+            const svg      = this.template.querySelector('svg[data-role="er-svg"]');
+            const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
+
+            // Render SVG → base64 PNG (pure canvas, no download attempted here)
+            const base64 = await exportSvgAsPng(svg, this.exportPageSize);
+
+            // Save PNG to Salesforce Files — this is the LWS-safe way to deliver a download
+            const cvId = await saveDiagramAsFile({
+                diagramFileId: this.currentId || null,
+                fileName:      safeName,
+                pngBase64:     base64,
+                pageSize:      this.exportPageSize
+            });
+
+            this.exportModalOpen = false;
+            this.errorMessage = '';
+
+            // Navigate to the ContentVersion download URL — triggers browser file download
+            this[NavigationMixin.Navigate]({
+                type: 'standard__webPage',
+                attributes: {
+                    url: '/sfc/servlet.shepherd/version/download/' + cvId
+                }
+            });
+        } catch (e) {
+            this.errorMessage = 'Export failed: ' + (e.message || JSON.stringify(e));
+        } finally {
+            this.exportBusy = false;
+        }
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Palette drag & drop
+    // ────────────────────────────────────────────────────────
+
+    handlePaletteFilterChange(event) {
+        this.paletteFilter = event.target.value;
+    }
+
+    handlePaletteDragStart(event) {
+        const name = event.currentTarget.dataset.name;
+        this.draggedObjectName = name;
+        if (event.dataTransfer) {
+            event.dataTransfer.setData('text/plain', name);
+            event.dataTransfer.effectAllowed = 'copy';
+        }
+    }
+
+    handleCanvasDragOver(event) {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    }
+
+    async handleCanvasDrop(event) {
+        event.preventDefault();
+        const name = (event.dataTransfer && event.dataTransfer.getData('text/plain')) || this.draggedObjectName;
+        this.draggedObjectName = null;
+        if (!name) return;
+        const svg = this.template.querySelector('svg[data-role="er-svg"]');
+        const pt  = this.toSvgPoint(svg, event.clientX, event.clientY);
+        await this.addEntityByDrop(name, pt.x, pt.y);
+    }
+
+    async addEntityByDrop(name, x, y) {
+        try {
+            let existingNames = [];
+            if (this.sourceText.trim()) {
+                try { existingNames = parseEr(this.sourceText).entities.map((e) => e.name); } catch (_) {}
+            }
+            if (existingNames.includes(name)) return;
+            const allNames = Array.from(new Set([...existingNames, name]));
+            const objects  = await describeObjects({ objectApiNames: allNames });
+            if (!objects || !objects.length) { this.errorMessage = `Could not find "${name}", or you lack access.`; return; }
+            this.erPositions[name] = { x: x - 120, y: y - 18 };
+            this.sourceText = this.buildErSource(objects);
+            this.isDirty    = true;
+            this._markTabDirty(this.activeTabId, true);
+            this.errorMessage = '';
+            this.renderDiagram();
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Delete entity from canvas
+    // ────────────────────────────────────────────────────────
+
+    handleDeleteEntity(event) {
+        event.stopPropagation();
+        const name = event.currentTarget.dataset.name;
+        try {
+            const filtered = this.sourceText.split('\n').filter((line) => {
+                const t = line.trim();
+                if (!t || t.startsWith('#')) return true;
+                const em = t.match(/^entity\s+(\w+)/i);
+                if (em && em[1] === name) return false;
+                const rm = t.match(/^(\w+)\.(\w+)\s*(=>|~>|->)\s*(\w+)\s*$/);
+                if (rm && (rm[1] === name || rm[4] === name)) return false;
+                return true;
+            });
+            this.sourceText = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+            delete this.erPositions[name];
+            delete this.boxHeightOverrides[name];
+            delete this.boxWidthOverrides[name];
+            this.isDirty    = true;
+            this._markTabDirty(this.activeTabId, true);
+            this.errorMessage = '';
+            this.renderDiagram();
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Box drag (move) — pointer captured on the SVG element
+    // ────────────────────────────────────────────────────────
+
+    handleBoxPointerDown(event) {
+        if (event.target.dataset.role === 'resize') return;
+        const name = event.currentTarget.dataset.name;
+        const box  = this._erBoxes && this._erBoxes.find((b) => b.name === name);
+        if (!box) return;
+        this.draggingEntity = name;
+        // Capture on the SVG so pointermove fires even when cursor leaves the box
+        const svg = this.template.querySelector('svg[data-role="er-svg"]');
+        svg.setPointerCapture(event.pointerId);
+        const pt = this.toSvgPoint(svg, event.clientX, event.clientY);
+        this.dragOffsetX = pt.x - box.x;
+        this.dragOffsetY = pt.y - box.y;
+    }
+
+    // Called from SVG onpointermove
+    handleSvgPointerMove(event) {
+        if (this.resizingEntity) {
+            const dy    = event.clientY - this.resizeStartY;
+            this.boxHeightOverrides[this.resizingEntity] = Math.max(60, this.resizeStartHeight + dy);
+            this.rerenderGeometry();
+            return;
+        }
+        if (!this.draggingEntity) return;
+        const svg = this.template.querySelector('svg[data-role="er-svg"]');
+        const pt  = this.toSvgPoint(svg, event.clientX, event.clientY);
+        this.erPositions[this.draggingEntity] = {
+            x: Math.max(0, pt.x - this.dragOffsetX),
+            y: Math.max(0, pt.y - this.dragOffsetY)
+        };
+        this.rerenderGeometry();
+    }
+
+    // Called from SVG onpointerup / onpointerleave
+    handleSvgPointerUp(event) {
+        if (this.draggingEntity || this.resizingEntity) {
+            const svg = this.template.querySelector('svg[data-role="er-svg"]');
+            try { svg.releasePointerCapture(event.pointerId); } catch (_) {}
+        }
+        this.draggingEntity  = null;
+        this.resizingEntity  = null;
+    }
+
+    // Keep these stubs so old html attribute references don't error
+    handleBoxPointerMove() {}
+    handleBoxPointerUp()   {}
+
+    // ────────────────────────────────────────────────────────
+    //  Box resize — also captured on SVG
+    // ────────────────────────────────────────────────────────
+
+    handleResizePointerDown(event) {
+        event.stopPropagation();
+        const name = event.currentTarget.dataset.name;
+        const box  = this._erBoxes && this._erBoxes.find((b) => b.name === name);
+        if (!box) return;
+        this.resizingEntity    = name;
+        this.resizeStartY      = event.clientY;
+        this.resizeStartHeight = box.height;
+        // Capture on the element that received the event so pointermove tracks globally
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+
+    handleResizePointerMove(event) {
+        if (!this.resizingEntity) return;
+        event.stopPropagation();
+        const dy = event.clientY - this.resizeStartY;
+        const newH = this.resizeStartHeight + dy;
+        // Minimum: just the header (36px) so user can shrink to tiny
+        this.boxHeightOverrides[this.resizingEntity] = Math.max(36, newH);
+        this.rerenderGeometry();
+    }
+
+    handleResizePointerUp(event) {
+        if (!this.resizingEntity) return;
+        event.stopPropagation();
+        try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) {}
+        this.resizingEntity = null;
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Box horizontal resize (right edge)
+    // ────────────────────────────────────────────────────────
+
+    handleResizeRightPointerDown(event) {
+        event.stopPropagation();
+        const name = event.currentTarget.dataset.name;
+        const box  = this._erBoxes && this._erBoxes.find((b) => b.name === name);
+        if (!box) return;
+        this.resizingWidthEntity = name;
+        this.resizeStartX        = event.clientX;
+        this.resizeStartWidth    = box.width;
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+
+    handleResizeRightPointerMove(event) {
+        if (!this.resizingWidthEntity) return;
+        event.stopPropagation();
+        const dx = event.clientX - this.resizeStartX;
+        this.boxWidthOverrides[this.resizingWidthEntity] = Math.max(80, this.resizeStartWidth + dx);
+        this.rerenderGeometry();
+    }
+
+    handleResizeRightPointerUp(event) {
+        if (!this.resizingWidthEntity) return;
+        event.stopPropagation();
+        try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) {}
+        this.resizingWidthEntity = null;
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Geometry helpers
+    // ────────────────────────────────────────────────────────
+
+    rerenderGeometry() {
+        try {
+            const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            this._erBoxes     = geo.boxes;
+            this.erConnectors = geo.connectors;
+            this.svgWidth     = geo.svgWidth;
+            this.svgHeight    = geo.svgHeight;
+        } catch (_) {}
+    }
+
+    renderDiagram() {
+        try {
+            const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            this._erBoxes     = geo.boxes;
+            this.erConnectors = geo.connectors;
+            this.svgWidth     = geo.svgWidth;
+            this.svgHeight    = geo.svgHeight;
+            geo.boxes.forEach((b) => {
+                if (!this.erPositions[b.name]) this.erPositions[b.name] = { x: b.x, y: b.y };
+            });
+            this.errorMessage = '';
+        } catch (e) {
+            this.errorMessage = e.message;
+        }
+    }
+
+    toSvgPoint(svg, clientX, clientY) {
+        // SVG is rendered at exact svgWidth × svgHeight pixels (no scaling via viewBox),
+        // so 1 client pixel == 1 SVG unit. getBoundingClientRect already includes scroll.
+        const rect = svg.getBoundingClientRect();
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    reduceError(err) {
+        if (Array.isArray(err.body))                      return err.body.map((e) => e.message).join(', ');
+        if (err.body && typeof err.body.message === 'string') return err.body.message;
+        return err.message ? err.message : JSON.stringify(err);
+    }
+}

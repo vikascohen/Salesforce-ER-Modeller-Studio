@@ -1,0 +1,11 @@
+.viewer-scroll {
+    overflow: auto;
+    max-height: 640px;
+}
+
+.halo-text {
+    paint-order: stroke;
+    stroke: #ffffff;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}

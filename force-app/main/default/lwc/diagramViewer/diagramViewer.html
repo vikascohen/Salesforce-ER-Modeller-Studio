@@ -1,0 +1,61 @@
+<template>
+    <lightning-card title={displayTitle} icon-name="utility:diagram">
+        <div slot="actions">
+            <template if:true={isReady}>
+                <lightning-button label="Export PNG" icon-name="utility:download" onclick={handleExport}></lightning-button>
+            </template>
+        </div>
+
+        <template if:false={hasDiagramId}>
+            <p class="slds-p-around_medium slds-text-color_weak">
+                Set "Diagram Id" in this component's properties (Lightning App Builder) to pin a saved Diagram Studio diagram here.
+            </p>
+        </template>
+
+        <template if:true={errorMessage}>
+            <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-horizontal_small" role="alert">
+                {errorMessage}
+            </div>
+        </template>
+
+        <template if:true={isReady}>
+            <div class="viewer-scroll">
+                <svg data-role="viewer-svg" viewBox={svgViewBox} width="100%" height={svgHeight} xmlns="http://www.w3.org/2000/svg">
+                    <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#ffffff"></rect>
+
+                    <!-- ===== ER diagram ===== -->
+                    <template if:true={isEr}>
+                        <template for:each={erConnectors} for:item="c">
+                            <g key={c.key}>
+                                <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
+                                <text x={c.midX} y={c.midY} dy="-8" text-anchor="middle" font-size="10" fill={c.stroke} class="halo-text">{c.label}</text>
+                                <circle cx={c.cardStartX} cy={c.cardStartY} r="8" fill="#ffffff" stroke={c.stroke} stroke-width="1"></circle>
+                                <text x={c.cardStartX} y={c.cardStartY} dy="3" text-anchor="middle" font-size="9" font-weight="bold" fill={c.stroke}>{c.cardStartText}</text>
+                                <circle cx={c.cardEndX} cy={c.cardEndY} r="8" fill="#ffffff" stroke={c.stroke} stroke-width="1"></circle>
+                                <text x={c.cardEndX} y={c.cardEndY} dy="3" text-anchor="middle" font-size="9" font-weight="bold" fill={c.stroke}>{c.cardEndText}</text>
+                            </g>
+                        </template>
+                        <template for:each={erBoxes} for:item="b">
+                            <g key={b.name}>
+                                <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="6" fill="#ffffff" stroke="#d8dde6" stroke-width="1"></rect>
+                                <rect x={b.x} y={b.y} width={b.width} height="34" rx="6" fill={b.headerFill}></rect>
+                                <text x={b.x} y={b.y} dx="12" dy="22" font-size="13" font-weight="bold" fill="#ffffff">{b.name}</text>
+                                <template for:each={b.fields} for:item="fld">
+                                    <g key={fld.key}>
+                                        <template if:true={fld.isPrimaryKey}>
+                                            <text x={b.x} y={fld.rowY} dx="12" font-size="11" fill="#d4a72c">&#9679;</text>
+                                            <text x={b.x} y={fld.rowY} dx="26" font-size="11" font-weight="bold" fill="#3e3e3c">{fld.text}</text>
+                                        </template>
+                                        <template if:false={fld.isPrimaryKey}>
+                                            <text x={b.x} y={fld.rowY} dx="12" font-size="11" fill="#3e3e3c">{fld.text}</text>
+                                        </template>
+                                    </g>
+                                </template>
+                            </g>
+                        </template>
+                    </template>
+                </svg>
+            </div>
+        </template>
+    </lightning-card>
+</template>
