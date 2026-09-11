@@ -8,6 +8,31 @@ Diagrams are stored as records (`Diagram_File__c`) inside your org, so they
 live alongside the metadata they describe and can be opened, edited, or
 pinned to a page by anyone with access.
 
+## One-click deploy
+
+<a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/SalesforceERModeller?ref=main">
+  <img alt="Deploy to Salesforce" src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
+</a>
+&nbsp;&nbsp;
+<a href="https://githubsfdeploy-sandbox.herokuapp.com/app/githubdeploy/vikascohen/SalesforceERModeller?ref=main">
+  <img alt="Deploy to Sandbox" src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
+</a>
+
+Left button logs you into Production/Developer Edition, right button logs
+you into a Sandbox, and either way you land on a page listing every
+component in this repo with checkboxes — review what's about to deploy,
+then click Deploy.
+
+This uses [githubsfdeploy](https://github.com/afawcett/githubsfdeploy), a
+well-known community tool (not an official Salesforce or Anthropic
+product) that reads a GitHub repo over OAuth and pushes it straight into
+an org via the Metadata API — no local `sf` CLI or clone required. It
+understands this repo's Salesforce DX source format directly. Since it's
+a third-party OAuth flow, only use it with orgs and repos you trust, and
+if you'd rather not grant a third party OAuth access at all, use the
+`sf project deploy start` route in the section below instead — same
+result, nothing leaves your machine.
+
 ## What it does
 
 - **Text-driven modelling** — describe entities and relationships in a
