@@ -35,9 +35,6 @@ result, nothing leaves your machine.
 
 ## What it does
 
-- **Text-driven modelling** — describe entities and relationships in a
-  small DSL (see [docs/DSL.md](docs/DSL.md)) and watch the diagram render
-  live as you type.
 - **Import from your org** — pull in real objects (standard or custom) by
   API name and auto-generate the DSL from their actual fields and
   relationships, including Master-Detail, Lookup, and Polymorphic Lookup.
