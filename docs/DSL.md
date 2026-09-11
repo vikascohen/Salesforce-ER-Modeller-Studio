@@ -1,5 +1,7 @@
 # ER DSL Reference
 
+*Author: Vikas Cohen*
+
 The ER modeller is driven by a small line-based text format. Every line is
 either an **entity declaration**, a **relationship**, a **comment**, or
 blank — nothing else is understood, and an unrecognised line will raise a

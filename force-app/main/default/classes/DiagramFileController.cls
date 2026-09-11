@@ -2,6 +2,8 @@
  * CRUD backend for Diagram Studio.
  * Diagrams stored as Diagram_File__c (Name, Diagram_Type__c, Source_Code__c).
  * PNG exports stored as Salesforce Files (ContentVersion) linked to the record.
+ *
+ * @author Vikas Cohen
  */
 public with sharing class DiagramFileController {
 

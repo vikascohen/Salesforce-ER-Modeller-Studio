@@ -135,3 +135,7 @@ Id" button in the studio's sidebar to grab it).
 - Diagrams are plain text under the hood (`Source_Code__c`), so they diff
   and version cleanly if you ever want to track them outside Salesforce
   too.
+
+## Author
+
+Vikas Cohen

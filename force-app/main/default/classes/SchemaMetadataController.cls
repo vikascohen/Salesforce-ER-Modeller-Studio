@@ -2,6 +2,8 @@
  * Read only schema introspection used by the ER Diagram Builder LWC.
  * Returns object and field metadata, including relationship type
  * (Master Detail, Lookup, Polymorphic Lookup) for reference fields.
+ *
+ * @author Vikas Cohen
  */
 public with sharing class SchemaMetadataController {
 

@@ -2,6 +2,8 @@
  * SVG → PNG export utilities — LWS-safe.
  * Renders SVG to a canvas and returns base64 PNG. No download attempted here.
  * Download is handled by the caller via Salesforce Files + NavigationMixin.
+ *
+ * @author Vikas Cohen
  */
 
 export const PAGE_SIZES = {

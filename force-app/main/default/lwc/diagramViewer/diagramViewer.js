@@ -9,6 +9,8 @@ import { parseEr, buildErGeometry } from 'c/erDiagramLogic';
  * pin a saved Diagram Studio diagram there, read only. There is no runtime
  * "save to page" action in Salesforce; page composition always happens
  * through App Builder, this component is what you point at a saved record.
+ *
+ * @author Vikas Cohen
  */
 const SVG_NS = 'http://www.w3.org/2000/svg';
 

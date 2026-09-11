@@ -7,6 +7,8 @@
  *   Contact.OwnerId -> User                    Lookup        (thin blue line, open arrow)
  *   Task.WhoId ~> Contact                      Polymorphic   (dashed red line, open diamond)
  *   # comment                                  ignored
+ *
+ * @author Vikas Cohen
  */
 
 export const ER_SAMPLE = `entity Account : Name, Industry, Phone, Website, Type
