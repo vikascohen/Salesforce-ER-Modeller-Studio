@@ -96,32 +96,14 @@ landing page), drop `diagramViewer` on a page instead and set its
 Id" button in the studio's sidebar to grab it).
 
 ## Quick start
-
-1. Type directly into the source panel:
-
-   ```
-   entity Account : Name, Industry, Phone
-   entity Contact : LastName, FirstName, Email
-
-   Contact.AccountId => Account
-   ```
-
-   The canvas updates as you type. See [docs/DSL.md](docs/DSL.md) for the
-   full syntax (relationship arrows, comments, etc).
-
-2. Or click **Import**, type in object API names (e.g. `Account, Contact,
-   Opportunity`), and the tool describes them from your org's actual
-   schema and generates the DSL for you — including any relationships
-   between the objects you listed.
-
-3. Or open the **object palette** on the side, search for an object, and
+1.  open the **object palette** on the side, search for an object, and
    drag it onto the canvas. Dropping an object that already has a
    relationship to something on the canvas wires it up automatically.
 
-4. Drag boxes around to lay them out the way you want; drag the bottom or
+2. Drag boxes around to lay them out the way you want; drag the bottom or
    right edge of a box to resize it.
 
-5. **Ctrl/Cmd+S** or the Save button writes the diagram back to its
+3. **Ctrl/Cmd+S** or the Save button writes the diagram back to its
    `Diagram_File__c` record. Use **Export** to render a PNG.
 
 ## Notes
@@ -135,4 +117,4 @@ Id" button in the studio's sidebar to grab it).
 
 ## Author
 
-Vikas Cohen
+Vikas Cohen- Passionate transhumanist and a programmer when get extremely bored.
