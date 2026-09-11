@@ -1,7 +1,7 @@
 # Salesforce ER Modeller
 
 A native Lightning Web Component app for building Entity-Relationship diagrams
-of your Salesforce data model — either by hand with a small text DSL(future state).
+of your Salesforce data model.
 Diagrams are stored as records (`Diagram_File__c`) inside your org, so they
 live alongside the metadata they describe and can be opened, edited, or
 pinned to a page by anyone with access.
