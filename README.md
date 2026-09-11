@@ -35,9 +35,6 @@ result, nothing leaves your machine.
 
 ## What it does
 
-- **Import from your org** — pull in real objects (standard or custom) by
-  API name and auto-generate the DSL from their actual fields and
-  relationships, including Master-Detail, Lookup, and Polymorphic Lookup.
 - **Object palette** — a searchable list of every object you can access;
   drag one onto the canvas to add it (and auto-wire any relationships it
   has to entities already on the canvas).
