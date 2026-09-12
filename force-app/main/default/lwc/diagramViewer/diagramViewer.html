@@ -2,7 +2,7 @@
     <lightning-card title={displayTitle} icon-name="utility:diagram">
         <div slot="actions">
             <template if:true={isReady}>
-                <lightning-button label="Export PNG" icon-name="utility:download" onclick={handleExport}></lightning-button>
+                <lightning-button label="Export PNG" icon-name="utility:download" onclick={handleExport} disabled={exportBusy}></lightning-button>
             </template>
         </div>
 
@@ -20,6 +20,20 @@
 
         <template if:true={isReady}>
             <div class="viewer-scroll">
+                <div class="viewer-legend">
+                    <div class="viewer-legend-row">
+                        <svg width="40" height="12"><line x1="2" y1="6" x2="30" y2="6" stroke="#5c2d91" stroke-width="2.5"></line><polygon points="28,3 38,6 28,9" fill="#5c2d91"></polygon></svg>
+                        <span>Master-Detail</span>
+                    </div>
+                    <div class="viewer-legend-row">
+                        <svg width="40" height="12"><line x1="2" y1="6" x2="28" y2="6" stroke="#0070d2" stroke-width="1.75"></line><polyline points="25,3 36,6 25,9" fill="none" stroke="#0070d2" stroke-width="1.75"></polyline></svg>
+                        <span>Lookup</span>
+                    </div>
+                    <div class="viewer-legend-row">
+                        <svg width="40" height="12"><line x1="2" y1="6" x2="28" y2="6" stroke="#ea4335" stroke-width="1.75" stroke-dasharray="4,2"></line><polygon points="28,3 38,6 28,9" fill="none" stroke="#ea4335" stroke-width="1.5"></polygon></svg>
+                        <span>Polymorphic</span>
+                    </div>
+                </div>
                 <svg data-role="viewer-svg" viewBox={svgViewBox} width="100%" height={svgHeight} xmlns="http://www.w3.org/2000/svg">
                     <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#ffffff"></rect>
 

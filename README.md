@@ -35,9 +35,12 @@ result, nothing leaves your machine.
 
 ## What it does
 
-- **Text-driven modelling** — describe entities and relationships in a
-  small DSL (see [docs/DSL.md](docs/DSL.md)) and watch the diagram render
-  live as you type.
+- **Live DSL editor** — a resizable, collapsible code panel next to the file
+  explorer where you type entity/relationship lines directly and watch the
+  canvas render as you type. Includes context-aware autocomplete (entity
+  names, field names, relationship arrows, target entities) that suggests
+  from your org's real schema — see [docs/DSL.md](docs/DSL.md) for the full
+  syntax.
 - **Import from your org** — pull in real objects (standard or custom) by
   API name and auto-generate the DSL from their actual fields and
   relationships, including Master-Detail, Lookup, and Polymorphic Lookup.
@@ -45,27 +48,38 @@ result, nothing leaves your machine.
   drag one onto the canvas to add it (and auto-wire any relationships it
   has to entities already on the canvas).
 - **Freeform canvas** — drag boxes to reposition them, resize the height
-  or width of a box, collapse long field lists.
+  or width of a box, collapse long field lists, zoom in/out, or hit
+  **Auto Layout** to snap everything back to an automatic grid.
 - **Multi-file workspace** — a VS Code–style tab strip and sidebar file
   list; open several diagrams at once, rename, duplicate, or delete them.
 - **Export** — render the current diagram to PNG at native size, A4
-  landscape, or A3 landscape. Exports are saved as a Salesforce File and
-  downloaded from there (no client-side blob tricks, so it works under
-  Lightning Web Security).
+  landscape, or A3 landscape, with the relationship legend baked into the
+  image. Exports are saved as a Salesforce File and downloaded from there
+  (no client-side blob tricks, so it works under Lightning Web Security).
 - **Read-only viewer** — a companion component for Record/App/Home pages
   that pins a saved diagram somewhere for people who just need to look at
-  it, with its own PNG export button.
+  it, with its own PNG export button and legend.
+
+Relationship handling has a few deliberate refinements worth knowing about:
+entity names are matched case-insensitively so a typo like `account` vs
+`Account` merges into one box instead of silently duplicating it; a field
+that's genuinely polymorphic to more than one object (declared with two
+separate relationship lines) shows every target on its row; a relationship
+from an entity to itself (e.g. `Account.ParentId -> Account`) draws as a
+loop instead of collapsing to nothing; and multiple relationships between
+the same two entities fan out instead of drawing directly on top of each
+other.
 
 ## Components
 
 | Type | Name | Purpose |
 |---|---|---|
-| LWC | `diagramStudio` | The main editor — canvas, sidebar, tabs, palette, import panel, export modal. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
+| LWC | `diagramStudio` | The main editor — canvas, sidebar, DSL editor with intellisense, tabs, palette, import panel, export modal, zoom. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
 | LWC | `diagramViewer` | Read-only, drop it on any page and point it at a saved diagram's Id. |
-| LWC | `erDiagramLogic` | Pure JS: parses the DSL and lays out boxes/connectors. No UI, no dependencies — imported by both components above. |
+| LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, and builds the export legend. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects and describes their fields/relationships for the import panel and palette. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects and describes their fields/relationships for the import panel, palette, and DSL autocomplete. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 
 ## Deploying to an org
@@ -100,7 +114,9 @@ Id" button in the studio's sidebar to grab it).
 
 ## Quick start
 
-1. Type directly into the source panel:
+1. Type directly into the **DSL editor** panel next to the file explorer
+   (click the `</>` toolbar button if it's collapsed, or drag its right
+   edge to resize it):
 
    ```
    entity Account : Name, Industry, Phone
@@ -109,8 +125,10 @@ Id" button in the studio's sidebar to grab it).
    Contact.AccountId => Account
    ```
 
-   The canvas updates as you type. See [docs/DSL.md](docs/DSL.md) for the
-   full syntax (relationship arrows, comments, etc).
+   The canvas updates as you type, and autocomplete suggestions appear in
+   a panel below the editor as you go — arrow up/down then Enter or Tab to
+   accept, Esc to dismiss. See [docs/DSL.md](docs/DSL.md) for the full
+   syntax (relationship arrows, comments, self-relationships, etc).
 
 2. Or click **Import**, type in object API names (e.g. `Account, Contact,
    Opportunity`), and the tool describes them from your org's actual
@@ -122,10 +140,13 @@ Id" button in the studio's sidebar to grab it).
    relationship to something on the canvas wires it up automatically.
 
 4. Drag boxes around to lay them out the way you want; drag the bottom or
-   right edge of a box to resize it.
+   right edge of a box to resize it; use the zoom controls (top-left of
+   the canvas) to zoom in/out, or **Auto Layout** to reset everything to
+   an automatic grid.
 
 5. **Ctrl/Cmd+S** or the Save button writes the diagram back to its
-   `Diagram_File__c` record. Use **Export** to render a PNG.
+   `Diagram_File__c` record. Use **Export** to render a PNG — the
+   relationship legend is baked into the exported image.
 
 ## Notes
 

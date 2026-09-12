@@ -1,6 +1,7 @@
 .viewer-scroll {
     overflow: auto;
     max-height: 640px;
+    position: relative;
 }
 
 .halo-text {
@@ -8,4 +9,27 @@
     stroke: #ffffff;
     stroke-width: 3px;
     stroke-linejoin: round;
+}
+
+.viewer-legend {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(255,255,255,0.96);
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.viewer-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #344054;
 }

@@ -60,6 +60,23 @@ A few things worth knowing:
   connector still has something to point at.
 - Order doesn't matter — you can write relationship lines before or after
   the entities they reference.
+- Entity names are matched case-insensitively, so `Account` and `account`
+  referenced on different lines resolve to the same box rather than
+  creating a duplicate — whichever casing you used first is what's shown.
+- **Self-relationships** work — `Account.ParentId -> Account` draws as a
+  small loop on the box instead of collapsing to nothing. If an entity has
+  more than one self-relationship, each gets a progressively larger loop
+  so they stay distinguishable.
+- **A single field can point at more than one target** — declare the same
+  child field with two separate relationship lines to two different
+  parents (this is the correct way to model a field that's genuinely
+  polymorphic across more than one object) and its row shows every target,
+  e.g. `WhoId  → Contact / Lead (Polymorphic)`.
+- If the same relationship line is declared twice, the duplicate is
+  ignored rather than drawing an identical connector on top of itself. If
+  two *different* relationships connect the same pair of entities (e.g.
+  two separate lookups from Opportunity to Account), their lines are
+  automatically fanned out so they don't overlap.
 
 ## Comments
 
@@ -87,7 +104,7 @@ Task.WhoId ~> Contact
 Task.WhatId ~> Opportunity
 ```
 
-This renders four entities (`Account`, `Contact`, `Opportunity`, `Task`,
+This renders five entities (`Account`, `Contact`, `Opportunity`, `Task`,
 plus an implicit `User` box since it's referenced but never declared) with
 Master-Detail, Lookup, and Polymorphic connectors between them.
 
@@ -95,6 +112,13 @@ Master-Detail, Lookup, and Polymorphic connectors between them.
 
 You don't have to write this by hand:
 
+- **DSL editor autocomplete** — the editor panel suggests the next token as
+  you type: the `entity` keyword, object names from your org, field names
+  for whichever entity you just named, relationship fields on an entity
+  once you type its name and a dot (picking one auto-appends the correct
+  arrow and target for you), the arrow itself, and finally the target
+  entity. Suggestions appear in a panel below the editor — arrow up/down
+  then Enter or Tab to accept, Esc to dismiss.
 - **Import panel** — give it a comma-separated list of object API names
   and it describes them from the org's real schema (fields + relationship
   types) and writes out the equivalent DSL for you.
@@ -102,6 +126,6 @@ You don't have to write this by hand:
   same thing for one object at a time, and automatically adds relationship
   lines to any entity already on the canvas that it's connected to.
 
-Both paths only ever produce DSL using the three constructs above, so
-anything generated this way is still just plain text you can hand-edit
-afterwards.
+All three paths only ever produce DSL using the constructs described
+above, so anything generated this way is still just plain text you can
+hand-edit afterwards.
