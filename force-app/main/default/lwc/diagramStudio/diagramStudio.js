@@ -140,6 +140,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     renderedCallback() {
         injectDefs(this.template.querySelector('svg[data-role="er-svg"]'));
+
+        // A <textarea> stops honoring template-level value={} updates once the
+        // user has typed into it at least once (the browser's own "dirty value
+        // flag" — a well-known cross-framework quirk, not an LWC-specific one).
+        // Typing itself is unaffected (the DOM's own value and this.sourceText
+        // are already identical by the time this runs, so this is a no-op) —
+        // this only kicks in for programmatic replacements like Import, New,
+        // Clear Canvas, etc., which otherwise silently fail to show on screen.
+        const ta = this.template.querySelector('.code-editor');
+        if (ta && ta.value !== (this.sourceText || '')) {
+            ta.value = this.sourceText || '';
+        }
     }
 
     // ────────────────────────────────────────────────────────
