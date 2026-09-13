@@ -52,12 +52,14 @@
     <!-- ACTION TOOLBAR -->
     <div class="toolbar">
         <button class="tb-icon-btn" onclick={handleToggleSidebar} title="Toggle file explorer">|||</button>
+        <button class="tb-icon-btn" onclick={handleToggleDslPanel} title="Toggle DSL editor">&lt;/&gt;</button>
         <div class="tb-sep"></div>
         <button class="tb-btn" onclick={handleNew}>+ New</button>
         <button class="tb-btn tb-btn-primary" onclick={handleSave}>Save  Ctrl+S</button>
         <div class="tb-sep"></div>
         <button class="tb-btn" onclick={handleToggleImport}>Import</button>
         <button class="tb-btn" onclick={handleOpenExport}>Export</button>
+        <button class="tb-btn" onclick={handleAutoLayout} title="Reset all positions and sizes to an automatic grid layout">Auto Layout</button>
         <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} onchange={handleNameChange} placeholder="Diagram name" />
@@ -155,6 +157,48 @@
 
         </div>
 
+        <!-- DSL EDITOR PANEL -->
+        <div class={dslPanelClass} style={dslPanelStyle}>
+            <div class="dsl-panel-head">
+                <span>DSL EDITOR</span>
+                <button class="sb-icon-btn" onclick={handleCopyDsl} title="Copy DSL to clipboard">Copy</button>
+            </div>
+            <p class="dsl-hint">Type entity / relationship lines directly — the canvas updates as you type. Suggestions appear below the editor; use up/down then Enter or Tab to accept, Esc to dismiss.</p>
+            <div class="dsl-editor-wrap">
+                <textarea class="code-editor"
+                          spellcheck="false"
+                          placeholder="entity Account : Name, Industry&#10;&#10;Contact.AccountId => Account"
+                          value={sourceText}
+                          oninput={handleTextChange}
+                          onkeydown={handleDslKeyDown}
+                          onclick={handleDslClick}
+                          onscroll={handleDslScroll}
+                          onblur={handleDslBlur}></textarea>
+                <template if:true={dslSuggestOpen}>
+                    <div class="dsl-suggestions">
+                        <template for:each={computedSuggestions} for:item="s">
+                            <div key={s.id}
+                                 class={s.rowClass}
+                                 data-index={s.idx}
+                                 onmousedown={handleSuggestionMouseDown}
+                                 onclick={handleSuggestionClick}>
+                                <span class="dsl-suggest-label">{s.label}</span>
+                                <span class="dsl-suggest-detail">{s.detail}</span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- DSL PANEL RESIZE HANDLE -->
+        <template if:true={dslPanelOpen}>
+            <div class="dsl-resize-handle"
+                 onpointerdown={handleDslResizePointerDown}
+                 onpointermove={handleDslResizePointerMove}
+                 onpointerup={handleDslResizePointerUp}></div>
+        </template>
+
         <!-- CANVAS AREA -->
         <div class="canvas-outer">
 
@@ -164,6 +208,13 @@
                     <button class="error-dismiss" onclick={clearError}>x</button>
                 </div>
             </template>
+
+            <!-- Zoom controls -->
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick={handleZoomOut} title="Zoom out">-</button>
+                <button class="zoom-btn zoom-btn-label" onclick={handleZoomReset} title="Reset zoom">{zoomPercentLabel}</button>
+                <button class="zoom-btn" onclick={handleZoomIn} title="Zoom in">+</button>
+            </div>
 
             <!-- Legend -->
             <div class="legend-overlay">
@@ -184,10 +235,12 @@
 
             <!-- Scrollable canvas -->
             <div class="canvas-wrap" ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
+              <div class="svg-scale-wrap" style={svgScaleWrapStyle}>
                 <svg data-role="er-svg"
                      viewBox={svgViewBox}
                      width={svgWidth}
                      height={svgHeight}
+                     style={svgTransformStyle}
                      class="er-svg"
                      xmlns="http://www.w3.org/2000/svg"
                      onpointermove={handleSvgPointerMove}
@@ -282,6 +335,7 @@
                     </template>
 
                 </svg>
+              </div>
             </div>
         </div>
 

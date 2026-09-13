@@ -1,7 +1,9 @@
 import { LightningElement, api, wire } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import getFile from '@salesforce/apex/DiagramFileController.getFile';
+import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagramAsFile';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
-import { parseEr, buildErGeometry } from 'c/erDiagramLogic';
+import { parseEr, buildErGeometry, buildLegendGroup } from 'c/erDiagramLogic';
 
 /**
  * Drop this on a Lightning Record Page, App Page, or Home Page and set
@@ -44,12 +46,13 @@ function injectSvgDefs(svg) {
     svg.insertBefore(defs, svg.firstChild);
 }
 
-export default class DiagramViewer extends LightningElement {
+export default class DiagramViewer extends NavigationMixin(LightningElement) {
     @api diagramId;
     @api title;
 
     record;
     errorMessage = '';
+    exportBusy = false;
 
     erBoxes = [];
     erConnectors = [];
@@ -104,11 +107,37 @@ export default class DiagramViewer extends LightningElement {
         injectSvgDefs(this.template.querySelector('svg[data-role="viewer-svg"]'));
     }
 
-    handleExport() {
-        const svg = this.template.querySelector('svg[data-role="viewer-svg"]');
-        exportSvgAsPng(svg, (this.displayTitle || 'diagram').replace(/\s+/g, '-')).catch((e) => {
-            this.errorMessage = 'Could not export image: ' + e.message;
-        });
+    async handleExport() {
+        this.exportBusy = true;
+        try {
+            const liveSvg  = this.template.querySelector('svg[data-role="viewer-svg"]');
+            const safeName = (this.displayTitle || 'diagram').replace(/\s+/g, '-');
+
+            // Clone so the legend can be baked into the export without altering
+            // what's on screen.
+            const exportSvg = liveSvg.cloneNode(true);
+            exportSvg.appendChild(buildLegendGroup(this.svgWidth, this.svgHeight));
+
+            const base64 = await exportSvgAsPng(exportSvg, 'PNG');
+            const cvId = await saveDiagramAsFile({
+                diagramFileId: this.diagramId || null,
+                fileName:      safeName,
+                pngBase64:     base64,
+                pageSize:      'PNG'
+            });
+
+            this.errorMessage = '';
+            this[NavigationMixin.Navigate]({
+                type: 'standard__webPage',
+                attributes: {
+                    url: '/sfc/servlet.shepherd/version/download/' + cvId
+                }
+            });
+        } catch (e) {
+            this.errorMessage = 'Could not export image: ' + (e.message || JSON.stringify(e));
+        } finally {
+            this.exportBusy = false;
+        }
     }
 
     reduceError(error) {

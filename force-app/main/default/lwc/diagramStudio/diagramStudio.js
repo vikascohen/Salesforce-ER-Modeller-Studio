@@ -13,7 +13,7 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
-import { ER_SAMPLE, parseEr, buildErGeometry } from 'c/erDiagramLogic';
+import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup } from 'c/erDiagramLogic';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -99,6 +99,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
+
+    // ── DSL editor panel (left, next to the file explorer) ──
+    @track dslPanelOpen   = true;
+    @track dslPanelWidth  = 460;
+    @track dslSuggestions = [];
+    @track dslSuggestOpen = false;
+    @track dslSuggestActiveIndex = 0;
+    dslReplaceStart      = 0;
+    dslReplaceEnd        = 0;
+    dslResizing          = false;
+    dslResizeStartX      = 0;
+    dslResizeStartWidth  = 0;
+    objectFieldsCache    = {};
+    objectFieldsFetching = {};
+
+    // ── zoom ──
+    @track zoomLevel = 1;
 
     // ────────────────────────────────────────────────────────
     //  Lifecycle
@@ -193,6 +210,27 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get sidebarClass() { return this.sidebarOpen ? 'sidebar sidebar-open' : 'sidebar sidebar-closed'; }
     get toggleSidebarIcon() { return this.sidebarOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
 
+    // ── DSL panel ──
+    get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open' : 'dsl-panel dsl-panel-closed'; }
+    get dslPanelStyle() { return this.dslPanelOpen ? `width:${this.dslPanelWidth}px` : 'width:0px'; }
+    get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
+    get computedSuggestions() {
+        return this.dslSuggestions.map((s, i) => ({
+            ...s,
+            idx: i,
+            rowClass: i === this.dslSuggestActiveIndex ? 'dsl-suggest-row dsl-suggest-active' : 'dsl-suggest-row'
+        }));
+    }
+
+    // ── zoom ──
+    get zoomPercentLabel() { return Math.round(this.zoomLevel * 100) + '%'; }
+    get svgScaleWrapStyle() {
+        return `width:${Math.round(this.svgWidth * this.zoomLevel)}px;height:${Math.round(this.svgHeight * this.zoomLevel)}px;`;
+    }
+    get svgTransformStyle() {
+        return `transform:scale(${this.zoomLevel});transform-origin:0 0;`;
+    }
+
     get hasOpenTabs() { return this.openTabs.length > 0; }
     get noFiles() { return !this.files || this.files.length === 0; }
 
@@ -210,16 +248,24 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleClearCanvas() {
         // eslint-disable-next-line no-alert
         if (!window.confirm('Clear the entire canvas? This cannot be undone.')) return;
-        this._erBoxes     = [];
-        this.erConnectors = [];
         this.erPositions  = {};
         this.boxHeightOverrides = {};
         this.boxWidthOverrides  = {};
         this.sourceText   = '';
+        this.resetEmptyCanvas();
         this.svgWidth  = 1600;
         this.svgHeight = 900;
         this.isDirty   = true;
         this._markTabDirty(this.activeTabId, true);
+    }
+
+    // An empty canvas is a valid, error-free state — not something to parse.
+    resetEmptyCanvas() {
+        this._erBoxes     = [];
+        this.erConnectors = [];
+        this.svgWidth  = 800;
+        this.svgHeight = 500;
+        this.errorMessage = '';
     }
 
     get exportModalSaveDisabled() { return this.exportBusy; }
@@ -414,14 +460,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.fileName = event.target.value;
         this.isDirty  = true;
         this._markTabDirty(this.activeTabId, true);
-    }
-
-    handleTextChange(event) {
-        this.sourceText = event.target.value;
-        this.isDirty    = true;
-        this._markTabDirty(this.activeTabId, true);
-        clearTimeout(this.renderTimer);
-        this.renderTimer = setTimeout(() => this.renderDiagram(), 200);
     }
 
     async handleSave() {
@@ -630,11 +668,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async handleDoExport() {
         this.exportBusy = true;
         try {
-            const svg      = this.template.querySelector('svg[data-role="er-svg"]');
+            const liveSvg  = this.template.querySelector('svg[data-role="er-svg"]');
             const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
 
+            // Clone so the legend can be baked into the export without touching
+            // the live, interactive canvas (which shows it as an HTML overlay).
+            const exportSvg = liveSvg.cloneNode(true);
+            exportSvg.appendChild(buildLegendGroup(this.svgWidth, this.svgHeight));
+
             // Render SVG → base64 PNG (pure canvas, no download attempted here)
-            const base64 = await exportSvgAsPng(svg, this.exportPageSize);
+            const base64 = await exportSvgAsPng(exportSvg, this.exportPageSize);
 
             // Save PNG to Salesforce Files — this is the LWS-safe way to deliver a download
             const cvId = await saveDiagramAsFile({
@@ -726,19 +769,31 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 const t = line.trim();
                 if (!t || t.startsWith('#')) return true;
                 const em = t.match(/^entity\s+(\w+)/i);
-                if (em && em[1] === name) return false;
+                if (em && em[1].toLowerCase() === name.toLowerCase()) return false;
                 const rm = t.match(/^(\w+)\.(\w+)\s*(=>|~>|->)\s*(\w+)\s*$/);
-                if (rm && (rm[1] === name || rm[4] === name)) return false;
+                if (rm && (rm[1].toLowerCase() === name.toLowerCase() || rm[4].toLowerCase() === name.toLowerCase())) return false;
                 return true;
             });
-            this.sourceText = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+            const remaining  = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+            const hasEntity  = /^\s*entity\s+\w+/im.test(remaining);
             delete this.erPositions[name];
             delete this.boxHeightOverrides[name];
             delete this.boxWidthOverrides[name];
             this.isDirty    = true;
             this._markTabDirty(this.activeTabId, true);
-            this.errorMessage = '';
-            this.renderDiagram();
+            if (!hasEntity) {
+                // Deleting the last entity on the canvas is the same end state as
+                // Clear Canvas — an empty, error-free canvas, not a parse failure.
+                this.erPositions = {};
+                this.boxHeightOverrides = {};
+                this.boxWidthOverrides  = {};
+                this.sourceText = '';
+                this.resetEmptyCanvas();
+            } else {
+                this.sourceText = remaining;
+                this.errorMessage = '';
+                this.renderDiagram();
+            }
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
@@ -858,10 +913,316 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     // ────────────────────────────────────────────────────────
+    //  DSL panel — toggle & resize
+    // ────────────────────────────────────────────────────────
+
+    handleToggleDslPanel() {
+        this.dslPanelOpen = !this.dslPanelOpen;
+        if (!this.dslPanelOpen) this.dslSuggestOpen = false;
+    }
+
+    handleDslResizePointerDown(event) {
+        this.dslResizing         = true;
+        this.dslResizeStartX     = event.clientX;
+        this.dslResizeStartWidth = this.dslPanelWidth;
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+
+    handleDslResizePointerMove(event) {
+        if (!this.dslResizing) return;
+        const dx = event.clientX - this.dslResizeStartX;
+        this.dslPanelWidth = Math.min(900, Math.max(280, this.dslResizeStartWidth + dx));
+    }
+
+    handleDslResizePointerUp(event) {
+        if (!this.dslResizing) return;
+        this.dslResizing = false;
+        try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) {}
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Zoom
+    // ────────────────────────────────────────────────────────
+
+    handleZoomIn()    { this.zoomLevel = Math.min(2.5, Math.round((this.zoomLevel + 0.1) * 100) / 100); }
+    handleZoomOut()   { this.zoomLevel = Math.max(0.3, Math.round((this.zoomLevel - 0.1) * 100) / 100); }
+    handleZoomReset() { this.zoomLevel = 1; }
+
+    // ────────────────────────────────────────────────────────
+    //  Auto layout / copy DSL
+    // ────────────────────────────────────────────────────────
+
+    handleAutoLayout() {
+        this.erPositions       = {};
+        this.boxHeightOverrides = {};
+        this.boxWidthOverrides  = {};
+        this.renderDiagram();
+        this.isDirty = true;
+        this._markTabDirty(this.activeTabId, true);
+    }
+
+    handleCopyDsl() {
+        if (navigator.clipboard) navigator.clipboard.writeText(this.sourceText || '').catch(() => {});
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  DSL editor — typing, debounced render, intellisense
+    // ────────────────────────────────────────────────────────
+
+    handleTextChange(event) {
+        this.sourceText = event.target.value;
+        this.isDirty    = true;
+        this._markTabDirty(this.activeTabId, true);
+        clearTimeout(this.renderTimer);
+        this.renderTimer = setTimeout(() => this.renderDiagram(), 200);
+        this.updateDslSuggestions(event.target);
+    }
+
+    handleDslClick(event) {
+        this.updateDslSuggestions(event.target);
+    }
+
+    handleDslScroll() {
+        this.dslSuggestOpen = false;
+    }
+
+    handleDslBlur() {
+        // Delay so a suggestion click (mousedown fires first) still registers.
+        setTimeout(() => { this.dslSuggestOpen = false; }, 150);
+    }
+
+    handleDslKeyDown(event) {
+        if (this.dslSuggestOpen && this.dslSuggestions.length) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                this.dslSuggestActiveIndex = (this.dslSuggestActiveIndex + 1) % this.dslSuggestions.length;
+                return;
+            }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.dslSuggestActiveIndex = (this.dslSuggestActiveIndex - 1 + this.dslSuggestions.length) % this.dslSuggestions.length;
+                return;
+            }
+            if (event.key === 'Enter' || event.key === 'Tab') {
+                event.preventDefault();
+                this.applySuggestionAtIndex(this.dslSuggestActiveIndex, event.target);
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                this.dslSuggestOpen = false;
+                return;
+            }
+        }
+        // Tab with no suggestion open: insert 2 spaces instead of jumping focus away.
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            const ta    = event.target;
+            const start = ta.selectionStart;
+            const end   = ta.selectionEnd;
+            const next  = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
+            ta.value = next;
+            ta.setSelectionRange(start + 2, start + 2);
+            this.sourceText = next;
+            this.isDirty    = true;
+            this._markTabDirty(this.activeTabId, true);
+            clearTimeout(this.renderTimer);
+            this.renderTimer = setTimeout(() => this.renderDiagram(), 200);
+        }
+    }
+
+    handleSuggestionMouseDown(event) {
+        // Prevent the textarea's blur from closing the list before the click lands.
+        event.preventDefault();
+    }
+
+    handleSuggestionClick(event) {
+        const idx = Number(event.currentTarget.dataset.index);
+        const ta  = this.template.querySelector('.code-editor');
+        this.applySuggestionAtIndex(idx, ta);
+    }
+
+    applySuggestionAtIndex(idx, textareaEl) {
+        const suggestion = this.dslSuggestions[idx];
+        if (!suggestion || !textareaEl) { this.dslSuggestOpen = false; return; }
+        const value  = this.sourceText || '';
+        const before = value.substring(0, this.dslReplaceStart);
+        const after  = value.substring(this.dslReplaceEnd);
+        const insert = suggestion.insertText + (suggestion.appendText || '');
+        const next   = before + insert + after;
+        const caretPos = before.length + insert.length;
+
+        textareaEl.value = next;
+        textareaEl.setSelectionRange(caretPos, caretPos);
+        textareaEl.focus();
+
+        this.sourceText  = next;
+        this.isDirty     = true;
+        this._markTabDirty(this.activeTabId, true);
+        this.dslSuggestOpen = false;
+
+        clearTimeout(this.renderTimer);
+        this.renderTimer = setTimeout(() => this.renderDiagram(), 150);
+
+        // Re-apply the selection once LWC's re-render settles the DOM value.
+        Promise.resolve().then(() => {
+            try { textareaEl.setSelectionRange(caretPos, caretPos); } catch (_) {}
+        });
+
+        // Only chain into another suggestion when the pick was a single token
+        // (keyword/object/field name) the user would naturally keep typing from.
+        // A pick that auto-appended an arrow+target already completed a whole
+        // line, so don't immediately reopen suggestions on top of it.
+        if (!suggestion.appendText) this.updateDslSuggestions(textareaEl);
+    }
+
+    updateDslSuggestions(textareaEl) {
+        if (!textareaEl) { this.dslSuggestOpen = false; return; }
+        const text  = textareaEl.value;
+        const caret = textareaEl.selectionStart;
+        const lineStart   = text.lastIndexOf('\n', caret - 1) + 1;
+        const linePrefix  = text.substring(lineStart, caret);
+
+        const ctx = this.detectDslContext(linePrefix, text, lineStart);
+        if (!ctx || !ctx.items || !ctx.items.length) {
+            this.dslSuggestOpen = false;
+            this.dslSuggestions = [];
+            return;
+        }
+        this.dslReplaceStart      = ctx.replaceStart;
+        this.dslReplaceEnd        = caret;
+        this.dslSuggestions       = ctx.items;
+        this.dslSuggestActiveIndex = 0;
+        this.dslSuggestOpen       = true;
+    }
+
+    detectDslContext(linePrefix, fullText, lineStart) {
+        let m;
+
+        // 1) Partial "entity" keyword at the start of an otherwise-empty line.
+        m = linePrefix.match(/^([A-Za-z]{0,6})$/);
+        if (m && m[1].length > 0 && 'entity'.startsWith(m[1].toLowerCase())) {
+            return {
+                replaceStart: lineStart,
+                items: [{ id: 'kw-entity', label: 'entity', detail: 'Declare an entity', insertText: 'entity ' }]
+            };
+        }
+
+        // 2) entity <partial object name>
+        m = linePrefix.match(/^entity\s+([A-Za-z0-9_]*)$/i);
+        if (m) {
+            const partial = m[1].toLowerCase();
+            const start   = lineStart + m[0].length - m[1].length;
+            const items = this.paletteObjects
+                .filter((n) => n.toLowerCase().startsWith(partial))
+                .slice(0, 12)
+                .map((n) => ({ id: 'obj-' + n, label: n, detail: 'Object', insertText: n }));
+            return { replaceStart: start, items };
+        }
+
+        // 3) entity Name : field1, field2, <partial field>
+        m = linePrefix.match(/^entity\s+([A-Za-z0-9_]+)\s*:\s*(?:[A-Za-z0-9_]+\s*,\s*)*([A-Za-z0-9_]*)$/i);
+        if (m) {
+            const entityName = m[1];
+            const partial    = m[2].toLowerCase();
+            const start      = lineStart + m[0].length - m[2].length;
+            const afterColon = linePrefix.split(':')[1] || '';
+            const already    = new Set(afterColon.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+            const cached = this.objectFieldsCache[entityName.toLowerCase()];
+            this.ensureFieldsCached(entityName);
+            const items = (cached || [])
+                .filter((f) => f.apiName.toLowerCase().startsWith(partial) && !already.has(f.apiName.toLowerCase()))
+                .slice(0, 12)
+                .map((f) => ({ id: 'fld-' + f.apiName, label: f.apiName, detail: f.isRelationship ? 'Lookup field' : 'Field', insertText: f.apiName }));
+            return { replaceStart: start, items };
+        }
+
+        // 4) Child.<partial field> — relationship source field
+        m = linePrefix.match(/^([A-Za-z0-9_]+)\.([A-Za-z0-9_]*)$/);
+        if (m) {
+            const entityName = m[1];
+            const partial    = m[2].toLowerCase();
+            const start      = lineStart + m[0].length - m[2].length;
+            const cached = this.objectFieldsCache[entityName.toLowerCase()];
+            this.ensureFieldsCached(entityName);
+            const items = (cached || [])
+                .filter((f) => f.isRelationship && f.apiName.toLowerCase().startsWith(partial))
+                .slice(0, 12)
+                .map((f) => {
+                    const arrow = f.relationshipType === 'Master-Detail' ? '=>' : f.relationshipType === 'Polymorphic Lookup' ? '~>' : '->';
+                    return {
+                        id: 'relfld-' + f.apiName,
+                        label: f.apiName,
+                        detail: `${f.relationshipType} → ${f.relatesTo}`,
+                        insertText: f.apiName,
+                        appendText: ` ${arrow} ${f.relatesTo}`
+                    };
+                });
+            return { replaceStart: start, items };
+        }
+
+        // 5) Child.Field <partial arrow>
+        m = linePrefix.match(/^([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s+([=\-~]{0,2}>?)$/);
+        if (m) {
+            const typed = m[3];
+            const start = lineStart + m[0].length - typed.length;
+            const arrows = [
+                { arrow: '=>', detail: 'Master-Detail' },
+                { arrow: '->', detail: 'Lookup' },
+                { arrow: '~>', detail: 'Polymorphic Lookup' }
+            ].filter((a) => typed === '' || a.arrow.startsWith(typed));
+            const items = arrows.map((a) => ({ id: 'arrow-' + a.arrow, label: a.arrow, detail: a.detail, insertText: a.arrow + ' ' }));
+            return { replaceStart: start, items };
+        }
+
+        // 6) Child.Field => <partial parent entity>
+        m = linePrefix.match(/^([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*(=>|->|~>)\s*([A-Za-z0-9_]*)$/);
+        if (m) {
+            const partial   = m[4].toLowerCase();
+            const start     = lineStart + m[0].length - m[4].length;
+            const declared  = this.declaredEntityNames(fullText);
+            const names     = Array.from(new Set([...declared, ...this.paletteObjects]));
+            const items = names
+                .filter((n) => n.toLowerCase().startsWith(partial))
+                .slice(0, 12)
+                .map((n) => ({ id: 'target-' + n, label: n, detail: declared.includes(n) ? 'On canvas' : 'Object', insertText: n }));
+            return { replaceStart: start, items };
+        }
+
+        return null;
+    }
+
+    declaredEntityNames(text) {
+        const names = [];
+        const re = /^\s*entity\s+([A-Za-z0-9_]+)/gim;
+        let m;
+        while ((m = re.exec(text)) !== null) names.push(m[1]);
+        return Array.from(new Set(names));
+    }
+
+    async ensureFieldsCached(entityName) {
+        const key = entityName.toLowerCase();
+        if (this.objectFieldsCache[key] || this.objectFieldsFetching[key]) return;
+        this.objectFieldsFetching[key] = true;
+        try {
+            const objects = await describeObjects({ objectApiNames: [entityName] });
+            this.objectFieldsCache[key] = (objects && objects.length) ? objects[0].fields : [];
+            // Re-run detection so a still-open, matching context picks up the fetched fields.
+            const ta = this.template.querySelector('.code-editor');
+            if (ta) this.updateDslSuggestions(ta);
+        } catch (_) {
+            this.objectFieldsCache[key] = [];
+        } finally {
+            delete this.objectFieldsFetching[key];
+        }
+    }
+
+    // ────────────────────────────────────────────────────────
     //  Geometry helpers
     // ────────────────────────────────────────────────────────
 
     rerenderGeometry() {
+        if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
         try {
             const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
@@ -872,6 +1233,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     renderDiagram() {
+        if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
         try {
             const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
@@ -888,12 +1250,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     toSvgPoint(svg, clientX, clientY) {
-        // SVG is rendered at exact svgWidth × svgHeight pixels (no scaling via viewBox),
-        // so 1 client pixel == 1 SVG unit. getBoundingClientRect already includes scroll.
+        // SVG is rendered at exact svgWidth × svgHeight logical pixels, then
+        // visually scaled by zoomLevel via a CSS transform — divide back out
+        // so drag/resize/drop math stays correct at any zoom level.
         const rect = svg.getBoundingClientRect();
         return {
-            x: clientX - rect.left,
-            y: clientY - rect.top
+            x: (clientX - rect.left) / this.zoomLevel,
+            y: (clientY - rect.top) / this.zoomLevel
         };
     }
 
