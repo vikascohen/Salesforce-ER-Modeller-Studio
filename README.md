@@ -199,3 +199,7 @@ Id" button in the studio's sidebar to grab it).
 ## Author
 
 Vikas Cohen- Passionate transhumanist and a programmer when get extremely bored.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Free to use, modify, and distribute; just keep the copyright notice.
