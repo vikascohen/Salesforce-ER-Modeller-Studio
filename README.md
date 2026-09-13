@@ -203,3 +203,7 @@ Vikas Cohen- Passionate transhumanist and a programmer when get extremely bored.
 ## License
 
 MIT — see [LICENSE](LICENSE). Free to use, modify, and distribute; just keep the copyright notice.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how the project is laid out, what to check before opening a PR, and known gaps (there's currently no Apex test coverage — a good first contribution if you're looking for one).
