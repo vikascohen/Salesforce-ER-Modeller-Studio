@@ -22,7 +22,7 @@ public with sharing class DiagramFileController {
         for (Diagram_File__c f : [
             SELECT Id, Name, Diagram_Type__c, LastModifiedDate
             FROM Diagram_File__c
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY LastModifiedDate DESC
             LIMIT 200
         ]) {
@@ -44,7 +44,7 @@ public with sharing class DiagramFileController {
             SELECT Id, Name, Diagram_Type__c, Source_Code__c
             FROM   Diagram_File__c
             WHERE  Id = :fileId
-            WITH   SECURITY_ENFORCED
+            WITH   USER_MODE
             LIMIT  1
         ];
         return r.isEmpty() ? null : r[0];
