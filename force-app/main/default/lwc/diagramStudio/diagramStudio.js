@@ -106,6 +106,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dslSuggestions = [];
     @track dslSuggestOpen = false;
     @track dslSuggestActiveIndex = 0;
+    @track dslSuggestStyle = '';
     dslReplaceStart      = 0;
     dslReplaceEnd        = 0;
     dslResizing          = false;
@@ -113,6 +114,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     dslResizeStartWidth  = 0;
     objectFieldsCache    = {};
     objectFieldsFetching = {};
+    DSL_SUGGEST_WIDTH    = 280; // px — kept in sync with the CSS width of .dsl-suggestions
 
     // ── zoom ──
     @track zoomLevel = 1;
@@ -1093,7 +1095,49 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dslReplaceEnd        = caret;
         this.dslSuggestions       = ctx.items;
         this.dslSuggestActiveIndex = 0;
+        this.dslSuggestStyle      = this.computeDslSuggestStyle(textareaEl, caret);
         this.dslSuggestOpen       = true;
+    }
+
+    measureCharWidth(font) {
+        if (!this._charWidthCache) this._charWidthCache = {};
+        if (this._charWidthCache[font] != null) return this._charWidthCache[font];
+        if (!this._measureCanvas) this._measureCanvas = document.createElement('canvas');
+        const ctx = this._measureCanvas.getContext('2d');
+        ctx.font = font;
+        const w = ctx.measureText('0').width || 7;
+        this._charWidthCache[font] = w;
+        return w;
+    }
+
+    /**
+     * Pixel position for the suggestions dropdown, anchored just under the
+     * caret. The editor disables line-wrapping (white-space: pre, horizontal
+     * scroll instead) so every DSL line is exactly one visual row — that
+     * means caret position is plain monospace-grid arithmetic (row/column ×
+     * char size) rather than needing a full mirror-element measurement.
+     */
+    computeDslSuggestStyle(textareaEl, caret) {
+        const cs = getComputedStyle(textareaEl);
+        const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const charWidth  = this.measureCharWidth(font);
+        const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+        const padLeft = parseFloat(cs.paddingLeft) || 0;
+        const padTop  = parseFloat(cs.paddingTop)  || 0;
+
+        const before = textareaEl.value.substring(0, caret);
+        const row = (before.match(/\n/g) || []).length;
+        const col = caret - before.lastIndexOf('\n') - 1;
+
+        const rawX = textareaEl.offsetLeft + padLeft + col * charWidth - textareaEl.scrollLeft;
+        const rawY = textareaEl.offsetTop + padTop + (row + 1) * lineHeight - textareaEl.scrollTop;
+
+        // Keep the dropdown from running past the panel's own right edge.
+        const maxLeft = Math.max(4, this.dslPanelWidth - this.DSL_SUGGEST_WIDTH - 20);
+        const x = Math.min(Math.max(4, rawX), maxLeft);
+        const y = Math.max(4, rawY);
+
+        return `left:${Math.round(x)}px; top:${Math.round(y)}px; width:${this.DSL_SUGGEST_WIDTH}px;`;
     }
 
     detectDslContext(linePrefix, fullText, lineStart) {
@@ -1115,7 +1159,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const start   = lineStart + m[0].length - m[1].length;
             const items = this.paletteObjects
                 .filter((n) => n.toLowerCase().startsWith(partial))
-                .slice(0, 12)
+                .slice(0, 50)
                 .map((n) => ({ id: 'obj-' + n, label: n, detail: 'Object', insertText: n }));
             return { replaceStart: start, items };
         }
@@ -1132,7 +1176,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.ensureFieldsCached(entityName);
             const items = (cached || [])
                 .filter((f) => f.apiName.toLowerCase().startsWith(partial) && !already.has(f.apiName.toLowerCase()))
-                .slice(0, 12)
+                .slice(0, 50)
                 .map((f) => ({ id: 'fld-' + f.apiName, label: f.apiName, detail: f.isRelationship ? 'Lookup field' : 'Field', insertText: f.apiName }));
             return { replaceStart: start, items };
         }
@@ -1147,7 +1191,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.ensureFieldsCached(entityName);
             const items = (cached || [])
                 .filter((f) => f.isRelationship && f.apiName.toLowerCase().startsWith(partial))
-                .slice(0, 12)
+                .slice(0, 50)
                 .map((f) => {
                     const arrow = f.relationshipType === 'Master-Detail' ? '=>' : f.relationshipType === 'Polymorphic Lookup' ? '~>' : '->';
                     return {
@@ -1184,7 +1228,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const names     = Array.from(new Set([...declared, ...this.paletteObjects]));
             const items = names
                 .filter((n) => n.toLowerCase().startsWith(partial))
-                .slice(0, 12)
+                .slice(0, 50)
                 .map((n) => ({ id: 'target-' + n, label: n, detail: declared.includes(n) ? 'On canvas' : 'Object', insertText: n }));
             return { replaceStart: start, items };
         }

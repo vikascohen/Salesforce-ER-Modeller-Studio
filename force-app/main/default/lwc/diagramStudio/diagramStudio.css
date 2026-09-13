@@ -403,9 +403,8 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow: hidden;
 }
-.dsl-panel-closed { width: 0 !important; border-right: none; }
+.dsl-panel-closed { width: 0 !important; border-right: none; overflow: hidden; }
 .dsl-panel-head {
     display: flex;
     align-items: center;
@@ -443,7 +442,8 @@
     resize: none;
     outline: none;
     white-space: pre;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
 }
 .code-editor:focus { background: var(--bg-dark); }
 .code-editor::placeholder { color: #5c5c70; }
@@ -458,16 +458,16 @@
 }
 .dsl-resize-handle:hover, .dsl-resize-handle:active { background: var(--accent); }
 
-/* DSL intellisense suggestions dropdown */
+/* DSL intellisense suggestions dropdown — position/width set inline by JS
+   (anchored to the caret); this just handles its own look & internal scroll. */
 .dsl-suggestions {
     position: absolute;
-    left: 8px; right: 8px; bottom: 8px;
-    max-height: 160px;
+    max-height: 220px;
     overflow-y: auto;
     background: #10101a;
     border: 1px solid var(--accent);
     border-radius: 6px;
-    box-shadow: 0 -6px 20px rgba(0,0,0,0.4);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.45);
     z-index: 30;
 }
 .dsl-suggest-row {

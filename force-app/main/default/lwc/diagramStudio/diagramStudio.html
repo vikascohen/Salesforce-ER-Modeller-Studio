@@ -167,6 +167,7 @@
             <div class="dsl-editor-wrap">
                 <textarea class="code-editor"
                           spellcheck="false"
+                          wrap="off"
                           placeholder="entity Account : Name, Industry&#10;&#10;Contact.AccountId => Account"
                           value={sourceText}
                           oninput={handleTextChange}
@@ -175,7 +176,7 @@
                           onscroll={handleDslScroll}
                           onblur={handleDslBlur}></textarea>
                 <template if:true={dslSuggestOpen}>
-                    <div class="dsl-suggestions">
+                    <div class="dsl-suggestions" style={dslSuggestStyle}>
                         <template for:each={computedSuggestions} for:item="s">
                             <div key={s.id}
                                  class={s.rowClass}
