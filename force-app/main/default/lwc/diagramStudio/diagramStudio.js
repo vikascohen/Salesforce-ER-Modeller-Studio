@@ -99,6 +99,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
+    _focusNameOnNextRender = false;
 
     // ── DSL editor panel (left, next to the file explorer) ──
     @track dslPanelOpen   = true;
@@ -141,16 +142,27 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     renderedCallback() {
         injectDefs(this.template.querySelector('svg[data-role="er-svg"]'));
 
-        // A <textarea> stops honoring template-level value={} updates once the
-        // user has typed into it at least once (the browser's own "dirty value
-        // flag" — a well-known cross-framework quirk, not an LWC-specific one).
-        // Typing itself is unaffected (the DOM's own value and this.sourceText
-        // are already identical by the time this runs, so this is a no-op) —
-        // this only kicks in for programmatic replacements like Import, New,
-        // Clear Canvas, etc., which otherwise silently fail to show on screen.
+        // A <textarea>/<input> stops honoring template-level value={} updates
+        // once the user has typed into it at least once (the browser's own
+        // "dirty value flag" — a well-known cross-framework quirk, not an
+        // LWC-specific one). Typing itself is unaffected (the DOM's value and
+        // the tracked property are already identical by the time this runs),
+        // but programmatic replacements — Import, New, Clear Canvas, Open,
+        // Import-from-Org, switching tabs/diagrams — otherwise silently fail
+        // to show on screen after the first keystroke in a session.
         const ta = this.template.querySelector('.code-editor');
         if (ta && ta.value !== (this.sourceText || '')) {
             ta.value = this.sourceText || '';
+        }
+        const nameInput = this.template.querySelector('.diag-name-input');
+        if (nameInput && nameInput.value !== (this.fileName || '') && this.template.activeElement !== nameInput) {
+            nameInput.value = this.fileName || '';
+        }
+
+        if (this._focusNameOnNextRender && nameInput) {
+            this._focusNameOnNextRender = false;
+            nameInput.focus();
+            nameInput.select();
         }
     }
 
@@ -321,6 +333,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.resetEmptyCanvas();
         this._addTab({ id: tabId, name: this.fileName, dirty: false, isUnsaved: true });
         this._activateTabId(tabId);
+        // Let the user type a name immediately instead of having to notice
+        // and click into the name field themselves.
+        this._focusNameOnNextRender = true;
     }
 
     _addTab(tab) {

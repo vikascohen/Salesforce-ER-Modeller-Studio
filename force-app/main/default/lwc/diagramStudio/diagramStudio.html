@@ -62,7 +62,7 @@
         <button class="tb-btn" onclick={handleAutoLayout} title="Reset all positions and sizes to an automatic grid layout">Auto Layout</button>
         <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
         <div class="tb-spacer"></div>
-        <input class="diag-name-input" type="text" value={fileName} onchange={handleNameChange} placeholder="Diagram name" />
+        <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
     </div>
 
     <!-- TAB BAR -->
