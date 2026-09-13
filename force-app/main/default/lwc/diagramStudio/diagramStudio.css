@@ -416,6 +416,21 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
+.dsl-panel-head-actions { display: flex; gap: 4px; }
+.dsl-head-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 3px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.dsl-head-btn:hover { color: var(--text-main); background: var(--bg-mid); }
+.dsl-head-btn-danger:hover { color: #ffffff; background: #c0392b; border-color: #c0392b; }
+.dsl-file-input { display: none; }
 .dsl-hint {
     font-size: 10px; color: var(--text-muted);
     padding: 6px 10px 2px;

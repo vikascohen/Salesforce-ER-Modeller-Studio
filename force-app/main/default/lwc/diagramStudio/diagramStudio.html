@@ -161,9 +161,14 @@
         <div class={dslPanelClass} style={dslPanelStyle}>
             <div class="dsl-panel-head">
                 <span>DSL EDITOR</span>
-                <button class="sb-icon-btn" onclick={handleCopyDsl} title="Copy DSL to clipboard">Copy</button>
+                <div class="dsl-panel-head-actions">
+                    <button class="dsl-head-btn" onclick={handleImportDslClick} title="Import a .dsl file from your computer and draw it">Import</button>
+                    <button class="dsl-head-btn" onclick={handleExportDsl} title="Export this DSL as a .dsl file">Export</button>
+                    <button class="dsl-head-btn dsl-head-btn-danger" onclick={handleClearCanvas} title="Clear the DSL editor and the canvas">Clear</button>
+                </div>
             </div>
-            <p class="dsl-hint">Type entity / relationship lines directly — the canvas updates as you type. Suggestions appear below the editor; use up/down then Enter or Tab to accept, Esc to dismiss.</p>
+            <input type="file" class="dsl-file-input" accept=".dsl,.txt" onchange={handleImportDslFile} />
+            <p class="dsl-hint">Type entity / relationship lines directly — the canvas updates as you type. Suggestions appear at the cursor; use up/down then Enter or Tab to accept, Esc to dismiss.</p>
             <div class="dsl-editor-wrap">
                 <textarea class="code-editor"
                           spellcheck="false"

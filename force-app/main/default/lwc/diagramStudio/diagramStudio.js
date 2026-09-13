@@ -303,10 +303,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.erPositions = {};
         this.boxHeightOverrides = {};
         this.boxWidthOverrides  = {};
-        this._erBoxes     = [];
-        this.erConnectors = [];
         this.isDirty     = false;
-        this.errorMessage = '';
+        this.zoomLevel   = 1;
+        this.dslSuggestOpen = false;
+        this.resetEmptyCanvas();
         this._addTab({ id: tabId, name: this.fileName, dirty: false, isUnsaved: true });
         this._activateTabId(tabId);
     }
@@ -963,8 +963,48 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._markTabDirty(this.activeTabId, true);
     }
 
-    handleCopyDsl() {
-        if (navigator.clipboard) navigator.clipboard.writeText(this.sourceText || '').catch(() => {});
+    handleExportDsl() {
+        const content  = this.sourceText || '';
+        const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
+        const dataUri  = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
+        const a = document.createElement('a');
+        a.href = dataUri;
+        a.download = safeName + '.dsl';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    handleImportDslClick() {
+        const input = this.template.querySelector('.dsl-file-input');
+        if (input) input.click();
+    }
+
+    handleImportDslFile(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = ''; // allow re-importing the same filename later
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            this.sourceText = String(reader.result || '');
+            // A freshly-imported file is treated as a new layout — don't carry
+            // over box positions/sizes from whatever was on the canvas before.
+            this.erPositions       = {};
+            this.boxHeightOverrides = {};
+            this.boxWidthOverrides  = {};
+            this.isDirty = true;
+            this._markTabDirty(this.activeTabId, true);
+            this.renderDiagram(); // parses + draws, and sets errorMessage on failure
+            if (this.errorMessage) {
+                this.errorMessage = `Could not import "${file.name}": ${this.errorMessage}`;
+            }
+        };
+        reader.onerror = () => {
+            this.errorMessage = `Could not read file "${file.name}".`;
+        };
+        reader.readAsText(file);
     }
 
     // ────────────────────────────────────────────────────────
