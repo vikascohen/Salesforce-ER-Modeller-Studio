@@ -80,6 +80,47 @@ other.
 | Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects and describes their fields/relationships for the import panel, palette, and DSL autocomplete. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 
+## Architecture
+
+```mermaid
+graph TD
+    subgraph UI["Lightning Pages"]
+        DS["diagramStudio<br/>editor LWC"]
+        DV["diagramViewer<br/>read-only LWC"]
+    end
+
+    subgraph Logic["Pure JS — no dependencies"]
+        ERL["erDiagramLogic<br/>parse DSL · lay out boxes/connectors · build legend"]
+        EXP["diagramExportUtils<br/>SVG → PNG"]
+    end
+
+    subgraph Apex["Apex (with sharing)"]
+        DFC["DiagramFileController"]
+        SMC["SchemaMetadataController"]
+    end
+
+    subgraph Data["Salesforce Data"]
+        OBJ["Diagram_File__c<br/>Name · Diagram_Type__c · Source_Code__c"]
+        FILES["ContentVersion<br/>PNG exports"]
+        SCHEMA["Org Schema<br/>objects & fields"]
+    end
+
+    DS -- "parse / render" --> ERL
+    DS -- "export" --> EXP
+    DS -- "CRUD, save PNG" --> DFC
+    DS -- "describe objects,<br/>autocomplete" --> SMC
+
+    DV -- "render" --> ERL
+    DV -- "export" --> EXP
+    DV -- "get file, save PNG" --> DFC
+
+    DFC --> OBJ
+    DFC --> FILES
+    SMC --> SCHEMA
+```
+
+`diagramStudio` and `diagramViewer` never talk to each other or duplicate logic between themselves — both are thin UI shells over the same two pure-JS modules, so a DSL parsing or rendering fix in `erDiagramLogic` applies identically whether you're editing or just viewing a diagram.
+
 ## Deploying to an org
 
 This is a standard Salesforce DX project.
