@@ -33,8 +33,6 @@ result, nothing leaves your machine.
 
 ## What it does
 
-## What it does
-
 - **Live DSL editor** — a resizable, collapsible code panel next to the file
   explorer where you type entity/relationship lines directly and watch the
   canvas render as you type. Includes context-aware autocomplete (entity
