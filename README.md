@@ -55,8 +55,11 @@ result, nothing leaves your machine.
   image. Exports are saved as a Salesforce File and downloaded from there
   (no client-side blob tricks, so it works under Lightning Web Security).
   The export modal can also give you the diagram as **Mermaid `erDiagram`
-  syntax** — copy it straight into a GitHub README, Confluence, or Notion
-  page and it renders as a live diagram there, no image file needed.
+  syntax** (paste into a GitHub README, Confluence, or Notion page — it
+  renders live there) or as a **draw.io / diagrams.net file** — the
+  draw.io export is laid out using your diagram's *actual* canvas
+  positions, not auto-arranged from scratch, so it opens up looking like
+  what you built here.
 - **Smart relationship linter** — after you drop a couple of related
   objects on the canvas, the DSL editor notices relationship fields
   (from the org's real schema) that point at another entity already on
@@ -82,7 +85,7 @@ other.
 |---|---|---|
 | LWC | `diagramStudio` | The main editor — canvas, sidebar, DSL editor with intellisense, tabs, palette, import panel, export modal, zoom. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
 | LWC | `diagramViewer` | Read-only, drop it on any page and point it at a saved diagram's Id. |
-| LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` syntax. No UI, no dependencies — imported by both components above. |
+| LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
 | Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects and describes their fields/relationships for the import panel, palette, and DSL autocomplete. |
@@ -98,7 +101,7 @@ graph TD
     end
 
     subgraph Logic["Pure JS — no dependencies"]
-        ERL["erDiagramLogic<br/>parse DSL · lay out boxes/connectors ·<br/>build legend · export Mermaid"]
+        ERL["erDiagramLogic<br/>parse DSL · lay out boxes/connectors ·<br/>build legend · export Mermaid / draw.io"]
         EXP["diagramExportUtils<br/>SVG → PNG"]
     end
 
@@ -194,7 +197,8 @@ Id" button in the studio's sidebar to grab it).
 5. **Ctrl/Cmd+S** or the Save button writes the diagram back to its
    `Diagram_File__c` record. Use **Export** to render a PNG — the
    relationship legend is baked into the exported image — or to copy/download
-   the diagram as **Mermaid syntax** for pasting into a README or wiki page.
+   the diagram as **Mermaid** or **draw.io** for pasting into a README, wiki
+   page, or editing further in draw.io.
 
 ## Notes
 

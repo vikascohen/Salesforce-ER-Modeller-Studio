@@ -38,6 +38,15 @@
                             <lightning-button label="Download .mmd" variant="neutral" onclick={handleDownloadMermaid}></lightning-button>
                         </div>
                     </div>
+                    <div class="export-divider"></div>
+                    <div class="export-field">
+                        <label class="export-label">draw.io Diagram</label>
+                        <p class="hint-text">Opens directly in draw.io / diagrams.net (File → Open, or drag the .drawio file in) — laid out exactly like your canvas, fully editable there.</p>
+                        <div class="export-mermaid-actions">
+                            <lightning-button label="Copy draw.io XML" variant="neutral" onclick={handleCopyDrawio}></lightning-button>
+                            <lightning-button label="Download .drawio" variant="neutral" onclick={handleDownloadDrawio}></lightning-button>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <lightning-button label="Cancel" variant="neutral" onclick={handleCloseExport}></lightning-button>

@@ -370,6 +370,99 @@ export function buildMermaidErDiagram(model) {
     return lines.join('\n');
 }
 
+function escapeXml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function drawioEntityLabelHtml(ent) {
+    const rows = [`<b>${ent.name}</b>`, '<hr size="1">', 'Id (PK)'];
+    ent.fields.forEach((f) => {
+        if (f.isRelationship) {
+            const targets = f.relatesTo && f.relatesTo.length ? f.relatesTo.join(' / ') : '?';
+            rows.push(`${f.name} \u2192 ${targets} (${kindLabel(f.kind)})`);
+        } else {
+            rows.push(f.name);
+        }
+    });
+    return rows.join('<br>');
+}
+
+function drawioEdgeStyle(kind) {
+    if (kind === 'master') {
+        return 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5c2d91;strokeWidth=2.5;endArrow=diamondThin;endFill=1;startArrow=none;jettySize=auto;';
+    }
+    if (kind === 'poly') {
+        return 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ea4335;dashed=1;endArrow=block;endFill=0;startArrow=none;jettySize=auto;';
+    }
+    return 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#0070d2;endArrow=block;endFill=0;startArrow=none;jettySize=auto;';
+}
+
+/**
+ * Renders the parsed model plus its already-computed layout as a draw.io
+ * (diagrams.net) file — plain, uncompressed mxGraph XML wrapped in the
+ * standard <mxfile> envelope, directly openable via File > Open or by
+ * dragging it into app.diagrams.net.
+ *
+ * Unlike the Mermaid export (which always re-lays-out automatically —
+ * Mermaid's erDiagram syntax has no concept of fixed positions), this
+ * reuses the exact box positions/sizes this app already computed, so the
+ * draw.io version opens up arranged exactly like your canvas, not
+ * auto-arranged from scratch.
+ *
+ * @param model  parseEr() output
+ * @param boxes  buildErGeometry(...).boxes — {name, x, y, width, height}[]
+ */
+export function buildDrawioXml(model, boxes) {
+    const idOf = {};
+    model.entities.forEach((ent, i) => { idOf[ent.name] = 'n' + i; });
+    const boxByName = {};
+    (boxes || []).forEach((b) => { boxByName[b.name] = b; });
+
+    const cells = [];
+    model.entities.forEach((ent) => {
+        const box = boxByName[ent.name];
+        const x = box ? box.x : 40;
+        const y = box ? box.y : 40;
+        const w = box ? box.width : BOX_WIDTH;
+        const h = box ? box.height : HEADER_HEIGHT + 80;
+        const custom = isCustom(ent.name);
+        const fill   = custom ? '#e6d9f5' : '#dae8fc';
+        const stroke = custom ? '#5c2d91' : '#0070d2';
+        const label  = escapeXml(drawioEntityLabelHtml(ent));
+        cells.push(
+            `<mxCell id="${idOf[ent.name]}" value="${label}" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=${fill};strokeColor=${stroke};fontSize=12;" vertex="1" parent="1">` +
+            `<mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${Math.round(w)}" height="${Math.round(h)}" as="geometry" /></mxCell>`
+        );
+    });
+
+    model.relationships.forEach((r, i) => {
+        const label = escapeXml(r.childField);
+        const style = drawioEdgeStyle(r.kind);
+        cells.push(
+            `<mxCell id="rel${i}" value="${label}" style="${style}" edge="1" parent="1" source="${idOf[r.childEntity]}" target="${idOf[r.parentEntity]}">` +
+            '<mxGeometry relative="1" as="geometry" /></mxCell>'
+        );
+    });
+
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        '<mxfile host="app.diagrams.net">\n' +
+        '  <diagram name="ER Diagram" id="er-diagram-1">\n' +
+        '    <mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">\n' +
+        '      <root>\n' +
+        '        <mxCell id="0" />\n' +
+        '        <mxCell id="1" parent="0" />\n' +
+        '        ' + cells.join('\n        ') + '\n' +
+        '      </root>\n' +
+        '    </mxGraphModel>\n' +
+        '  </diagram>\n' +
+        '</mxfile>\n';
+}
+
 /**
  * Builds a small "Relationships" legend as a detached <g> element, ready to
  * append to any ER SVG (a clone of the live canvas, or the read-only viewer)

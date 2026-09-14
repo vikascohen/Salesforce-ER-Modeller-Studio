@@ -13,7 +13,7 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
-import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram } from 'c/erDiagramLogic';
+import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -727,6 +727,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             document.body.removeChild(a);
         } catch (e) {
             this.errorMessage = 'Could not build Mermaid diagram: ' + e.message;
+        }
+    }
+
+    handleCopyDrawio() {
+        try {
+            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            if (navigator.clipboard) navigator.clipboard.writeText(xml).catch(() => {});
+        } catch (e) {
+            this.errorMessage = 'Could not build draw.io diagram: ' + e.message;
+        }
+    }
+
+    handleDownloadDrawio() {
+        try {
+            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
+            const dataUri  = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
+            const a = document.createElement('a');
+            a.href = dataUri;
+            a.download = safeName + '.drawio';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } catch (e) {
+            this.errorMessage = 'Could not build draw.io diagram: ' + e.message;
         }
     }
 
