@@ -54,6 +54,14 @@ result, nothing leaves your machine.
   landscape, or A3 landscape, with the relationship legend baked into the
   image. Exports are saved as a Salesforce File and downloaded from there
   (no client-side blob tricks, so it works under Lightning Web Security).
+  The export modal can also give you the diagram as **Mermaid `erDiagram`
+  syntax** — copy it straight into a GitHub README, Confluence, or Notion
+  page and it renders as a live diagram there, no image file needed.
+- **Smart relationship linter** — after you drop a couple of related
+  objects on the canvas, the DSL editor notices relationship fields
+  (from the org's real schema) that point at another entity already on
+  the canvas but aren't wired up as a DSL line yet, and suggests them —
+  one click adds the line and redraws.
 - **Read-only viewer** — a companion component for Record/App/Home pages
   that pins a saved diagram somewhere for people who just need to look at
   it, with its own PNG export button and legend.

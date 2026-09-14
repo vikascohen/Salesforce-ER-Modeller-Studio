@@ -13,7 +13,7 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
-import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup } from 'c/erDiagramLogic';
+import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram } from 'c/erDiagramLogic';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -116,6 +116,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     objectFieldsCache    = {};
     objectFieldsFetching = {};
     DSL_SUGGEST_WIDTH    = 280; // px — kept in sync with the CSS width of .dsl-suggestions
+
+    // ── smart relationship linter ──
+    @track missingRelationshipSuggestions = [];
+    dismissedSuggestionKeys = new Set();
+    _relScanTimer = null;
 
     // ── zoom ──
     @track zoomLevel = 1;
@@ -278,6 +283,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.boxHeightOverrides = {};
         this.boxWidthOverrides  = {};
         this.sourceText   = '';
+        this.dismissedSuggestionKeys = new Set();
         this.resetEmptyCanvas();
         this.svgWidth  = 1600;
         this.svgHeight = 900;
@@ -292,6 +298,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.svgWidth  = 800;
         this.svgHeight = 500;
         this.errorMessage = '';
+        this.missingRelationshipSuggestions = [];
     }
 
     get exportModalSaveDisabled() { return this.exportBusy; }
@@ -330,6 +337,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.isDirty     = false;
         this.zoomLevel   = 1;
         this.dslSuggestOpen = false;
+        this.missingRelationshipSuggestions = [];
+        this.dismissedSuggestionKeys = new Set();
         this.resetEmptyCanvas();
         this._addTab({ id: tabId, name: this.fileName, dirty: false, isUnsaved: true });
         this._activateTabId(tabId);
@@ -540,6 +549,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.boxWidthOverrides  = {};
                 this.isDirty    = false;
                 this.errorMessage = '';
+                this.dismissedSuggestionKeys = new Set();
                 this.renderDiagram();
                 this._addTab({ id: rec.Id, name: rec.Name, dirty: false, isUnsaved: false });
                 this._activateTabId(rec.Id);
@@ -692,6 +702,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleExportSaveToFilesChange(event) {
         this.exportSaveToFiles = event.target.checked;
+    }
+
+    handleCopyMermaid() {
+        try {
+            const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
+            if (navigator.clipboard) navigator.clipboard.writeText(mmd).catch(() => {});
+        } catch (e) {
+            this.errorMessage = 'Could not build Mermaid diagram: ' + e.message;
+        }
+    }
+
+    handleDownloadMermaid() {
+        try {
+            const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
+            const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
+            const dataUri  = 'data:text/plain;charset=utf-8,' + encodeURIComponent(mmd);
+            const a = document.createElement('a');
+            a.href = dataUri;
+            a.download = safeName + '.mmd';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } catch (e) {
+            this.errorMessage = 'Could not build Mermaid diagram: ' + e.message;
+        }
     }
 
     async handleDoExport() {
@@ -1021,6 +1057,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.erPositions       = {};
             this.boxHeightOverrides = {};
             this.boxWidthOverrides  = {};
+            this.dismissedSuggestionKeys = new Set();
             this.isDirty = true;
             this._markTabDirty(this.activeTabId, true);
             this.renderDiagram(); // parses + draws, and sets errorMessage on failure
@@ -1329,6 +1366,83 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     // ────────────────────────────────────────────────────────
+    //  Smart relationship linter — notices relationship fields on
+    //  entities already on the canvas that point at another entity also
+    //  on the canvas, but aren't wired up as a DSL relationship line yet.
+    // ────────────────────────────────────────────────────────
+
+    scheduleRelationshipScan() {
+        clearTimeout(this._relScanTimer);
+        this._relScanTimer = setTimeout(() => this.scanForMissingRelationships(), 600);
+    }
+
+    async scanForMissingRelationships() {
+        if (!this._erBoxes || !this._erBoxes.length) {
+            this.missingRelationshipSuggestions = [];
+            return;
+        }
+        const boxes = this._erBoxes;
+        // Make sure every entity currently on canvas has its schema fetched
+        // (a no-op for anything already cached, or anything that isn't a
+        // real org object — that just resolves to an empty field list).
+        await Promise.all(boxes.map((b) => this.ensureFieldsCached(b.name)));
+
+        let model;
+        try {
+            model = parseEr(this.sourceText);
+        } catch (_) {
+            return; // mid-typing / invalid DSL — leave whatever suggestions were showing
+        }
+
+        const canvasNames = new Set(boxes.map((b) => b.name.toLowerCase()));
+        const existing = new Set(
+            model.relationships.map((r) =>
+                [r.childEntity.toLowerCase(), r.childField.toLowerCase(), r.parentEntity.toLowerCase()].join('|')
+            )
+        );
+
+        const suggestions = [];
+        boxes.forEach((box) => {
+            const fields = this.objectFieldsCache[box.name.toLowerCase()] || [];
+            fields.forEach((f) => {
+                if (!f.isRelationship || !f.relatesTo) return;
+                if (!canvasNames.has(f.relatesTo.toLowerCase())) return; // target isn't on canvas — nothing to suggest
+                const key = [box.name.toLowerCase(), f.apiName.toLowerCase(), f.relatesTo.toLowerCase()].join('|');
+                if (existing.has(key) || this.dismissedSuggestionKeys.has(key)) return;
+                const arrow = f.relationshipType === 'Master-Detail' ? '=>' : f.relationshipType === 'Polymorphic Lookup' ? '~>' : '->';
+                suggestions.push({
+                    id: key,
+                    label: `${box.name}.${f.apiName} ${arrow} ${f.relatesTo}`,
+                    line: `${box.name}.${f.apiName} ${arrow} ${f.relatesTo}`
+                });
+            });
+        });
+        this.missingRelationshipSuggestions = suggestions;
+    }
+
+    handleAddSuggestion(event) {
+        const line = event.currentTarget.dataset.line;
+        this.appendDslLines([line]);
+    }
+
+    handleAddAllSuggestions() {
+        this.appendDslLines(this.missingRelationshipSuggestions.map((s) => s.line));
+    }
+
+    handleDismissSuggestions() {
+        this.missingRelationshipSuggestions.forEach((s) => this.dismissedSuggestionKeys.add(s.id));
+        this.missingRelationshipSuggestions = [];
+    }
+
+    appendDslLines(lines) {
+        const trimmed = (this.sourceText || '').replace(/\s+$/, '');
+        this.sourceText = (trimmed ? trimmed + '\n' : '') + lines.join('\n') + '\n';
+        this.isDirty = true;
+        this._markTabDirty(this.activeTabId, true);
+        this.renderDiagram();
+    }
+
+    // ────────────────────────────────────────────────────────
     //  Geometry helpers
     // ────────────────────────────────────────────────────────
 
@@ -1355,6 +1469,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (!this.erPositions[b.name]) this.erPositions[b.name] = { x: b.x, y: b.y };
             });
             this.errorMessage = '';
+            this.scheduleRelationshipScan();
         } catch (e) {
             this.errorMessage = e.message;
         }

@@ -71,7 +71,7 @@ A few things worth knowing:
   child field with two separate relationship lines to two different
   parents (this is the correct way to model a field that's genuinely
   polymorphic across more than one object) and its row shows every target,
-  e.g. `WhoId  → Contact / Lead (Polymorphic)`.
+  e.g. `WhoId  → Contact / Lead (Polymorphic Lookup)`.
 - If the same relationship line is declared twice, the duplicate is
   ignored rather than drawing an identical connector on top of itself. If
   two *different* relationships connect the same pair of entities (e.g.
@@ -125,7 +125,12 @@ You don't have to write this by hand:
 - **Palette drag-and-drop** — dragging an object onto the canvas does the
   same thing for one object at a time, and automatically adds relationship
   lines to any entity already on the canvas that it's connected to.
+- **Smart relationship linter** — if you add entities without wiring
+  relationships between them (by typing, or because you added them one at
+  a time), the editor scans their real schema and suggests any missing
+  connections between entities already on the canvas — click "+ Add" on a
+  suggestion (or "Add all") to insert the line and redraw.
 
-All three paths only ever produce DSL using the constructs described
+All of these only ever produce DSL using the constructs described
 above, so anything generated this way is still just plain text you can
 hand-edit afterwards.

@@ -431,6 +431,49 @@
 .dsl-head-btn:hover { color: var(--text-main); background: var(--bg-mid); }
 .dsl-head-btn-danger:hover { color: #ffffff; background: #c0392b; border-color: #c0392b; }
 .dsl-file-input { display: none; }
+
+/* Smart relationship linter banner */
+.rel-suggest-banner {
+    margin: 6px 10px 0;
+    padding: 8px 10px;
+    background: #1c2a1c;
+    border: 1px solid #3a5a3a;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+.rel-suggest-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: #a7d8a7;
+    margin-bottom: 6px;
+}
+.rel-suggest-head-actions { display: flex; gap: 4px; }
+.rel-suggest-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 0;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 11px;
+    color: #d4d4d4;
+}
+.rel-suggest-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rel-suggest-add {
+    background: transparent;
+    border: 1px solid #3a5a3a;
+    color: #a7d8a7;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.rel-suggest-add:hover { background: #2e4a2e; }
 .dsl-hint {
     font-size: 10px; color: var(--text-muted);
     padding: 6px 10px 2px;
@@ -560,6 +603,8 @@
 .hint-text { font-size: 11px; color: #667085; line-height: 1.5; }
 .export-field { display: flex; flex-direction: column; gap: 4px; }
 .export-label { font-size: 13px; font-weight: 600; color: #344054; }
+.export-divider { height: 1px; background: #e4e7ec; margin: 16px 0; }
+.export-mermaid-actions { display: flex; gap: 8px; margin-top: 6px; }
 .export-select {
     width: 100%; padding: 8px 10px; font-size: 13px;
     border: 1px solid #d0d5dd; border-radius: 6px;

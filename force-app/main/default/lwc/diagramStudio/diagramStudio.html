@@ -29,6 +29,15 @@
                         </select>
                     </div>
                     <p class="hint-text slds-m-top_small">The PNG will be saved to Salesforce Files and downloaded to your browser.</p>
+                    <div class="export-divider"></div>
+                    <div class="export-field">
+                        <label class="export-label">Mermaid ER Diagram</label>
+                        <p class="hint-text">Paste this straight into a GitHub README, Confluence, or Notion page — it renders as a live diagram, no image needed.</p>
+                        <div class="export-mermaid-actions">
+                            <lightning-button label="Copy Mermaid" variant="neutral" onclick={handleCopyMermaid}></lightning-button>
+                            <lightning-button label="Download .mmd" variant="neutral" onclick={handleDownloadMermaid}></lightning-button>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <lightning-button label="Cancel" variant="neutral" onclick={handleCloseExport}></lightning-button>
@@ -169,6 +178,25 @@
             </div>
             <input type="file" class="dsl-file-input" accept=".dsl,.txt" onchange={handleImportDslFile} />
             <p class="dsl-hint">Type entity / relationship lines directly — the canvas updates as you type. Suggestions appear at the cursor; use up/down then Enter or Tab to accept, Esc to dismiss.</p>
+
+            <template if:true={missingRelationshipSuggestions.length}>
+                <div class="rel-suggest-banner">
+                    <div class="rel-suggest-head">
+                        <span>💡 Possible relationships found</span>
+                        <div class="rel-suggest-head-actions">
+                            <button class="dsl-head-btn" onclick={handleAddAllSuggestions}>Add all</button>
+                            <button class="dsl-head-btn" onclick={handleDismissSuggestions} title="Dismiss">×</button>
+                        </div>
+                    </div>
+                    <template for:each={missingRelationshipSuggestions} for:item="s">
+                        <div key={s.id} class="rel-suggest-row">
+                            <span class="rel-suggest-label">{s.label}</span>
+                            <button class="rel-suggest-add" data-line={s.line} onclick={handleAddSuggestion}>+ Add</button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
             <div class="dsl-editor-wrap">
                 <textarea class="code-editor"
                           spellcheck="false"

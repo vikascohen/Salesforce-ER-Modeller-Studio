@@ -111,11 +111,14 @@ export function parseEr(text) {
     return { entities: Array.from(entities.values()), relationships };
 }
 
+function kindLabel(kind) {
+    return kind === 'master' ? 'Master-Detail' : kind === 'poly' ? 'Polymorphic Lookup' : 'Lookup';
+}
+
 function fieldLabel(f) {
     if (!f.isRelationship) return f.name;
-    const tag = f.kind === 'master' ? 'Master-Detail' : f.kind === 'poly' ? 'Polymorphic' : 'Lookup';
     const targets = f.relatesTo && f.relatesTo.length ? f.relatesTo.join(' / ') : '?';
-    return `${f.name}  → ${targets} (${tag})`;
+    return `${f.name}  → ${targets} (${kindLabel(f.kind)})`;
 }
 
 function isCustom(name) {
@@ -329,6 +332,42 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
         svgWidth: maxX + GRID_MARGIN,
         svgHeight: maxY + GRID_MARGIN
     };
+}
+
+/**
+ * Renders the parsed model as Mermaid `erDiagram` syntax — the same
+ * text you'd paste into a GitHub README, Confluence page, or Notion doc
+ * to get a live-rendered ER diagram, no image file needed.
+ *
+ * Relationship line style follows Mermaid's identifying/non-identifying
+ * convention, which maps cleanly onto Salesforce's own distinction:
+ * Master-Detail (child cannot exist without the parent) renders as a
+ * solid "identifying" line; Lookup and Polymorphic Lookup (looser
+ * coupling) render as a dashed "non-identifying" line.
+ */
+export function buildMermaidErDiagram(model) {
+    const lines = ['erDiagram'];
+
+    model.relationships.forEach((r) => {
+        const lineStyle = r.kind === 'master' ? '--' : '..';
+        const label = `${r.childField} (${kindLabel(r.kind)})`;
+        lines.push(`    ${r.parentEntity} ||${lineStyle}o{ ${r.childEntity} : "${label}"`);
+    });
+
+    model.entities.forEach((ent) => {
+        lines.push(`    ${ent.name} {`);
+        lines.push('        id Id PK');
+        ent.fields.forEach((f) => {
+            if (f.isRelationship) {
+                lines.push(`        reference ${f.name} FK`);
+            } else {
+                lines.push(`        string ${f.name}`);
+            }
+        });
+        lines.push('    }');
+    });
+
+    return lines.join('\n');
 }
 
 /**
