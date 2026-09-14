@@ -82,7 +82,7 @@ other.
 |---|---|---|
 | LWC | `diagramStudio` | The main editor — canvas, sidebar, DSL editor with intellisense, tabs, palette, import panel, export modal, zoom. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
 | LWC | `diagramViewer` | Read-only, drop it on any page and point it at a saved diagram's Id. |
-| LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, and builds the export legend. No UI, no dependencies — imported by both components above. |
+| LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` syntax. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
 | Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects and describes their fields/relationships for the import panel, palette, and DSL autocomplete. |
@@ -98,7 +98,7 @@ graph TD
     end
 
     subgraph Logic["Pure JS — no dependencies"]
-        ERL["erDiagramLogic<br/>parse DSL · lay out boxes/connectors · build legend"]
+        ERL["erDiagramLogic<br/>parse DSL · lay out boxes/connectors ·<br/>build legend · export Mermaid"]
         EXP["diagramExportUtils<br/>SVG → PNG"]
     end
 
@@ -116,7 +116,7 @@ graph TD
     DS -- "parse / render" --> ERL
     DS -- "export" --> EXP
     DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete" --> SMC
+    DS -- "describe objects,<br/>autocomplete, linter" --> SMC
 
     DV -- "render" --> ERL
     DV -- "export" --> EXP
@@ -193,7 +193,8 @@ Id" button in the studio's sidebar to grab it).
 
 5. **Ctrl/Cmd+S** or the Save button writes the diagram back to its
    `Diagram_File__c` record. Use **Export** to render a PNG — the
-   relationship legend is baked into the exported image.
+   relationship legend is baked into the exported image — or to copy/download
+   the diagram as **Mermaid syntax** for pasting into a README or wiki page.
 
 ## Notes
 
