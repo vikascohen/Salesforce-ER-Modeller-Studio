@@ -655,6 +655,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.isDirty    = true;
             this.erPositions = {};
             this.boxHeightOverrides = {};
+            this.boxWidthOverrides  = {};
+            this.dismissedSuggestionKeys = new Set();
             this.errorMessage = '';
             this.importPanelOpen = false;
             this._markTabDirty(this.activeTabId, true);
