@@ -59,7 +59,7 @@
     <!-- SCHEMA DRIFT MODAL -->
     <template if:true={driftModalOpen}>
         <div class="modal-backdrop" onclick={handleCloseDriftModal}>
-            <div class="modal-box" onclick={stopProp}>
+            <div class="modal-box modal-box-wide" onclick={stopProp}>
                 <div class="modal-header">
                     <span class="modal-title">Schema Drift Check</span>
                     <button class="modal-close" onclick={handleCloseDriftModal}>x</button>
@@ -91,14 +91,15 @@
                                 </div>
                             </template>
                             <template if:true={r.missingFields.length}>
-                                <div class="drift-section">
+                                <div class="drift-section drift-section-warn">
                                     <div class="drift-section-head">
-                                        <span class="drift-section-label drift-missing">No longer in org ({r.missingFields.length})</span>
+                                        <span class="drift-section-label drift-missing">⚠ No longer in org ({r.missingFields.length})</span>
                                     </div>
+                                    <p class="drift-missing-hint">These fields are still in the diagram, but the org doesn't have them anymore (renamed or deleted) — remove them so the diagram matches reality.</p>
                                     <template for:each={r.missingFields} for:item="f">
                                         <div key={f.id} class="drift-row">
                                             <span class="drift-field-name drift-field-stale">{f.name}</span>
-                                            <button class="drift-remove-btn" data-entity={r.entityName} data-field={f.name} onclick={handleRemoveDriftField}>Remove</button>
+                                            <button class="drift-remove-btn" data-entity={r.entityName} data-field={f.name} onclick={handleRemoveDriftField}>Remove — it's gone</button>
                                         </div>
                                     </template>
                                 </div>

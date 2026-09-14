@@ -490,6 +490,13 @@
     margin-bottom: 6px;
 }
 .drift-section { margin-top: 6px; }
+.drift-section-warn {
+    background: #fdecea;
+    border: 1px solid #f0a8a0;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+.drift-missing-hint { font-size: 10px; color: #8a2e22; line-height: 1.4; margin: 2px 0 6px; }
 .drift-section-head {
     display: flex;
     align-items: center;
@@ -501,7 +508,7 @@
 .drift-missing { color: #b42318; }
 .drift-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
     padding: 3px 0;
@@ -509,7 +516,7 @@
     font-size: 12px;
     color: #344054;
 }
-.drift-field-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drift-field-name { word-break: break-word; }
 .drift-field-stale { color: #b42318; text-decoration: line-through; text-decoration-color: #f0a8a0; }
 .drift-remove-btn {
     background: transparent;
@@ -634,13 +641,16 @@
 .modal-box {
     background: #ffffff; border-radius: 10px;
     width: 420px; max-width: 94vw;
+    max-height: 85vh;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35);
     display: flex; flex-direction: column;
 }
+.modal-box-wide { width: 560px; }
 .modal-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 16px 20px 12px;
     border-bottom: 1px solid #e4e7ec;
+    flex-shrink: 0;
 }
 .modal-title { font-size: 16px; font-weight: 700; color: #101828; }
 .modal-close {
@@ -648,7 +658,13 @@
     cursor: pointer; color: #667085; line-height: 1;
 }
 .modal-close:hover { color: #101828; }
-.modal-body { padding: 20px; }
+.modal-body {
+    padding: 20px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
 .hint-text { font-size: 11px; color: #667085; line-height: 1.5; }
 .export-field { display: flex; flex-direction: column; gap: 4px; }
 .export-label { font-size: 13px; font-weight: 600; color: #344054; }
@@ -665,6 +681,7 @@
     padding: 12px 20px;
     border-top: 1px solid #e4e7ec;
     background: #f9fafb;
+    flex-shrink: 0;
 }
 
 /* ── Context menu ── */
