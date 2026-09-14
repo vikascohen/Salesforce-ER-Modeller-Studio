@@ -130,6 +130,12 @@ You don't have to write this by hand:
   a time), the editor scans their real schema and suggests any missing
   connections between entities already on the canvas — click "+ Add" on a
   suggestion (or "Add all") to insert the line and redraw.
+- **Schema drift check** — for diagrams that have been sitting around a
+  while, click **Check Drift** in the toolbar to re-describe every entity
+  that maps to a real org object and diff it against the diagram: new
+  fields the org has that the diagram doesn't, and fields the diagram
+  still lists that the org no longer has. Each is individually addable or
+  removable, right from the results.
 
 All of these only ever produce DSL using the constructs described
 above, so anything generated this way is still just plain text you can

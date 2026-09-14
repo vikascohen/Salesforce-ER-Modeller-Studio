@@ -474,6 +474,55 @@
     flex-shrink: 0;
 }
 .rel-suggest-add:hover { background: #2e4a2e; }
+
+/* Schema drift modal */
+.drift-entity-block {
+    border: 1px solid #e4e7ec;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+.drift-entity-block:last-child { margin-bottom: 0; }
+.drift-entity-head {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1d2939;
+    margin-bottom: 6px;
+}
+.drift-section { margin-top: 6px; }
+.drift-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.drift-section-label { font-size: 11px; font-weight: 600; }
+.drift-new { color: #1a7f37; }
+.drift-missing { color: #b42318; }
+.drift-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 0;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 12px;
+    color: #344054;
+}
+.drift-field-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drift-field-stale { color: #b42318; text-decoration: line-through; text-decoration-color: #f0a8a0; }
+.drift-remove-btn {
+    background: transparent;
+    border: 1px solid #f0a8a0;
+    color: #b42318;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.drift-remove-btn:hover { background: #fdecea; }
 .dsl-hint {
     font-size: 10px; color: var(--text-muted);
     padding: 6px 10px 2px;

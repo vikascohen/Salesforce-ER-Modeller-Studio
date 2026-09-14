@@ -122,6 +122,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     dismissedSuggestionKeys = new Set();
     _relScanTimer = null;
 
+    // ── schema drift check ──
+    @track driftModalOpen = false;
+    @track driftBusy      = false;
+    @track driftChecked   = false;
+    @track driftResults   = [];
+
     // ── zoom ──
     @track zoomLevel = 1;
 
@@ -240,6 +246,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     get sidebarClass() { return this.sidebarOpen ? 'sidebar sidebar-open' : 'sidebar sidebar-closed'; }
     get toggleSidebarIcon() { return this.sidebarOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
+    get driftHasResults() { return this.driftResults && this.driftResults.length > 0; }
+    get driftNoIssues() { return this.driftChecked && !this.driftBusy && !this.driftHasResults; }
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open' : 'dsl-panel dsl-panel-closed'; }
@@ -1465,6 +1473,149 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appendDslLines(lines) {
         const trimmed = (this.sourceText || '').replace(/\s+$/, '');
         this.sourceText = (trimmed ? trimmed + '\n' : '') + lines.join('\n') + '\n';
+        this.isDirty = true;
+        this._markTabDirty(this.activeTabId, true);
+        this.renderDiagram();
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Schema drift check — re-describes every entity on canvas that
+    //  maps to a real org object, right now, and compares the FRESH
+    //  schema against what the diagram currently says, to catch fields
+    //  added/removed/renamed in the org since the diagram was authored.
+    //  Unlike the linter's cache (fetch once, reuse), this always fetches
+    //  fresh — that's the whole point — and then refreshes the shared
+    //  cache too, so intellisense/linter immediately benefit from it.
+    // ────────────────────────────────────────────────────────
+
+    handleOpenDriftCheck() {
+        this.driftModalOpen = true;
+        this.driftResults   = [];
+        this.driftChecked   = false;
+        this.checkSchemaDrift();
+    }
+
+    handleCloseDriftModal() {
+        this.driftModalOpen = false;
+    }
+
+    async checkSchemaDrift() {
+        let model;
+        try {
+            model = parseEr(this.sourceText);
+        } catch (e) {
+            this.driftModalOpen = false;
+            this.errorMessage = e.message;
+            return;
+        }
+
+        this.driftBusy = true;
+        try {
+            const entityNames = model.entities.map((e) => e.name);
+            const objects = await describeObjects({ objectApiNames: entityNames });
+            const freshByName = {};
+            (objects || []).forEach((o) => {
+                const key = o.apiName.toLowerCase();
+                freshByName[key] = o.fields;
+                this.objectFieldsCache[key] = o.fields; // refresh the shared cache too
+            });
+
+            const results = [];
+            model.entities.forEach((ent) => {
+                const fresh = freshByName[ent.name.toLowerCase()];
+                if (!fresh) return; // not a real/accessible org object — nothing to compare, skip quietly
+
+                const dslFieldNames   = new Set(ent.fields.map((f) => f.name.toLowerCase()));
+                const freshFieldNames = new Set(fresh.map((f) => f.apiName.toLowerCase()));
+
+                const newFields     = fresh.filter((f) => !dslFieldNames.has(f.apiName.toLowerCase()));
+                const missingFields = ent.fields.filter((f) => !freshFieldNames.has(f.name.toLowerCase()));
+
+                if (newFields.length || missingFields.length) {
+                    results.push({
+                        entityName: ent.name,
+                        newFields: newFields.map((f) => ({ id: ent.name + '-new-' + f.apiName, name: f.apiName })),
+                        missingFields: missingFields.map((f) => ({ id: ent.name + '-miss-' + f.name, name: f.name }))
+                    });
+                }
+            });
+
+            this.driftResults = results;
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        } finally {
+            this.driftBusy    = false;
+            this.driftChecked = true;
+        }
+    }
+
+    handleAddDriftField(event) {
+        const entityName = event.currentTarget.dataset.entity;
+        const fieldName  = event.currentTarget.dataset.field;
+        this.addFieldToEntity(entityName, fieldName);
+        this.removeDriftEntry(entityName, 'newFields', fieldName);
+    }
+
+    handleAddAllDriftFields(event) {
+        const entityName = event.currentTarget.dataset.entity;
+        const result = this.driftResults.find((r) => r.entityName === entityName);
+        if (!result) return;
+        result.newFields.forEach((f) => this.addFieldToEntity(entityName, f.name, /* skipRender */ true));
+        this.renderDiagram();
+        this.driftResults = this.driftResults
+            .map((r) => (r.entityName === entityName ? { ...r, newFields: [] } : r))
+            .filter((r) => r.newFields.length || r.missingFields.length);
+    }
+
+    handleRemoveDriftField(event) {
+        const entityName = event.currentTarget.dataset.entity;
+        const fieldName  = event.currentTarget.dataset.field;
+        this.removeFieldFromEntity(entityName, fieldName);
+        this.removeDriftEntry(entityName, 'missingFields', fieldName);
+    }
+
+    removeDriftEntry(entityName, key, fieldName) {
+        this.driftResults = this.driftResults
+            .map((r) => {
+                if (r.entityName !== entityName) return r;
+                return { ...r, [key]: r[key].filter((f) => f.name !== fieldName) };
+            })
+            .filter((r) => r.newFields.length || r.missingFields.length);
+    }
+
+    addFieldToEntity(entityName, fieldName, skipRender) {
+        const lines = this.sourceText.split('\n');
+        let found = false;
+        for (let i = 0; i < lines.length; i++) {
+            const m = lines[i].match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)?(.*)$/i);
+            if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
+                found = true;
+                const existing = (m[4] || '').trim();
+                lines[i] = `${m[1]}${m[2]} : ${existing ? existing + ', ' : ''}${fieldName}`;
+                break;
+            }
+        }
+        if (!found) lines.push(`entity ${entityName} : ${fieldName}`);
+        this.sourceText = lines.join('\n');
+        this.isDirty = true;
+        this._markTabDirty(this.activeTabId, true);
+        if (!skipRender) this.renderDiagram();
+    }
+
+    removeFieldFromEntity(entityName, fieldName) {
+        const lines = this.sourceText.split('\n').map((line) => {
+            const m = line.match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)(.*)$/i);
+            if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
+                const remaining = m[4].split(',').map((f) => f.trim()).filter((f) => f && f.toLowerCase() !== fieldName.toLowerCase());
+                return remaining.length ? `${m[1]}${m[2]}${m[3]}${remaining.join(', ')}` : `${m[1]}${m[2]}`;
+            }
+            return line;
+        }).filter((line) => {
+            const t = line.trim();
+            const rm = t.match(/^([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*(=>|~>|->)/);
+            return !(rm && rm[1].toLowerCase() === entityName.toLowerCase() && rm[2].toLowerCase() === fieldName.toLowerCase());
+        });
+        this.sourceText = lines.join('\n');
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         this.renderDiagram();

@@ -56,6 +56,64 @@
         </div>
     </template>
 
+    <!-- SCHEMA DRIFT MODAL -->
+    <template if:true={driftModalOpen}>
+        <div class="modal-backdrop" onclick={handleCloseDriftModal}>
+            <div class="modal-box" onclick={stopProp}>
+                <div class="modal-header">
+                    <span class="modal-title">Schema Drift Check</span>
+                    <button class="modal-close" onclick={handleCloseDriftModal}>x</button>
+                </div>
+                <div class="modal-body">
+                    <template if:true={driftBusy}>
+                        <p class="hint-text">Re-checking against the org's current schema…</p>
+                    </template>
+                    <template if:true={driftNoIssues}>
+                        <p class="hint-text">No drift found — every entity on this canvas that maps to a real object matches the org's current schema. (Hand-typed or fictional entities are skipped silently, since there's nothing in the org to compare them against.)</p>
+                    </template>
+                    <template for:each={driftResults} for:item="r">
+                        <div key={r.entityName} class="drift-entity-block">
+                            <div class="drift-entity-head">
+                                <span>{r.entityName}</span>
+                            </div>
+                            <template if:true={r.newFields.length}>
+                                <div class="drift-section">
+                                    <div class="drift-section-head">
+                                        <span class="drift-section-label drift-new">+ New in org ({r.newFields.length})</span>
+                                        <button class="dsl-head-btn" data-entity={r.entityName} onclick={handleAddAllDriftFields}>Add all</button>
+                                    </div>
+                                    <template for:each={r.newFields} for:item="f">
+                                        <div key={f.id} class="drift-row">
+                                            <span class="drift-field-name">{f.name}</span>
+                                            <button class="rel-suggest-add" data-entity={r.entityName} data-field={f.name} onclick={handleAddDriftField}>+ Add</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template if:true={r.missingFields.length}>
+                                <div class="drift-section">
+                                    <div class="drift-section-head">
+                                        <span class="drift-section-label drift-missing">No longer in org ({r.missingFields.length})</span>
+                                    </div>
+                                    <template for:each={r.missingFields} for:item="f">
+                                        <div key={f.id} class="drift-row">
+                                            <span class="drift-field-name drift-field-stale">{f.name}</span>
+                                            <button class="drift-remove-btn" data-entity={r.entityName} data-field={f.name} onclick={handleRemoveDriftField}>Remove</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+                <div class="modal-footer">
+                    <lightning-button label="Close" variant="neutral" onclick={handleCloseDriftModal}></lightning-button>
+                    <lightning-button label="Re-check" variant="brand" disabled={driftBusy} onclick={handleOpenDriftCheck}></lightning-button>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- TOP MENU BAR -->
     <div class="menu-bar">
         <span class="app-logo">ER</span>
@@ -78,6 +136,7 @@
         <button class="tb-btn" onclick={handleToggleImport}>Import</button>
         <button class="tb-btn" onclick={handleOpenExport}>Export</button>
         <button class="tb-btn" onclick={handleAutoLayout} title="Reset all positions and sizes to an automatic grid layout">Auto Layout</button>
+        <button class="tb-btn" onclick={handleOpenDriftCheck} title="Re-check the org's real schema against this diagram for added/removed fields">Check Drift</button>
         <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
