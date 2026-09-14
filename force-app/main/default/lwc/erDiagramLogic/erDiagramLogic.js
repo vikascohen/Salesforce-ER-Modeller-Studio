@@ -299,6 +299,8 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
 
         return {
             key: 'rel-' + i,
+            childEntity: r.childEntity,
+            parentEntity: r.parentEntity,
             d: route.d,
             midX: route.midX,
             midY: route.midY - 8,

@@ -48,7 +48,10 @@ result, nothing leaves your machine.
   has to entities already on the canvas).
 - **Freeform canvas** — drag boxes to reposition them, resize the height
   or width of a box, collapse long field lists, zoom in/out, or hit
-  **Auto Layout** to snap everything back to an automatic grid.
+  **Auto Layout** to snap everything back to an automatic grid. Click any
+  entity's header to enter **Focus mode** — everything except that entity
+  and its direct relationships fades out, so a dense diagram instantly
+  becomes readable; click it again (or click empty canvas) to release.
 - **Multi-file workspace** — a VS Code–style tab strip and sidebar file
   list; open several diagrams at once, rename, duplicate, or delete them.
 - **Export** — render the current diagram to PNG at native size, A4

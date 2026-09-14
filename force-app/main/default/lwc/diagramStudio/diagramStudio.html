@@ -349,11 +349,11 @@
                      onpointermove={handleSvgPointerMove}
                      onpointerup={handleSvgPointerUp}>
 
-                    <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#f4f6f9"></rect>
+                    <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#f4f6f9" onclick={handleCanvasBackgroundClick}></rect>
 
                     <!-- Connectors rendered under boxes -->
-                    <template for:each={erConnectors} for:item="c">
-                        <g key={c.key}>
+                    <template for:each={connectorsView} for:item="c">
+                        <g key={c.key} opacity={c.connOpacity} class="conn-group">
                             <path d={c.d} fill="none" stroke="rgba(0,0,0,0)" stroke-width="10"></path>
                             <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
                             <text x={c.midX} y={c.midY} text-anchor="middle" font-size="10" class="conn-label" fill={c.stroke}>{c.label}</text>
@@ -368,12 +368,13 @@
                     <template for:each={erBoxes} for:item="b">
                         <g key={b.name}
                            data-name={b.name}
+                           opacity={b.boxOpacity}
                            class="entity-group">
 
                             <!-- Shadow -->
                             <rect x={b.shadowX} y={b.shadowY} width={b.width} height={b.height} rx="7" fill="#c8cdd6"></rect>
                             <!-- Body -->
-                            <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill="#ffffff" stroke="#d0d5dd" stroke-width="1.5"></rect>
+                            <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill="#ffffff" stroke={b.boxStroke} stroke-width={b.boxStrokeWidth}></rect>
                             <!-- Header drag handle -->
                             <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown}></rect>
                             <!-- Header bottom strip (covers rounded corners gap) -->

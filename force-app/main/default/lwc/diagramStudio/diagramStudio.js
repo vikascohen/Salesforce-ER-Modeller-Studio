@@ -91,6 +91,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     draggingEntity    = null;
     dragOffsetX       = 0;
     dragOffsetY       = 0;
+    @track focusedEntity = null;
+    _clickCandidateName  = null;
+    _clickStartX = 0;
+    _clickStartY = 0;
     resizingEntity    = null;
     resizeStartY      = 0;
     resizeStartHeight = 0;
@@ -210,10 +214,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     get erBoxes() {
         if (!this._erBoxes) return [];
+        const focused = this.focusedEntity ? this.focusedEntity.toLowerCase() : null;
+        let neighborNames = null;
+        if (focused) {
+            neighborNames = new Set([focused]);
+            (this.erConnectors || []).forEach((c) => {
+                if (c.childEntity.toLowerCase() === focused) neighborNames.add(c.parentEntity.toLowerCase());
+                if (c.parentEntity.toLowerCase() === focused) neighborNames.add(c.childEntity.toLowerCase());
+            });
+        }
         return this._erBoxes.map((b) => {
             const pkFields    = b.fields.filter((f) => f.isPrimaryKey);
             const relFields   = b.fields.filter((f) => f.isRelationship);
             const plainFields = b.fields.filter((f) => f.isPlain);
+            const isFocused   = !!focused && b.name.toLowerCase() === focused;
+            const boxOpacity  = neighborNames && !neighborNames.has(b.name.toLowerCase()) ? '0.15' : '1';
             return {
                 ...b,
                 pkFields,
@@ -234,8 +249,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 resizeLineY:     b.y + b.height - 2,
                 resizeRightX:    b.x + b.width - 6,
                 resizeRightY:    b.y,
-                resizeRightHeight: b.height
+                resizeRightHeight: b.height,
+                boxOpacity,
+                boxStroke:      isFocused ? '#f5a623' : '#d0d5dd',
+                boxStrokeWidth: isFocused ? '3' : '1.5'
             };
+        });
+    }
+
+    get connectorsView() {
+        const focused = this.focusedEntity ? this.focusedEntity.toLowerCase() : null;
+        return (this.erConnectors || []).map((c) => {
+            const isFocusRelated = !focused || c.childEntity.toLowerCase() === focused || c.parentEntity.toLowerCase() === focused;
+            return { ...c, connOpacity: isFocusRelated ? '1' : '0.1' };
         });
     }
 
@@ -292,6 +318,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.boxWidthOverrides  = {};
         this.sourceText   = '';
         this.dismissedSuggestionKeys = new Set();
+        this.focusedEntity = null;
         this.resetEmptyCanvas();
         this.svgWidth  = 1600;
         this.svgHeight = 900;
@@ -347,6 +374,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dslSuggestOpen = false;
         this.missingRelationshipSuggestions = [];
         this.dismissedSuggestionKeys = new Set();
+        this.focusedEntity = null;
         this.resetEmptyCanvas();
         this._addTab({ id: tabId, name: this.fileName, dirty: false, isUnsaved: true });
         this._activateTabId(tabId);
@@ -558,6 +586,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.isDirty    = false;
                 this.errorMessage = '';
                 this.dismissedSuggestionKeys = new Set();
+                this.focusedEntity = null;
                 this.renderDiagram();
                 this._addTab({ id: rec.Id, name: rec.Name, dirty: false, isUnsaved: false });
                 this._activateTabId(rec.Id);
@@ -665,6 +694,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.boxHeightOverrides = {};
             this.boxWidthOverrides  = {};
             this.dismissedSuggestionKeys = new Set();
+            this.focusedEntity = null;
             this.errorMessage = '';
             this.importPanelOpen = false;
             this._markTabDirty(this.activeTabId, true);
@@ -910,6 +940,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const box  = this._erBoxes && this._erBoxes.find((b) => b.name === name);
         if (!box) return;
         this.draggingEntity = name;
+        this._clickCandidateName = name;
+        this._clickStartX = event.clientX;
+        this._clickStartY = event.clientY;
         // Capture on the SVG so pointermove fires even when cursor leaves the box
         const svg = this.template.querySelector('svg[data-role="er-svg"]');
         svg.setPointerCapture(event.pointerId);
@@ -938,10 +971,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // Called from SVG onpointerup / onpointerleave
     handleSvgPointerUp(event) {
+        const wasDraggingBox = !!this.draggingEntity;
         if (this.draggingEntity || this.resizingEntity) {
             const svg = this.template.querySelector('svg[data-role="er-svg"]');
             try { svg.releasePointerCapture(event.pointerId); } catch (_) {}
         }
+        // Distinguish a click (toggle focus) from a drag (position already moved) —
+        // only counts as a click if the pointer barely moved between down and up.
+        if (wasDraggingBox && this._clickCandidateName) {
+            const dx = event.clientX - this._clickStartX;
+            const dy = event.clientY - this._clickStartY;
+            if (Math.sqrt(dx * dx + dy * dy) < 4) {
+                this.toggleFocusEntity(this._clickCandidateName);
+            }
+        }
+        this._clickCandidateName = null;
         this.draggingEntity  = null;
         this.resizingEntity  = null;
     }
@@ -949,6 +993,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // Keep these stubs so old html attribute references don't error
     handleBoxPointerMove() {}
     handleBoxPointerUp()   {}
+
+    // ────────────────────────────────────────────────────────
+    //  Focus mode — click an entity to fade everything except it and
+    //  its direct relationships; click empty canvas to release.
+    // ────────────────────────────────────────────────────────
+
+    toggleFocusEntity(name) {
+        this.focusedEntity = this.focusedEntity === name ? null : name;
+    }
+
+    handleCanvasBackgroundClick() {
+        this.focusedEntity = null;
+    }
 
     // ────────────────────────────────────────────────────────
     //  Box resize — also captured on SVG
@@ -1094,6 +1151,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.boxHeightOverrides = {};
             this.boxWidthOverrides  = {};
             this.dismissedSuggestionKeys = new Set();
+            this.focusedEntity = null;
             this.isDirty = true;
             this._markTabDirty(this.activeTabId, true);
             this.renderDiagram(); // parses + draws, and sets errorMessage on failure

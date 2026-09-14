@@ -361,6 +361,9 @@
 .resize-handle-right { cursor: ew-resize; }
 .no-select { user-select: none; pointer-events: none; }
 
+/* Focus mode — smooth fade instead of a hard jump when opacity changes */
+.entity-group, .conn-group { transition: opacity 0.18s ease; }
+
 /* connector label halo */
 .conn-label {
     paint-order: stroke;
