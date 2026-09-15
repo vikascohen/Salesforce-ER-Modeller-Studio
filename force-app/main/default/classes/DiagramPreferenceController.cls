@@ -13,7 +13,12 @@
  */
 public with sharing class DiagramPreferenceController {
 
-    @AuraEnabled(cacheable=true)
+    // Deliberately NOT cacheable — this is called once per page load, and a
+    // client-side cached result (from before the user ever had a saved
+    // preference) could otherwise keep winning over a theme saved after
+    // that first load, which would look exactly like "my theme choice
+    // never sticks."
+    @AuraEnabled
     public static String getTheme() {
         Diagram_Studio_Pref__c pref = Diagram_Studio_Pref__c.getInstance(UserInfo.getUserId());
         return (pref != null) ? pref.Theme__c : null;

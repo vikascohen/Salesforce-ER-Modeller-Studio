@@ -87,9 +87,14 @@ describe('c-diagram-studio', () => {
 
     it('lists saved diagrams from the listFiles wire adapter in the sidebar', async () => {
         const el = createStudio();
+        // Shape matches DiagramFileController.FileSummary exactly (id/name/
+        // diagramType/lastModified) -- not raw SObject field names. Using
+        // the wrong shape here previously left every row's key undefined,
+        // which is exactly what triggered LWC's "Invalid key attribute
+        // value... item number 0" warning in this test.
         listFilesAdapter.emit([
-            { Id: 'a01', Name: 'Sales Model', LastModifiedDate: '2026-01-01T00:00:00Z' },
-            { Id: 'a02', Name: 'Service Model', LastModifiedDate: '2026-01-02T00:00:00Z' }
+            { id: 'a01', name: 'Sales Model', diagramType: 'ER', lastModified: '2026-01-01T00:00:00.000Z' },
+            { id: 'a02', name: 'Service Model', diagramType: 'ER', lastModified: '2026-01-02T00:00:00.000Z' }
         ]);
         await flushPromises();
 
@@ -364,6 +369,44 @@ describe('c-diagram-studio', () => {
             const rows = el.shadowRoot.querySelectorAll('.dict-field-row td:first-child');
             expect(rows[0].textContent).toBe('Zebra__c');
             expect(rows[1].textContent).toBe('Amount__c');
+        });
+
+        it('menu buttons remain functional after selecting an object, clearing it, and closing the dictionary', async () => {
+            describeObjectsForDictionary.mockResolvedValue([
+                { apiName: 'Case', label: 'Case', isCustom: false, fields: [{ apiName: 'Subject', isPrimaryKey: false }] }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Case']);
+            await flushPromises();
+            await openObjectNamed(el, 'Case');
+            await flushPromises();
+
+            const clearBtn = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn')).find(
+                (b) => b.textContent === 'Clear Selection'
+            );
+            clearBtn.click();
+            await flushPromises();
+
+            // Close the dictionary (Back to Diagram)
+            const backBtn = el.shadowRoot.querySelector('.dict-back-btn');
+            expect(backBtn).not.toBeNull();
+            backBtn.click();
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.dict-overlay')).toBeNull();
+
+            // Now try the File menu
+            const fileMenuBtn = el.shadowRoot.querySelector('[data-menu="file"]');
+            fileMenuBtn.click();
+            await flushPromises();
+
+            const dropdown = el.shadowRoot.querySelector('.dd-menu-dropdown');
+            expect(dropdown).not.toBeNull();
+            const newItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+                i.textContent.includes('New')
+            );
+            expect(newItem).toBeDefined();
         });
     });
 });

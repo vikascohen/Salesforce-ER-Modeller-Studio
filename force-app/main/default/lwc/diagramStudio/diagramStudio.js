@@ -749,9 +749,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get themeSelectValue() { return this.currentTheme; }
     handleThemeChange(event) {
         this.currentTheme = event.target.value;
-        saveTheme({ theme: this.currentTheme }).catch(() => {
-            // Non-critical — the theme still applies for this session even
-            // if persisting it for next time silently failed.
+        saveTheme({ theme: this.currentTheme }).catch((e) => {
+            // The theme still applies for this session either way — but
+            // surface the failure rather than swallowing it silently, since
+            // a silent failure here looks identical to "my theme choice
+            // never sticks," which is exactly the bug this is meant to catch.
+            this.errorMessage = 'Theme applied, but saving it for next time failed: ' + this.reduceError(e);
         });
     }
     get fileMenuOpen()    { return this.openMenu === 'file'; }
