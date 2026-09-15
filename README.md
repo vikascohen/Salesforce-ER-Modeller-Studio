@@ -8,7 +8,7 @@ with access.
 
 ## Contents
 
-- [One-click deploy](#one-click-deploy)
+- [Installing](#installing)
 - [What it does](#what-it-does)
   - [Modeling the diagram](#modeling-the-diagram)
   - [Org-aware views](#org-aware-views)
@@ -26,7 +26,15 @@ with access.
 - [License](#license)
 - [Contributing](#contributing)
 
-## One-click deploy
+## Installing
+
+Two ways to get this into an org: **unmanaged** (deploys the raw source
+straight into your org — you own and can edit every component) or
+**managed package** (installs a versioned, packaged build — cleaner
+upgrades, but you can't edit the managed components directly). Pick
+whichever fits how you plan to use it.
+
+### Unmanaged (available now)
 
 <a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
   <img alt="Deploy to Salesforce"
@@ -50,6 +58,25 @@ it's a third-party OAuth flow, only use it with orgs and repos you trust;
 if you'd rather not grant OAuth access at all, use the
 [`sf project deploy start`](#deploying-to-an-org) route below instead —
 same result, nothing leaves your machine.
+
+### Managed package (not available yet)
+
+There's no managed package for this project yet. A managed package
+requires the maintainer to register a namespace against a Dev Hub they
+control and to build/upload package versions through it — this repo's
+`sfdx-project.json` has no namespace registered
+(`"namespace": ""`), so there's nothing to install as managed today, and
+that's not something that can be set up from outside the maintainer's own
+org.
+
+If you're the maintainer and want to offer one: register a namespace,
+convert `sfdx-project.json` to a `packageAliases`/versioned package
+config, and run `sf package version create` — once you have a package
+version Id (`04t...`), drop the resulting install link here and this
+section is ready to hold it. Happy to help write out those exact
+commands, or update this section the moment a real install link exists —
+just not able to generate the namespace/package itself without access to
+the org that would own it.
 
 ## What it does
 
