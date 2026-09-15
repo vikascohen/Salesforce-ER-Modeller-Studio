@@ -62,6 +62,24 @@ result, nothing leaves your machine.
   across several Setup pages, now visible directly on the diagram. Scope
   is deliberately narrow: internal OWD only, not external/community
   sharing, sharing rules, or role hierarchy.
+- **Data Dictionary** — a full-screen tab (toggle **Data Dictionary** in
+  the toolbar), separate from the canvas, for browsing every accessible
+  object in the org: search or scroll the list on the left, and the right
+  shows a full field-level table — label, description, data type,
+  required, custom, primary key, foreign key (and which object it points
+  to), and when Setup shows it. **Description** and **last-modified date**
+  come from `FieldDefinition`, metadata the regular describe API doesn't
+  expose at all. Field **% Used** (how many existing records have a
+  non-blank value) is a genuine data scan, so it's opt-in per object via
+  a **Calculate Usage %** button rather than automatic — deliberately, to
+  keep browsing the dictionary instant. Export the current object to CSV
+  or a real `.xlsx`, or **Export All** as one workbook with every object
+  on its own tab (bulk export skips % Used, to stay fast and safely inside
+  governor limits across potentially hundreds of objects). Right-click
+  any entity on the ER canvas → **View in Data Dictionary** jumps straight
+  to that object's table. The dictionary always re-fetches live — nothing
+  about it is cached beyond the object *name* list, which barely changes
+  and is already loaded for the palette anyway.
 - **Multi-file workspace** — a VS Code–style tab strip and sidebar file
   list; open several diagrams at once, rename, duplicate, or delete them.
 - **Export** — render the current diagram to PNG at native size, A4
@@ -104,13 +122,14 @@ other.
 
 | Type | Name | Purpose |
 |---|---|---|
-| LWC | `diagramStudio` | The main editor — canvas, sidebar, DSL editor with intellisense, tabs, palette, import panel, export modal, zoom. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
+| LWC | `diagramStudio` | The main editor — canvas, sidebar, DSL editor with intellisense, tabs, palette, import panel, export modal, zoom, Data Dictionary. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
 | LWC | `diagramViewer` | Read-only, drop it on any page and point it at a saved diagram's Id. |
 | LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects, describes their fields/relationships for the import panel/palette/autocomplete, and reads each object's org-wide default sharing model for Sharing View. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, org-wide default sharing model for Sharing View, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
+| Static Resource | `sheetjs` | [SheetJS](https://www.npmjs.com/package/xlsx) (Apache-2.0), bundled for real client-side `.xlsx` generation — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Only loaded on first use of an Excel export. |
 
 ## Architecture
 
@@ -140,7 +159,7 @@ graph TD
     DS -- "parse / render" --> ERL
     DS -- "export" --> EXP
     DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing" --> SMC
+    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>data dictionary" --> SMC
 
     DV -- "render" --> ERL
     DV -- "export" --> EXP
@@ -229,6 +248,13 @@ Id" button in the studio's sidebar to grab it).
 - Diagrams are plain text under the hood (`Source_Code__c`), so they diff
   and version cleanly if you ever want to track them outside Salesforce
   too.
+- Sharing View and the Data Dictionary's description/last-modified
+  columns read from `EntityDefinition`/`FieldDefinition` — Salesforce's
+  metadata catalog, not the regular describe API. Visibility into these
+  generally requires **View Setup and Configuration** (most System
+  Administrator-type profiles have it by default). If a user lacks it,
+  both features degrade gracefully — sharing badges just won't show, and
+  those two columns show blank — rather than erroring.
 
 ## Author
 
@@ -236,7 +262,7 @@ Vikas Cohen- Passionate transhumanist and a programmer when get extremely bored.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Free to use, modify, and distribute; just keep the copyright notice.
+MIT — see [LICENSE](LICENSE). Free to use, modify, and distribute; just keep the copyright notice. Bundles one third-party library (SheetJS, Apache-2.0) — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Contributing
 

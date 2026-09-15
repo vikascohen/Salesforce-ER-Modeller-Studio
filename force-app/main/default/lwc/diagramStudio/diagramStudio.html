@@ -11,6 +11,13 @@
         </div>
     </template>
 
+    <!-- CANVAS ENTITY CONTEXT MENU -->
+    <template if:true={canvasCtxMenu}>
+        <div class="ctx-menu" style={canvasCtxMenuStyle}>
+            <div class="ctx-item" onclick={handleCanvasCtxGoToDictionary}>View in Data Dictionary</div>
+        </div>
+    </template>
+
     <!-- EXPORT MODAL -->
     <template if:true={exportModalOpen}>
         <div class="modal-backdrop" onclick={handleCloseExport}>
@@ -140,6 +147,7 @@
         <button class="tb-btn" onclick={handleAutoLayout} title="Reset all positions and sizes to an automatic grid layout">Auto Layout</button>
         <button class="tb-btn" onclick={handleOpenDriftCheck} title="Compare this diagram's fields against the org's current schema">Compare with Org</button>
         <button class={sharingToggleClass} onclick={handleToggleSharingView} title="Badge each object with its org-wide default sharing model">Sharing View</button>
+        <button class={dictionaryToggleClass} onclick={handleToggleDictionary} title="Browse every org object with full field-level detail, exportable to Excel">Data Dictionary</button>
         <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
@@ -378,7 +386,7 @@
                             <!-- Body -->
                             <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill="#ffffff" stroke={b.boxStroke} stroke-width={b.boxStrokeWidth}></rect>
                             <!-- Header drag handle -->
-                            <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown}></rect>
+                            <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown} oncontextmenu={handleEntityContextMenu}></rect>
                             <!-- Header bottom strip (covers rounded corners gap) -->
                             <rect x={b.x} y={b.headerBodyY} width={b.width} height="10" fill={b.headerFill}></rect>
                             <!-- Entity name -->
@@ -454,5 +462,102 @@
         </div>
 
     </div>
+
+    <!-- DATA DICTIONARY -->
+    <template if:true={dictionaryOpen}>
+        <div class={dictionaryPanelClass}>
+            <div class="dict-header">
+                <span class="dict-title">Data Dictionary</span>
+                <div class="dict-header-actions">
+                    <button class="dsl-head-btn" onclick={handleToggleDictionaryFullScreen}>{dictionaryFullScreenLabel}</button>
+                    <button class="modal-close" onclick={handleCloseDictionary}>x</button>
+                </div>
+            </div>
+            <div class="dict-body">
+                <!-- Left: object list -->
+                <div class="dict-list-pane">
+                    <input type="text"
+                           class="dict-search-input"
+                           placeholder="Search objects..."
+                           value={dictionarySearch}
+                           oninput={handleDictionarySearchInput} />
+                    <p class="dict-list-count">{dictionaryObjectCount} objects</p>
+                    <div class="dict-obj-list">
+                        <template for:each={dictionaryObjectList} for:item="o">
+                            <div key={o.name} class={o.rowClass} data-name={o.name} onclick={handleSelectDictionaryObject}>{o.name}</div>
+                        </template>
+                    </div>
+                    <div class="dict-list-footer">
+                        <button class="tb-btn tb-btn-primary" disabled={dictionaryExportAllBusy} onclick={handleExportAllDictionary}>Export All to Excel</button>
+                        <template if:true={dictionaryExportAllBusy}>
+                            <p class="dict-export-progress">{dictionaryExportAllProgress}</p>
+                        </template>
+                        <p class="hint-text">Bulk export includes every field's metadata but not % Used — that's a live data scan, run per-object only, to keep bulk export fast and safe.</p>
+                    </div>
+                </div>
+
+                <!-- Right: selected object detail -->
+                <div class="dict-detail-pane">
+                    <template if:false={dictionaryHasSelection}>
+                        <div class="dict-empty-state">
+                            <p class="hint-text">Select an object on the left to see its field-level detail here.</p>
+                        </div>
+                    </template>
+                    <template if:true={dictionaryLoading}>
+                        <p class="hint-text">Loading {dictionarySelectedObject}...</p>
+                    </template>
+                    <template if:true={dictionaryHasSelection}>
+                        <div class="dict-detail-head">
+                            <div>
+                                <span class="dict-detail-title">{dictionaryRow.apiName}</span>
+                                <span class="dict-detail-sub">{dictionaryRow.label} &middot; {dictionaryObjectTypeText} &middot; {dictionaryFieldCount} fields</span>
+                            </div>
+                            <div class="dict-detail-actions">
+                                <button class="dsl-head-btn" disabled={dictionaryUsagePending} onclick={handleCalculateUsage}>{dictionaryCalcUsageLabel}</button>
+                                <button class="dsl-head-btn" onclick={handleExportDictionaryCsv}>Export CSV</button>
+                                <button class="dsl-head-btn" disabled={dictionaryExportBusy} onclick={handleExportDictionaryXlsx}>Export Excel</button>
+                            </div>
+                        </div>
+                        <div class="dict-table-wrap">
+                            <table class="dict-table">
+                                <thead>
+                                    <tr>
+                                        <th>Field</th>
+                                        <th>Label</th>
+                                        <th>Description</th>
+                                        <th>Data Type</th>
+                                        <th>Required</th>
+                                        <th>Custom</th>
+                                        <th>PK</th>
+                                        <th>FK</th>
+                                        <th>FK To</th>
+                                        <th>Last Modified</th>
+                                        <th>% Used</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={dictionaryFieldRows} for:item="f">
+                                        <tr key={f.key} class={f.rowClass}>
+                                            <td>{f.apiName}</td>
+                                            <td>{f.label}</td>
+                                            <td>{f.description}</td>
+                                            <td>{f.dataType}</td>
+                                            <td>{f.requiredText}</td>
+                                            <td>{f.customText}</td>
+                                            <td>{f.pkText}</td>
+                                            <td>{f.fkText}</td>
+                                            <td>{f.fkTarget}</td>
+                                            <td>{f.lastModified}</td>
+                                            <td>{f.usageText}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </template>
 </div>
 </template>

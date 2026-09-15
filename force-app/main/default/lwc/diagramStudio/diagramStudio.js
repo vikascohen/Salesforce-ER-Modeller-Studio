@@ -3,6 +3,8 @@
  */
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import { loadScript } from 'lightning/platformResourceLoader';
+import SHEETJS from '@salesforce/resourceUrl/sheetjs';
 import { refreshApex } from '@salesforce/apex';
 import listFiles      from '@salesforce/apex/DiagramFileController.listFiles';
 import getFile        from '@salesforce/apex/DiagramFileController.getFile';
@@ -13,6 +15,8 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
+import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
+import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
 
@@ -140,6 +144,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track sharingViewOn = false;
     @track sharingModels = {}; // lowercased apiName -> raw InternalSharingModel string
     _sharingFetchTimer = null;
+
+    // ── data dictionary ──
+    @track dictionaryOpen       = false;
+    @track dictionaryFullScreen = true;
+    @track dictionarySearch     = '';
+    @track dictionarySelectedObject = null;
+    @track dictionaryRow        = null;  // ObjectWrap for the selected object
+    @track dictionaryLoading    = false;
+    @track dictionaryUsagePending  = false;
+    @track dictionaryUsageComputed = false;
+    @track dictionaryExportBusy    = false;
+    @track dictionaryExportAllBusy = false;
+    @track dictionaryExportAllProgress = '';
+    @track canvasCtxMenu = null; // { x, y, entityName }
+    sheetJsLoaded = false;
+    sheetJsLoadPromise = null;
 
     // ────────────────────────────────────────────────────────
     //  Lifecycle
@@ -289,6 +309,50 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get driftHasResults() { return this.driftResults && this.driftResults.length > 0; }
     get driftNoIssues() { return this.driftChecked && !this.driftBusy && !this.driftHasResults; }
     get sharingToggleClass() { return this.sharingViewOn ? 'tb-btn tb-btn-active' : 'tb-btn'; }
+    get dictionaryToggleClass() { return this.dictionaryOpen ? 'tb-btn tb-btn-active' : 'tb-btn'; }
+
+    // ── data dictionary ──
+    get dictionaryObjectList() {
+        const q = (this.dictionarySearch || '').trim().toLowerCase();
+        const source = this.paletteObjects || [];
+        const list = q ? source.filter((n) => n.toLowerCase().includes(q)) : source;
+        return list.map((n) => ({
+            name: n,
+            rowClass: (this.dictionarySelectedObject && this.dictionarySelectedObject.toLowerCase() === n.toLowerCase())
+                ? 'dict-obj-row dict-obj-row-active'
+                : 'dict-obj-row'
+        }));
+    }
+    get dictionaryObjectCount() { return this.dictionaryObjectList.length; }
+    get dictionaryHasSelection() { return !!this.dictionaryRow; }
+    get dictionaryPanelClass() { return this.dictionaryFullScreen ? 'dict-overlay dict-fullscreen' : 'dict-overlay'; }
+    get dictionaryFullScreenIcon() { return this.dictionaryFullScreen ? 'utility:contract_alt' : 'utility:expand_alt'; }
+    get dictionaryFullScreenLabel() { return this.dictionaryFullScreen ? 'Restore' : 'Full Screen'; }
+    get dictionaryObjectTypeText() { return this.dictionaryRow && this.dictionaryRow.isCustom ? 'Custom Object' : 'Standard Object'; }
+    get dictionaryFieldCount() { return this.dictionaryRow && this.dictionaryRow.fields ? this.dictionaryRow.fields.length : 0; }
+    get dictionaryCalcUsageLabel() { return this.dictionaryUsageComputed ? 'Recalculate Usage %' : 'Calculate Usage %'; }
+    get dictionaryFieldRows() {
+        if (!this.dictionaryRow || !this.dictionaryRow.fields) return [];
+        return this.dictionaryRow.fields.map((f) => ({
+            key: f.apiName,
+            apiName: f.apiName,
+            label: f.label || '',
+            description: f.description || '—',
+            dataType: f.dataType || '',
+            requiredText: f.required ? 'Yes' : 'No',
+            customText: f.isCustom ? 'Yes' : 'No',
+            pkText: f.isPrimaryKey ? 'Yes' : 'No',
+            fkText: f.isRelationship ? 'Yes' : 'No',
+            fkTarget: f.isRelationship ? (f.relatesTo || '—') : '—',
+            lastModified: f.lastModifiedDate || '—',
+            usageText: f.percentUsed != null ? (Math.round(f.percentUsed * 10) / 10 + '%') : (this.dictionaryUsageComputed ? 'N/A' : '—'),
+            rowClass: f.isPrimaryKey ? 'dict-field-row dict-field-pk' : 'dict-field-row'
+        }));
+    }
+    get canvasCtxMenuStyle() {
+        if (!this.canvasCtxMenu) return '';
+        return `left:${this.canvasCtxMenu.x}px;top:${this.canvasCtxMenu.y}px`;
+    }
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open' : 'dsl-panel dsl-panel-closed'; }
@@ -535,6 +599,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleGlobalClick() {
         if (this.ctxMenu) this.ctxMenu = null;
+        if (this.canvasCtxMenu) this.canvasCtxMenu = null;
     }
 
     // ────────────────────────────────────────────────────────
@@ -1163,6 +1228,203 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             ControlledByLeadOrContact: { code: 'CL',  color: '#0070d2', label: 'Controlled by Lead/Contact' }
         };
         return map[model] || { code: '?', color: '#8896a6', label: model ? model : 'Unknown / not available' };
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Data Dictionary
+    // ────────────────────────────────────────────────────────
+
+    handleToggleDictionary() {
+        this.dictionaryOpen = !this.dictionaryOpen;
+    }
+
+    handleCloseDictionary() {
+        this.dictionaryOpen = false;
+    }
+
+    handleToggleDictionaryFullScreen() {
+        this.dictionaryFullScreen = !this.dictionaryFullScreen;
+    }
+
+    handleDictionarySearchInput(event) {
+        this.dictionarySearch = event.target.value;
+    }
+
+    handleSelectDictionaryObject(event) {
+        const name = event.currentTarget.dataset.name;
+        if (name) this.openDictionaryForObject(name);
+    }
+
+    async openDictionaryForObject(name) {
+        this.dictionarySelectedObject = name;
+        this.dictionaryRow = null;
+        this.dictionaryUsageComputed = false;
+        this.dictionaryLoading = true;
+        try {
+            const rows = await describeObjectsForDictionary({ objectApiNames: [name] });
+            this.dictionaryRow = (rows && rows.length) ? rows[0] : null;
+            if (!this.dictionaryRow) {
+                this.errorMessage = `"${name}" could not be described — it may not exist or you may not have access to it.`;
+            }
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        } finally {
+            this.dictionaryLoading = false;
+        }
+    }
+
+    async handleCalculateUsage() {
+        if (!this.dictionaryRow) return;
+        this.dictionaryUsagePending = true;
+        try {
+            const fieldNames = this.dictionaryRow.fields.filter((f) => !f.isPrimaryKey).map((f) => f.apiName);
+            const stats = await getFieldUsageStats({ objectApiName: this.dictionaryRow.apiName, fieldApiNames: fieldNames });
+            const pct = (stats && stats.percentages) || {};
+            this.dictionaryRow = {
+                ...this.dictionaryRow,
+                fields: this.dictionaryRow.fields.map((f) => ({
+                    ...f,
+                    percentUsed: f.isPrimaryKey ? 100 : (pct[f.apiName] != null ? pct[f.apiName] : null)
+                }))
+            };
+            this.dictionaryUsageComputed = true;
+            if (stats && stats.error) this.errorMessage = stats.error;
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        } finally {
+            this.dictionaryUsagePending = false;
+        }
+    }
+
+    // ── canvas right-click -> jump to dictionary ──
+
+    handleEntityContextMenu(event) {
+        event.preventDefault();
+        const name = event.currentTarget.dataset.name;
+        if (!name) return;
+        this.canvasCtxMenu = { x: event.clientX, y: event.clientY, entityName: name };
+    }
+
+    handleCanvasCtxGoToDictionary() {
+        const name = this.canvasCtxMenu ? this.canvasCtxMenu.entityName : null;
+        this.canvasCtxMenu = null;
+        if (!name) return;
+        this.dictionaryOpen = true;
+        this.dictionarySearch = name; // narrows the left list to just this object
+        this.openDictionaryForObject(name);
+    }
+
+    // ── Excel / CSV export ──
+
+    async ensureSheetJs() {
+        if (this.sheetJsLoaded) return;
+        if (!this.sheetJsLoadPromise) this.sheetJsLoadPromise = loadScript(this, SHEETJS);
+        await this.sheetJsLoadPromise;
+        this.sheetJsLoaded = true;
+    }
+
+    buildDictSheetAoA(objectWrap) {
+        const header = ['Field API Name', 'Label', 'Description', 'Data Type', 'Required', 'Custom', 'Primary Key', 'Foreign Key', 'Foreign Key To', 'Last Modified', '% Used'];
+        const rows = [header];
+        (objectWrap.fields || []).forEach((f) => {
+            rows.push([
+                f.apiName,
+                f.label || '',
+                f.description || '',
+                f.dataType || '',
+                f.required ? 'Yes' : 'No',
+                f.isCustom ? 'Yes' : 'No',
+                f.isPrimaryKey ? 'Yes' : 'No',
+                f.isRelationship ? 'Yes' : 'No',
+                f.isRelationship ? (f.relatesTo || '') : '',
+                f.lastModifiedDate || '',
+                f.percentUsed != null ? Math.round(f.percentUsed * 10) / 10 + '%' : ''
+            ]);
+        });
+        return rows;
+    }
+
+    csvEscape(val) {
+        const s = val == null ? '' : String(val);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    downloadTextFile(content, filename, mime) {
+        const dataUri = `data:${mime};charset=utf-8,` + encodeURIComponent(content);
+        const a = document.createElement('a');
+        a.href = dataUri;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    safeSheetName(name) {
+        let s = (name || 'Sheet').replace(/[:\\/?*[\]]/g, '_');
+        if (s.length > 31) s = s.substring(0, 31);
+        return s || 'Sheet';
+    }
+
+    handleExportDictionaryCsv() {
+        if (!this.dictionaryRow) return;
+        const rows = this.buildDictSheetAoA(this.dictionaryRow);
+        const csv = rows.map((r) => r.map((cell) => this.csvEscape(cell)).join(',')).join('\n');
+        this.downloadTextFile(csv, this.dictionaryRow.apiName + '-dictionary.csv', 'text/csv');
+    }
+
+    async handleExportDictionaryXlsx() {
+        if (!this.dictionaryRow) return;
+        this.dictionaryExportBusy = true;
+        try {
+            await this.ensureSheetJs();
+            const wb = window.XLSX.utils.book_new();
+            const ws = window.XLSX.utils.aoa_to_sheet(this.buildDictSheetAoA(this.dictionaryRow));
+            window.XLSX.utils.book_append_sheet(wb, ws, this.safeSheetName(this.dictionaryRow.apiName));
+            window.XLSX.writeFile(wb, this.dictionaryRow.apiName + '-dictionary.xlsx');
+        } catch (e) {
+            this.errorMessage = 'Could not export to Excel: ' + (e.message || JSON.stringify(e));
+        } finally {
+            this.dictionaryExportBusy = false;
+        }
+    }
+
+    async handleExportAllDictionary() {
+        this.dictionaryExportAllBusy = true;
+        this.dictionaryExportAllProgress = 'Loading object list...';
+        try {
+            await this.ensureSheetJs();
+            const allNames = this.paletteObjects || [];
+            const wb = window.XLSX.utils.book_new();
+            const usedSheetNames = new Set();
+            const chunkSize = 10;
+
+            for (let i = 0; i < allNames.length; i += chunkSize) {
+                const chunk = allNames.slice(i, i + chunkSize);
+                this.dictionaryExportAllProgress = `Describing objects ${i + 1}\u2013${Math.min(i + chunkSize, allNames.length)} of ${allNames.length}...`;
+                // eslint-disable-next-line no-await-in-loop
+                const rows = await describeObjectsForDictionary({ objectApiNames: chunk });
+                (rows || []).forEach((ow) => {
+                    let sheetName = this.safeSheetName(ow.apiName);
+                    let suffix = 1;
+                    while (usedSheetNames.has(sheetName.toLowerCase())) {
+                        sheetName = this.safeSheetName(ow.apiName).substring(0, 28) + '_' + suffix;
+                        suffix++;
+                    }
+                    usedSheetNames.add(sheetName.toLowerCase());
+                    const ws = window.XLSX.utils.aoa_to_sheet(this.buildDictSheetAoA(ow));
+                    window.XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                });
+            }
+
+            this.dictionaryExportAllProgress = 'Building workbook...';
+            window.XLSX.writeFile(wb, 'data-dictionary-all-objects.xlsx');
+        } catch (e) {
+            this.errorMessage = 'Could not export all objects: ' + (e.message || JSON.stringify(e));
+        } finally {
+            this.dictionaryExportAllBusy = false;
+            this.dictionaryExportAllProgress = '';
+        }
     }
 
     // ────────────────────────────────────────────────────────
