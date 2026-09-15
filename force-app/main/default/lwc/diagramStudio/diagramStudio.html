@@ -1,5 +1,5 @@
 <template>
-<div class="er-studio">
+<div class={rootClass}>
 
     <!-- CONTEXT MENU -->
     <template if:true={ctxMenu}>
@@ -178,6 +178,13 @@
             </template>
         </div>
 
+        <select class="theme-select" value={themeSelectValue} onchange={handleThemeChange} title="Color theme">
+            <option value="theme-dark-plus">Dark+</option>
+            <option value="theme-light-plus">Light+</option>
+            <option value="theme-monokai">Monokai</option>
+            <option value="theme-solarized-light">Solarized Light</option>
+        </select>
+
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
     </div>
@@ -267,7 +274,8 @@
                         <div key={obj} class="palette-chip"
                              draggable="true"
                              data-name={obj}
-                             ondragstart={handlePaletteDragStart}>{obj}</div>
+                             ondragstart={handlePaletteDragStart}
+                             oncontextmenu={handleEntityContextMenu}>{obj}</div>
                     </template>
                 </div>
             </div>
@@ -496,7 +504,10 @@
     <template if:true={dictionaryOpen}>
         <div class={dictionaryPanelClass}>
             <div class="dict-header">
-                <span class="dict-title">Data Dictionary</span>
+                <div class="dict-header-actions">
+                    <button class="dict-back-btn" onclick={handleCloseDictionary} title="Return to the ER canvas">&#8592; Back to Diagram</button>
+                    <span class="dict-title">Data Dictionary</span>
+                </div>
                 <div class="dict-header-actions">
                     <button class="dsl-head-btn" onclick={handleToggleDictionaryFullScreen}>{dictionaryFullScreenLabel}</button>
                     <button class="modal-close" onclick={handleCloseDictionary}>x</button>

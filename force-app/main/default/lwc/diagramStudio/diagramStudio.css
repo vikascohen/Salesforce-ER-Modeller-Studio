@@ -14,14 +14,78 @@
     --bg-light:    #f4f6f9;
     --accent:      #0070d2;
     --accent-2:    #5c2d91;
+    --accent-tint: #1f3050;
     --text-main:   #ffffff;
     --text-muted:  #a0a3b1;
     --border:      #2e2e40;
+
+    /* "Surface" = light panels sitting on top of the chrome: modals,
+       context menus, Data Dictionary, legend/zoom overlays. Kept as its
+       own set of tokens (rather than reusing --bg-*) since some themes
+       (Dark+, Monokai) want these panels to stay dark like everything
+       else, while others (Light+, Solarized Light) want the whole app
+       to be one consistent light surface. */
+    --surface-bg:            #ffffff;
+    --surface-bg-alt:        #f9fafb;
+    --surface-bg-hover:      #f2f4f7;
+    --surface-border:        #e4e7ec;
+    --surface-border-strong: #d0d5dd;
+    --surface-text:          #344054;
+    --surface-text-strong:   #101828;
+    --surface-text-muted:    #667085;
+
     --tab-h:       36px;
     --toolbar-h:   44px;
     --menubar-h:   28px;
     --sidebar-w:   260px;
     --dsl-w:       260px;
+}
+
+/* ── Themes ──
+   Danger/success/warning colors and the Master-Detail/Lookup/Polymorphic
+   relationship colors are deliberately NOT themed — they're semantic
+   (red=error, green=success), and the relationship colors specifically
+   must stay identical to what PNG/Mermaid/draw.io exports use, or the
+   on-screen diagram and the exported file would disagree with each other. */
+
+/* VS Code Dark+ — the default; matches the app's original look */
+.theme-dark-plus {
+    --bg-dark: #1e1e1e; --bg-darker: #181818; --bg-mid: #2d2d2d; --bg-light: #f4f6f9;
+    --accent: #007acc; --accent-2: #5c2d91; --accent-tint: #1f3050;
+    --text-main: #cccccc; --text-muted: #8a8a8a; --border: #3c3c3c;
+    --surface-bg: #252526; --surface-bg-alt: #1e1e1e; --surface-bg-hover: #2a2d2e;
+    --surface-border: #3c3c3c; --surface-border-strong: #4a4a4a;
+    --surface-text: #cccccc; --surface-text-strong: #ffffff; --surface-text-muted: #9d9d9d;
+}
+
+/* VS Code Light+ — the default light theme, VS Code's signature blue accent */
+.theme-light-plus {
+    --bg-dark: #f3f3f3; --bg-darker: #e8e8e8; --bg-mid: #e4e4e4; --bg-light: #ffffff;
+    --accent: #007acc; --accent-2: #5c2d91; --accent-tint: #d6ecfa;
+    --text-main: #1e1e1e; --text-muted: #6e6e6e; --border: #d4d4d4;
+    --surface-bg: #ffffff; --surface-bg-alt: #f8f8f8; --surface-bg-hover: #f0f0f0;
+    --surface-border: #e5e5e5; --surface-border-strong: #d4d4d4;
+    --surface-text: #3b3b3b; --surface-text-strong: #1e1e1e; --surface-text-muted: #6e6e6e;
+}
+
+/* Monokai — iconic warm dark theme */
+.theme-monokai {
+    --bg-dark: #272822; --bg-darker: #1e1f1c; --bg-mid: #3e3d32; --bg-light: #f4f6f9;
+    --accent: #a6e22e; --accent-2: #ae81ff; --accent-tint: #3e4a1e;
+    --text-main: #f8f8f2; --text-muted: #90897e; --border: #49483e;
+    --surface-bg: #272822; --surface-bg-alt: #1e1f1c; --surface-bg-hover: #3e3d32;
+    --surface-border: #49483e; --surface-border-strong: #75715e;
+    --surface-text: #f8f8f2; --surface-text-strong: #ffffff; --surface-text-muted: #a9a396;
+}
+
+/* Solarized Light — muted, warm/sepia light theme */
+.theme-solarized-light {
+    --bg-dark: #eee8d5; --bg-darker: #fdf6e3; --bg-mid: #e4ddc4; --bg-light: #fdf6e3;
+    --accent: #268bd2; --accent-2: #6c71c4; --accent-tint: #d8e9f3;
+    --text-main: #073642; --text-muted: #657b83; --border: #d3cbb7;
+    --surface-bg: #fdf6e3; --surface-bg-alt: #eee8d5; --surface-bg-hover: #e4ddc4;
+    --surface-border: #d3cbb7; --surface-border-strong: #b8ae94;
+    --surface-text: #586e75; --surface-text-strong: #073642; --surface-text-muted: #839496;
 }
 
 .er-studio {
@@ -85,6 +149,18 @@
 .tb-icon-btn:hover { background: var(--bg-mid); color: var(--text-main); }
 .tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
 .tb-spacer { flex: 1; }
+.theme-select {
+    background: var(--bg-mid);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-main);
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+    margin-left: 6px;
+}
+.theme-select:focus { border-color: var(--accent); }
 
 /* ── Menu bar dropdowns (File / Diagram / View) ── */
 .dd-menu-wrap { position: relative; }
@@ -106,8 +182,8 @@
     top: calc(100% + 4px);
     left: 0;
     min-width: 190px;
-    background: #ffffff;
-    border: 1px solid #d0d5dd;
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border-strong);
     border-radius: 8px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.25);
     padding: 6px;
@@ -119,15 +195,15 @@
     padding: 7px 10px;
     border-radius: 5px;
     font-size: 13px;
-    color: #344054;
+    color: var(--surface-text);
     cursor: pointer;
     white-space: nowrap;
 }
-.dd-menu-item:hover { background: #f2f4f7; }
+.dd-menu-item:hover { background: var(--surface-bg-hover); }
 .dd-menu-item-danger { color: #b91c1c; }
 .dd-menu-item-danger:hover { background: #fef2f2; }
-.dd-menu-divider { height: 1px; background: #e4e7ec; margin: 4px 2px; }
-.dd-menu-shortcut { font-size: 10px; color: #98a2b3; }
+.dd-menu-divider { height: 1px; background: var(--surface-border); margin: 4px 2px; }
+.dd-menu-shortcut { font-size: 10px; color: var(--surface-text-muted); }
 .tb-btn {
     padding: 5px 12px; border: 1px solid var(--border); border-radius: 5px;
     background: var(--bg-mid); color: var(--text-main); font-size: 12px;
@@ -191,8 +267,8 @@
 .tab:hover { background: var(--bg-mid); color: var(--text-main); }
 .tab-active {
     background: var(--bg-light);
-    color: #1e1e2e;
-    border-color: #d0d5dd;
+    color: var(--surface-text-strong);
+    border-color: var(--surface-border-strong);
     font-weight: 600;
 }
 .tab-name { overflow: hidden; text-overflow: ellipsis; flex: 1; }
@@ -207,7 +283,7 @@
 .tab-close:hover { background: rgba(0,0,0,0.2); }
 .tab-rename-input {
     background: transparent; border: none; border-bottom: 1px solid var(--accent);
-    color: #1e1e2e; font-size: 12px; width: 120px; outline: none;
+    color: var(--surface-text-strong); font-size: 12px; width: 120px; outline: none;
 }
 .tab-new-btn {
     align-self: center;
@@ -294,7 +370,7 @@
     position: relative;
 }
 .file-row:hover { background: var(--bg-mid); color: var(--text-main); }
-.file-row-active { background: #1f3050; color: var(--text-main); border-left: 2px solid var(--accent); }
+.file-row-active { background: var(--accent-tint); color: var(--text-main); border-left: 2px solid var(--accent); }
 .file-row-open { color: var(--text-main); }
 .file-icon { font-size: 10px; flex-shrink: 0; color: var(--accent); }
 .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
@@ -597,7 +673,7 @@
     width: 100%;
     background: var(--bg-mid);
     border: none;
-    color: #d4d4d4;
+    color: var(--text-main);
     font-family: 'SFMono-Regular', Consolas, monospace;
     font-size: 12px;
     line-height: 1.6;
@@ -609,7 +685,7 @@
     overflow-y: auto;
 }
 .code-editor:focus { background: var(--bg-dark); }
-.code-editor::placeholder { color: #5c5c70; }
+.code-editor::placeholder { color: var(--text-muted); }
 
 /* DSL panel resize handle (drag left/right edge) */
 .dsl-resize-handle {
@@ -627,7 +703,7 @@
     position: absolute;
     max-height: 220px;
     overflow-y: auto;
-    background: #10101a;
+    background: var(--bg-darker);
     border: 1px solid var(--accent);
     border-radius: 6px;
     box-shadow: 0 10px 24px rgba(0,0,0,0.45);
@@ -641,7 +717,7 @@
     padding: 6px 10px;
     font-family: 'SFMono-Regular', Consolas, monospace;
     font-size: 12px;
-    color: #d4d4d4;
+    color: var(--text-main);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -688,7 +764,7 @@
     display: flex; align-items: center; justify-content: center;
 }
 .modal-box {
-    background: #ffffff; border-radius: 10px;
+    background: var(--surface-bg); border-radius: 10px;
     width: 420px; max-width: 94vw;
     max-height: 85vh;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35);
@@ -698,15 +774,15 @@
 .modal-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 16px 20px 12px;
-    border-bottom: 1px solid #e4e7ec;
+    border-bottom: 1px solid var(--surface-border);
     flex-shrink: 0;
 }
-.modal-title { font-size: 16px; font-weight: 700; color: #101828; }
+.modal-title { font-size: 16px; font-weight: 700; color: var(--surface-text-strong); }
 .modal-close {
     background: transparent; border: none; font-size: 22px;
-    cursor: pointer; color: #667085; line-height: 1;
+    cursor: pointer; color: var(--surface-text-muted); line-height: 1;
 }
-.modal-close:hover { color: #101828; }
+.modal-close:hover { color: var(--surface-text-strong); }
 .modal-body {
     padding: 20px;
     flex: 1;
@@ -714,30 +790,30 @@
     overflow-y: auto;
     overflow-x: auto;
 }
-.hint-text { font-size: 11px; color: #667085; line-height: 1.5; }
+.hint-text { font-size: 11px; color: var(--surface-text-muted); line-height: 1.5; }
 .export-field { display: flex; flex-direction: column; gap: 4px; }
-.export-label { font-size: 13px; font-weight: 600; color: #344054; }
-.export-divider { height: 1px; background: #e4e7ec; margin: 16px 0; }
+.export-label { font-size: 13px; font-weight: 600; color: var(--surface-text); }
+.export-divider { height: 1px; background: var(--surface-border); margin: 16px 0; }
 .export-mermaid-actions { display: flex; gap: 8px; margin-top: 6px; }
 .export-select {
     width: 100%; padding: 8px 10px; font-size: 13px;
-    border: 1px solid #d0d5dd; border-radius: 6px;
-    background: #ffffff; color: #101828; cursor: pointer;
+    border: 1px solid var(--surface-border-strong); border-radius: 6px;
+    background: var(--surface-bg); color: var(--surface-text-strong); cursor: pointer;
     appearance: auto;
 }
 .modal-footer {
     display: flex; justify-content: flex-end; gap: 8px;
     padding: 12px 20px;
-    border-top: 1px solid #e4e7ec;
-    background: #f9fafb;
+    border-top: 1px solid var(--surface-border);
+    background: var(--surface-bg-alt);
     flex-shrink: 0;
 }
 
 /* ── Context menu ── */
 .ctx-menu {
     position: fixed;
-    background: #ffffff;
-    border: 1px solid #d0d5dd;
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border-strong);
     border-radius: 6px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     z-index: 2000;
@@ -748,18 +824,18 @@
 .ctx-item {
     padding: 7px 16px;
     cursor: pointer;
-    color: #344054;
+    color: var(--surface-text);
 }
-.ctx-item:hover { background: #f2f4f7; }
+.ctx-item:hover { background: var(--surface-bg-hover); }
 .ctx-danger { color: #b91c1c; }
 .ctx-danger:hover { background: #fef2f2; }
-.ctx-divider { height: 1px; background: #e4e7ec; margin: 4px 0; }
+.ctx-divider { height: 1px; background: var(--surface-border); margin: 4px 0; }
 
 /* ── Data Dictionary ── */
 .dict-overlay {
     position: fixed;
     top: 40px; left: 40px; right: 40px; bottom: 40px;
-    background: #ffffff;
+    background: var(--surface-bg);
     border-radius: 10px;
     box-shadow: 0 24px 70px rgba(0,0,0,0.4);
     z-index: 900;
@@ -774,12 +850,23 @@
     align-items: center;
     justify-content: space-between;
     padding: 14px 20px;
-    border-bottom: 1px solid #e4e7ec;
+    border-bottom: 1px solid var(--surface-border);
     flex-shrink: 0;
-    background: #f9fafb;
+    background: var(--surface-bg-alt);
 }
-.dict-title { font-size: 16px; font-weight: 700; color: #101828; }
+.dict-title { font-size: 16px; font-weight: 700; color: var(--surface-text-strong); }
 .dict-header-actions { display: flex; align-items: center; gap: 10px; }
+.dict-back-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: transparent;
+    border: 1px solid var(--surface-border-strong);
+    color: var(--surface-text);
+    font-size: 12px; font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.dict-back-btn:hover { background: var(--surface-bg-hover); }
 
 .dict-body {
     flex: 1;
@@ -790,44 +877,46 @@
 .dict-list-pane {
     width: 280px;
     flex-shrink: 0;
-    border-right: 1px solid #e4e7ec;
+    border-right: 1px solid var(--surface-border);
     display: flex;
     flex-direction: column;
     padding: 14px;
-    background: #fafbfc;
+    background: var(--surface-bg-alt);
 }
 .dict-search-input {
     width: 100%;
     box-sizing: border-box;
     padding: 8px 10px;
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--surface-border-strong);
     border-radius: 6px;
     font-size: 13px;
     outline: none;
+    background: var(--surface-bg);
+    color: var(--surface-text-strong);
 }
-.dict-search-input:focus { border-color: #0070d2; }
-.dict-list-count { font-size: 11px; color: #667085; margin: 8px 0 4px; }
+.dict-search-input:focus { border-color: var(--accent); }
+.dict-list-count { font-size: 11px; color: var(--surface-text-muted); margin: 8px 0 4px; }
 .dict-obj-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    border: 1px solid #e4e7ec;
+    border: 1px solid var(--surface-border);
     border-radius: 6px;
-    background: #ffffff;
+    background: var(--surface-bg);
 }
 .dict-obj-row {
     padding: 7px 10px;
     font-size: 12px;
     font-family: 'SFMono-Regular', Consolas, monospace;
-    color: #344054;
+    color: var(--surface-text);
     cursor: pointer;
-    border-bottom: 1px solid #f2f4f7;
+    border-bottom: 1px solid var(--surface-bg-hover);
 }
 .dict-obj-row:last-child { border-bottom: none; }
-.dict-obj-row:hover { background: #f2f4f7; }
-.dict-obj-row-active { background: #e5f1fc; color: #0070d2; font-weight: 600; }
+.dict-obj-row:hover { background: var(--surface-bg-hover); }
+.dict-obj-row-active { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
 .dict-list-footer { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-.dict-export-progress { font-size: 11px; color: #0070d2; margin: 0; }
+.dict-export-progress { font-size: 11px; color: var(--accent); margin: 0; }
 
 .dict-detail-pane {
     flex: 1;
@@ -847,15 +936,15 @@
     gap: 12px;
     flex-wrap: wrap;
 }
-.dict-detail-title { font-size: 18px; font-weight: 700; color: #101828; margin-right: 10px; }
-.dict-detail-sub { font-size: 12px; color: #667085; }
+.dict-detail-title { font-size: 18px; font-weight: 700; color: var(--surface-text-strong); margin-right: 10px; }
+.dict-detail-sub { font-size: 12px; color: var(--surface-text-muted); }
 .dict-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
 .dict-table-wrap {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    border: 1px solid #e4e7ec;
+    border: 1px solid var(--surface-border);
     border-radius: 6px;
 }
 .dict-table {
@@ -867,21 +956,21 @@
 .dict-table thead th {
     position: sticky;
     top: 0;
-    background: #f2f4f7;
-    color: #344054;
+    background: var(--surface-bg-hover);
+    color: var(--surface-text);
     text-align: left;
     padding: 8px 10px;
     font-weight: 700;
-    border-bottom: 1px solid #d0d5dd;
+    border-bottom: 1px solid var(--surface-border-strong);
     z-index: 1;
 }
 .dict-table td {
     padding: 6px 10px;
-    border-bottom: 1px solid #f2f4f7;
-    color: #344054;
+    border-bottom: 1px solid var(--surface-bg-hover);
+    color: var(--surface-text);
     max-width: 320px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.dict-field-row:hover td { background: #fafbfc; }
+.dict-field-row:hover td { background: var(--surface-bg-alt); }
 .dict-field-pk td:first-child { font-weight: 700; color: #d4a72c; }

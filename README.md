@@ -64,7 +64,8 @@ result, nothing leaves your machine.
   is deliberately narrow: internal OWD only, not external/community
   sharing, sharing rules, or role hierarchy.
 - **Data Dictionary** — a full-screen tab (toggle **Data Dictionary**
-  from the **View** menu, or right-click any canvas entity), separate from the canvas, for browsing every accessible
+  from the **View** menu, or right-click any canvas entity or palette
+  object → **View in Data Dictionary**), separate from the canvas, for browsing every accessible
   object in the org: search or scroll the list on the left, and the right
   shows a full field-level table — label, description, data type,
   required, custom, primary key, foreign key (and which object it points
@@ -76,11 +77,22 @@ result, nothing leaves your machine.
   keep browsing the dictionary instant. Export the current object to CSV
   or a real `.xlsx`, or **Export All** as one workbook with every object
   on its own tab (bulk export skips % Used, to stay fast and safely inside
-  governor limits across potentially hundreds of objects). Right-click
-  any entity on the ER canvas → **View in Data Dictionary** jumps straight
-  to that object's table. The dictionary always re-fetches live — nothing
-  about it is cached beyond the object *name* list, which barely changes
-  and is already loaded for the palette anyway.
+  governor limits across potentially hundreds of objects). The dictionary
+  always re-fetches live — nothing about it is cached beyond the object
+  *name* list, which barely changes and is already loaded for the palette
+  anyway. A **← Back to Diagram** button (or click the × close) returns you to the canvas
+  exactly as you left it — the dictionary is an overlay, not a page change,
+  so your zoom, position, and open tabs are untouched either way.
+- **Themes** — a theme selector in the toolbar switches between four real
+  VS Code themes: **Dark+** and **Light+** (VS Code's own defaults, blue
+  accent), **Monokai**, and **Solarized Light**. Applies across the whole
+  app, Data Dictionary included, instantly, no reload. Status colors
+  (error red, success green) and the Master-Detail/Lookup/Polymorphic
+  relationship colors on the canvas are deliberately left out of theming —
+  they're semantic, not decorative, and the relationship colors
+  specifically have to stay identical to what gets baked into PNG/Mermaid/
+  draw.io exports, or the on-screen diagram and the exported file would
+  disagree with each other.
 - **Multi-file workspace** — a VS Code–style tab strip and sidebar file
   list; open several diagrams at once, rename, duplicate, or delete them.
 - **Export** — render the current diagram to PNG at native size, A4

@@ -159,6 +159,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryExportAllProgress = '';
     @track canvasCtxMenu = null; // { x, y, entityName }
     @track openMenu = null; // 'file' | 'diagram' | 'view' | null
+    @track currentTheme = 'theme-dark-plus';
     sheetJsLoaded = false;
     sheetJsLoadPromise = null;
 
@@ -615,6 +616,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fileMenuClass()    { return this.openMenu === 'file'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get diagramMenuClass() { return this.openMenu === 'diagram' ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get viewMenuClass()    { return this.openMenu === 'view'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
+    get rootClass() { return 'er-studio ' + this.currentTheme; }
+    get themeSelectValue() { return this.currentTheme; }
+    handleThemeChange(event) { this.currentTheme = event.target.value; }
     get fileMenuOpen()    { return this.openMenu === 'file'; }
     get diagramMenuOpen() { return this.openMenu === 'diagram'; }
     get viewMenuOpen()    { return this.openMenu === 'view'; }
