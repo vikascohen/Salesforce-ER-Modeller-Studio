@@ -1,0 +1,19 @@
+# Jest test files live inside each LWC's folder (force-app/main/default/lwc/*/__tests__/)
+# so they sit next to the component they test, but they must never be
+# deployed to an org: they import things (createElement from 'lwc', jest
+# globals) that only resolve in the sfdx-lwc-jest test environment. The
+# org's own LWC compiler rejects them as invalid component markup.
+**/__tests__/**
+
+# Editor/tooling config that has no business being deployed as metadata.
+**/jsconfig.json
+**/.eslintrc.json
+
+# Node tooling for the Jest suite — irrelevant to the org, and some of
+# these (package-lock.json in particular) are large enough to slow down
+# deploys for no reason if a deploy tool ever scans the whole repo rather
+# than just force-app/.
+node_modules/
+package.json
+package-lock.json
+jest.config.js

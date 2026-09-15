@@ -152,11 +152,17 @@ private class DiagramFileControllerTest {
         ContentVersion cv = [SELECT Title, ContentDocumentId FROM ContentVersion WHERE Id = :cvId];
         Assert.areEqual('Diagram To Export (PNG)', cv.Title);
 
+        // ContentDocumentLink has a platform restriction: it can only be
+        // filtered by a single Id on ONE of ContentDocumentId/LinkedEntityId
+        // (equals or IN), never both combined in one WHERE clause -- filter
+        // by the document (unique to this test's export) and assert the
+        // link target in Apex instead.
         List<ContentDocumentLink> links = [
-            SELECT Id FROM ContentDocumentLink
-            WHERE ContentDocumentId = :cv.ContentDocumentId AND LinkedEntityId = :d.Id
+            SELECT Id, LinkedEntityId FROM ContentDocumentLink
+            WHERE ContentDocumentId = :cv.ContentDocumentId
         ];
-        Assert.areEqual(1, links.size(), 'The exported file should be linked to the diagram record');
+        Assert.areEqual(1, links.size(), 'The exported file should have exactly one link');
+        Assert.areEqual(d.Id, links[0].LinkedEntityId, 'The link should point at the diagram record');
     }
 
     @isTest
@@ -170,9 +176,16 @@ private class DiagramFileControllerTest {
         Test.stopTest();
 
         Assert.isNotNull(cvId, 'A ContentVersion should still be created with no diagram to link to');
-        ContentVersion cv = [SELECT Title FROM ContentVersion WHERE Id = :cvId];
+        ContentVersion cv = [SELECT Title, ContentDocumentId FROM ContentVersion WHERE Id = :cvId];
         Assert.areEqual('Unsaved Diagram (A4)', cv.Title);
-        Assert.areEqual(0, [SELECT COUNT() FROM ContentDocumentLink], 'No link should be created when diagramFileId is null');
+        // Same ContentDocumentLink filter restriction as above — scope to
+        // this test's own document rather than querying the object with no
+        // filter at all, which the platform also rejects.
+        Assert.areEqual(
+            0,
+            [SELECT COUNT() FROM ContentDocumentLink WHERE ContentDocumentId = :cv.ContentDocumentId],
+            'No link should be created when diagramFileId is null'
+        );
     }
 
     @isTest
