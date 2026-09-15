@@ -146,6 +146,10 @@ graph TD
         EXP["diagramExportUtils<br/>SVG → PNG"]
     end
 
+    subgraph ThirdParty["Bundled Static Resource"]
+        XLSX["sheetjs<br/>client-side .xlsx generation<br/>lazy-loaded on first Excel export"]
+    end
+
     subgraph Apex["Apex (with sharing)"]
         DFC["DiagramFileController"]
         SMC["SchemaMetadataController"]
@@ -154,11 +158,14 @@ graph TD
     subgraph Data["Salesforce Data"]
         OBJ["Diagram_File__c<br/>Name · Diagram_Type__c · Source_Code__c"]
         FILES["ContentVersion<br/>PNG exports"]
-        SCHEMA["Org Schema<br/>objects & fields"]
+        SCHEMA["Org Schema<br/>describe API"]
+        CATALOG["Metadata Catalog<br/>EntityDefinition · FieldDefinition"]
+        RECORDS["Object Records<br/>COUNT() aggregates only —<br/>Data Dictionary usage % only"]
     end
 
     DS -- "parse / render" --> ERL
     DS -- "export" --> EXP
+    DS -- "Excel export" --> XLSX
     DS -- "CRUD, save PNG" --> DFC
     DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>data dictionary" --> SMC
 
@@ -169,9 +176,11 @@ graph TD
     DFC --> OBJ
     DFC --> FILES
     SMC --> SCHEMA
+    SMC --> CATALOG
+    SMC --> RECORDS
 ```
 
-`diagramStudio` and `diagramViewer` never talk to each other or duplicate logic between themselves — both are thin UI shells over the same two pure-JS modules, so a DSL parsing or rendering fix in `erDiagramLogic` applies identically whether you're editing or just viewing a diagram.
+`diagramStudio` and `diagramViewer` never talk to each other or duplicate logic between themselves — both are thin UI shells over the same two pure-JS modules, so a DSL parsing or rendering fix in `erDiagramLogic` applies identically whether you're editing or just viewing a diagram. `SchemaMetadataController` is the only Apex class that ever reads live *record data* (`RECORDS`, for the Data Dictionary's opt-in usage-percentage feature) — everything else it does is metadata-only.
 
 ## Deploying to an org
 
