@@ -6,6 +6,10 @@ diagrams of your Salesforce data model. Diagrams are stored as records
 they describe and can be opened, edited, or pinned to a page by anyone
 with access.
 
+📄 **Not technical, or just want the short version?** See
+[docs/ER-Modeller-Studio-Feature-List.pdf](docs/ER-Modeller-Studio-Feature-List.pdf)
+for a plain-language feature overview with no code or setup steps.
+
 ## Contents
 
 - [Installing](#installing)
