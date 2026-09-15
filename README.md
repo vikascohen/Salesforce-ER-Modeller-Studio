@@ -71,8 +71,7 @@ result, nothing leaves your machine.
   records themselves is read. Scoped to the canvas, never the whole org at
   once, and only fetched when you turn it on.
 - **Data Dictionary** — a full-screen tab (toggle **Data Dictionary**
-  from the **View** menu, or right-click any canvas entity or palette
-  object → **View in Data Dictionary**), separate from the canvas, for browsing every accessible
+  from the **View** menu separate from the canvas, for browsing every accessible
   object in the org: search or scroll the list on the left, and the right
   shows a full field-level table — label, description, data type,
   required, custom, primary key, foreign key (and which object it points
