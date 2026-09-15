@@ -966,6 +966,7 @@
 }
 .dict-th-sort { cursor: pointer; user-select: none; }
 .dict-th-sort:hover { color: var(--accent); }
+.dict-th-sort-active { color: var(--accent); }
 .dict-table td {
     padding: 6px 10px;
     border-bottom: 1px solid var(--surface-bg-hover);

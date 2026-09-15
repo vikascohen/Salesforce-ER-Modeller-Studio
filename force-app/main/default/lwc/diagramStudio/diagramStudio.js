@@ -463,9 +463,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get dictSortArrowApiName() { return this.dictSortArrowFor('apiName'); }
     get dictSortArrowCustom()  { return this.dictSortArrowFor('isCustom'); }
     get dictSortArrowRequired() { return this.dictSortArrowFor('required'); }
+    get dictSortClassApiName() { return this.dictSortClassFor('apiName'); }
+    get dictSortClassCustom()  { return this.dictSortClassFor('isCustom'); }
+    get dictSortClassRequired() { return this.dictSortClassFor('required'); }
     dictSortArrowFor(column) {
-        if (!this.dictionarySort || this.dictionarySort.column !== column) return '';
+        // Always shows something — a faint neutral indicator when this
+        // column isn't the active sort (so the user can see up front that
+        // clicking it does something), the real direction arrow when it is.
+        if (!this.dictionarySort || this.dictionarySort.column !== column) return ' \u21C5';
         return this.dictionarySort.direction === 'asc' ? ' \u25B2' : ' \u25BC';
+    }
+    dictSortClassFor(column) {
+        const active = this.dictionarySort && this.dictionarySort.column === column;
+        return active ? 'dict-th-sort dict-th-sort-active' : 'dict-th-sort';
     }
 
     // ── DSL panel ──
@@ -1478,25 +1488,37 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionaryLoading = true;
         try {
             const rows = await describeObjectsForDictionary({ objectApiNames: [name] });
+            // The user may have hit Clear, or picked a different object,
+            // while this was in flight — a slow response arriving after
+            // that must not silently repopulate/overwrite what's on screen
+            // now. Bail out rather than applying a stale result.
+            if (this.dictionarySelectedObject !== name) return;
             this.dictionaryRow = (rows && rows.length) ? rows[0] : null;
             if (!this.dictionaryRow) {
                 this.errorMessage = `"${name}" could not be described — it may not exist or you may not have access to it.`;
             }
         } catch (e) {
+            if (this.dictionarySelectedObject !== name) return;
             this.errorMessage = this.reduceError(e);
         } finally {
-            this.dictionaryLoading = false;
+            if (this.dictionarySelectedObject === name) {
+                this.dictionaryLoading = false;
+            }
         }
     }
 
     // Resets the right-hand detail pane back to "nothing selected" without
     // touching the left-hand object list — the object stays selectable
-    // again from the list on the left, per the user's own description.
+    // again from the list on the left. Also releases any in-flight
+    // openDictionaryForObject() call for the object being cleared, via the
+    // dictionarySelectedObject guard in that method — otherwise a slow
+    // response could land after Clear and silently repopulate the panel.
     handleClearDictionarySelection() {
         this.dictionarySelectedObject = null;
         this.dictionaryRow = null;
         this.dictionaryUsageComputed = false;
         this.dictionarySort = null;
+        this.dictionaryLoading = false;
     }
 
     async handleCalculateUsage() {

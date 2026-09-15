@@ -17,9 +17,13 @@ jest.mock('@salesforce/apex/SchemaMetadataController.getSharingModels', () => ({
 jest.mock('@salesforce/apex/SchemaMetadataController.getRecordCounts', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/DiagramPreferenceController.getTheme', () => ({ default: jest.fn(() => Promise.resolve(null)) }), { virtual: true });
+jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ default: jest.fn() }), { virtual: true });
 
 // eslint-disable-next-line no-undef
 const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').default;
+// eslint-disable-next-line no-undef
+const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -250,5 +254,116 @@ describe('c-diagram-studio', () => {
         // actually reflects a focus state at all, not a specific number.
         expect(opacities).toEqual(expect.arrayContaining(['1']));
         expect(opacities.some((o) => o !== '1' && o !== null)).toBe(true);
+    });
+
+    describe('Data Dictionary', () => {
+        async function openObjectNamed(el, name) {
+            el.shadowRoot.querySelector('[data-menu="view"]').click();
+            await flushPromises();
+            const dictItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+                i.textContent.includes('Data Dictionary')
+            );
+            dictItem.click();
+            await flushPromises();
+            const row = el.shadowRoot.querySelector(`.dict-obj-row[data-name="${name}"]`);
+            row.click();
+        }
+
+        it('Clear removes the object title/table together, not just the table rows', async () => {
+            describeObjectsForDictionary.mockResolvedValue([
+                { apiName: 'Case', label: 'Case', isCustom: false, fields: [{ apiName: 'Subject', isPrimaryKey: false }] }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Case']);
+            await flushPromises();
+            await openObjectNamed(el, 'Case');
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Case');
+
+            const clearBtn = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn')).find(
+                (b) => b.textContent === 'Clear Selection'
+            );
+            clearBtn.click();
+            await flushPromises();
+
+            // The title/table are gone. The object still legitimately shows
+            // in the left-hand list (Clear only resets the right panel, by
+            // design) — so check the right panel specifically, not the
+            // whole shadow root.
+            expect(el.shadowRoot.querySelector('.dict-detail-pane').textContent).not.toContain('Case');
+        });
+
+        it('switching to a different object while the first is still loading does not let the stale one win', async () => {
+            let resolveCase;
+            describeObjectsForDictionary.mockImplementation(({ objectApiNames }) => {
+                if (objectApiNames[0] === 'Case') {
+                    return new Promise((resolve) => { resolveCase = resolve; });
+                }
+                return Promise.resolve([
+                    { apiName: 'Account', label: 'Account', isCustom: false, fields: [{ apiName: 'Name', isPrimaryKey: false }] }
+                ]);
+            });
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Case', 'Account']);
+            await flushPromises();
+            await openObjectNamed(el, 'Case');
+            await flushPromises(); // Case's request is now in flight, unresolved
+
+            // The left-hand list stays interactive during loading — switch
+            // to a different object before Case ever responds.
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Account"]').click();
+            await flushPromises();
+            expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Account');
+
+            // Case's stale response finally arrives after the switch.
+            resolveCase([
+                { apiName: 'Case', label: 'Case', isCustom: false, fields: [{ apiName: 'Subject', isPrimaryKey: false }] }
+            ]);
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Account');
+        });
+
+        it('sort arrow moves to whichever column was clicked most recently', async () => {
+            describeObjectsForDictionary.mockResolvedValue([
+                {
+                    apiName: 'Case',
+                    label: 'Case',
+                    isCustom: false,
+                    fields: [
+                        { apiName: 'Zebra__c', isCustom: true, required: false, isPrimaryKey: false },
+                        { apiName: 'Amount__c', isCustom: true, required: true, isPrimaryKey: false }
+                    ]
+                }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Case']);
+            await flushPromises();
+            await openObjectNamed(el, 'Case');
+            await flushPromises();
+
+            const headers = el.shadowRoot.querySelectorAll('.dict-th-sort');
+            const customHeader = Array.from(headers).find((h) => h.dataset.column === 'isCustom');
+            const requiredHeader = Array.from(headers).find((h) => h.dataset.column === 'required');
+
+            customHeader.click();
+            await flushPromises();
+            expect(customHeader.className).toContain('dict-th-sort-active');
+            expect(requiredHeader.className).not.toContain('dict-th-sort-active');
+
+            requiredHeader.click();
+            await flushPromises();
+            expect(requiredHeader.className).toContain('dict-th-sort-active');
+            expect(customHeader.className).not.toContain('dict-th-sort-active');
+
+            // Required (asc): false (0) sorts before true (1) -> Zebra__c first
+            const rows = el.shadowRoot.querySelectorAll('.dict-field-row td:first-child');
+            expect(rows[0].textContent).toBe('Zebra__c');
+            expect(rows[1].textContent).toBe('Amount__c');
+        });
     });
 });

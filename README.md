@@ -128,9 +128,10 @@ accessible object in the org — toggle it from the **View** menu.
   **last-modified date** come from `FieldDefinition`, metadata the
   regular describe API doesn't expose at all.
 - **Sortable columns** — click **Field API Name**, **Required**, or
-  **Custom** to sort; click again to reverse. A **Clear** button resets
-  the right panel back to nothing-selected without touching the object
-  list on the left.
+  **Custom** to sort (each shows a faint always-on indicator so it's clear
+  they're sortable); click again to reverse. A **Clear Selection** button
+  resets the right panel back to nothing-selected without touching the
+  object list on the left.
 - **% Used** (how many existing records have a non-blank value) is a
   genuine data scan, so it's opt-in per object via a **Calculate Usage %**
   button rather than automatic — deliberately, to keep browsing instant.

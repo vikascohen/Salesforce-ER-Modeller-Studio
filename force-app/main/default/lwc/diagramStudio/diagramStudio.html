@@ -548,7 +548,7 @@
                                 <span class="dict-detail-sub">{dictionaryRow.label} &middot; {dictionaryObjectTypeText} &middot; {dictionaryFieldCount} fields</span>
                             </div>
                             <div class="dict-detail-actions">
-                                <button class="dsl-head-btn" onclick={handleClearDictionarySelection}>Clear</button>
+                                <button class="dsl-head-btn" onclick={handleClearDictionarySelection} title="Clear this object's field list on the right — does not touch the canvas">Clear Selection</button>
                                 <button class="dsl-head-btn" disabled={dictionaryUsagePending} onclick={handleCalculateUsage}>{dictionaryCalcUsageLabel}</button>
                                 <button class="dsl-head-btn" onclick={handleExportDictionaryCsv}>Export CSV</button>
                                 <button class="dsl-head-btn" disabled={dictionaryExportBusy} onclick={handleExportDictionaryXlsx}>Export Excel</button>
@@ -558,12 +558,12 @@
                             <table class="dict-table">
                                 <thead>
                                     <tr>
-                                        <th class="dict-th-sort" data-column="apiName" onclick={handleSortDictionary}>Field API Name{dictSortArrowApiName}</th>
+                                        <th class={dictSortClassApiName} data-column="apiName" onclick={handleSortDictionary}>Field API Name{dictSortArrowApiName}</th>
                                         <th>Label</th>
                                         <th>Description</th>
                                         <th>Data Type</th>
-                                        <th class="dict-th-sort" data-column="required" onclick={handleSortDictionary}>Required{dictSortArrowRequired}</th>
-                                        <th class="dict-th-sort" data-column="isCustom" onclick={handleSortDictionary}>Custom{dictSortArrowCustom}</th>
+                                        <th class={dictSortClassRequired} data-column="required" onclick={handleSortDictionary}>Required{dictSortArrowRequired}</th>
+                                        <th class={dictSortClassCustom} data-column="isCustom" onclick={handleSortDictionary}>Custom{dictSortArrowCustom}</th>
                                         <th>PK</th>
                                         <th>FK</th>
                                         <th>FK To</th>
