@@ -500,6 +500,7 @@
     padding: 6px 8px;
 }
 .drift-missing-hint { font-size: 10px; color: #8a2e22; line-height: 1.4; margin: 2px 0 6px; }
+.drift-new-hint { font-size: 10px; color: #4a6b4a; line-height: 1.4; margin: 2px 0 6px; }
 .drift-section-head {
     display: flex;
     align-items: center;

@@ -69,13 +69,13 @@ result, nothing leaves your machine.
   (from the org's real schema) that point at another entity already on
   the canvas but aren't wired up as a DSL line yet, and suggests them —
   one click adds the line and redraws.
-- **Schema drift check** — re-describes every entity on the canvas that
-  maps to a real org object, right now, and compares it against what the
-  diagram currently says: fields added in the org since you last
-  imported, and fields the diagram still references that no longer exist
-  (renamed or deleted). One click adds a new field or removes a stale
-  one. Hand-typed/fictional entities are skipped silently since there's
-  nothing in the org to compare them to.
+- **Compare with org schema** — re-describes every entity on the canvas
+  that maps to a real org object and diffs it against the diagram: fields
+  the org has that your diagram doesn't (added since you built it, or
+  just never included), and fields your diagram lists that the org didn't
+  return (renamed, deleted — or hidden from you by field-level security,
+  so worth checking before removing). One click adds or removes each.
+  Entities with no matching object in the org are skipped.
 - **Read-only viewer** — a companion component for Record/App/Home pages
   that pins a saved diagram somewhere for people who just need to look at
   it, with its own PNG export button and legend.
@@ -130,7 +130,7 @@ graph TD
     DS -- "parse / render" --> ERL
     DS -- "export" --> EXP
     DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete, linter,<br/>drift check" --> SMC
+    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare" --> SMC
 
     DV -- "render" --> ERL
     DV -- "export" --> EXP

@@ -61,7 +61,7 @@
         <div class="modal-backdrop" onclick={handleCloseDriftModal}>
             <div class="modal-box modal-box-wide" onclick={stopProp}>
                 <div class="modal-header">
-                    <span class="modal-title">Schema Drift Check</span>
+                    <span class="modal-title">Compare with Org Schema</span>
                     <button class="modal-close" onclick={handleCloseDriftModal}>x</button>
                 </div>
                 <div class="modal-body">
@@ -69,7 +69,7 @@
                         <p class="hint-text">Re-checking against the org's current schema…</p>
                     </template>
                     <template if:true={driftNoIssues}>
-                        <p class="hint-text">No drift found — every entity on this canvas that maps to a real object matches the org's current schema. (Hand-typed or fictional entities are skipped silently, since there's nothing in the org to compare them against.)</p>
+                        <p class="hint-text">Everything matches — for every entity on this canvas that maps to a real object, the diagram's field list and the org's current schema are identical. (Entities with no matching object in the org are skipped, since there's nothing to compare them against.)</p>
                     </template>
                     <template for:each={driftResults} for:item="r">
                         <div key={r.entityName} class="drift-entity-block">
@@ -79,9 +79,10 @@
                             <template if:true={r.newFields.length}>
                                 <div class="drift-section">
                                     <div class="drift-section-head">
-                                        <span class="drift-section-label drift-new">+ New in org ({r.newFields.length})</span>
+                                        <span class="drift-section-label drift-new">+ In the org but not on this diagram ({r.newFields.length})</span>
                                         <button class="dsl-head-btn" data-entity={r.entityName} onclick={handleAddAllDriftFields}>Add all</button>
                                     </div>
+                                    <p class="drift-new-hint">These exist on the object in the org but aren't in your diagram — either added since you built it, or just never included. Add any you want shown.</p>
                                     <template for:each={r.newFields} for:item="f">
                                         <div key={f.id} class="drift-row">
                                             <span class="drift-field-name">{f.name}</span>
@@ -93,13 +94,13 @@
                             <template if:true={r.missingFields.length}>
                                 <div class="drift-section drift-section-warn">
                                     <div class="drift-section-head">
-                                        <span class="drift-section-label drift-missing">⚠ No longer in org ({r.missingFields.length})</span>
+                                        <span class="drift-section-label drift-missing">⚠ On this diagram but not in the org ({r.missingFields.length})</span>
                                     </div>
-                                    <p class="drift-missing-hint">These fields are still in the diagram, but the org doesn't have them anymore (renamed or deleted) — remove them so the diagram matches reality.</p>
+                                    <p class="drift-missing-hint">Your diagram lists these, but they didn't come back from the org — usually renamed or deleted. Note they'd also show up here if your profile simply can't see them (field-level security), so check before removing.</p>
                                     <template for:each={r.missingFields} for:item="f">
                                         <div key={f.id} class="drift-row">
                                             <span class="drift-field-name drift-field-stale">{f.name}</span>
-                                            <button class="drift-remove-btn" data-entity={r.entityName} data-field={f.name} onclick={handleRemoveDriftField}>Remove — it's gone</button>
+                                            <button class="drift-remove-btn" data-entity={r.entityName} data-field={f.name} onclick={handleRemoveDriftField}>Remove</button>
                                         </div>
                                     </template>
                                 </div>
@@ -137,7 +138,7 @@
         <button class="tb-btn" onclick={handleToggleImport}>Import</button>
         <button class="tb-btn" onclick={handleOpenExport}>Export</button>
         <button class="tb-btn" onclick={handleAutoLayout} title="Reset all positions and sizes to an automatic grid layout">Auto Layout</button>
-        <button class="tb-btn" onclick={handleOpenDriftCheck} title="Re-check the org's real schema against this diagram for added/removed fields">Check Drift</button>
+        <button class="tb-btn" onclick={handleOpenDriftCheck} title="Compare this diagram's fields against the org's current schema">Compare with Org</button>
         <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
