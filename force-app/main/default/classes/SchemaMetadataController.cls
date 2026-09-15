@@ -96,4 +96,42 @@ public with sharing class SchemaMetadataController {
         }
         return result;
     }
+
+    /**
+     * Returns each object's org-wide default sharing model (internal users),
+     * sourced from EntityDefinition — the same data Setup shows under
+     * Object Manager > Sharing Settings, but not available via the regular
+     * describe API. For a Master-Detail child, this naturally comes back as
+     * 'ControlledByParent', which is exactly what tells the ER canvas that
+     * object's sharing is inherited rather than independently configured.
+     *
+     * Read-only, single-equality queries only (EntityDefinition is a
+     * metadata catalog object with its own SOQL restrictions — no IN/OR/NOT/
+     * LIMIT) — one query per requested object, each wrapped so a single
+     * unresolvable or inaccessible name can't fail the whole batch.
+     */
+    @AuraEnabled(cacheable=false)
+    public static Map<String, String> getSharingModels(List<String> objectApiNames) {
+        Map<String, String> result = new Map<String, String>();
+        for (String rawName : objectApiNames) {
+            String name = rawName == null ? null : rawName.trim();
+            if (String.isBlank(name)) {
+                continue;
+            }
+            try {
+                List<EntityDefinition> rows = [
+                    SELECT InternalSharingModel
+                    FROM EntityDefinition
+                    WHERE QualifiedApiName = :name
+                ];
+                if (!rows.isEmpty() && rows[0].InternalSharingModel != null) {
+                    result.put(name, rows[0].InternalSharingModel);
+                }
+            } catch (Exception e) {
+                // Object not found, not resolvable via EntityDefinition, or any
+                // other edge case — skip this one entity's badge, don't fail the batch.
+            }
+        }
+        return result;
+    }
 }

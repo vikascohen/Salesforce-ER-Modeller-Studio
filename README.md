@@ -52,6 +52,16 @@ result, nothing leaves your machine.
   entity's header to enter **Focus mode** — everything except that entity
   and its direct relationships fades out, so a dense diagram instantly
   becomes readable; click it again (or click empty canvas) to release.
+- **Sharing view** — toggle **Sharing View** in the toolbar to badge each
+  object with its org-wide default (internal) sharing model, sourced from
+  `EntityDefinition` (the same data Setup shows under Object Manager >
+  Sharing Settings, not otherwise available via the describe API). A
+  Master-Detail child naturally comes back as *Controlled by Parent*,
+  which is exactly what shows its sharing is inherited rather than
+  independently configured — reasoning that's normally done in your head
+  across several Setup pages, now visible directly on the diagram. Scope
+  is deliberately narrow: internal OWD only, not external/community
+  sharing, sharing rules, or role hierarchy.
 - **Multi-file workspace** — a VS Code–style tab strip and sidebar file
   list; open several diagrams at once, rename, duplicate, or delete them.
 - **Export** — render the current diagram to PNG at native size, A4
@@ -99,7 +109,7 @@ other.
 | LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects and describes their fields/relationships for the import panel, palette, and DSL autocomplete. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — lists accessible objects, describes their fields/relationships for the import panel/palette/autocomplete, and reads each object's org-wide default sharing model for Sharing View. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 
 ## Architecture
@@ -130,7 +140,7 @@ graph TD
     DS -- "parse / render" --> ERL
     DS -- "export" --> EXP
     DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare" --> SMC
+    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing" --> SMC
 
     DV -- "render" --> ERL
     DV -- "export" --> EXP

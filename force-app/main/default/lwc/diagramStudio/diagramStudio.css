@@ -95,6 +95,8 @@
 .tb-btn-primary:hover { background: #005fb3; }
 .tb-btn-danger { background: #5a1a1a; border-color: #a03030; color: #ffaaaa; }
 .tb-btn-danger:hover { background: #a03030; color: #fff; }
+.tb-btn-active { background: #1a7f37; border-color: #1a7f37; color: #ffffff; }
+.tb-btn-active:hover { background: #166a2e; }
 .diag-name-input {
     background: var(--bg-mid);
     border: 1px solid var(--border);

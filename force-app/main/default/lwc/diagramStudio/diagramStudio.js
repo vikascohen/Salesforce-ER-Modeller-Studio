@@ -12,6 +12,7 @@ import renameFile     from '@salesforce/apex/DiagramFileController.renameFile';
 import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagramAsFile';
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
+import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
 
@@ -135,6 +136,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // ── zoom ──
     @track zoomLevel = 1;
 
+    // ── sharing model view ──
+    @track sharingViewOn = false;
+    @track sharingModels = {}; // lowercased apiName -> raw InternalSharingModel string
+    _sharingFetchTimer = null;
+
     // ────────────────────────────────────────────────────────
     //  Lifecycle
     // ────────────────────────────────────────────────────────
@@ -229,6 +235,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const plainFields = b.fields.filter((f) => f.isPlain);
             const isFocused   = !!focused && b.name.toLowerCase() === focused;
             const boxOpacity  = neighborNames && !neighborNames.has(b.name.toLowerCase()) ? '0.15' : '1';
+            const sharingRaw  = this.sharingModels ? this.sharingModels[b.name.toLowerCase()] : null;
+            const badge       = this.sharingViewOn ? this.sharingBadgeFor(sharingRaw) : null;
             return {
                 ...b,
                 pkFields,
@@ -252,7 +260,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 resizeRightHeight: b.height,
                 boxOpacity,
                 boxStroke:      isFocused ? '#f5a623' : '#d0d5dd',
-                boxStrokeWidth: isFocused ? '3' : '1.5'
+                boxStrokeWidth: isFocused ? '3' : '1.5',
+                showSharingBadge: !!badge,
+                sharingBadgeCx:  b.x + b.width - 16,
+                sharingBadgeCy:  b.y - 10,
+                sharingBadgeColor: badge ? badge.color : '',
+                sharingBadgeCode:  badge ? badge.code : '',
+                sharingBadgeTitle: badge ? badge.label : ''
             };
         });
     }
@@ -274,6 +288,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get toggleSidebarIcon() { return this.sidebarOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get driftHasResults() { return this.driftResults && this.driftResults.length > 0; }
     get driftNoIssues() { return this.driftChecked && !this.driftBusy && !this.driftHasResults; }
+    get sharingToggleClass() { return this.sharingViewOn ? 'tb-btn tb-btn-active' : 'tb-btn'; }
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open' : 'dsl-panel dsl-panel-closed'; }
@@ -1107,6 +1122,50 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleZoomReset() { this.zoomLevel = 1; }
 
     // ────────────────────────────────────────────────────────
+    //  Sharing model view — badges each box with its org-wide default
+    //  sharing model (from EntityDefinition). A Master-Detail child
+    //  naturally comes back as 'ControlledByParent', which is exactly
+    //  what shows that its sharing is inherited rather than independent.
+    // ────────────────────────────────────────────────────────
+
+    handleToggleSharingView() {
+        this.sharingViewOn = !this.sharingViewOn;
+        if (this.sharingViewOn) this.scheduleSharingFetch();
+    }
+
+    scheduleSharingFetch() {
+        clearTimeout(this._sharingFetchTimer);
+        this._sharingFetchTimer = setTimeout(() => this.fetchSharingModels(), 300);
+    }
+
+    async fetchSharingModels() {
+        if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
+        try {
+            const names = this._erBoxes.map((b) => b.name);
+            const fresh = await getSharingModels({ objectApiNames: names });
+            const next = {};
+            Object.keys(fresh || {}).forEach((name) => { next[name.toLowerCase()] = fresh[name]; });
+            this.sharingModels = next;
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    sharingBadgeFor(model) {
+        const map = {
+            Private:                   { code: 'PR',  color: '#c0392b', label: 'Private' },
+            Read:                      { code: 'RO',  color: '#d68910', label: 'Public Read Only' },
+            ReadWrite:                 { code: 'RW',  color: '#1a7f37', label: 'Public Read/Write' },
+            ReadWriteTransfer:         { code: 'RWT', color: '#1a7f37', label: 'Public Read/Write/Transfer' },
+            FullAccess:                { code: 'FA',  color: '#1a7f37', label: 'Full Access' },
+            ControlledByParent:        { code: 'CP',  color: '#0070d2', label: 'Controlled by Parent (inherits sharing)' },
+            ControlledByCampaign:      { code: 'CC',  color: '#0070d2', label: 'Controlled by Campaign' },
+            ControlledByLeadOrContact: { code: 'CL',  color: '#0070d2', label: 'Controlled by Lead/Contact' }
+        };
+        return map[model] || { code: '?', color: '#8896a6', label: model ? model : 'Unknown / not available' };
+    }
+
+    // ────────────────────────────────────────────────────────
     //  Auto layout / copy DSL
     // ────────────────────────────────────────────────────────
 
@@ -1707,6 +1766,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             });
             this.errorMessage = '';
             this.scheduleRelationshipScan();
+            if (this.sharingViewOn) this.scheduleSharingFetch();
         } catch (e) {
             this.errorMessage = e.message;
         }
