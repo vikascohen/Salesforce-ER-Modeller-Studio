@@ -63,24 +63,6 @@ if you'd rather not grant OAuth access at all, use the
 [`sf project deploy start`](#deploying-to-an-org) route below instead —
 same result, nothing leaves your machine.
 
-### Managed package (not available yet)
-
-There's no managed package for this project yet. A managed package
-requires the maintainer to register a namespace against a Dev Hub they
-control and to build/upload package versions through it — this repo's
-`sfdx-project.json` has no namespace registered
-(`"namespace": ""`), so there's nothing to install as managed today, and
-that's not something that can be set up from outside the maintainer's own
-org.
-
-If you're the maintainer and want to offer one: register a namespace,
-convert `sfdx-project.json` to a `packageAliases`/versioned package
-config, and run `sf package version create` — once you have a package
-version Id (`04t...`), drop the resulting install link here and this
-section is ready to hold it. Happy to help write out those exact
-commands, or update this section the moment a real install link exists —
-just not able to generate the namespace/package itself without access to
-the org that would own it.
 
 ## What it does
 
