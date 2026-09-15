@@ -24,6 +24,8 @@ jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ def
 const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').default;
 // eslint-disable-next-line no-undef
 const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary').default;
+// eslint-disable-next-line no-undef
+const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -71,6 +73,22 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('[role="alert"], .error-bar')).toBeNull();
         const nameInput = el.shadowRoot.querySelector('.diag-name-input');
         expect(nameInput.value).toBe('Untitled ER Diagram');
+    });
+
+    it('the theme dropdown reflects a saved theme once it loads asynchronously, not just the default', async () => {
+        getTheme.mockResolvedValueOnce('theme-monokai');
+
+        const el = createStudio();
+        await flushPromises(); // loadSavedTheme()'s await resolves here, after the first render
+
+        const options = el.shadowRoot.querySelectorAll('.theme-select option');
+        const selected = Array.from(options).find((o) => o.selected);
+        expect(selected.value).toBe('theme-monokai');
+
+        // The root class (drives the actual colors) must agree with the
+        // dropdown -- this is the exact bug being guarded against: colors
+        // apply correctly while the dropdown silently keeps showing Dark+.
+        expect(el.shadowRoot.querySelector('.er-studio').className).toContain('theme-monokai');
     });
 
     it('populates the object palette once getAllObjectNames resolves', async () => {

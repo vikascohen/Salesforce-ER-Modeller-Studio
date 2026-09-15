@@ -172,11 +172,11 @@
             </template>
         </div>
 
-        <select class="theme-select" value={themeSelectValue} onchange={handleThemeChange} title="Color theme">
-            <option value="theme-dark-plus">Dark+</option>
-            <option value="theme-light-plus">Light+</option>
-            <option value="theme-monokai">Monokai</option>
-            <option value="theme-solarized-light">Solarized Light</option>
+        <select class="theme-select" onchange={handleThemeChange} title="Color theme">
+            <option value="theme-dark-plus" selected={isThemeDarkPlus}>Dark+</option>
+            <option value="theme-light-plus" selected={isThemeLightPlus}>Light+</option>
+            <option value="theme-monokai" selected={isThemeMonokai}>Monokai</option>
+            <option value="theme-solarized-light" selected={isThemeSolarizedLight}>Solarized Light</option>
         </select>
 
         <div class="tb-spacer"></div>

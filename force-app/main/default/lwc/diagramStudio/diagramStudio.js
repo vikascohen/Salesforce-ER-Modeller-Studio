@@ -746,7 +746,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get diagramMenuClass() { return this.openMenu === 'diagram' ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get viewMenuClass()    { return this.openMenu === 'view'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get rootClass() { return 'er-studio ' + this.currentTheme; }
-    get themeSelectValue() { return this.currentTheme; }
+    // Kept as separate, explicitly-named getters (isThemeX) rather than a
+    // single value binding on <select> itself -- LWC reliably re-applies a
+    // reactive change to a per-<option> `selected` boolean on every render,
+    // but a `value` bound directly on the parent <select> only reliably
+    // applies at the very first render. Since the saved theme loads
+    // asynchronously (after the initial render), relying on the latter left
+    // the dropdown showing the default option even though the actual
+    // applied theme (and its colors) were already correct underneath it.
+    get isThemeDarkPlus() { return this.currentTheme === 'theme-dark-plus'; }
+    get isThemeLightPlus() { return this.currentTheme === 'theme-light-plus'; }
+    get isThemeMonokai() { return this.currentTheme === 'theme-monokai'; }
+    get isThemeSolarizedLight() { return this.currentTheme === 'theme-solarized-light'; }
     handleThemeChange(event) {
         this.currentTheme = event.target.value;
         saveTheme({ theme: this.currentTheme }).catch((e) => {
