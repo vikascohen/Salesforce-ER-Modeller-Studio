@@ -111,7 +111,7 @@ public with sharing class SchemaMetadataController {
                 FieldWrap fw = new FieldWrap();
                 fw.apiName = fdr.getName();
                 fw.label = fdr.getLabel();
-                fw.dataType = String.valueOf(fdr.getType());
+                fw.dataType = String.valueOf(fdr.getType()); // raw Apex enum — kept as-is for describeObjects() (DSL) callers
                 fw.required = (!fdr.isNillable() && fdr.isCreateable());
                 fw.isRelationship = false;
                 fw.isCustom = fdr.isCustom();
@@ -136,6 +136,16 @@ public with sharing class SchemaMetadataController {
                         }
                     }
                 }
+
+                // The Data Dictionary wants Setup's actual field-type labels
+                // (Text, Number, Lookup Relationship...), not the raw Apex
+                // enum name — only overwrite dataType here, on the dictionary
+                // path, so describeObjects() (DSL parsing/intellisense/import/
+                // linter/drift-check) never sees a different dataType format.
+                if (includePrimaryKeyRow) {
+                    fw.dataType = friendlyDataType(fdr, fw.relationshipType);
+                }
+
                 ow.fields.add(fw);
             }
             result.add(ow);
@@ -144,12 +154,63 @@ public with sharing class SchemaMetadataController {
     }
 
     /**
+     * Maps a field's describe info to the field-type label Setup actually
+     * shows (Object Manager > Fields & Relationships), rather than the raw
+     * Schema.DisplayType enum name. Relationship types reuse the
+     * relationshipType already computed above. Text Area vs Text Area
+     * (Long) is a length heuristic (regular Text Area fields top out at
+     * 255 characters; Long Text Area goes well beyond that) since plain
+     * Apex describe doesn't expose the distinction directly — refined to
+     * Rich Text Area afterward in enrichWithFieldDefinitions(), which has
+     * access to FieldDefinition.ExtraTypeInfo. Roll-Up Summary fields are
+     * NOT specifically detected (they describe as a plain Number) since
+     * there's no reliable describe-level flag for it.
+     */
+    private static String friendlyDataType(Schema.DescribeFieldResult fdr, String relationshipType) {
+        if (relationshipType == 'Master-Detail') return 'Master-Detail Relationship';
+        if (relationshipType == 'Lookup') return 'Lookup Relationship';
+        if (relationshipType == 'Polymorphic Lookup') return 'Lookup Relationship (Polymorphic)';
+
+        String base;
+        switch on fdr.getType() {
+            when STRING          { base = 'Text'; }
+            when TEXTAREA        { base = (fdr.getLength() != null && fdr.getLength() > 255) ? 'Text Area (Long)' : 'Text Area'; }
+            when BOOLEAN         { base = 'Checkbox'; }
+            when DOUBLE          { base = 'Number'; }
+            when INTEGER         { base = 'Number'; }
+            when CURRENCY        { base = 'Currency'; }
+            when PERCENT         { base = 'Percent'; }
+            when DATE            { base = 'Date'; }
+            when DATETIME        { base = 'Date/Time'; }
+            when TIME            { base = 'Time'; }
+            when EMAIL           { base = 'Email'; }
+            when PHONE           { base = 'Phone'; }
+            when URL             { base = 'URL'; }
+            when PICKLIST        { base = 'Picklist'; }
+            when MULTIPICKLIST   { base = 'Picklist (Multi-Select)'; }
+            when COMBOBOX        { base = 'Picklist'; }
+            when ID              { base = 'ID'; }
+            when BASE64          { base = 'File'; }
+            when ANYTYPE         { base = 'Any'; }
+            when ENCRYPTEDSTRING { base = 'Text (Encrypted)'; }
+            when LOCATION        { base = 'Geolocation'; }
+            when else            { base = String.valueOf(fdr.getType()); }
+        }
+
+        if (fdr.isCalculated())  return 'Formula (' + base + ')';
+        if (fdr.getAutoNumber()) return 'Auto Number';
+        return base;
+    }
+
+    /**
      * Adds Description and LastModifiedDate to each field, sourced from
      * FieldDefinition — metadata not available via the regular describe
-     * API at all. FieldDefinition is a metadata catalog object (plain
-     * SOQL, not Tooling-API-only, since API v45.0) but shares the same
-     * SOQL restrictions as EntityDefinition (no IN/OR/NOT/LIMIT), so this
-     * is one query per object, wrapped so a single object's lookup failing
+     * API at all. Also refines Text Area / Text Area (Long) to Rich Text
+     * Area using ExtraTypeInfo, which plain Apex describe doesn't expose.
+     * FieldDefinition is a metadata catalog object (plain SOQL, not
+     * Tooling-API-only, since API v45.0) but shares the same SOQL
+     * restrictions as EntityDefinition (no IN/OR/NOT/LIMIT), so this is
+     * one query per object, wrapped so a single object's lookup failing
      * doesn't blank out descriptions for every other object in the batch.
      */
     private static void enrichWithFieldDefinitions(List<ObjectWrap> objects) {
@@ -161,7 +222,7 @@ public with sharing class SchemaMetadataController {
                 }
 
                 List<FieldDefinition> defs = [
-                    SELECT QualifiedApiName, Description, LastModifiedDate
+                    SELECT QualifiedApiName, Description, LastModifiedDate, ExtraTypeInfo
                     FROM FieldDefinition
                     WHERE EntityDefinition.QualifiedApiName = :ow.apiName
                 ];
@@ -172,6 +233,10 @@ public with sharing class SchemaMetadataController {
                         fw.lastModifiedDate = fd.LastModifiedDate != null
                             ? fd.LastModifiedDate.format('yyyy-MM-dd')
                             : null;
+                        if (fd.ExtraTypeInfo == 'richtextarea'
+                            && (fw.dataType == 'Text Area' || fw.dataType == 'Text Area (Long)')) {
+                            fw.dataType = 'Rich Text Area';
+                        }
                     }
                 }
             } catch (Exception e) {

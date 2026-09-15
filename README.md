@@ -76,7 +76,10 @@ result, nothing leaves your machine.
   object in the org: search or scroll the list on the left, and the right
   shows a full field-level table — label, description, data type,
   required, custom, primary key, foreign key (and which object it points
-  to), and when Setup shows it. **Description** and **last-modified date**
+  to), and when Setup shows it. **Data type** shows Setup's actual field-type
+  labels (Text, Number, Formula (Number), Master-Detail Relationship,
+  Lookup Relationship, Text Area (Long)...), not the raw Apex describe enum
+  name. **Description** and **last-modified date**
   come from `FieldDefinition`, metadata the regular describe API doesn't
   expose at all. Field **% Used** (how many existing records have a
   non-blank value) is a genuine data scan, so it's opt-in per object via
