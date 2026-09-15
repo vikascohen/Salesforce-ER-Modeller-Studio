@@ -32,14 +32,6 @@ for a plain-language feature overview with no code or setup steps.
 
 ## Installing
 
-Two ways to get this into an org: **unmanaged** (deploys the raw source
-straight into your org — you own and can edit every component) or
-**managed package** (installs a versioned, packaged build — cleaner
-upgrades, but you can't edit the managed components directly). Pick
-whichever fits how you plan to use it.
-
-### Unmanaged (available now)
-
 <a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
   <img alt="Deploy to Salesforce"
   src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
@@ -62,7 +54,6 @@ it's a third-party OAuth flow, only use it with orgs and repos you trust;
 if you'd rather not grant OAuth access at all, use the
 [`sf project deploy start`](#deploying-to-an-org) route below instead —
 same result, nothing leaves your machine.
-
 
 ## What it does
 
