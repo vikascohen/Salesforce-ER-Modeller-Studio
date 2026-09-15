@@ -139,16 +139,45 @@
         <button class="tb-icon-btn" onclick={handleToggleSidebar} title="Toggle file explorer">|||</button>
         <button class="tb-icon-btn" onclick={handleToggleDslPanel} title="Toggle DSL editor">&lt;/&gt;</button>
         <div class="tb-sep"></div>
-        <button class="tb-btn" onclick={handleNew}>+ New</button>
-        <button class="tb-btn tb-btn-primary" onclick={handleSave}>Save  Ctrl+S</button>
-        <div class="tb-sep"></div>
-        <button class="tb-btn" onclick={handleToggleImport}>Import</button>
-        <button class="tb-btn" onclick={handleOpenExport}>Export</button>
-        <button class="tb-btn" onclick={handleAutoLayout} title="Reset all positions and sizes to an automatic grid layout">Auto Layout</button>
-        <button class="tb-btn" onclick={handleOpenDriftCheck} title="Compare this diagram's fields against the org's current schema">Compare with Org</button>
-        <button class={sharingToggleClass} onclick={handleToggleSharingView} title="Badge each object with its org-wide default sharing model">Sharing View</button>
-        <button class={dictionaryToggleClass} onclick={handleToggleDictionary} title="Browse every org object with full field-level detail, exportable to Excel">Data Dictionary</button>
-        <button class="tb-btn tb-btn-danger" onclick={handleClearCanvas} title="Clear entire canvas">Clear Canvas</button>
+
+        <!-- FILE MENU -->
+        <div class="dd-menu-wrap">
+            <button class={fileMenuClass} data-menu="file" onclick={handleToggleMenu}>File <span class="dd-menu-caret">&#9662;</span></button>
+            <template if:true={fileMenuOpen}>
+                <div class="dd-menu-dropdown" onclick={stopProp}>
+                    <div class="dd-menu-item" onclick={handleMenuNew}>+ New</div>
+                    <div class="dd-menu-item" onclick={handleMenuSave}>Save <span class="dd-menu-shortcut">Ctrl+S</span></div>
+                    <div class="dd-menu-divider"></div>
+                    <div class="dd-menu-item" onclick={handleMenuImport}>Import from Org</div>
+                    <div class="dd-menu-item" onclick={handleMenuExport}>Export...</div>
+                </div>
+            </template>
+        </div>
+
+        <!-- DIAGRAM MENU -->
+        <div class="dd-menu-wrap">
+            <button class={diagramMenuClass} data-menu="diagram" onclick={handleToggleMenu}>Diagram <span class="dd-menu-caret">&#9662;</span></button>
+            <template if:true={diagramMenuOpen}>
+                <div class="dd-menu-dropdown" onclick={stopProp}>
+                    <div class="dd-menu-item" onclick={handleMenuAutoLayout}>Auto Layout</div>
+                    <div class="dd-menu-item" onclick={handleMenuCompareOrg}>Compare with Org</div>
+                    <div class="dd-menu-divider"></div>
+                    <div class="dd-menu-item dd-menu-item-danger" onclick={handleMenuClearCanvas}>Clear Canvas</div>
+                </div>
+            </template>
+        </div>
+
+        <!-- VIEW MENU -->
+        <div class="dd-menu-wrap">
+            <button class={viewMenuClass} data-menu="view" onclick={handleToggleMenu}>View <span class="dd-menu-caret">&#9662;</span></button>
+            <template if:true={viewMenuOpen}>
+                <div class="dd-menu-dropdown" onclick={stopProp}>
+                    <div class="dd-menu-item" onclick={handleMenuSharingView}>{sharingViewMenuText}</div>
+                    <div class="dd-menu-item" onclick={handleMenuDataDictionary}>{dictionaryMenuText}</div>
+                </div>
+            </template>
+        </div>
+
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
     </div>

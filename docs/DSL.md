@@ -131,7 +131,7 @@ You don't have to write this by hand:
   connections between entities already on the canvas — click "+ Add" on a
   suggestion (or "Add all") to insert the line and redraw.
 - **Compare with org schema** — for diagrams that have been sitting
-  around a while, click **Compare with Org** in the toolbar to
+  around a while, click **Compare with Org** from the **Diagram** menu to
   re-describe every entity that maps to a real org object and diff it
   against the diagram: fields the org has that the diagram doesn't, and
   fields the diagram lists that the org didn't return. Each is

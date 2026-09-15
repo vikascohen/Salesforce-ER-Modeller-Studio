@@ -158,6 +158,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryExportAllBusy = false;
     @track dictionaryExportAllProgress = '';
     @track canvasCtxMenu = null; // { x, y, entityName }
+    @track openMenu = null; // 'file' | 'diagram' | 'view' | null
     sheetJsLoaded = false;
     sheetJsLoadPromise = null;
 
@@ -308,8 +309,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get toggleSidebarIcon() { return this.sidebarOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get driftHasResults() { return this.driftResults && this.driftResults.length > 0; }
     get driftNoIssues() { return this.driftChecked && !this.driftBusy && !this.driftHasResults; }
-    get sharingToggleClass() { return this.sharingViewOn ? 'tb-btn tb-btn-active' : 'tb-btn'; }
-    get dictionaryToggleClass() { return this.dictionaryOpen ? 'tb-btn tb-btn-active' : 'tb-btn'; }
 
     // ── data dictionary ──
     get dictionaryObjectList() {
@@ -600,7 +599,39 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleGlobalClick() {
         if (this.ctxMenu) this.ctxMenu = null;
         if (this.canvasCtxMenu) this.canvasCtxMenu = null;
+        if (this.openMenu) this.openMenu = null;
     }
+
+    // ────────────────────────────────────────────────────────
+    //  Menu bar — File / Diagram / View
+    // ────────────────────────────────────────────────────────
+
+    handleToggleMenu(event) {
+        event.stopPropagation();
+        const menu = event.currentTarget.dataset.menu;
+        this.openMenu = this.openMenu === menu ? null : menu;
+    }
+
+    get fileMenuClass()    { return this.openMenu === 'file'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
+    get diagramMenuClass() { return this.openMenu === 'diagram' ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
+    get viewMenuClass()    { return this.openMenu === 'view'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
+    get fileMenuOpen()    { return this.openMenu === 'file'; }
+    get diagramMenuOpen() { return this.openMenu === 'diagram'; }
+    get viewMenuOpen()    { return this.openMenu === 'view'; }
+    get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
+    get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
+
+    // Each wraps an existing, already-tested handler — closes the dropdown
+    // first, then delegates, so none of the underlying action logic changes.
+    handleMenuNew()            { this.openMenu = null; this.handleNew(); }
+    handleMenuSave()           { this.openMenu = null; this.handleSave(); }
+    handleMenuImport()         { this.openMenu = null; this.handleToggleImport(); }
+    handleMenuExport()         { this.openMenu = null; this.handleOpenExport(); }
+    handleMenuAutoLayout()     { this.openMenu = null; this.handleAutoLayout(); }
+    handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
+    handleMenuClearCanvas()    { this.openMenu = null; this.handleClearCanvas(); }
+    handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
+    handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
 
     // ────────────────────────────────────────────────────────
     //  Toolbar / file actions

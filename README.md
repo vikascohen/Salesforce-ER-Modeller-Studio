@@ -52,7 +52,8 @@ result, nothing leaves your machine.
   entity's header to enter **Focus mode** — everything except that entity
   and its direct relationships fades out, so a dense diagram instantly
   becomes readable; click it again (or click empty canvas) to release.
-- **Sharing view** — toggle **Sharing View** in the toolbar to badge each
+- **Sharing view** — toggle **Sharing View** from the **View** menu to
+  badge each
   object with its org-wide default (internal) sharing model, sourced from
   `EntityDefinition` (the same data Setup shows under Object Manager >
   Sharing Settings, not otherwise available via the describe API). A
@@ -62,8 +63,8 @@ result, nothing leaves your machine.
   across several Setup pages, now visible directly on the diagram. Scope
   is deliberately narrow: internal OWD only, not external/community
   sharing, sharing rules, or role hierarchy.
-- **Data Dictionary** — a full-screen tab (toggle **Data Dictionary** in
-  the toolbar), separate from the canvas, for browsing every accessible
+- **Data Dictionary** — a full-screen tab (toggle **Data Dictionary**
+  from the **View** menu, or right-click any canvas entity), separate from the canvas, for browsing every accessible
   object in the org: search or scroll the list on the left, and the right
   shows a full field-level table — label, description, data type,
   required, custom, primary key, foreign key (and which object it points
@@ -220,7 +221,7 @@ Id" button in the studio's sidebar to grab it).
    accept, Esc to dismiss. See [docs/DSL.md](docs/DSL.md) for the full
    syntax (relationship arrows, comments, self-relationships, etc).
 
-2. Or click **Import**, type in object API names (e.g. `Account, Contact,
+2. Or click **File > Import from Org**, type in object API names (e.g. `Account, Contact,
    Opportunity`), and the tool describes them from your org's actual
    schema and generates the DSL for you — including any relationships
    between the objects you listed.
@@ -231,11 +232,11 @@ Id" button in the studio's sidebar to grab it).
 
 4. Drag boxes around to lay them out the way you want; drag the bottom or
    right edge of a box to resize it; use the zoom controls (top-left of
-   the canvas) to zoom in/out, or **Auto Layout** to reset everything to
-   an automatic grid.
+   the canvas) to zoom in/out, or **Diagram > Auto Layout** to reset
+   everything to an automatic grid.
 
-5. **Ctrl/Cmd+S** or the Save button writes the diagram back to its
-   `Diagram_File__c` record. Use **Export** to render a PNG — the
+5. **Ctrl/Cmd+S**, or **File > Save**, writes the diagram back to its
+   `Diagram_File__c` record. Use **File > Export** to render a PNG — the
    relationship legend is baked into the exported image — or to copy/download
    the diagram as **Mermaid** or **draw.io** for pasting into a README, wiki
    page, or editing further in draw.io.
