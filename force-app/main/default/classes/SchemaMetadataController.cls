@@ -198,7 +198,7 @@ public with sharing class SchemaMetadataController {
         }
 
         if (fdr.isCalculated())  return 'Formula (' + base + ')';
-        if (fdr.getAutoNumber()) return 'Auto Number';
+        if (fdr.isAutoNumber())  return 'Auto Number';
         return base;
     }
 

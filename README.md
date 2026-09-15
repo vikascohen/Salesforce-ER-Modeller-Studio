@@ -265,7 +265,7 @@ Id" button in the studio's sidebar to grab it).
    the canvas) to zoom in/out, or **Diagram > Auto Layout** to reset
    everything to an automatic grid.
 
-5. **Ctrl/Cmd+S**, or **File > Save**, writes the diagram back to its
+5.  **File > Save**, writes the diagram back to its
    `Diagram_File__c` record. Use **File > Export** to render a PNG — the
    relationship legend is baked into the exported image — or to copy/download
    the diagram as **Mermaid** or **draw.io** for pasting into a README, wiki
