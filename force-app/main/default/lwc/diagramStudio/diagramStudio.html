@@ -11,13 +11,6 @@
         </div>
     </template>
 
-    <!-- CANVAS ENTITY CONTEXT MENU -->
-    <template if:true={canvasCtxMenu}>
-        <div class="ctx-menu" style={canvasCtxMenuStyle}>
-            <div class="ctx-item" onclick={handleCanvasCtxGoToDictionary}>View in Data Dictionary</div>
-        </div>
-    </template>
-
     <!-- EXPORT MODAL -->
     <template if:true={exportModalOpen}>
         <div class="modal-backdrop" onclick={handleCloseExport}>
@@ -275,8 +268,7 @@
                         <div key={obj} class="palette-chip"
                              draggable="true"
                              data-name={obj}
-                             ondragstart={handlePaletteDragStart}
-                             oncontextmenu={handleEntityContextMenu}>{obj}</div>
+                             ondragstart={handlePaletteDragStart}>{obj}</div>
                     </template>
                 </div>
             </div>
@@ -397,6 +389,8 @@
                      onpointermove={handleSvgPointerMove}
                      onpointerup={handleSvgPointerUp}>
 
+                    <defs lwc:dom="manual"></defs>
+
                     <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#f4f6f9" onclick={handleCanvasBackgroundClick}></rect>
 
                     <!-- Connectors rendered under boxes -->
@@ -424,7 +418,7 @@
                             <!-- Body -->
                             <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill={b.bodyFill} stroke={b.boxStroke} stroke-width={b.boxStrokeWidth}></rect>
                             <!-- Header drag handle -->
-                            <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown} oncontextmenu={handleEntityContextMenu}></rect>
+                            <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown}></rect>
                             <!-- Header bottom strip (covers rounded corners gap) -->
                             <rect x={b.x} y={b.headerBodyY} width={b.width} height="10" fill={b.headerFill}></rect>
                             <!-- Entity name -->
@@ -554,6 +548,7 @@
                                 <span class="dict-detail-sub">{dictionaryRow.label} &middot; {dictionaryObjectTypeText} &middot; {dictionaryFieldCount} fields</span>
                             </div>
                             <div class="dict-detail-actions">
+                                <button class="dsl-head-btn" onclick={handleClearDictionarySelection}>Clear</button>
                                 <button class="dsl-head-btn" disabled={dictionaryUsagePending} onclick={handleCalculateUsage}>{dictionaryCalcUsageLabel}</button>
                                 <button class="dsl-head-btn" onclick={handleExportDictionaryCsv}>Export CSV</button>
                                 <button class="dsl-head-btn" disabled={dictionaryExportBusy} onclick={handleExportDictionaryXlsx}>Export Excel</button>
@@ -563,12 +558,12 @@
                             <table class="dict-table">
                                 <thead>
                                     <tr>
-                                        <th>Field</th>
+                                        <th class="dict-th-sort" data-column="apiName" onclick={handleSortDictionary}>Field API Name{dictSortArrowApiName}</th>
                                         <th>Label</th>
                                         <th>Description</th>
                                         <th>Data Type</th>
-                                        <th>Required</th>
-                                        <th>Custom</th>
+                                        <th class="dict-th-sort" data-column="required" onclick={handleSortDictionary}>Required{dictSortArrowRequired}</th>
+                                        <th class="dict-th-sort" data-column="isCustom" onclick={handleSortDictionary}>Custom{dictSortArrowCustom}</th>
                                         <th>PK</th>
                                         <th>FK</th>
                                         <th>FK To</th>

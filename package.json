@@ -1,0 +1,15 @@
+{
+  "name": "salesforce-er-modeller-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Jest unit tests for the ER Modeller Studio LWC components",
+  "scripts": {
+    "test": "sfdx-lwc-jest",
+    "test:unit": "sfdx-lwc-jest",
+    "test:unit:watch": "sfdx-lwc-jest --watch",
+    "test:unit:coverage": "sfdx-lwc-jest --coverage"
+  },
+  "devDependencies": {
+    "@salesforce/sfdx-lwc-jest": "^7.9.0"
+  }
+}

@@ -18,14 +18,28 @@ import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSha
 import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
+import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
+import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
 
+// ── page-size options for the export modal ──
+const EXPORT_SIZE_OPTIONS = [
+    { label: 'PNG  –  native diagram size',   value: 'PNG' },
+    { label: 'A4 Landscape  (1123 × 794 px)', value: 'A4'  },
+    { label: 'A3 Landscape  (1587 × 1123 px)', value: 'A3'  }
+];
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function injectDefs(svg) {
-    if (!svg || svg.querySelector('defs')) return;
-    const defs = document.createElementNS(SVG_NS, 'defs');
+// LWC's template compiler doesn't recognize <marker> (or its refX/markerWidth
+// attributes) as valid static markup, so these are still built via the DOM
+// API rather than declared in the template. The template marks the <defs>
+// container itself with lwc:dom="manual" so this appendChild is supported by
+// LWC — scoped to just that empty placeholder, not the whole <svg>, which
+// stays fully reactive for the template-driven boxes/connectors inside it.
+function injectDefs(defsEl) {
+    if (!defsEl || defsEl.childElementCount > 0) return;
     [
         { id: 'er-arrow',        w: 10, h: 10, rx: 8,  ry: 3, d: 'M0,0 L8,3 L0,6',         fill: 'none',          stroke: 'context-stroke' },
         { id: 'er-diamond',      w: 14, h: 10, rx: 12, ry: 3, d: 'M0,3 L6,0 L12,3 L6,6 Z', fill: 'context-stroke', stroke: null },
@@ -37,17 +51,9 @@ function injectDefs(svg) {
         const path = document.createElementNS(SVG_NS, 'path');
         path.setAttribute('d', d); path.setAttribute('fill', fill);
         if (stroke) path.setAttribute('stroke', stroke);
-        m.appendChild(path); defs.appendChild(m);
+        m.appendChild(path); defsEl.appendChild(m);
     });
-    svg.insertBefore(defs, svg.firstChild);
 }
-
-// ── page-size options for the export modal ──
-const EXPORT_SIZE_OPTIONS = [
-    { label: 'PNG  –  native diagram size',   value: 'PNG' },
-    { label: 'A4 Landscape  (1123 × 794 px)', value: 'A4'  },
-    { label: 'A3 Landscape  (1587 × 1123 px)', value: 'A3'  }
-];
 
 export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @api diagramId;
@@ -160,10 +166,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryLoading    = false;
     @track dictionaryUsagePending  = false;
     @track dictionaryUsageComputed = false;
+    @track dictionarySort = null; // { column, direction } | null
     @track dictionaryExportBusy    = false;
     @track dictionaryExportAllBusy = false;
     @track dictionaryExportAllProgress = '';
-    @track canvasCtxMenu = null; // { x, y, entityName }
     @track openMenu = null; // 'file' | 'diagram' | 'view' | null
     @track currentTheme = 'theme-dark-plus';
     sheetJsLoaded = false;
@@ -181,6 +187,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         } else {
             this.openNewUnsaved();
         }
+        this.loadSavedTheme();
+    }
+
+    async loadSavedTheme() {
+        const validThemes = ['theme-dark-plus', 'theme-light-plus', 'theme-monokai', 'theme-solarized-light'];
+        try {
+            const saved = await getTheme();
+            if (saved && validThemes.includes(saved)) {
+                this.currentTheme = saved;
+            }
+        } catch (e) {
+            // No saved preference yet, or the call failed — keep the default
+            // theme rather than blocking startup on this.
+        }
     }
 
     disconnectedCallback() {
@@ -189,7 +209,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     renderedCallback() {
-        injectDefs(this.template.querySelector('svg[data-role="er-svg"]'));
+        // Marker <defs> (arrowheads/diamonds) are injected into a dedicated
+        // lwc:dom="manual" placeholder in the template (see injectDefs above)
+        // rather than the whole <svg> — LWC's template compiler doesn't
+        // recognize <marker>/refX/markerWidth as valid static markup, and
+        // manually inserting into the *whole* SVG via insertBefore (the
+        // original approach) triggers an "unsupported without lwc:dom=manual"
+        // warning that can't just be silenced by adding that directive to
+        // the SVG itself, since that would also disable LWC's reactive
+        // rendering for the for:each-driven boxes/connectors living in it.
+        injectDefs(this.template.querySelector('svg[data-role="er-svg"] defs'));
 
         // A <textarea>/<input> stops honoring template-level value={} updates
         // once the user has typed into it at least once (the browser's own
@@ -258,21 +287,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             });
         }
 
-        // Heat scale is relative to whatever's on canvas right now, not some
-        // fixed absolute scale — recomputed here so it always reflects the
-        // current set of boxes.
-        let heatMin = 0;
-        let heatMax = 0;
-        if (this.heatmapOn) {
-            const counts = this._erBoxes
-                .map((b) => this.recordCounts[b.name.toLowerCase()])
-                .filter((c) => c != null);
-            if (counts.length) {
-                heatMin = Math.min(...counts);
-                heatMax = Math.max(...counts);
-            }
-        }
-
         return this._erBoxes.map((b) => {
             const pkFields    = b.fields.filter((f) => f.isPrimaryKey);
             const relFields   = b.fields.filter((f) => f.isRelationship);
@@ -289,7 +303,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             if (this.heatmapOn) {
                 const rc = this.recordCounts[b.name.toLowerCase()];
                 if (rc != null) {
-                    const heatColor = this.heatColorFor(rc, heatMin, heatMax);
+                    const heatColor = this.heatColorFor(rc);
                     bodyFill = heatColor;
                     badges.push({
                         id: b.name + '-heat',
@@ -401,9 +415,36 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get dictionaryObjectTypeText() { return this.dictionaryRow && this.dictionaryRow.isCustom ? 'Custom Object' : 'Standard Object'; }
     get dictionaryFieldCount() { return this.dictionaryRow && this.dictionaryRow.fields ? this.dictionaryRow.fields.length : 0; }
     get dictionaryCalcUsageLabel() { return this.dictionaryUsageComputed ? 'Recalculate Usage %' : 'Calculate Usage %'; }
+    getSortedDictionaryFields() {
+        const fields = (this.dictionaryRow && this.dictionaryRow.fields) || [];
+        if (!this.dictionarySort) return fields;
+        const { column, direction } = this.dictionarySort;
+        const mult = direction === 'desc' ? -1 : 1;
+        const valueOf = (f) => {
+            if (column === 'apiName')  return (f.apiName || '').toLowerCase();
+            if (column === 'isCustom') return f.isCustom ? 1 : 0;
+            if (column === 'required') return f.required ? 1 : 0;
+            return '';
+        };
+        return [...fields].sort((a, b) => {
+            const av = valueOf(a);
+            const bv = valueOf(b);
+            if (av < bv) return -1 * mult;
+            if (av > bv) return 1 * mult;
+            return 0;
+        });
+    }
+
+    handleSortDictionary(event) {
+        const column = event.currentTarget.dataset.column;
+        if (!column) return;
+        const current = this.dictionarySort;
+        const direction = (current && current.column === column && current.direction === 'asc') ? 'desc' : 'asc';
+        this.dictionarySort = { column, direction };
+    }
+
     get dictionaryFieldRows() {
-        if (!this.dictionaryRow || !this.dictionaryRow.fields) return [];
-        return this.dictionaryRow.fields.map((f) => ({
+        return this.getSortedDictionaryFields().map((f) => ({
             key: f.apiName,
             apiName: f.apiName,
             label: f.label || '',
@@ -419,9 +460,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             rowClass: f.isPrimaryKey ? 'dict-field-row dict-field-pk' : 'dict-field-row'
         }));
     }
-    get canvasCtxMenuStyle() {
-        if (!this.canvasCtxMenu) return '';
-        return `left:${this.canvasCtxMenu.x}px;top:${this.canvasCtxMenu.y}px`;
+    get dictSortArrowApiName() { return this.dictSortArrowFor('apiName'); }
+    get dictSortArrowCustom()  { return this.dictSortArrowFor('isCustom'); }
+    get dictSortArrowRequired() { return this.dictSortArrowFor('required'); }
+    dictSortArrowFor(column) {
+        if (!this.dictionarySort || this.dictionarySort.column !== column) return '';
+        return this.dictionarySort.direction === 'asc' ? ' \u25B2' : ' \u25BC';
     }
 
     // ── DSL panel ──
@@ -473,6 +517,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.svgHeight = 900;
         this.isDirty   = true;
         this._markTabDirty(this.activeTabId, true);
+        // Sharing View / Heatmap badge whatever's currently on the canvas —
+        // with nothing left on it, leaving them ticked was stale/misleading.
+        this.sharingViewOn = false;
+        this.heatmapOn = false;
+        this.sharingModels = {};
+        this.recordCounts = {};
     }
 
     // An empty canvas is a valid, error-free state — not something to parse.
@@ -669,7 +719,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleGlobalClick() {
         if (this.ctxMenu) this.ctxMenu = null;
-        if (this.canvasCtxMenu) this.canvasCtxMenu = null;
         if (this.openMenu) this.openMenu = null;
     }
 
@@ -688,7 +737,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get viewMenuClass()    { return this.openMenu === 'view'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get rootClass() { return 'er-studio ' + this.currentTheme; }
     get themeSelectValue() { return this.currentTheme; }
-    handleThemeChange(event) { this.currentTheme = event.target.value; }
+    handleThemeChange(event) {
+        this.currentTheme = event.target.value;
+        saveTheme({ theme: this.currentTheme }).catch(() => {
+            // Non-critical — the theme still applies for this session even
+            // if persisting it for next time silently failed.
+        });
+    }
     get fileMenuOpen()    { return this.openMenu === 'file'; }
     get diagramMenuOpen() { return this.openMenu === 'diagram'; }
     get viewMenuOpen()    { return this.openMenu === 'view'; }
@@ -1376,30 +1431,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // Cool blue (fewest records, relative to what's on canvas) through
     // yellow to hot red (most records) — the conventional heat-map scale,
     // not a reuse of the app's red=error/green=success semantic colors.
-    heatColorFor(count, min, max) {
-        if (max === min) return '#dbeafe';
-        const t = (count - min) / (max - min);
-        return t < 0.5
-            ? this.lerpHex('#dbeafe', '#fef08a', t / 0.5)
-            : this.lerpHex('#fef08a', '#fecaca', (t - 0.5) / 0.5);
-    }
-
-    lerpHex(hexA, hexB, t) {
-        const a = this.hexToRgb(hexA);
-        const b = this.hexToRgb(hexB);
-        const r = Math.round(a.r + (b.r - a.r) * t);
-        const g = Math.round(a.g + (b.g - a.g) * t);
-        const bl = Math.round(a.b + (b.b - a.b) * t);
-        return `rgb(${r},${g},${bl})`;
-    }
-
-    hexToRgb(hex) {
-        const h = hex.replace('#', '');
-        return {
-            r: parseInt(h.substring(0, 2), 16),
-            g: parseInt(h.substring(2, 4), 16),
-            b: parseInt(h.substring(4, 6), 16)
-        };
+    // Binary by design, not a gradient: light blue for any object that has
+    // at least one record, light orange for genuinely empty ones. A relative
+    // gradient looked informative but was actually harder to read at a
+    // glance than a simple "has data / doesn't" signal.
+    heatColorFor(count) {
+        return count > 0 ? '#cfe8fb' : '#fde3cc';
     }
 
     formatCount(n) {
@@ -1437,6 +1474,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionarySelectedObject = name;
         this.dictionaryRow = null;
         this.dictionaryUsageComputed = false;
+        this.dictionarySort = null;
         this.dictionaryLoading = true;
         try {
             const rows = await describeObjectsForDictionary({ objectApiNames: [name] });
@@ -1449,6 +1487,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         } finally {
             this.dictionaryLoading = false;
         }
+    }
+
+    // Resets the right-hand detail pane back to "nothing selected" without
+    // touching the left-hand object list — the object stays selectable
+    // again from the list on the left, per the user's own description.
+    handleClearDictionarySelection() {
+        this.dictionarySelectedObject = null;
+        this.dictionaryRow = null;
+        this.dictionaryUsageComputed = false;
+        this.dictionarySort = null;
     }
 
     async handleCalculateUsage() {
@@ -1472,24 +1520,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         } finally {
             this.dictionaryUsagePending = false;
         }
-    }
-
-    // ── canvas right-click -> jump to dictionary ──
-
-    handleEntityContextMenu(event) {
-        event.preventDefault();
-        const name = event.currentTarget.dataset.name;
-        if (!name) return;
-        this.canvasCtxMenu = { x: event.clientX, y: event.clientY, entityName: name };
-    }
-
-    handleCanvasCtxGoToDictionary() {
-        const name = this.canvasCtxMenu ? this.canvasCtxMenu.entityName : null;
-        this.canvasCtxMenu = null;
-        if (!name) return;
-        this.dictionaryOpen = true;
-        this.dictionarySearch = name; // narrows the left list to just this object
-        this.openDictionaryForObject(name);
     }
 
     // ── Excel / CSV export ──
@@ -1544,9 +1574,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return s || 'Sheet';
     }
 
+    // Single-object export respects whatever sort is currently applied to
+    // the table (that's the point of asking for it); bulk Export All has no
+    // per-object sort selection to respect, so it stays in natural order.
+    getDictionaryRowForExport() {
+        return { ...this.dictionaryRow, fields: this.getSortedDictionaryFields() };
+    }
+
     handleExportDictionaryCsv() {
         if (!this.dictionaryRow) return;
-        const rows = this.buildDictSheetAoA(this.dictionaryRow);
+        const rows = this.buildDictSheetAoA(this.getDictionaryRowForExport());
         const csv = rows.map((r) => r.map((cell) => this.csvEscape(cell)).join(',')).join('\n');
         this.downloadTextFile(csv, this.dictionaryRow.apiName + '-dictionary.csv', 'text/csv');
     }
@@ -1557,7 +1594,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try {
             await this.ensureSheetJs();
             const wb = window.XLSX.utils.book_new();
-            const ws = window.XLSX.utils.aoa_to_sheet(this.buildDictSheetAoA(this.dictionaryRow));
+            const ws = window.XLSX.utils.aoa_to_sheet(this.buildDictSheetAoA(this.getDictionaryRowForExport()));
             window.XLSX.utils.book_append_sheet(wb, ws, this.safeSheetName(this.dictionaryRow.apiName));
             window.XLSX.writeFile(wb, this.dictionaryRow.apiName + '-dictionary.xlsx');
         } catch (e) {

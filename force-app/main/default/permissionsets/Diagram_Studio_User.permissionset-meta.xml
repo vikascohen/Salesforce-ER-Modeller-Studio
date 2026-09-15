@@ -23,4 +23,8 @@
         <apexClass>SchemaMetadataController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>DiagramPreferenceController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
 </PermissionSet>

@@ -16,11 +16,16 @@ import { parseEr, buildErGeometry, buildLegendGroup } from 'c/erDiagramLogic';
  */
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function injectSvgDefs(svg) {
-    if (!svg || svg.querySelector('defs')) {
+// LWC's template compiler doesn't recognize <marker> (or its refX/markerWidth
+// attributes) as valid static markup, so these are still built via the DOM
+// API rather than declared in the template. The template marks the <defs>
+// container itself with lwc:dom="manual" so this appendChild is supported
+// LWC — scoped to just that empty placeholder, not the whole <svg>, which
+// stays fully reactive for the template-driven boxes/connectors inside it.
+function injectSvgDefs(defsEl) {
+    if (!defsEl || defsEl.childElementCount > 0) {
         return;
     }
-    const defs = document.createElementNS(SVG_NS, 'defs');
     const markers = [
         { id: 'er-arrow',        w: 10, h: 10, rx: 8, ry: 3, d: 'M0,0 L8,3 L0,6',   fill: 'none', stroke: '#0070d2' },
         { id: 'er-diamond',      w: 12, h: 10, rx: 10, ry: 3, d: 'M0,3 L6,0 L12,3 L6,6 Z', fill: '#5c2d91', stroke: null },
@@ -41,9 +46,8 @@ function injectSvgDefs(svg) {
             path.setAttribute('stroke', stroke);
         }
         m.appendChild(path);
-        defs.appendChild(m);
+        defsEl.appendChild(m);
     });
-    svg.insertBefore(defs, svg.firstChild);
 }
 
 export default class DiagramViewer extends NavigationMixin(LightningElement) {
@@ -104,7 +108,7 @@ export default class DiagramViewer extends NavigationMixin(LightningElement) {
     }
 
     renderedCallback() {
-        injectSvgDefs(this.template.querySelector('svg[data-role="viewer-svg"]'));
+        injectSvgDefs(this.template.querySelector('svg[data-role="viewer-svg"] defs'));
     }
 
     async handleExport() {
