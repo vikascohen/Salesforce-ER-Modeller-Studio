@@ -181,13 +181,20 @@ public with sharing class SchemaMetadataController {
         }
     }
 
+    public class SharingWrap {
+        @AuraEnabled public String internalModel;
+        @AuraEnabled public String externalModel; // null on orgs without a Communities/Experience Cloud license — external sharing doesn't apply there
+    }
+
     /**
-     * Returns each object's org-wide default sharing model (internal users),
-     * sourced from EntityDefinition — the same data Setup shows under
-     * Object Manager > Sharing Settings, but not available via the regular
-     * describe API. For a Master-Detail child, this naturally comes back as
-     * 'ControlledByParent', which is exactly what tells the ER canvas that
-     * object's sharing is inherited rather than independently configured.
+     * Returns each object's org-wide default sharing model — both internal
+     * (regular org users) and external (Experience Cloud / community /
+     * guest users), sourced from EntityDefinition — the same data Setup
+     * shows under Object Manager > Sharing Settings, but not available via
+     * the regular describe API. For a Master-Detail child, InternalSharingModel
+     * naturally comes back as 'ControlledByParent', which is exactly what
+     * tells the ER canvas that object's sharing is inherited rather than
+     * independently configured.
      *
      * Read-only, single-equality queries only (EntityDefinition is a
      * metadata catalog object with its own SOQL restrictions — no IN/OR/NOT/
@@ -195,8 +202,8 @@ public with sharing class SchemaMetadataController {
      * unresolvable or inaccessible name can't fail the whole batch.
      */
     @AuraEnabled(cacheable=false)
-    public static Map<String, String> getSharingModels(List<String> objectApiNames) {
-        Map<String, String> result = new Map<String, String>();
+    public static Map<String, SharingWrap> getSharingModels(List<String> objectApiNames) {
+        Map<String, SharingWrap> result = new Map<String, SharingWrap>();
         for (String rawName : objectApiNames) {
             String name = rawName == null ? null : rawName.trim();
             if (String.isBlank(name)) {
@@ -204,16 +211,44 @@ public with sharing class SchemaMetadataController {
             }
             try {
                 List<EntityDefinition> rows = [
-                    SELECT InternalSharingModel
+                    SELECT InternalSharingModel, ExternalSharingModel
                     FROM EntityDefinition
                     WHERE QualifiedApiName = :name
                 ];
-                if (!rows.isEmpty() && rows[0].InternalSharingModel != null) {
-                    result.put(name, rows[0].InternalSharingModel);
+                if (!rows.isEmpty() && (rows[0].InternalSharingModel != null || rows[0].ExternalSharingModel != null)) {
+                    SharingWrap sw = new SharingWrap();
+                    sw.internalModel = rows[0].InternalSharingModel;
+                    sw.externalModel = rows[0].ExternalSharingModel;
+                    result.put(name, sw);
                 }
             } catch (Exception e) {
                 // Object not found, not resolvable via EntityDefinition, or any
                 // other edge case — skip this one entity's badge, don't fail the batch.
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Record count per object, for the canvas heatmap — a plain COUNT(),
+     * nothing about the records themselves is read. Deliberately scoped to
+     * whatever's currently on the canvas (the caller decides which objects
+     * to ask about), never run against every object in the org at once.
+     * One query per object, each wrapped so a single object failing (huge
+     * table timing out, no access, etc.) doesn't blank out the rest.
+     */
+    @AuraEnabled(cacheable=false)
+    public static Map<String, Integer> getRecordCounts(List<String> objectApiNames) {
+        Map<String, Integer> result = new Map<String, Integer>();
+        for (String rawName : objectApiNames) {
+            String name = rawName == null ? null : rawName.trim();
+            if (!isSafeIdentifier(name)) {
+                continue;
+            }
+            try {
+                result.put(name, Database.countQuery('SELECT COUNT() FROM ' + name, AccessLevel.USER_MODE));
+            } catch (Exception e) {
+                // Skip this one object's count, don't fail the batch.
             }
         }
         return result;

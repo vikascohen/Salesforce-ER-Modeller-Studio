@@ -173,6 +173,7 @@
             <template if:true={viewMenuOpen}>
                 <div class="dd-menu-dropdown" onclick={stopProp}>
                     <div class="dd-menu-item" onclick={handleMenuSharingView}>{sharingViewMenuText}</div>
+                    <div class="dd-menu-item" onclick={handleMenuHeatmap}>{heatmapMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuDataDictionary}>{dictionaryMenuText}</div>
                 </div>
             </template>
@@ -421,7 +422,7 @@
                             <!-- Shadow -->
                             <rect x={b.shadowX} y={b.shadowY} width={b.width} height={b.height} rx="7" fill="#c8cdd6"></rect>
                             <!-- Body -->
-                            <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill="#ffffff" stroke={b.boxStroke} stroke-width={b.boxStrokeWidth}></rect>
+                            <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="7" fill={b.bodyFill} stroke={b.boxStroke} stroke-width={b.boxStrokeWidth}></rect>
                             <!-- Header drag handle -->
                             <rect data-name={b.name} x={b.x} y={b.y} width={b.width} height="36" rx="6" fill={b.headerFill} class="drag-header" onpointerdown={handleBoxPointerDown} oncontextmenu={handleEntityContextMenu}></rect>
                             <!-- Header bottom strip (covers rounded corners gap) -->
@@ -433,12 +434,12 @@
                                 <circle cx="0" cy="0" r="10" fill="#c23934"></circle>
                                 <text x="0" y="0" font-size="14" fill="#ffffff" text-anchor="middle" dy="5">x</text>
                             </g>
-                            <!-- Sharing model badge (Sharing View toggle) -->
-                            <template if:true={b.showSharingBadge}>
-                                <g class="sharing-badge">
-                                    <title>{b.sharingBadgeTitle}</title>
-                                    <circle cx={b.sharingBadgeCx} cy={b.sharingBadgeCy} r="12" fill={b.sharingBadgeColor} stroke="#ffffff" stroke-width="2"></circle>
-                                    <text x={b.sharingBadgeCx} y={b.sharingBadgeCy} font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle" dy="3">{b.sharingBadgeCode}</text>
+                            <!-- Badges: heatmap record count, sharing model (internal/external) -->
+                            <template for:each={b.badges} for:item="badge">
+                                <g key={badge.id} class="entity-badge">
+                                    <title>{badge.title}</title>
+                                    <circle cx={badge.cx} cy={badge.cy} r="12" fill={badge.fillColor} stroke={badge.strokeColor} stroke-width="2"></circle>
+                                    <text x={badge.cx} y={badge.cy} font-size="9" font-weight="bold" fill={badge.textColor} text-anchor="middle" dy="3">{badge.code}</text>
                                 </g>
                             </template>
                             <!-- Divider -->

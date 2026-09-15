@@ -53,16 +53,23 @@ result, nothing leaves your machine.
   and its direct relationships fades out, so a dense diagram instantly
   becomes readable; click it again (or click empty canvas) to release.
 - **Sharing view** — toggle **Sharing View** from the **View** menu to
-  badge each
-  object with its org-wide default (internal) sharing model, sourced from
+  badge each object with its org-wide default sharing model, sourced from
   `EntityDefinition` (the same data Setup shows under Object Manager >
-  Sharing Settings, not otherwise available via the describe API). A
-  Master-Detail child naturally comes back as *Controlled by Parent*,
-  which is exactly what shows its sharing is inherited rather than
-  independently configured — reasoning that's normally done in your head
-  across several Setup pages, now visible directly on the diagram. Scope
-  is deliberately narrow: internal OWD only, not external/community
-  sharing, sharing rules, or role hierarchy.
+  Sharing Settings, not otherwise available via the describe API). Shows
+  both **internal** (regular org users — solid badge) and **external**
+  (Experience Cloud / community / guest users — hollow badge, when the org
+  has one configured) side by side. A Master-Detail child's internal badge
+  naturally comes back as *Controlled by Parent*, which is exactly what
+  shows its sharing is inherited rather than independently configured —
+  reasoning that's normally done in your head across several Setup pages,
+  now visible directly on the diagram. Scope is deliberately narrow: OWD
+  only, not sharing rules or role hierarchy.
+- **Heatmap** — toggle **Heatmap** from the **View** menu to color each
+  box by relative record volume among whatever's on the canvas right now
+  (cool blue → yellow → hot red), with the actual count badged at the top
+  (e.g. `1.2K`, `45`). A plain `COUNT()` per object, nothing about the
+  records themselves is read. Scoped to the canvas, never the whole org at
+  once, and only fetched when you turn it on.
 - **Data Dictionary** — a full-screen tab (toggle **Data Dictionary**
   from the **View** menu, or right-click any canvas entity or palette
   object → **View in Data Dictionary**), separate from the canvas, for browsing every accessible
@@ -140,7 +147,7 @@ other.
 | LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, org-wide default sharing model for Sharing View, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 | Static Resource | `sheetjs` | [SheetJS](https://www.npmjs.com/package/xlsx) (Apache-2.0), bundled for real client-side `.xlsx` generation — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Only loaded on first use of an Excel export. |
 
@@ -172,14 +179,14 @@ graph TD
         FILES["ContentVersion<br/>PNG exports"]
         SCHEMA["Org Schema<br/>describe API"]
         CATALOG["Metadata Catalog<br/>EntityDefinition · FieldDefinition"]
-        RECORDS["Object Records<br/>COUNT() aggregates only —<br/>Data Dictionary usage % only"]
+        RECORDS["Object Records<br/>COUNT() aggregates only —<br/>Heatmap counts, Dictionary usage %"]
     end
 
     DS -- "parse / render" --> ERL
     DS -- "export" --> EXP
     DS -- "Excel export" --> XLSX
     DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>data dictionary" --> SMC
+    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>heatmap, data dictionary" --> SMC
 
     DV -- "render" --> ERL
     DV -- "export" --> EXP

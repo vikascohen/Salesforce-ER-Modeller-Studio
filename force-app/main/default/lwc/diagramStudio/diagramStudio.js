@@ -15,6 +15,7 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
+import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
@@ -142,8 +143,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // ── sharing model view ──
     @track sharingViewOn = false;
-    @track sharingModels = {}; // lowercased apiName -> raw InternalSharingModel string
+    @track sharingModels = {}; // lowercased apiName -> { internal, external } raw sharing model strings
     _sharingFetchTimer = null;
+
+    // ── record-count heatmap ──
+    @track heatmapOn = false;
+    @track recordCounts = {}; // lowercased apiName -> Integer record count
+    _heatmapFetchTimer = null;
 
     // ── data dictionary ──
     @track dictionaryOpen       = false;
@@ -251,14 +257,82 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (c.parentEntity.toLowerCase() === focused) neighborNames.add(c.childEntity.toLowerCase());
             });
         }
+
+        // Heat scale is relative to whatever's on canvas right now, not some
+        // fixed absolute scale — recomputed here so it always reflects the
+        // current set of boxes.
+        let heatMin = 0;
+        let heatMax = 0;
+        if (this.heatmapOn) {
+            const counts = this._erBoxes
+                .map((b) => this.recordCounts[b.name.toLowerCase()])
+                .filter((c) => c != null);
+            if (counts.length) {
+                heatMin = Math.min(...counts);
+                heatMax = Math.max(...counts);
+            }
+        }
+
         return this._erBoxes.map((b) => {
             const pkFields    = b.fields.filter((f) => f.isPrimaryKey);
             const relFields   = b.fields.filter((f) => f.isRelationship);
             const plainFields = b.fields.filter((f) => f.isPlain);
             const isFocused   = !!focused && b.name.toLowerCase() === focused;
             const boxOpacity  = neighborNames && !neighborNames.has(b.name.toLowerCase()) ? '0.15' : '1';
-            const sharingRaw  = this.sharingModels ? this.sharingModels[b.name.toLowerCase()] : null;
-            const badge       = this.sharingViewOn ? this.sharingBadgeFor(sharingRaw) : null;
+
+            // Badges render left-to-right in a row just above the box header.
+            const badges = [];
+            let badgeX = b.x + 14;
+            const badgeY = b.y - 10;
+            let bodyFill = '#ffffff';
+
+            if (this.heatmapOn) {
+                const rc = this.recordCounts[b.name.toLowerCase()];
+                if (rc != null) {
+                    const heatColor = this.heatColorFor(rc, heatMin, heatMax);
+                    bodyFill = heatColor;
+                    badges.push({
+                        id: b.name + '-heat',
+                        cx: badgeX, cy: badgeY,
+                        fillColor: '#1e1e2e',
+                        strokeColor: '#1e1e2e',
+                        textColor: '#ffffff',
+                        filled: true,
+                        code: this.formatCount(rc),
+                        title: `${rc.toLocaleString()} record${rc === 1 ? '' : 's'}`
+                    });
+                    badgeX += 32;
+                }
+            }
+
+            if (this.sharingViewOn) {
+                const sm = this.sharingModels[b.name.toLowerCase()];
+                if (sm && sm.internal) {
+                    const ib = this.sharingBadgeFor(sm.internal);
+                    badges.push({
+                        id: b.name + '-int',
+                        cx: badgeX, cy: badgeY,
+                        fillColor: ib.color, strokeColor: ib.color, textColor: '#ffffff',
+                        filled: true,
+                        code: ib.code,
+                        title: 'Internal sharing: ' + ib.label
+                    });
+                    badgeX += 30;
+                }
+                if (sm && sm.external) {
+                    const eb = this.sharingBadgeFor(sm.external);
+                    badges.push({
+                        id: b.name + '-ext',
+                        cx: badgeX, cy: badgeY,
+                        fillColor: '#ffffff', strokeColor: eb.color, textColor: eb.color,
+                        filled: false,
+                        code: eb.code,
+                        title: 'External sharing: ' + eb.label
+                    });
+                    badgeX += 30;
+                }
+            }
+
             return {
                 ...b,
                 pkFields,
@@ -283,12 +357,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 boxOpacity,
                 boxStroke:      isFocused ? '#f5a623' : '#d0d5dd',
                 boxStrokeWidth: isFocused ? '3' : '1.5',
-                showSharingBadge: !!badge,
-                sharingBadgeCx:  b.x + b.width - 16,
-                sharingBadgeCy:  b.y - 10,
-                sharingBadgeColor: badge ? badge.color : '',
-                sharingBadgeCode:  badge ? badge.code : '',
-                sharingBadgeTitle: badge ? badge.label : ''
+                bodyFill,
+                badges
             };
         });
     }
@@ -624,6 +694,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get viewMenuOpen()    { return this.openMenu === 'view'; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
+    get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
 
     // Each wraps an existing, already-tested handler — closes the dropdown
     // first, then delegates, so none of the underlying action logic changes.
@@ -636,6 +707,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuClearCanvas()    { this.openMenu = null; this.handleClearCanvas(); }
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
     handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
+    handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
 
     // ────────────────────────────────────────────────────────
     //  Toolbar / file actions
@@ -1244,7 +1316,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const names = this._erBoxes.map((b) => b.name);
             const fresh = await getSharingModels({ objectApiNames: names });
             const next = {};
-            Object.keys(fresh || {}).forEach((name) => { next[name.toLowerCase()] = fresh[name]; });
+            Object.keys(fresh || {}).forEach((name) => {
+                next[name.toLowerCase()] = {
+                    internal: fresh[name] ? fresh[name].internalModel : null,
+                    external: fresh[name] ? fresh[name].externalModel : null
+                };
+            });
             this.sharingModels = next;
         } catch (e) {
             this.errorMessage = this.reduceError(e);
@@ -1263,6 +1340,72 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             ControlledByLeadOrContact: { code: 'CL',  color: '#0070d2', label: 'Controlled by Lead/Contact' }
         };
         return map[model] || { code: '?', color: '#8896a6', label: model ? model : 'Unknown / not available' };
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Record-count heatmap — colors each box by relative record volume
+    //  among whatever's currently on the canvas, with the actual count
+    //  badged at the top. Same opt-in-and-cache-nothing pattern as
+    //  Sharing View: toggle on, fetch for the current canvas, refetch
+    //  whenever the diagram's content changes while it's still on.
+    // ────────────────────────────────────────────────────────
+
+    handleToggleHeatmap() {
+        this.heatmapOn = !this.heatmapOn;
+        if (this.heatmapOn) this.scheduleHeatmapFetch();
+    }
+
+    scheduleHeatmapFetch() {
+        clearTimeout(this._heatmapFetchTimer);
+        this._heatmapFetchTimer = setTimeout(() => this.fetchRecordCounts(), 300);
+    }
+
+    async fetchRecordCounts() {
+        if (!this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
+        try {
+            const names = this._erBoxes.map((b) => b.name);
+            const fresh = await getRecordCounts({ objectApiNames: names });
+            const next = {};
+            Object.keys(fresh || {}).forEach((name) => { next[name.toLowerCase()] = fresh[name]; });
+            this.recordCounts = next;
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    // Cool blue (fewest records, relative to what's on canvas) through
+    // yellow to hot red (most records) — the conventional heat-map scale,
+    // not a reuse of the app's red=error/green=success semantic colors.
+    heatColorFor(count, min, max) {
+        if (max === min) return '#dbeafe';
+        const t = (count - min) / (max - min);
+        return t < 0.5
+            ? this.lerpHex('#dbeafe', '#fef08a', t / 0.5)
+            : this.lerpHex('#fef08a', '#fecaca', (t - 0.5) / 0.5);
+    }
+
+    lerpHex(hexA, hexB, t) {
+        const a = this.hexToRgb(hexA);
+        const b = this.hexToRgb(hexB);
+        const r = Math.round(a.r + (b.r - a.r) * t);
+        const g = Math.round(a.g + (b.g - a.g) * t);
+        const bl = Math.round(a.b + (b.b - a.b) * t);
+        return `rgb(${r},${g},${bl})`;
+    }
+
+    hexToRgb(hex) {
+        const h = hex.replace('#', '');
+        return {
+            r: parseInt(h.substring(0, 2), 16),
+            g: parseInt(h.substring(2, 4), 16),
+            b: parseInt(h.substring(4, 6), 16)
+        };
+    }
+
+    formatCount(n) {
+        if (n >= 1000000) return Math.round(n / 100000) / 10 + 'M';
+        if (n >= 1000) return Math.round(n / 100) / 10 + 'K';
+        return String(n);
     }
 
     // ────────────────────────────────────────────────────────
@@ -2064,6 +2207,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.errorMessage = '';
             this.scheduleRelationshipScan();
             if (this.sharingViewOn) this.scheduleSharingFetch();
+            if (this.heatmapOn) this.scheduleHeatmapFetch();
         } catch (e) {
             this.errorMessage = e.message;
         }
