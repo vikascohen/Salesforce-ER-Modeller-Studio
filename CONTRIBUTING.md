@@ -6,11 +6,12 @@ Salesforce DX project, so the workflow is intentionally lightweight.
 ## Getting set up
 
 ```bash
-git clone https://github.com/vikascohen/SalesforceERModeller.git
-cd SalesforceERModeller
+git clone https://github.com/vikascohen/Salesforce-ER-Modeller-Studio.git
+cd Salesforce-ER-Modeller-Studio
 sf org login web --alias er-modeller-dev --set-default   # or use an existing scratch/sandbox org
 sf project deploy start --source-dir force-app
 sf org assign permset --name Diagram_Studio_User
+npm install   # for the Jest test suite -- see "Before opening a PR" below
 ```
 
 ## Project layout
@@ -29,19 +30,21 @@ always the right file.
   with plain Node (`node --check path/to/file.js`), which catches typos
   and syntax errors fast without needing a full LWC build. Run it against
   any file you touch.
-- **Parser/layout changes** — `erDiagramLogic.js` is pure, dependency-free
-  JS (it only reaches for the DOM in `buildLegendGroup`, for the export
-  legend). That means you can sanity-check parser or geometry changes with
-  a plain Node script — call `parseEr()`/`buildErGeometry()` on some sample
-  DSL and assert on the output — before ever touching a real org. There's
-  no committed test harness for this yet, so if you're fixing a parsing
-  edge case, consider including the quick script you used to verify it in
-  your PR description.
-- **Apex tests** — there currently are none in this repo (`DiagramFileController`
-  and `SchemaMetadataController` have zero test coverage). This is a known
-  gap — a `DiagramFileControllerTest` / `SchemaMetadataControllerTest` pair
-  covering the CRUD paths and describe/FLS logic would be a genuinely
-  useful contribution on its own.
+- **LWC tests (Jest)** — there's a real `@salesforce/sfdx-lwc-jest` setup
+  (`npm install && npm test`), 43 tests across all four LWC bundles. If
+  you're touching `erDiagramLogic.js` specifically, that file is pure,
+  dependency-free JS (it only reaches for the DOM in `buildLegendGroup`,
+  for the export legend), so its tests run as plain function calls with
+  no component mounting needed — by far the fastest feedback loop in this
+  repo, and the right place to add coverage for a parsing or layout fix.
+  `diagramStudio`'s suite covers representative core flows, not every
+  feature — Sharing View, Heatmap, Data Dictionary, and Compare with Org
+  don't have dedicated tests yet, which is a good first contribution if
+  you're looking for one.
+- **Apex tests** — `DiagramFileControllerTest`, `SchemaMetadataControllerTest`,
+  and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
+  and preference paths. Run `sf apex run test --code-coverage --synchronous`
+  in your org before opening a PR that touches Apex.
 - **Manual check** — deploy to a real org and click through the flow your
   change touches (type DSL, drag-drop from the palette, import from org,
   export a PNG, etc.) — there's no CI here to catch a broken template
