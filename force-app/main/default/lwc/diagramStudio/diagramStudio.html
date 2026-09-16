@@ -490,9 +490,12 @@
                                     <text x={b.x} y={fld.rowY} dx="22" font-size="11" font-style="italic" fill="#667085">{fld.text}</text>
                                 </g>
                             </template>
-                            <!-- Field rows — plain fields -->
+                            <!-- Field rows — plain fields (roll-up summary fields get a Σ marker) -->
                             <template for:each={b.plainFields} for:item="fld">
                                 <g key={fld.key}>
+                                    <template if:true={fld.isRollupSummary}>
+                                        <text x={b.x} y={fld.rowY} dx="10" font-size="10" fill="#0d9488">&#931;</text>
+                                    </template>
                                     <text x={b.x} y={fld.rowY} dx="22" font-size="11" fill="#344054">{fld.text}</text>
                                 </g>
                             </template>

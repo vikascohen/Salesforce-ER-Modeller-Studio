@@ -68,6 +68,16 @@ same result, nothing leaves your machine.
   API names and it describes them from your org's actual fields and
   relationships (Master-Detail, Lookup, Polymorphic Lookup) and generates
   the DSL for you.
+- **Roll-Up Summary fields are visible on the canvas** — a small teal Σ
+  marker next to any field that's a genuine roll-up summary, the same
+  pattern as the gold `*` for primary keys and purple `~` for
+  relationships. Populated automatically when importing from your org, or
+  written by hand with an optional `[rollup]` suffix on a field
+  (`TotalProductAmount[rollup]`) — entirely optional, so DSL written
+  before this existed still parses exactly as it always did. Detecting a
+  genuine roll-up (vs. an ordinary Formula field, which describes almost
+  identically) uses a verified technique, not a guess: a roll-up's
+  `getCalculatedFormula()` comes back blank, a real formula's doesn't.
 - **Object palette** — a searchable list of every object you can access;
   drag one onto the canvas and it auto-wires any relationships it has to
   entities already there.
@@ -344,12 +354,13 @@ npm install
 npm test              # or: npm run test:unit:coverage for coverage
 ```
 
-49 tests across all four LWC bundles: `erDiagramLogic` (parsing,
-geometry, Mermaid/draw.io export, legend), `diagramExportUtils` (PNG
-rendering, including a mocked canvas/Image success path, not just error
-branches), `diagramViewer`, and `diagramStudio` (core flows — init, DSL
-typing → render, New/Save/Clear/Auto Layout, error handling, Focus mode,
-the object summary hover card, and a dedicated Data Dictionary suite
+57 tests across all four LWC bundles: `erDiagramLogic` (parsing,
+geometry, Mermaid/draw.io export, legend, Roll-Up Summary marker
+handling), `diagramExportUtils` (PNG rendering, including a mocked
+canvas/Image success path, not just error branches), `diagramViewer`,
+and `diagramStudio` (core flows — init, DSL typing → render, import
+round-trips, New/Save/Clear/Auto Layout, error handling, Focus mode, the
+object summary hover card, and a dedicated Data Dictionary suite
 covering its Clear button, sortable columns, and a real race-condition
 regression test). The `diagramStudio` suite covers representative core
 flows on a large (~2,400 line) component, not every feature exhaustively

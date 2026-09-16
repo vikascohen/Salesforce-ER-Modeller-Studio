@@ -60,7 +60,7 @@ export function parseEr(text) {
         const ent = ensureEntity(entityName);
         let f = ent.fields.find((x) => x.name.toLowerCase() === fieldName.toLowerCase());
         if (!f) {
-            f = { name: fieldName, isRelationship: false, relatesTo: [] };
+            f = { name: fieldName, isRelationship: false, relatesTo: [], isRollupSummary: false };
             ent.fields.push(f);
         }
         return f;
@@ -74,11 +74,25 @@ export function parseEr(text) {
         const entityMatch = line.match(/^entity\s+(\w+)\s*(:\s*(.*))?$/i);
         if (entityMatch) {
             const ent = ensureEntity(entityMatch[1]);
+            // A field can carry an optional "[rollup]" suffix marking it as a
+            // Roll-Up Summary field (e.g. "TotalProductAmount[rollup]") --
+            // stripped off here, and never required, so DSL written or saved
+            // before this existed still parses exactly as it always did.
             const fieldList = (entityMatch[3] || '')
                 .split(',')
                 .map((f) => f.trim())
-                .filter((f) => f && f.toLowerCase() !== 'id'); // "Id" is implicit — skip if redundantly listed
-            fieldList.forEach((fname) => ensureField(ent.name, fname));
+                .filter((f) => f)
+                .map((f) => {
+                    const rollupMatch = f.match(/^(.+?)\s*\[\s*rollup\s*\]$/i);
+                    return rollupMatch
+                        ? { name: rollupMatch[1].trim(), isRollupSummary: true }
+                        : { name: f, isRollupSummary: false };
+                })
+                .filter(({ name }) => name && name.toLowerCase() !== 'id'); // "Id" is implicit — skip if redundantly listed
+            fieldList.forEach(({ name, isRollupSummary }) => {
+                const field = ensureField(ent.name, name);
+                if (isRollupSummary) field.isRollupSummary = true;
+            });
             return;
         }
 
@@ -223,13 +237,14 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
         const visibleRows = Math.floor((height - HEADER_HEIGHT - 12) / ROW_HEIGHT);
 
         const allFieldRows = [
-            { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false }
+            { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false, isRollupSummary: false }
         ].concat(ent.fields.map((f, fi) => ({
             key: ent.name + '-' + fi,
             text: fieldLabel(f),
             isPrimaryKey: false,
             isRelationship: f.isRelationship,
-            isPlain: !f.isRelationship
+            isPlain: !f.isRelationship,
+            isRollupSummary: !!f.isRollupSummary
         })));
 
         const baseY = saved ? saved.y : gridY;

@@ -61,6 +61,33 @@ describe('parseEr', () => {
         expect(account.fields.some((f) => f.name.toLowerCase() === 'id')).toBe(false);
     });
 
+    it('parses a "[rollup]" suffix as a Roll-Up Summary marker, stripping it from the field name', () => {
+        const model = parseEr('entity WebCart : Name, TotalProductAmount[rollup]');
+        const cart = model.entities.find((e) => e.name === 'WebCart');
+        const total = cart.fields.find((f) => f.name === 'TotalProductAmount');
+        expect(total).toBeDefined();
+        expect(total.isRollupSummary).toBe(true);
+        const plain = cart.fields.find((f) => f.name === 'Name');
+        expect(plain.isRollupSummary).toBe(false);
+    });
+
+    it('"[rollup]" marker is case-insensitive and tolerates internal whitespace', () => {
+        const model = parseEr('entity WebCart : TotalProductAmount[ RollUp ]');
+        const field = model.entities[0].fields[0];
+        expect(field.name).toBe('TotalProductAmount');
+        expect(field.isRollupSummary).toBe(true);
+    });
+
+    it('a field with no "[rollup]" suffix is not marked as a Roll-Up Summary', () => {
+        const model = parseEr('entity Account : Name');
+        expect(model.entities[0].fields[0].isRollupSummary).toBe(false);
+    });
+
+    it('the "[rollup]" marker is entirely optional — DSL saved before it existed still parses identically', () => {
+        const model = parseEr('entity Account : Name, Industry, Phone');
+        expect(model.entities[0].fields.every((f) => f.isRollupSummary === false)).toBe(true);
+    });
+
     it('throws a helpful error naming the line number for unrecognized syntax', () => {
         expect(() => parseEr('entity Account : Name\nthis is not valid DSL')).toThrow(/Line 2/);
     });
@@ -85,6 +112,18 @@ describe('buildErGeometry', () => {
         });
         expect(geo.svgWidth).toBeGreaterThan(0);
         expect(geo.svgHeight).toBeGreaterThan(0);
+    });
+
+    it('propagates isRollupSummary from the parsed model through to the rendered field rows', () => {
+        const model = parseEr('entity WebCart : Name, TotalProductAmount[rollup]');
+        const geo = buildErGeometry(model, {}, {}, {});
+        const cartBox = geo.boxes.find((b) => b.name === 'WebCart');
+        const idRow = cartBox.fields.find((f) => f.text === 'Id');
+        const nameRow = cartBox.fields.find((f) => f.text === 'Name');
+        const rollupRow = cartBox.fields.find((f) => f.text === 'TotalProductAmount');
+        expect(idRow.isRollupSummary).toBe(false);
+        expect(nameRow.isRollupSummary).toBe(false);
+        expect(rollupRow.isRollupSummary).toBe(true);
     });
 
     it('reuses a saved position instead of recomputing the default grid slot', () => {

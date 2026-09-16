@@ -981,7 +981,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const presentNames = new Set(objects.map((o) => o.apiName));
         const lines = [];
         objects.forEach((o) => {
-            const plain = o.fields.filter((f) => !f.isRelationship).map((f) => f.apiName);
+            const plain = o.fields
+                .filter((f) => !f.isRelationship)
+                .map((f) => (f.isRollupSummary ? `${f.apiName}[rollup]` : f.apiName));
             lines.push(`entity ${o.apiName} : ${plain.join(', ')}`);
         });
         lines.push('');

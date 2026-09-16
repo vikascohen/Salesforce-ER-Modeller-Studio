@@ -23,6 +23,8 @@ jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ def
 // eslint-disable-next-line no-undef
 const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').default;
 // eslint-disable-next-line no-undef
+const describeObjects = require('@salesforce/apex/SchemaMetadataController.describeObjects').default;
+// eslint-disable-next-line no-undef
 const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary').default;
 // eslint-disable-next-line no-undef
 const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
@@ -185,6 +187,51 @@ describe('c-diagram-studio', () => {
         const boxes = el.shadowRoot.querySelectorAll('.entity-group');
         expect(boxes.length).toBe(2);
         expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
+    });
+
+    it('importing an object with a Roll-Up Summary field emits "[rollup]" in the DSL and renders the Σ marker on the canvas', async () => {
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'WebCart',
+                label: 'Cart',
+                isCustom: false,
+                fields: [
+                    { apiName: 'Name', label: 'Name', isRelationship: false, isRollupSummary: false },
+                    { apiName: 'TotalProductAmount', label: 'Total Product Amount', isRelationship: false, isRollupSummary: true }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        // File > Import from Org
+        el.shadowRoot.querySelector('[data-menu="file"]').click();
+        await flushPromises();
+        const importItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Import from Org')
+        );
+        importItem.click();
+        await flushPromises();
+
+        const namesInput = el.shadowRoot.querySelector('.import-textarea');
+        expect(namesInput).not.toBeNull();
+        namesInput.value = 'WebCart';
+        namesInput.dispatchEvent(new CustomEvent('input'));
+
+        el.shadowRoot.querySelector('.sb-full-btn').click();
+        await flushPromises();
+
+        // The generated DSL carries the marker...
+        const dslValue = el.shadowRoot.querySelector('.code-editor').value;
+        expect(dslValue).toContain('TotalProductAmount[rollup]');
+        expect(dslValue).not.toContain('Name[rollup]'); // plain field untouched
+
+        // ...and the canvas renders the Σ indicator for that one field only.
+        const sigmaMarkers = Array.from(el.shadowRoot.querySelectorAll('.entity-group text')).filter(
+            (t) => t.textContent === '\u03A3'
+        );
+        expect(sigmaMarkers).toHaveLength(1);
     });
 
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {

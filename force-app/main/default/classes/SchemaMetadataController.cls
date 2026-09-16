@@ -20,6 +20,7 @@ public with sharing class SchemaMetadataController {
         @AuraEnabled public Boolean required;
         @AuraEnabled public Boolean isCustom;
         @AuraEnabled public Boolean isPrimaryKey;
+        @AuraEnabled public Boolean isRollupSummary; // computed on both describe paths — see isRollupSummaryField()
         @AuraEnabled public String description;      // Data Dictionary only — from FieldDefinition
         @AuraEnabled public String lastModifiedDate; // Data Dictionary only — from FieldDefinition, yyyy-MM-dd
     }
@@ -95,6 +96,7 @@ public with sharing class SchemaMetadataController {
                 pk.required = false;
                 pk.isCustom = false;
                 pk.isPrimaryKey = true;
+                pk.isRollupSummary = false;
                 ow.fields.add(pk);
             }
 
@@ -116,6 +118,7 @@ public with sharing class SchemaMetadataController {
                 fw.isRelationship = false;
                 fw.isCustom = fdr.isCustom();
                 fw.isPrimaryKey = false;
+                fw.isRollupSummary = isRollupSummaryField(fdr); // cheap (no extra query) — computed unconditionally on both describe paths
 
                 if (fdr.getType() == Schema.DisplayType.REFERENCE) {
                     List<Schema.SObjectType> refs = fdr.getReferenceTo();
@@ -174,9 +177,21 @@ public with sharing class SchemaMetadataController {
      * Apex describe doesn't expose the distinction directly — refined to
      * Rich Text Area afterward in enrichWithFieldDefinitions(), which has
      * access to FieldDefinition.ExtraTypeInfo. Roll-Up Summary fields are
-     * NOT specifically detected (they describe as a plain Number) since
-     * there's no reliable describe-level flag for it.
+     * distinguished from genuine Formula fields via isRollupSummaryField()
+     * below.
      */
+    // isCalculated() is true for BOTH formula fields and roll-up summary
+    // fields -- its own docs only mention formula fields and say nothing
+    // about roll-ups. getCalculatedFormula() is what actually distinguishes
+    // them: non-blank for a genuine formula, blank for a roll-up summary
+    // (a verified, documented technique, not assumed). Shared by
+    // friendlyDataType() (Data Dictionary label) and the base describe loop
+    // (isRollupSummary, used by the DSL/canvas import path) so both stay
+    // in sync automatically rather than duplicating this logic twice.
+    private static Boolean isRollupSummaryField(Schema.DescribeFieldResult fdr) {
+        return fdr.isCalculated() && String.isBlank(fdr.getCalculatedFormula());
+    }
+
     private static String friendlyDataType(Schema.DescribeFieldResult fdr, String relationshipType) {
         if (relationshipType == 'Master-Detail') return 'Master-Detail Relationship';
         if (relationshipType == 'Lookup') return 'Lookup Relationship';
@@ -215,7 +230,7 @@ public with sharing class SchemaMetadataController {
         // distinguishes them: non-blank for a genuine formula, blank for a
         // roll-up summary (a verified, documented technique, not assumed).
         if (fdr.isCalculated()) {
-            return String.isBlank(fdr.getCalculatedFormula())
+            return isRollupSummaryField(fdr)
                 ? 'Roll-Up Summary'
                 : 'Formula (' + base + ')';
         }

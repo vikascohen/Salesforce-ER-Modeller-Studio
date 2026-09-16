@@ -20,6 +20,12 @@ entity <Name> : <field1>, <field2>, <field3>
   ignored.
 - Every entity automatically gets an `Id` field at the top of its box —
   don't declare it yourself.
+- Any field can carry an optional `[rollup]` suffix to mark it as a
+  Roll-Up Summary field — `TotalProductAmount[rollup]`. Shows as a small
+  teal Σ next to the field on the canvas. Entirely optional and
+  case-insensitive (`[Rollup]`/`[ROLLUP]` also work) — a field with no
+  suffix is just a normal field, so DSL written before this existed still
+  parses identically.
 - An entity whose API name ends in `__c` is drawn with a purple header
   (custom object); everything else gets the standard blue header
   (standard object). This is purely visual, not something you configure.
@@ -27,6 +33,7 @@ entity <Name> : <field1>, <field2>, <field3>
 ```
 entity Account : Name, Industry, Phone, Website, Type
 entity Order__c : Order_Date__c, Status__c
+entity WebCart : Name, TotalProductAmount[rollup]
 ```
 
 ## Relationships
