@@ -833,6 +833,34 @@
 .ctx-danger:hover { background: #fef2f2; }
 .ctx-divider { height: 1px; background: var(--surface-border); margin: 4px 0; }
 
+/* ── Object summary hover card ── */
+.hover-card {
+    position: fixed;
+    z-index: 1500;
+    min-width: 210px;
+    max-width: 260px;
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border-strong);
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+    padding: 10px 12px;
+    pointer-events: none; /* never intercepts the mouse, so it can't get "stuck" open */
+}
+.hover-card-title { font-size: 13px; font-weight: 700; color: var(--surface-text-strong); }
+.hover-card-sub { font-size: 10.5px; color: var(--surface-text-muted); margin-top: 1px; }
+.hover-card-divider { height: 1px; background: var(--surface-border); margin: 7px 0; }
+.hover-card-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+    padding: 2px 0;
+}
+.hover-card-label { color: var(--surface-text-muted); flex-shrink: 0; }
+.hover-card-value { color: var(--surface-text); font-weight: 600; text-align: right; }
+.hover-card-hint { color: var(--surface-text-muted); font-style: italic; text-align: right; font-size: 10px; }
+
 /* ── Data Dictionary ── */
 .dict-overlay {
     position: fixed;

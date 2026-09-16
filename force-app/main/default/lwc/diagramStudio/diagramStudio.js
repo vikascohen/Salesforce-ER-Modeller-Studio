@@ -163,6 +163,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track flowCounts = {}; // lowercased apiName -> Integer active flow count
     _automationFetchTimer = null;
 
+    // ── object summary hover card ──
+    // Aggregates whatever's already been fetched by the toggles above (plus
+    // the field count, always available from the canvas model itself) into
+    // one glanceable card on hover — no new Apex calls of its own.
+    @track hoverCard = null;
+    _hoverTimer = null;
+
     // ── data dictionary ──
     @track dictionaryOpen       = false;
     @track dictionaryFullScreen = true;
@@ -1230,6 +1237,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const name = event.currentTarget.dataset.name;
         const box  = this._erBoxes && this._erBoxes.find((b) => b.name === name);
         if (!box) return;
+        this.hideHoverCard(); // don't leave a stale tooltip sitting over a box being dragged
         this.draggingEntity = name;
         this._clickCandidateName = name;
         this._clickStartX = event.clientX;
@@ -1524,6 +1532,55 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Object summary hover card
+    // ────────────────────────────────────────────────────────
+
+    handleBoxMouseEnter(event) {
+        const name = event.currentTarget.dataset.name;
+        if (!name) return;
+        const clientX = event.clientX;
+        const clientY = event.clientY;
+        clearTimeout(this._hoverTimer);
+        this._hoverTimer = setTimeout(() => this.showHoverCard(name, clientX, clientY), 350);
+    }
+
+    handleBoxMouseLeave() {
+        this.hideHoverCard();
+    }
+
+    hideHoverCard() {
+        clearTimeout(this._hoverTimer);
+        this.hoverCard = null;
+    }
+
+    showHoverCard(name, clientX, clientY) {
+        const box = this._erBoxes && this._erBoxes.find((b) => b.name === name);
+        if (!box) return;
+        const key = name.toLowerCase();
+
+        const recordCount = this.recordCounts[key];
+        const flowCount   = this.flowCounts[key];
+        const sharing     = this.sharingModels[key];
+
+        this.hoverCard = {
+            name,
+            style: `left:${clientX + 16}px;top:${clientY + 12}px`,
+            fieldCount: box.fields.length,
+            objectTypeText: name.endsWith('__c') ? 'Custom Object' : 'Standard Object',
+
+            hasRecordData: this.heatmapOn && recordCount != null,
+            recordCountText: recordCount != null ? recordCount.toLocaleString() : '',
+
+            hasSharingData: this.sharingViewOn && !!sharing,
+            internalSharingText: sharing && sharing.internal ? this.sharingBadgeFor(sharing.internal).label : 'Unknown',
+            externalSharingText: sharing && sharing.external ? this.sharingBadgeFor(sharing.external).label : 'None configured',
+
+            hasFlowData: this.automationViewOn && flowCount != null,
+            flowCountText: flowCount != null ? String(flowCount) : ''
+        };
     }
 
     // ────────────────────────────────────────────────────────

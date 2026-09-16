@@ -11,6 +11,51 @@
         </div>
     </template>
 
+    <!-- OBJECT SUMMARY HOVER CARD -->
+    <template if:true={hoverCard}>
+        <div class="hover-card" style={hoverCard.style}>
+            <div class="hover-card-title">{hoverCard.name}</div>
+            <div class="hover-card-sub">{hoverCard.objectTypeText} &middot; {hoverCard.fieldCount} fields</div>
+            <div class="hover-card-divider"></div>
+
+            <div class="hover-card-row">
+                <span class="hover-card-label">Records</span>
+                <template if:true={hoverCard.hasRecordData}>
+                    <span class="hover-card-value">{hoverCard.recordCountText}</span>
+                </template>
+                <template if:false={hoverCard.hasRecordData}>
+                    <span class="hover-card-hint">Turn on Heatmap to see this</span>
+                </template>
+            </div>
+
+            <div class="hover-card-row">
+                <span class="hover-card-label">Internal Sharing</span>
+                <template if:true={hoverCard.hasSharingData}>
+                    <span class="hover-card-value">{hoverCard.internalSharingText}</span>
+                </template>
+                <template if:false={hoverCard.hasSharingData}>
+                    <span class="hover-card-hint">Turn on Sharing View to see this</span>
+                </template>
+            </div>
+            <template if:true={hoverCard.hasSharingData}>
+                <div class="hover-card-row">
+                    <span class="hover-card-label">External Sharing</span>
+                    <span class="hover-card-value">{hoverCard.externalSharingText}</span>
+                </div>
+            </template>
+
+            <div class="hover-card-row">
+                <span class="hover-card-label">Active Flows</span>
+                <template if:true={hoverCard.hasFlowData}>
+                    <span class="hover-card-value">{hoverCard.flowCountText}</span>
+                </template>
+                <template if:false={hoverCard.hasFlowData}>
+                    <span class="hover-card-hint">Turn on Automation to see this</span>
+                </template>
+            </div>
+        </div>
+    </template>
+
     <!-- EXPORT MODAL -->
     <template if:true={exportModalOpen}>
         <div class="modal-backdrop" onclick={handleCloseExport}>
@@ -412,7 +457,9 @@
                         <g key={b.name}
                            data-name={b.name}
                            opacity={b.boxOpacity}
-                           class="entity-group">
+                           class="entity-group"
+                           onmouseenter={handleBoxMouseEnter}
+                           onmouseleave={handleBoxMouseLeave}>
 
                             <!-- Shadow -->
                             <rect x={b.shadowX} y={b.shadowY} width={b.width} height={b.height} rx="7" fill="#c8cdd6"></rect>

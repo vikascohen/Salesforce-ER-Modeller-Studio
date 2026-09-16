@@ -29,6 +29,8 @@ const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataCon
 const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
 // eslint-disable-next-line no-undef
 const getFlowCounts = require('@salesforce/apex/SchemaMetadataController.getFlowCounts').default;
+// eslint-disable-next-line no-undef
+const getRecordCounts = require('@salesforce/apex/SchemaMetadataController.getRecordCounts').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -132,6 +134,54 @@ describe('c-diagram-studio', () => {
         await flushPromises();
 
         expect(el.shadowRoot.querySelector('.entity-badge')).toBeNull();
+    });
+
+    it('hover card shows field count always, and real data only for toggles that are on', async () => {
+        getRecordCounts.mockResolvedValue({ Account: 42 });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name, Industry, Phone';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        expect(box).not.toBeNull();
+
+        // Hover with every toggle off -- should show the always-available
+        // fields (name, field count, object type) and hints for the rest.
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400)); // hover has its own 350ms debounce
+
+        expect(el.shadowRoot.querySelector('.hover-card-title').textContent).toBe('Account');
+        // 3 explicit fields in the DSL + the implicit Id the parser always adds -> 4
+        expect(el.shadowRoot.querySelector('.hover-card-sub').textContent).toContain('4 fields');
+        expect(el.shadowRoot.querySelector('.hover-card-sub').textContent).toContain('Standard Object');
+        const hints = el.shadowRoot.querySelectorAll('.hover-card-hint');
+        expect(hints.length).toBe(3); // records, sharing, flows -- all off
+
+        box.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.hover-card-title')).toBeNull();
+
+        // Turn on Heatmap, then hover again -- the Records row should now
+        // show real data instead of a hint.
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        const heatmapItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Heatmap')
+        );
+        heatmapItem.click();
+        await new Promise((resolve) => setTimeout(resolve, 400)); // heatmap fetch debounce
+
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const values = Array.from(el.shadowRoot.querySelectorAll('.hover-card-value')).map((v) => v.textContent);
+        expect(values).toContain('42');
+        expect(el.shadowRoot.querySelectorAll('.hover-card-hint').length).toBe(2); // sharing, flows still off
     });
 
     it('populates the object palette once getAllObjectNames resolves', async () => {

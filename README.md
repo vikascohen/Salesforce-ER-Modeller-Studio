@@ -99,7 +99,9 @@ same result, nothing leaves your machine.
 Three independent, opt-in toggles in the **View** menu that read live org
 data and badge or color the canvas — none is on by default, none runs
 against more than what's currently on the canvas, and all re-fetch fresh
-every time (nothing here is cached).
+every time (nothing here is cached). A fourth feature, the hover card
+below, needs no toggle of its own — it just aggregates whatever the other
+three have already fetched.
 
 - **Sharing View** — badges each object with its org-wide default sharing
   model, sourced from `EntityDefinition` (the same data Setup shows under
@@ -127,6 +129,14 @@ every time (nothing here is cached).
   different reliability characteristics from an LWC-invoked Apex context)
   rather than the plain SOQL every other view in this app relies on, so
   they're a real, known gap here, not an oversight.
+- **Object summary hover card** — hover any entity on the canvas (no
+  toggle needed) for a small card with its field count and standard/custom
+  status, plus whatever the three toggles above have already fetched:
+  record count, internal/external sharing, active Flow count. Ties the
+  three views together into one glance instead of three separate badges
+  to read — and for anything from a toggle you haven't turned on yet, the
+  card says so directly ("Turn on Heatmap to see this") rather than
+  just omitting the row silently.
 
 ### Data Dictionary
 
@@ -347,14 +357,14 @@ npm install
 npm test              # or: npm run test:unit:coverage for coverage
 ```
 
-49 tests across all four LWC bundles: `erDiagramLogic` (parsing,
+50 tests across all four LWC bundles: `erDiagramLogic` (parsing,
 geometry, Mermaid/draw.io export, legend), `diagramExportUtils` (PNG
 rendering, including a mocked canvas/Image success path, not just error
 branches), `diagramViewer`, and `diagramStudio` (core flows — init, DSL
 typing → render, New/Save/Clear/Auto Layout, error handling, Focus mode,
-the Automation badge, and a dedicated Data Dictionary suite covering its
-Clear button, sortable columns, and a real race-condition regression
-test). The `diagramStudio` suite covers representative core flows on a
+the Automation badge, the object summary hover card, and a dedicated
+Data Dictionary suite covering its Clear button, sortable columns, and a
+real race-condition regression test). The `diagramStudio` suite covers representative core flows on a
 large (~2,400 line) component, not every feature exhaustively — Sharing
 View, Heatmap, and Compare with Org aren't individually covered there
 yet, which is a reasonable area for a future contribution.
