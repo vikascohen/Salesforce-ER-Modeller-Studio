@@ -128,9 +128,20 @@ public with sharing class SchemaMetadataController {
                             fw.relationshipType = 'Polymorphic Lookup';
                         } else {
                             fw.relatesTo = refs[0].getDescribe().getName();
-                            // getRelationshipOrder() is non null (0 or 1) only for
-                            // Master Detail fields, null for plain Lookups.
-                            fw.relationshipType = (fdr.getRelationshipOrder() != null)
+                            // getRelationshipOrder() (non-null only for Master-Detail)
+                            // is the standard signal for CUSTOM Master-Detail fields.
+                            // Standard/system objects — e.g. Salesforce Commerce's
+                            // CartItem -> WebCart — can implement cascade-delete
+                            // parent-child behavior (the defining trait of
+                            // Master-Detail) without necessarily setting that same
+                            // metadata the way a custom M-D field does.
+                            // isCascadeDelete() is a second, independently
+                            // documented signal for that same underlying behavior.
+                            // Treating either as sufficient catches both cases
+                            // without weakening the existing, already-correct
+                            // detection for ordinary custom Master-Detail fields —
+                            // additive, not a replacement.
+                            fw.relationshipType = (fdr.getRelationshipOrder() != null || fdr.isCascadeDelete())
                                 ? 'Master-Detail'
                                 : 'Lookup';
                         }
