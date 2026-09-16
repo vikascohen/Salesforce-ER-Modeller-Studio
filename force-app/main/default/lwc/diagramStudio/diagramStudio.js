@@ -1547,7 +1547,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (name) this.openDictionaryForObject(name);
     }
 
+    // Every call to openDictionaryForObject() or Clear bumps this. Each
+    // in-flight request captures its own token at start and checks it's
+    // still the current one before applying its result — a plain name
+    // comparison (the previous guard) can't tell two separate requests
+    // for the *same* object apart, and depends on exact string matching
+    // holding up across every call site; a counter can't have either gap.
+    _dictionaryRequestToken = 0;
+
     async openDictionaryForObject(name) {
+        const myToken = ++this._dictionaryRequestToken;
         this.dictionarySelectedObject = name;
         this.dictionaryRow = null;
         this.dictionaryUsageComputed = false;
@@ -1555,20 +1564,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionaryLoading = true;
         try {
             const rows = await describeObjectsForDictionary({ objectApiNames: [name] });
-            // The user may have hit Clear, or picked a different object,
-            // while this was in flight — a slow response arriving after
-            // that must not silently repopulate/overwrite what's on screen
-            // now. Bail out rather than applying a stale result.
-            if (this.dictionarySelectedObject !== name) return;
+            // The user may have hit Clear, or picked a different (or even
+            // the same) object again, while this was in flight — a slow
+            // response arriving after that must not silently repopulate or
+            // overwrite what's on screen now. Bail out rather than
+            // applying a stale result.
+            if (myToken !== this._dictionaryRequestToken) return;
             this.dictionaryRow = (rows && rows.length) ? rows[0] : null;
             if (!this.dictionaryRow) {
                 this.errorMessage = `"${name}" could not be described — it may not exist or you may not have access to it.`;
             }
         } catch (e) {
-            if (this.dictionarySelectedObject !== name) return;
+            if (myToken !== this._dictionaryRequestToken) return;
             this.errorMessage = this.reduceError(e);
         } finally {
-            if (this.dictionarySelectedObject === name) {
+            if (myToken === this._dictionaryRequestToken) {
                 this.dictionaryLoading = false;
             }
         }
@@ -1576,11 +1586,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // Resets the right-hand detail pane back to "nothing selected" without
     // touching the left-hand object list — the object stays selectable
-    // again from the list on the left. Also releases any in-flight
-    // openDictionaryForObject() call for the object being cleared, via the
-    // dictionarySelectedObject guard in that method — otherwise a slow
-    // response could land after Clear and silently repopulate the panel.
+    // again from the list on the left. Bumping the token here (not just
+    // nulling state) is what actually invalidates any in-flight request —
+    // without it, a response landing right after Clear would still pass a
+    // stale "is this the current object" check based on state alone.
     handleClearDictionarySelection() {
+        this._dictionaryRequestToken++;
         this.dictionarySelectedObject = null;
         this.dictionaryRow = null;
         this.dictionaryUsageComputed = false;

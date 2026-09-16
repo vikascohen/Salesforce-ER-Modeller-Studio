@@ -368,6 +368,38 @@ describe('c-diagram-studio', () => {
             expect(el.shadowRoot.querySelector('.dict-detail-pane').textContent).not.toContain('Case');
         });
 
+        it('BUG REPRO: Clear after switching between two different objects (Case, then Account) actually clears', async () => {
+            describeObjectsForDictionary.mockImplementation(({ objectApiNames }) => {
+                const apiName = objectApiNames[0];
+                return Promise.resolve([
+                    { apiName, label: apiName, isCustom: false, fields: [{ apiName: 'Name', isPrimaryKey: false }] }
+                ]);
+            });
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Case', 'Account']);
+            await flushPromises();
+
+            // Select Case, let it fully resolve.
+            await openObjectNamed(el, 'Case');
+            await flushPromises();
+            expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Case');
+
+            // Select Account instead (not Clear yet), let it fully resolve too.
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Account"]').click();
+            await flushPromises();
+            expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Account');
+
+            // Now Clear.
+            const clearBtn = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn')).find(
+                (b) => b.textContent === 'Clear Selection'
+            );
+            clearBtn.click();
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.dict-detail-pane').textContent).not.toContain('Account');
+        });
+
         it('switching to a different object while the first is still loading does not let the stale one win', async () => {
             let resolveCase;
             describeObjectsForDictionary.mockImplementation(({ objectApiNames }) => {
