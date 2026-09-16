@@ -24,6 +24,41 @@ the export legend) lives in `erDiagramLogic.js`, which has zero LWC/Apex
 dependencies. If you're fixing a rendering or parsing bug, that's almost
 always the right file.
 
+## Scope: what this tool deliberately won't show
+
+A rule that's come up twice now, worth writing down so it doesn't need
+re-litigating every time it comes up again: if a feature describes what
+an object *is* — its own fields, its own sharing setting, whether it has
+data — it fits here. If it describes what *acts on* an object from the
+outside — automation firing against it, code that references it — it
+doesn't, even where it would be technically interesting to build.
+
+Two features were evaluated against this rule and set aside:
+
+- **Automation view** (active Flow count per object, badged on the
+  canvas) — shipped, then removed. It worked technically (a real,
+  verified standard object, `FlowDefinitionView`, not a guess), but the
+  feature itself was the wrong fit for a tool about data *structure*
+  once the "acts on it from outside" distinction was made explicit. It
+  also turned out to under-deliver in practice — the toggle would turn
+  on with no visible confirmation, most likely because the flows in a
+  real org didn't cleanly match the record-triggered/active filter this
+  used, something that only shows up against live data.
+- **Object usage across Apex classes and Flows** ("this object is
+  referenced by 10 classes and 8 flows") — considered, not built. Two
+  independent reasons: it fails the same scope rule as Automation above,
+  and the only Salesforce API that could answer it,
+  `MetadataComponentDependency`, is Tooling API only — a Beta feature
+  with no guaranteed availability, reachable from Apex only via an HTTP
+  callout authenticated with `UserInfo.getSessionId()`, which is
+  frequently unavailable specifically when Apex is invoked from
+  Lightning/LWC context (the architecture this whole app uses). Even
+  setting the scope question aside, this would be built on materially
+  less reliable ground than everything else here.
+
+If either of these gets proposed again, this is why they didn't happen —
+considered and set aside for cause, not overlooked.
+
 ## Before opening a PR
 
 - **JS syntax** — every `.js` file in this repo happens to parse cleanly
@@ -31,7 +66,7 @@ always the right file.
   and syntax errors fast without needing a full LWC build. Run it against
   any file you touch.
 - **LWC tests (Jest)** — there's a real `@salesforce/sfdx-lwc-jest` setup
-  (`npm install && npm test`), 43 tests across all four LWC bundles. If
+  (`npm install && npm test`), 49 tests across all four LWC bundles. If
   you're touching `erDiagramLogic.js` specifically, that file is pure,
   dependency-free JS (it only reaches for the DOM in `buildLegendGroup`,
   for the export legend), so its tests run as plain function calls with
