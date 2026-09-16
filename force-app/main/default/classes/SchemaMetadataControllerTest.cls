@@ -176,6 +176,26 @@ private class SchemaMetadataControllerTest {
     }
 
     @isTest
+    static void testGetFlowCountsDoesNotThrowAndSkipsBlankNames() {
+        // getFlowCounts() uses a static SOQL query (name is a bind variable,
+        // not concatenated), so there's no injection surface to test here
+        // the way there is for getRecordCounts()/getFieldUsageStats() —
+        // this just confirms the method completes cleanly and ignores
+        // blank/null entries rather than producing a spurious map key.
+        Test.startTest();
+        Map<String, Integer> counts = SchemaMetadataController.getFlowCounts(
+            new List<String>{ 'Account', '', null, '  ' }
+        );
+        Test.stopTest();
+
+        Assert.isFalse(counts.containsKey(''));
+        Assert.isFalse(counts.containsKey('  '));
+        // Whether Account has any active record-triggered flows depends on
+        // org configuration this test can't control -- a present or absent
+        // 'Account' key are both acceptable; not throwing is the point.
+    }
+
+    @isTest
     static void testGetFieldUsageStatsComputesPopulationPercentage() {
         insert new Account(Name = 'Has Industry', Industry = 'Technology');
         insert new Account(Name = 'No Industry');

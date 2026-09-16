@@ -16,6 +16,7 @@ import describeObjects   from '@salesforce/apex/SchemaMetadataController.describ
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
 import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
+import getFlowCounts      from '@salesforce/apex/SchemaMetadataController.getFlowCounts';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
@@ -156,6 +157,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track heatmapOn = false;
     @track recordCounts = {}; // lowercased apiName -> Integer record count
     _heatmapFetchTimer = null;
+
+    // ── automation visibility (active Flow counts) ──
+    @track automationViewOn = false;
+    @track flowCounts = {}; // lowercased apiName -> Integer active flow count
+    _automationFetchTimer = null;
 
     // ── data dictionary ──
     @track dictionaryOpen       = false;
@@ -314,6 +320,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                         filled: true,
                         code: this.formatCount(rc),
                         title: `${rc.toLocaleString()} record${rc === 1 ? '' : 's'}`
+                    });
+                    badgeX += 32;
+                }
+            }
+
+            if (this.automationViewOn) {
+                const fc = this.flowCounts[b.name.toLowerCase()];
+                if (fc != null) {
+                    badges.push({
+                        id: b.name + '-flow',
+                        cx: badgeX, cy: badgeY,
+                        fillColor: '#7c5cbf',
+                        strokeColor: '#7c5cbf',
+                        textColor: '#ffffff',
+                        filled: true,
+                        code: 'F' + this.formatCount(fc),
+                        title: `${fc} active Flow${fc === 1 ? '' : 's'} run${fc === 1 ? 's' : ''} on this object`
                     });
                     badgeX += 32;
                 }
@@ -774,6 +797,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
+    get automationMenuText()  { return this.automationViewOn ? 'Automation \u2713' : 'Automation'; }
 
     // Each wraps an existing, already-tested handler — closes the dropdown
     // first, then delegates, so none of the underlying action logic changes.
@@ -787,6 +811,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
     handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
     handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
+    handleMenuAutomation()     { this.openMenu = null; this.handleToggleAutomation(); }
 
     // ────────────────────────────────────────────────────────
     //  Toolbar / file actions
@@ -1467,6 +1492,38 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (n >= 1000000) return Math.round(n / 100000) / 10 + 'M';
         if (n >= 1000) return Math.round(n / 100) / 10 + 'K';
         return String(n);
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Automation visibility — badges each box with its active Flow
+    //  count, so behavior (not just structure) is visible on the
+    //  diagram. Scoped to Flows only, deliberately — Apex triggers and
+    //  validation rules would need Tooling API access, a fundamentally
+    //  different and larger piece of infrastructure than anything else
+    //  this app does; not included here rather than guessed at.
+    // ────────────────────────────────────────────────────────
+
+    handleToggleAutomation() {
+        this.automationViewOn = !this.automationViewOn;
+        if (this.automationViewOn) this.scheduleAutomationFetch();
+    }
+
+    scheduleAutomationFetch() {
+        clearTimeout(this._automationFetchTimer);
+        this._automationFetchTimer = setTimeout(() => this.fetchFlowCounts(), 300);
+    }
+
+    async fetchFlowCounts() {
+        if (!this.automationViewOn || !this._erBoxes || !this._erBoxes.length) return;
+        try {
+            const names = this._erBoxes.map((b) => b.name);
+            const fresh = await getFlowCounts({ objectApiNames: names });
+            const next = {};
+            Object.keys(fresh || {}).forEach((name) => { next[name.toLowerCase()] = fresh[name]; });
+            this.flowCounts = next;
+        } catch (e) {
+            this.errorMessage = this.reduceError(e);
+        }
     }
 
     // ────────────────────────────────────────────────────────
@@ -2281,6 +2338,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.scheduleRelationshipScan();
             if (this.sharingViewOn) this.scheduleSharingFetch();
             if (this.heatmapOn) this.scheduleHeatmapFetch();
+            if (this.automationViewOn) this.scheduleAutomationFetch();
         } catch (e) {
             this.errorMessage = e.message;
         }

@@ -15,6 +15,7 @@ jest.mock('@salesforce/apex/DiagramFileController.saveDiagramAsFile', () => ({ d
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjects', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getSharingModels', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getRecordCounts', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/SchemaMetadataController.getFlowCounts', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.getTheme', () => ({ default: jest.fn(() => Promise.resolve(null)) }), { virtual: true });
@@ -26,6 +27,8 @@ const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').defa
 const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary').default;
 // eslint-disable-next-line no-undef
 const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
+// eslint-disable-next-line no-undef
+const getFlowCounts = require('@salesforce/apex/SchemaMetadataController.getFlowCounts').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -89,6 +92,46 @@ describe('c-diagram-studio', () => {
         // dropdown -- this is the exact bug being guarded against: colors
         // apply correctly while the dropdown silently keeps showing Dark+.
         expect(el.shadowRoot.querySelector('.er-studio').className).toContain('theme-monokai');
+    });
+
+    it('Automation view badges a box once a Flow count resolves, and clears when toggled off', async () => {
+        getFlowCounts.mockResolvedValue({ Account: 3 });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(el.shadowRoot.querySelectorAll('.entity-group').length).toBe(1);
+
+        // No badge before the view is toggled on.
+        expect(el.shadowRoot.querySelector('.entity-badge')).toBeNull();
+
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        const automationItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Automation')
+        );
+        expect(automationItem).toBeDefined();
+        automationItem.click();
+        await new Promise((resolve) => setTimeout(resolve, 400)); // badge fetch is debounced 300ms
+
+        const badge = el.shadowRoot.querySelector('.entity-badge title');
+        expect(badge).not.toBeNull();
+        expect(badge.textContent).toMatch(/3 active Flows? runs? on this object/);
+
+        // Toggling off removes the badge even though the count is still cached.
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        const automationItemOff = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Automation')
+        );
+        automationItemOff.click();
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.entity-badge')).toBeNull();
     });
 
     it('populates the object palette once getAllObjectNames resolves', async () => {
