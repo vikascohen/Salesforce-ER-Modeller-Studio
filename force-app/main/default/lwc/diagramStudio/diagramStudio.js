@@ -1528,10 +1528,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleToggleDictionary() {
         this.dictionaryOpen = !this.dictionaryOpen;
+        this.hideHoverCard(); // a hover triggered right before opening could still be pending
     }
 
     handleCloseDictionary() {
         this.dictionaryOpen = false;
+        this.hideHoverCard();
     }
 
     handleToggleDictionaryFullScreen() {

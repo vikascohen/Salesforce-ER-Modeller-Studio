@@ -508,5 +508,48 @@ describe('c-diagram-studio', () => {
             );
             expect(newItem).toBeDefined();
         });
+
+        it('menu buttons remain functional after switching DIRECTLY between two objects (no Clear in between), then clearing and closing', async () => {
+            describeObjectsForDictionary.mockImplementation(({ objectApiNames }) => {
+                const apiName = objectApiNames[0];
+                return Promise.resolve([
+                    { apiName, label: apiName, isCustom: false, fields: [{ apiName: 'Name', isPrimaryKey: false }] }
+                ]);
+            });
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Case', 'Order']);
+            await flushPromises();
+
+            // Case -> Order directly, with NO Clear in between (the pattern
+            // reported as different from select-then-clear-then-select).
+            await openObjectNamed(el, 'Case');
+            await flushPromises();
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Order"]').click();
+            await flushPromises();
+            expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Order');
+
+            const clearBtn = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn')).find(
+                (b) => b.textContent === 'Clear Selection'
+            );
+            clearBtn.click();
+            await flushPromises();
+
+            const backBtn = el.shadowRoot.querySelector('.dict-back-btn');
+            backBtn.click();
+            await flushPromises();
+            expect(el.shadowRoot.querySelector('.dict-overlay')).toBeNull();
+
+            const fileMenuBtn = el.shadowRoot.querySelector('[data-menu="file"]');
+            fileMenuBtn.click();
+            await flushPromises();
+
+            const dropdown = el.shadowRoot.querySelector('.dd-menu-dropdown');
+            expect(dropdown).not.toBeNull();
+            const newItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+                i.textContent.includes('New')
+            );
+            expect(newItem).toBeDefined();
+        });
     });
 });
