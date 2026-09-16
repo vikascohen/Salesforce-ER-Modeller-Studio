@@ -197,7 +197,17 @@ public with sharing class SchemaMetadataController {
             when else            { base = String.valueOf(fdr.getType()); }
         }
 
-        if (fdr.isCalculated())  return 'Formula (' + base + ')';
+        // isCalculated() is true for BOTH formula fields and roll-up summary
+        // fields -- its own docs only mention formula fields and say
+        // nothing about roll-ups, so this alone would mislabel every
+        // roll-up as a Formula. getCalculatedFormula() is what actually
+        // distinguishes them: non-blank for a genuine formula, blank for a
+        // roll-up summary (a verified, documented technique, not assumed).
+        if (fdr.isCalculated()) {
+            return String.isBlank(fdr.getCalculatedFormula())
+                ? 'Roll-Up Summary'
+                : 'Formula (' + base + ')';
+        }
         if (fdr.isAutoNumber())  return 'Auto Number';
         return base;
     }

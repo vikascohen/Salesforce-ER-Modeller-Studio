@@ -137,7 +137,8 @@ accessible object in the org — toggle it from the **View** menu.
   description, data type, required, custom, primary key, foreign key
   (and which object it points to), last modified. **Data type** shows
   Setup's actual field-type labels (`Text`, `Number`,
-  `Master-Detail Relationship`, `Formula (Number)`, `Text Area (Long)`...)
+  `Master-Detail Relationship`, `Formula (Number)`, `Roll-Up Summary`,
+  `Text Area (Long)`...)
   rather than the raw Apex describe enum name. **Description** and
   **last-modified date** come from `FieldDefinition`, metadata the
   regular describe API doesn't expose at all.
