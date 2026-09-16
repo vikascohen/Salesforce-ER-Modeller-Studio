@@ -399,52 +399,6 @@ public with sharing class SchemaMetadataController {
         return result;
     }
 
-    /**
-     * Active record-triggered Flow count per object, for the canvas
-     * Automation view — sourced from FlowDefinitionView, a genuine
-     * standard object (Object Reference, describeSObjects()/query()
-     * supported since API v46.0 — confirmed not Tooling-API-only before
-     * writing this, since ApexTrigger/ValidationRule/FlowDefinition
-     * specifically ARE Tooling-only and would not compile here).
-     *
-     * Deliberately scoped to Flows only. Apex triggers and validation
-     * rules are genuine gaps in this picture, not oversights — both
-     * require Tooling API REST callouts (a fundamentally different,
-     * larger piece of infrastructure than anything else in this class),
-     * and Tooling API access from Apex invoked via LWC has its own
-     * well-documented session-id limitations. Scoped down rather than
-     * guessed at.
-     *
-     * One query per object (consistent with every other metadata-catalog
-     * method in this class), each wrapped so one object's lookup failing
-     * doesn't blank out the rest of the batch.
-     */
-    @AuraEnabled(cacheable=false)
-    public static Map<String, Integer> getFlowCounts(List<String> objectApiNames) {
-        Map<String, Integer> result = new Map<String, Integer>();
-        for (String rawName : objectApiNames) {
-            String name = rawName == null ? null : rawName.trim();
-            if (String.isBlank(name)) {
-                continue;
-            }
-            try {
-                Integer count = [
-                    SELECT COUNT()
-                    FROM FlowDefinitionView
-                    WHERE TriggerObjectOrEventId = :name
-                    AND IsActive = true
-                ];
-                if (count > 0) {
-                    result.put(name, count);
-                }
-            } catch (Exception e) {
-                // Object not resolvable via FlowDefinitionView, or any other
-                // edge case — skip this one entity, don't fail the batch.
-            }
-        }
-        return result;
-    }
-
     // Object/field API names are always letters, digits, and underscores,
     // starting with a letter — since these names get concatenated directly
     // into dynamic SOQL (object/field names can't be bind variables), this

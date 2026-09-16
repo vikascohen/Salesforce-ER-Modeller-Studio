@@ -43,16 +43,6 @@
                     <span class="hover-card-value">{hoverCard.externalSharingText}</span>
                 </div>
             </template>
-
-            <div class="hover-card-row">
-                <span class="hover-card-label">Active Flows</span>
-                <template if:true={hoverCard.hasFlowData}>
-                    <span class="hover-card-value">{hoverCard.flowCountText}</span>
-                </template>
-                <template if:false={hoverCard.hasFlowData}>
-                    <span class="hover-card-hint">Turn on Automation to see this</span>
-                </template>
-            </div>
         </div>
     </template>
 
@@ -212,7 +202,6 @@
                 <div class="dd-menu-dropdown" onclick={stopProp}>
                     <div class="dd-menu-item" onclick={handleMenuSharingView}>{sharingViewMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuHeatmap}>{heatmapMenuText}</div>
-                    <div class="dd-menu-item" onclick={handleMenuAutomation}>{automationMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuDataDictionary}>{dictionaryMenuText}</div>
                 </div>
             </template>

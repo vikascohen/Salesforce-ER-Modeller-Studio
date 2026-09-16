@@ -96,12 +96,12 @@ same result, nothing leaves your machine.
 
 ### Org-aware views
 
-Three independent, opt-in toggles in the **View** menu that read live org
-data and badge or color the canvas — none is on by default, none runs
-against more than what's currently on the canvas, and all re-fetch fresh
-every time (nothing here is cached). A fourth feature, the hover card
-below, needs no toggle of its own — it just aggregates whatever the other
-three have already fetched.
+Two independent, opt-in toggles in the **View** menu that read live org
+data and badge or color the canvas — neither is on by default, neither
+runs against more than what's currently on the canvas, and both re-fetch
+fresh every time (nothing here is cached). A third feature, the hover
+card below, needs no toggle of its own — it just aggregates whatever the
+other two have already fetched.
 
 - **Sharing View** — badges each object with its org-wide default sharing
   model, sourced from `EntityDefinition` (the same data Setup shows under
@@ -117,26 +117,14 @@ three have already fetched.
   all: light blue if it does, light orange if it's genuinely empty — a
   plain `COUNT()` per object, nothing about the records themselves is
   read. The actual count is badged at the top (e.g. `1.2K`, `45`).
-- **Automation** — badges each object with how many active,
-  record-triggered Flows run on it, sourced from `FlowDefinitionView` (a
-  genuine standard object, not Tooling-API-only). This is about
-  *behavior*, not structure — an object that looks simple on the diagram
-  but has a dozen flows firing on every change is a very different thing
-  to touch than one with none, and that difference isn't visible anywhere
-  else on the canvas. Deliberately scoped to Flows only: Apex triggers and
-  validation rules would need real Tooling API callouts (a fundamentally
-  different, larger piece of infrastructure — different auth model,
-  different reliability characteristics from an LWC-invoked Apex context)
-  rather than the plain SOQL every other view in this app relies on, so
-  they're a real, known gap here, not an oversight.
 - **Object summary hover card** — hover any entity on the canvas (no
   toggle needed) for a small card with its field count and standard/custom
-  status, plus whatever the three toggles above have already fetched:
-  record count, internal/external sharing, active Flow count. Ties the
-  three views together into one glance instead of three separate badges
-  to read — and for anything from a toggle you haven't turned on yet, the
-  card says so directly ("Turn on Heatmap to see this") rather than
-  just omitting the row silently.
+  status, plus whatever the two toggles above have already fetched:
+  record count and internal/external sharing. Ties both views together
+  into one glance instead of separate badges to read — and for anything
+  from a toggle you haven't turned on yet, the card says so directly
+  ("Turn on Heatmap to see this") rather than just omitting the row
+  silently.
 
 ### Data Dictionary
 
@@ -210,7 +198,7 @@ accessible object in the org — toggle it from the **View** menu.
 | LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts for the Heatmap, active Flow counts for the Automation view, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
 | Apex | `DiagramPreferenceController` | Gets/saves the current user's selected theme, backed by a Hierarchy Custom Setting. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 | Custom Setting | `Diagram_Studio_Pref__c` | Hierarchy custom setting holding each user's `Theme__c` preference. |
@@ -245,7 +233,6 @@ graph TD
         FILES["ContentVersion<br/>PNG exports"]
         SCHEMA["Org Schema<br/>describe API"]
         CATALOG["Metadata Catalog<br/>EntityDefinition · FieldDefinition"]
-        FLOWS["Flow Metadata<br/>FlowDefinitionView"]
         RECORDS["Object Records<br/>COUNT() aggregates only —<br/>Heatmap counts, Dictionary usage %"]
         PREF["Diagram_Studio_Pref__c<br/>Hierarchy Custom Setting"]
     end
@@ -254,7 +241,7 @@ graph TD
     DS -- "export" --> EXP
     DS -- "Excel export" --> XLSX
     DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>heatmap, automation,<br/>data dictionary" --> SMC
+    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>heatmap, data dictionary" --> SMC
     DS -- "get/save theme" --> DPC
 
     DV -- "render" --> ERL
@@ -265,7 +252,6 @@ graph TD
     DFC --> FILES
     SMC --> SCHEMA
     SMC --> CATALOG
-    SMC --> FLOWS
     SMC --> RECORDS
     DPC --> PREF
 ```
@@ -357,17 +343,17 @@ npm install
 npm test              # or: npm run test:unit:coverage for coverage
 ```
 
-50 tests across all four LWC bundles: `erDiagramLogic` (parsing,
+49 tests across all four LWC bundles: `erDiagramLogic` (parsing,
 geometry, Mermaid/draw.io export, legend), `diagramExportUtils` (PNG
 rendering, including a mocked canvas/Image success path, not just error
 branches), `diagramViewer`, and `diagramStudio` (core flows — init, DSL
 typing → render, New/Save/Clear/Auto Layout, error handling, Focus mode,
-the Automation badge, the object summary hover card, and a dedicated
-Data Dictionary suite covering its Clear button, sortable columns, and a
-real race-condition regression test). The `diagramStudio` suite covers representative core flows on a
-large (~2,400 line) component, not every feature exhaustively — Sharing
-View, Heatmap, and Compare with Org aren't individually covered there
-yet, which is a reasonable area for a future contribution.
+the object summary hover card, and a dedicated Data Dictionary suite
+covering its Clear button, sortable columns, and a real race-condition
+regression test). The `diagramStudio` suite covers representative core
+flows on a large (~2,400 line) component, not every feature exhaustively
+— Sharing View, Heatmap, and Compare with Org aren't individually
+covered there yet, which is a reasonable area for a future contribution.
 
 **Apex** — `DiagramFileControllerTest`, `SchemaMetadataControllerTest`,
 and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
