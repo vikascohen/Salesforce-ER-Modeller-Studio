@@ -100,6 +100,15 @@ public with sharing class SchemaMetadataController {
                 ow.fields.add(pk);
             }
 
+            // Authoritative relationship-type source, straight from Setup's own
+            // metadata catalog — sidesteps a describe-API quirk where
+            // getRelationshipOrder()/isCascadeDelete() can both fail to flag a
+            // genuine Master-Detail field (confirmed on CartItem.CartId, a
+            // standard Salesforce Commerce object). Used as an override below
+            // when present; the existing describe-based logic remains as a
+            // fallback for any field FieldDefinition doesn't return a row for.
+            Map<String, String> fieldDefRelationshipType = getRelationshipTypesFromFieldDefinition(ow.apiName);
+
             Map<String, Schema.SObjectField> fieldsMap = dr.fields.getMap();
             List<String> fieldKeys = new List<String>(fieldsMap.keySet());
             fieldKeys.sort();
@@ -131,22 +140,25 @@ public with sharing class SchemaMetadataController {
                             fw.relationshipType = 'Polymorphic Lookup';
                         } else {
                             fw.relatesTo = refs[0].getDescribe().getName();
-                            // getRelationshipOrder() (non-null only for Master-Detail)
-                            // is the standard signal for CUSTOM Master-Detail fields.
-                            // Standard/system objects — e.g. Salesforce Commerce's
-                            // CartItem -> WebCart — can implement cascade-delete
-                            // parent-child behavior (the defining trait of
-                            // Master-Detail) without necessarily setting that same
-                            // metadata the way a custom M-D field does.
-                            // isCascadeDelete() is a second, independently
-                            // documented signal for that same underlying behavior.
-                            // Treating either as sufficient catches both cases
-                            // without weakening the existing, already-correct
-                            // detection for ordinary custom Master-Detail fields —
-                            // additive, not a replacement.
-                            fw.relationshipType = (fdr.getRelationshipOrder() != null || fdr.isCascadeDelete())
-                                ? 'Master-Detail'
-                                : 'Lookup';
+
+                            // FieldDefinition.DataType override, when available —
+                            // this is Setup's own classification, straight from
+                            // the metadata catalog, so it wins over the
+                            // describe-based heuristics below when both exist.
+                            String overrideType = fieldDefRelationshipType.get(fw.apiName);
+                            if (overrideType != null) {
+                                fw.relationshipType = overrideType;
+                            } else {
+                                // getRelationshipOrder() (non-null only for Master-Detail)
+                                // is the standard signal for CUSTOM Master-Detail fields.
+                                // isCascadeDelete() is a second, independently
+                                // documented signal for that same underlying behavior.
+                                // Kept as a fallback for any field FieldDefinition
+                                // doesn't return a row for.
+                                fw.relationshipType = (fdr.getRelationshipOrder() != null || fdr.isCascadeDelete())
+                                    ? 'Master-Detail'
+                                    : 'Lookup';
+                            }
                         }
                     }
                 }
@@ -163,6 +175,45 @@ public with sharing class SchemaMetadataController {
                 ow.fields.add(fw);
             }
             result.add(ow);
+        }
+        return result;
+    }
+
+    /**
+     * Field-level relationship type straight from Setup's own metadata
+     * catalog (FieldDefinition.DataType), e.g. "Master-Detail(Cart)" or
+     * "Lookup(Account)". More reliable than the describe-API signals
+     * (getRelationshipOrder()/isCascadeDelete()) for some standard/managed
+     * objects. Returns only the fields FieldDefinition has a relationship
+     * DataType for — callers fall back to describe-based logic for
+     * anything missing from this map. One query per object (same SOQL
+     * restrictions as EntityDefinition — no IN/OR/NOT/LIMIT), wrapped so a
+     * failure here doesn't break the rest of describe.
+     */
+    private static Map<String, String> getRelationshipTypesFromFieldDefinition(String objectApiName) {
+        Map<String, String> result = new Map<String, String>();
+        try {
+            List<FieldDefinition> defs = [
+                SELECT QualifiedApiName, DataType
+                FROM FieldDefinition
+                WHERE EntityDefinition.QualifiedApiName = :objectApiName
+            ];
+            for (FieldDefinition fd : defs) {
+                if (fd.DataType == null) {
+                    continue;
+                }
+                if (fd.DataType.startsWith('Master-Detail')) {
+                    result.put(fd.QualifiedApiName, 'Master-Detail');
+                } else if (fd.DataType.startsWith('Lookup')) {
+                    result.put(fd.QualifiedApiName, 'Lookup');
+                }
+                // Polymorphic lookups are already handled by isNamePointing()/
+                // refs.size() > 1 in describeObjectsInternal and aren't
+                // overridden here.
+            }
+        } catch (Exception e) {
+            // Leave the map empty for this object — callers fall back to the
+            // describe-based logic for every field.
         }
         return result;
     }
