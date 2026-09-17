@@ -27,6 +27,7 @@ for a plain-language feature overview with no code or setup steps.
 - [Quick start](#quick-start)
 - [Testing](#testing)
 - [Notes](#notes)
+- [Security overview](docs/SECURITY.md)
 - [Author](#author)
 - [License](#license)
 - [Contributing](#contributing)
@@ -406,11 +407,17 @@ sf apex run test --code-coverage --result-format human --synchronous
   Administrator-type profiles have it by default). If a user lacks it,
   both features degrade gracefully — sharing badges just won't show, and
   those two columns show blank — rather than erroring.
-- Every user with the `Diagram Studio User` permission set can currently
-  see and edit every diagram in the org (`Diagram_File__c`'s org-wide
-  default is Public Read/Write, and the Apex layer doesn't filter by
-  owner). If your org needs diagrams to be private to their creator,
-  that's a deliberate follow-up, not something this build currently does.
+- Every user with the `Diagram Studio User` permission set can view every
+  diagram in the org, but only its owner can edit, rename, or delete it
+  (`Diagram_File__c`'s org-wide default is Public Read Only, enforced by
+  Apex's own `with sharing` declaration on every query and DML
+  statement, not just the standard UI). If your org wants diagrams
+  private to their creator instead, that's a one-line change
+  (`Read` → `Private` in the object's sharing model) plus re-testing —
+  see [docs/SECURITY.md](docs/SECURITY.md) for the full access-control
+  picture, including the separate, deliberate decision that schema
+  metadata (objects/fields) is shown to every user of the tool
+  regardless of their own permissions elsewhere in the org.
 
 ## Author
 

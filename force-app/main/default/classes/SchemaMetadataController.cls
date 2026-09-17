@@ -39,7 +39,16 @@ public with sharing class SchemaMetadataController {
         Map<String, Schema.SObjectType> gd = Schema.getGlobalDescribe();
         for (String key : gd.keySet()) {
             Schema.DescribeSObjectResult dr = gd.get(key).getDescribe();
-            if (dr.isAccessible() && dr.isQueryable()) {
+            // Deliberately NOT gated on dr.isAccessible() — this tool is a
+            // schema/structure viewer, not a data viewer, so it's shown to
+            // every user of the tool regardless of their own object
+            // permissions in the org; restricting it defeats the point of
+            // an ER diagram tool (see docs/SECURITY.md). isQueryable() stays
+            // -- that's a capability of the object itself (some system
+            // objects are describe-only), not a per-user permission, and
+            // dropping it would surface objects nothing else in this app
+            // can actually do anything useful with.
+            if (dr.isQueryable()) {
                 names.add(dr.getName());
             }
         }
@@ -117,15 +126,24 @@ public with sharing class SchemaMetadataController {
 
             for (String fKey : fieldKeys) {
                 Schema.DescribeFieldResult fdr = fieldsMap.get(fKey).getDescribe();
-                if (!fdr.isAccessible()) {
-                    continue;
-                }
+                // Deliberately NOT gated on fdr.isAccessible() — same reasoning
+                // as getAllObjectNames() above: every field on an object shown
+                // to one user of this tool is shown to every user of it,
+                // regardless of that specific user's own field-level security
+                // elsewhere in the org. This is a structure viewer, not a
+                // data viewer (see docs/SECURITY.md).
 
                 FieldWrap fw = new FieldWrap();
                 fw.apiName = fdr.getName();
                 fw.label = fdr.getLabel();
                 fw.dataType = String.valueOf(fdr.getType()); // raw Apex enum — kept as-is for describeObjects() (DSL) callers
-                fw.required = (!fdr.isNillable() && fdr.isCreateable());
+                // required reflects the field's own schema definition (not
+                // nillable), not whether the CURRENT user happens to be able
+                // to create records on this object — two different users
+                // looking at the same diagram should see the same "Required"
+                // flag on a field, since it's a property of the field, not
+                // of the viewer.
+                fw.required = !fdr.isNillable();
                 fw.isRelationship = false;
                 fw.isCustom = fdr.isCustom();
                 fw.isPrimaryKey = false;

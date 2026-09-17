@@ -62,6 +62,17 @@ Two features were evaluated against this rule and set aside:
 If either of these gets proposed again, this is why they didn't happen —
 considered and set aside for cause, not overlooked.
 
+## Security
+
+See [docs/SECURITY.md](docs/SECURITY.md) before touching anything
+related to schema visibility or `Diagram_File__c` access — in
+particular, the deliberate decision that object/field metadata is shown
+to every user of the tool regardless of their own FLS/object permissions
+elsewhere in the org. If you're adding a new describe-based feature,
+match that existing behavior (no `isAccessible()`-style filtering on
+schema metadata) rather than introducing per-user filtering
+inconsistently with the rest of the app.
+
 ## Before opening a PR
 
 - **JS syntax** — every `.js` file in this repo happens to parse cleanly
