@@ -35,10 +35,10 @@ entity <Name> : <field1>, <field2>, <field3>
   (standard object). This is purely visual, not something you configure.
 
 ```
-entity Account : Name, Industry, Phone, Website, Type
+entity Account : Name, Industry, Phone, Website, Type, AnnualRevenue[Currency], Description[Text Area (Long)]
 entity Order__c : Order_Date__c, Status__c
 entity WebCart : Name, TotalProductAmount[rollup]
-entity Account : AnnualRevenue[Currency], Description[Text Area (Long)]
+
 ```
 
 ## Relationships
