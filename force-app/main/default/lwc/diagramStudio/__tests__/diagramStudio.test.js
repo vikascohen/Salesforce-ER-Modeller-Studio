@@ -367,6 +367,60 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
     });
 
+    it('BUG REPRO (multiple existing entities, real-world DSL): dragging Contact onto Account/Order__c/WebCart leaves all three exactly as typed', async () => {
+        const startingDsl =
+            'entity Account : Name, Industry, Phone, Website, Type, AnnualRevenue[Currency], Description[Text Area (Long)]\n' +
+            'entity Order__c : Order_Date__c, Status__c\n' +
+            'entity WebCart : Name, TotalProductAmount[rollup]';
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = startingDsl;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(el.shadowRoot.querySelectorAll('.entity-group').length).toBe(3);
+
+        // Contact is dropped. If any of the three existing entities got
+        // re-described too, this mock (Contact only) would be the wrong
+        // shape and objectApiNames wouldn't equal ['Contact'] -- the
+        // assertion inside the mock itself catches that regression.
+        describeObjects.mockImplementation(({ objectApiNames }) => {
+            expect(objectApiNames).toEqual(['Contact']);
+            return Promise.resolve([
+                {
+                    apiName: 'Contact',
+                    label: 'Contact',
+                    isCustom: false,
+                    fields: [
+                        { apiName: 'LastName', label: 'Last Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text' }
+                    ]
+                }
+            ]);
+        });
+
+        const dropEvent = new CustomEvent('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', { value: { getData: () => 'Contact' } });
+        Object.defineProperty(dropEvent, 'clientX', { value: 300 });
+        Object.defineProperty(dropEvent, 'clientY', { value: 200 });
+        el.shadowRoot.querySelector('.canvas-wrap').dispatchEvent(dropEvent);
+        await flushPromises();
+
+        const dslValue = el.shadowRoot.querySelector('.code-editor').value;
+        // All three original lines survive completely untouched, including
+        // the bracket type annotations and the [rollup] marker.
+        expect(dslValue).toContain(
+            'entity Account : Name, Industry, Phone, Website, Type, AnnualRevenue[Currency], Description[Text Area (Long)]'
+        );
+        expect(dslValue).toContain('entity Order__c : Order_Date__c, Status__c');
+        expect(dslValue).toContain('entity WebCart : Name, TotalProductAmount[rollup]');
+        expect(dslValue).toContain('entity Contact : LastName');
+
+        expect(el.shadowRoot.querySelectorAll('.entity-group').length).toBe(4);
+        expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
+    });
+
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {
         const el = createStudio();
         await flushPromises();
