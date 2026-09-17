@@ -359,13 +359,7 @@ Id" button in the studio's sidebar to grab it).
 
 ## Testing
 
-**LWC (Jest)** — a real, working `@salesforce/sfdx-lwc-jest` setup, not
-just committed files:
-
-```bash
-npm install
-npm test              # or: npm run test:unit:coverage for coverage
-```
+**LWC (Jest)**
 
 63 tests across all four LWC bundles: `erDiagramLogic` (parsing,
 geometry, Mermaid/draw.io export with real per-field data types, legend,
@@ -376,20 +370,13 @@ render, import round-trips including friendly data-type annotations,
 New/Save/Clear/Auto Layout, error handling, Focus mode, the object
 summary hover card and its dismissal on Esc/entity deletion, and a
 dedicated Data Dictionary suite covering its Clear button, sortable
-columns, and a real race-condition regression test). The `diagramStudio`
-suite covers representative core flows on a large (~2,400 line)
-component, not every feature exhaustively — Sharing View, Heatmap, and
-Compare with Org aren't individually covered there yet, which is a
-reasonable area for a future contribution.
+columns, and a real race-condition regression test).
 
 **Apex** — `DiagramFileControllerTest` (CRUD, including the unique-name
 validation on both save and rename), `SchemaMetadataControllerTest`,
 and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
 and preference-storage paths respectively. Run them in your org:
 
-```bash
-sf apex run test --code-coverage --result-format human --synchronous
-```
 
 ## Author
 
