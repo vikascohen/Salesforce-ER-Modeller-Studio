@@ -26,7 +26,6 @@ for a plain-language feature overview with no code or setup steps.
 - [Setting it up in the org](#setting-it-up-in-the-org)
 - [Quick start](#quick-start)
 - [Testing](#testing)
-- [Notes](#notes)
 - [Security overview](docs/SECURITY.md)
 - [Author](#author)
 - [License](#license)
@@ -360,13 +359,7 @@ Id" button in the studio's sidebar to grab it).
 
 ## Testing
 
-**LWC (Jest)** — a real, working `@salesforce/sfdx-lwc-jest` setup, not
-just committed files:
-
-```bash
-npm install
-npm test              # or: npm run test:unit:coverage for coverage
-```
+**LWC (Jest)**
 
 63 tests across all four LWC bundles: `erDiagramLogic` (parsing,
 geometry, Mermaid/draw.io export with real per-field data types, legend,
@@ -377,47 +370,12 @@ render, import round-trips including friendly data-type annotations,
 New/Save/Clear/Auto Layout, error handling, Focus mode, the object
 summary hover card and its dismissal on Esc/entity deletion, and a
 dedicated Data Dictionary suite covering its Clear button, sortable
-columns, and a real race-condition regression test). The `diagramStudio`
-suite covers representative core flows on a large (~2,400 line)
-component, not every feature exhaustively — Sharing View, Heatmap, and
-Compare with Org aren't individually covered there yet, which is a
-reasonable area for a future contribution.
+columns, and a real race-condition regression test).
 
 **Apex** — `DiagramFileControllerTest` (CRUD, including the unique-name
 validation on both save and rename), `SchemaMetadataControllerTest`,
 and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
 and preference-storage paths respectively. Run them in your org:
-
-```bash
-sf apex run test --code-coverage --result-format human --synchronous
-```
-
-## Notes
-
-- Only objects you have access to (readable/queryable) show up in the
-  palette or can be imported — the Apex layer respects field- and
-  object-level security throughout.
-- Diagrams are plain text under the hood (`Source_Code__c`), so they diff
-  and version cleanly if you ever want to track them outside Salesforce
-  too.
-- Sharing View and the Data Dictionary's description/last-modified
-  columns read from `EntityDefinition`/`FieldDefinition` — Salesforce's
-  metadata catalog, not the regular describe API. Visibility into these
-  generally requires **View Setup and Configuration** (most System
-  Administrator-type profiles have it by default). If a user lacks it,
-  both features degrade gracefully — sharing badges just won't show, and
-  those two columns show blank — rather than erroring.
-- Every user with the `Diagram Studio User` permission set can view every
-  diagram in the org, but only its owner can edit, rename, or delete it
-  (`Diagram_File__c`'s org-wide default is Public Read Only, enforced by
-  Apex's own `with sharing` declaration on every query and DML
-  statement, not just the standard UI). If your org wants diagrams
-  private to their creator instead, that's a one-line change
-  (`Read` → `Private` in the object's sharing model) plus re-testing —
-  see [docs/SECURITY.md](docs/SECURITY.md) for the full access-control
-  picture, including the separate, deliberate decision that schema
-  metadata (objects/fields) is shown to every user of the tool
-  regardless of their own permissions elsewhere in the org.
 
 ## Author
 

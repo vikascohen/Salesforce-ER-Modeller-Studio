@@ -134,6 +134,12 @@ by Salesforce itself before this app's own code runs.
   use `WITH USER_MODE` where applicable — this affects catalog access,
   not the schema-visibility design decision described above, which is
   deliberate rather than something USER_MODE would or should change.
+  Viewing this catalog generally requires **View Setup and
+  Configuration** (most System Administrator-type profiles have it by
+  default). A user who lacks it isn't blocked from the tool — Sharing
+  View and the Data Dictionary's description/last-modified columns just
+  degrade gracefully (badges don't show, those columns show blank)
+  rather than erroring.
 - **No hardcoded credentials, no stored secrets, no external callouts**
   anywhere in the codebase.
 
