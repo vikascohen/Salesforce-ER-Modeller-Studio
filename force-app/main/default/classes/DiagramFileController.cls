@@ -52,8 +52,35 @@ public with sharing class DiagramFileController {
 
     // ── save DSL source ──
 
+    // Enforce unique diagram names — without this, two completely separate
+    // Diagram_File__c records can silently share the same Name, which is
+    // genuinely confusing in the sidebar file list (which one of the two
+    // "Vikas File" entries is this?). SOQL text equality is case-insensitive
+    // by default, so "Vikas File" and "vikas file" are correctly treated as
+    // the same name here too. Shared by saveFile() and renameFile() so
+    // renaming can't be used to bypass the same check save enforces.
+    private static void assertNameIsUnique(Id fileId, String fileName) {
+        if (String.isBlank(fileName)) {
+            return;
+        }
+        for (Diagram_File__c existing : [
+            SELECT Id FROM Diagram_File__c
+            WHERE Name = :fileName
+            WITH USER_MODE
+            LIMIT 2
+        ]) {
+            if (existing.Id != fileId) {
+                throw new AuraHandledException(
+                    'A diagram named "' + fileName + '" already exists. Please choose a different name.'
+                );
+            }
+        }
+    }
+
     @AuraEnabled
     public static Id saveFile(Id fileId, String fileName, String diagramType, String sourceCode) {
+        assertNameIsUnique(fileId, fileName);
+
         Diagram_File__c f = fileId != null ? new Diagram_File__c(Id = fileId) : new Diagram_File__c();
         f.Name            = fileName;
         f.Diagram_Type__c = diagramType;
@@ -77,6 +104,7 @@ public with sharing class DiagramFileController {
 
     @AuraEnabled
     public static void renameFile(Id fileId, String newName) {
+        assertNameIsUnique(fileId, newName);
         if (!Schema.sObjectType.Diagram_File__c.isUpdateable()) {
             throw new AuraHandledException('You do not have permission to rename diagram files.');
         }

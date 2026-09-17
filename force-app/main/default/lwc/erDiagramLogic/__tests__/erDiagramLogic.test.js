@@ -88,6 +88,25 @@ describe('parseEr', () => {
         expect(model.entities[0].fields.every((f) => f.isRollupSummary === false)).toBe(true);
     });
 
+    it('parses a bracket suffix that is not "rollup" as a data type label instead', () => {
+        const model = parseEr('entity Account : Name[Text], AnnualRevenue[Currency]');
+        const name = model.entities[0].fields.find((f) => f.name === 'Name');
+        const revenue = model.entities[0].fields.find((f) => f.name === 'AnnualRevenue');
+        expect(name.dataType).toBe('Text');
+        expect(name.isRollupSummary).toBe(false);
+        expect(revenue.dataType).toBe('Currency');
+    });
+
+    it('a data type label can contain spaces and its own parentheses — only the outermost brackets matter', () => {
+        const model = parseEr('entity Account : Description[Text Area (Long)]');
+        expect(model.entities[0].fields[0].dataType).toBe('Text Area (Long)');
+    });
+
+    it('a field with no bracket at all has a null data type, not an empty string or a crash', () => {
+        const model = parseEr('entity Account : Name');
+        expect(model.entities[0].fields[0].dataType).toBeNull();
+    });
+
     it('throws a helpful error naming the line number for unrecognized syntax', () => {
         expect(() => parseEr('entity Account : Name\nthis is not valid DSL')).toThrow(/Line 2/);
     });

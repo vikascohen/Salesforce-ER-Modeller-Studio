@@ -143,6 +143,49 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelectorAll('.hover-card-hint').length).toBe(1); // sharing still off
     });
 
+    it('hover card disappears when the hovered box is deleted, not left orphaned', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        expect(el.shadowRoot.querySelector('.hover-card-title')).not.toBeNull();
+
+        // Delete the box while the hover card is still showing over it --
+        // no mouseleave ever fires, since the element itself is gone.
+        const deleteBtn = el.shadowRoot.querySelector('.delete-btn');
+        deleteBtn.dispatchEvent(new CustomEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.hover-card-title')).toBeNull();
+    });
+
+    it('Escape dismisses the hover card', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        expect(el.shadowRoot.querySelector('.hover-card-title')).not.toBeNull();
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.hover-card-title')).toBeNull();
+    });
+
     it('populates the object palette once getAllObjectNames resolves', async () => {
         const el = createStudio();
         objectNamesAdapter.emit(['Account', 'Contact', 'Opportunity']);
@@ -232,6 +275,41 @@ describe('c-diagram-studio', () => {
             (t) => t.textContent === '\u03A3'
         );
         expect(sigmaMarkers).toHaveLength(1);
+    });
+
+    it('importing an object emits "[FriendlyType]" for plain fields, using the real Setup-style label', async () => {
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Account',
+                label: 'Account',
+                isCustom: false,
+                fields: [
+                    { apiName: 'Name', label: 'Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text' },
+                    { apiName: 'AnnualRevenue', label: 'Annual Revenue', isRelationship: false, isRollupSummary: false, friendlyType: 'Currency' }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        el.shadowRoot.querySelector('[data-menu="file"]').click();
+        await flushPromises();
+        const importItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Import from Org')
+        );
+        importItem.click();
+        await flushPromises();
+
+        const namesInput = el.shadowRoot.querySelector('.import-textarea');
+        namesInput.value = 'Account';
+        namesInput.dispatchEvent(new CustomEvent('input'));
+        el.shadowRoot.querySelector('.sb-full-btn').click();
+        await flushPromises();
+
+        const dslValue = el.shadowRoot.querySelector('.code-editor').value;
+        expect(dslValue).toContain('Name[Text]');
+        expect(dslValue).toContain('AnnualRevenue[Currency]');
     });
 
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {

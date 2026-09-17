@@ -134,7 +134,9 @@ other two have already fetched.
   into one glance instead of separate badges to read — and for anything
   from a toggle you haven't turned on yet, the card says so directly
   ("Turn on Heatmap to see this") rather than just omitting the row
-  silently.
+  silently. Dismisses on **Esc**, or automatically if you delete the
+  entity it's showing — it never lingers over a box that's no longer
+  there.
 
 ### Data Dictionary
 
@@ -179,6 +181,11 @@ accessible object in the org — toggle it from the **View** menu.
   into a GitHub README, Confluence, or Notion page — it renders live
   there) or a **draw.io / diagrams.net file** — laid out using your
   diagram's *actual* canvas positions, not auto-arranged from scratch.
+  Both show each field's real Salesforce data type (`Currency`,
+  `Text Area (Long)`, `Roll-Up Summary`...) rather than a generic
+  placeholder — carried through from whatever was imported from the org,
+  or typed by hand with the same optional bracket syntax as
+  `[rollup]` (e.g. `AnnualRevenue[Currency]`).
 - **Read-only viewer** (`diagramViewer`) — a companion component for
   Record/App/Home pages that pins a saved diagram for people who just
   need to look at it, with its own PNG export and legend.
@@ -187,6 +194,9 @@ accessible object in the org — toggle it from the **View** menu.
 
 - **Multi-file workspace** — a VS Code–style tab strip and sidebar file
   list; open several diagrams at once, rename, duplicate, or delete them.
+  Diagram names must be unique — saving or renaming to a name another
+  diagram already has (case-insensitive) is rejected with a clear message
+  rather than silently creating two records sharing the same name.
 - **Themes** — a selector in the toolbar switches between four real VS
   Code themes: **Dark+** and **Light+** (VS Code's own defaults, blue
   accent), **Monokai**, and **Solarized Light** — applies instantly across
@@ -354,20 +364,23 @@ npm install
 npm test              # or: npm run test:unit:coverage for coverage
 ```
 
-57 tests across all four LWC bundles: `erDiagramLogic` (parsing,
-geometry, Mermaid/draw.io export, legend, Roll-Up Summary marker
-handling), `diagramExportUtils` (PNG rendering, including a mocked
-canvas/Image success path, not just error branches), `diagramViewer`,
-and `diagramStudio` (core flows — init, DSL typing → render, import
-round-trips, New/Save/Clear/Auto Layout, error handling, Focus mode, the
-object summary hover card, and a dedicated Data Dictionary suite
-covering its Clear button, sortable columns, and a real race-condition
-regression test). The `diagramStudio` suite covers representative core
-flows on a large (~2,400 line) component, not every feature exhaustively
-— Sharing View, Heatmap, and Compare with Org aren't individually
-covered there yet, which is a reasonable area for a future contribution.
+63 tests across all four LWC bundles: `erDiagramLogic` (parsing,
+geometry, Mermaid/draw.io export with real per-field data types, legend,
+Roll-Up Summary marker handling), `diagramExportUtils` (PNG rendering,
+including a mocked canvas/Image success path, not just error branches),
+`diagramViewer`, and `diagramStudio` (core flows — init, DSL typing →
+render, import round-trips including friendly data-type annotations,
+New/Save/Clear/Auto Layout, error handling, Focus mode, the object
+summary hover card and its dismissal on Esc/entity deletion, and a
+dedicated Data Dictionary suite covering its Clear button, sortable
+columns, and a real race-condition regression test). The `diagramStudio`
+suite covers representative core flows on a large (~2,400 line)
+component, not every feature exhaustively — Sharing View, Heatmap, and
+Compare with Org aren't individually covered there yet, which is a
+reasonable area for a future contribution.
 
-**Apex** — `DiagramFileControllerTest`, `SchemaMetadataControllerTest`,
+**Apex** — `DiagramFileControllerTest` (CRUD, including the unique-name
+validation on both save and rename), `SchemaMetadataControllerTest`,
 and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
 and preference-storage paths respectively. Run them in your org:
 

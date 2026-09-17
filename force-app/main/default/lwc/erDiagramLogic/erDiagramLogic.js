@@ -60,7 +60,7 @@ export function parseEr(text) {
         const ent = ensureEntity(entityName);
         let f = ent.fields.find((x) => x.name.toLowerCase() === fieldName.toLowerCase());
         if (!f) {
-            f = { name: fieldName, isRelationship: false, relatesTo: [], isRollupSummary: false };
+            f = { name: fieldName, isRelationship: false, relatesTo: [], isRollupSummary: false, dataType: null };
             ent.fields.push(f);
         }
         return f;
@@ -74,24 +74,30 @@ export function parseEr(text) {
         const entityMatch = line.match(/^entity\s+(\w+)\s*(:\s*(.*))?$/i);
         if (entityMatch) {
             const ent = ensureEntity(entityMatch[1]);
-            // A field can carry an optional "[rollup]" suffix marking it as a
-            // Roll-Up Summary field (e.g. "TotalProductAmount[rollup]") --
-            // stripped off here, and never required, so DSL written or saved
-            // before this existed still parses exactly as it always did.
+            // A field can carry an optional bracket suffix: "[rollup]" marks
+            // it as a Roll-Up Summary field, anything else is taken as a
+            // display-only data type label (e.g. "TotalAmount[Currency]",
+            // "Description[Text Area (Long)]" — the type itself can contain
+            // spaces/parens freely, only the outermost brackets matter).
+            // Entirely optional either way, so DSL written or saved before
+            // this existed still parses exactly as it always did.
             const fieldList = (entityMatch[3] || '')
                 .split(',')
                 .map((f) => f.trim())
                 .filter((f) => f)
                 .map((f) => {
-                    const rollupMatch = f.match(/^(.+?)\s*\[\s*rollup\s*\]$/i);
-                    return rollupMatch
-                        ? { name: rollupMatch[1].trim(), isRollupSummary: true }
-                        : { name: f, isRollupSummary: false };
+                    const bracketMatch = f.match(/^(.+?)\s*\[\s*(.+?)\s*\]$/);
+                    if (!bracketMatch) return { name: f, isRollupSummary: false, dataType: null };
+                    const bracketContent = bracketMatch[2].trim();
+                    return bracketContent.toLowerCase() === 'rollup'
+                        ? { name: bracketMatch[1].trim(), isRollupSummary: true, dataType: null }
+                        : { name: bracketMatch[1].trim(), isRollupSummary: false, dataType: bracketContent };
                 })
                 .filter(({ name }) => name && name.toLowerCase() !== 'id'); // "Id" is implicit — skip if redundantly listed
-            fieldList.forEach(({ name, isRollupSummary }) => {
+            fieldList.forEach(({ name, isRollupSummary, dataType }) => {
                 const field = ensureField(ent.name, name);
                 if (isRollupSummary) field.isRollupSummary = true;
+                if (dataType) field.dataType = dataType;
             });
             return;
         }
@@ -362,6 +368,17 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
  * solid "identifying" line; Lookup and Polymorphic Lookup (looser
  * coupling) render as a dashed "non-identifying" line.
  */
+
+// Mermaid's erDiagram grammar requires the attribute "type" token to be a
+// single identifier — no spaces, slashes, or parentheses — so a friendly
+// label like "Date/Time" or "Text Area (Long)" has to be collapsed into
+// one safe word (DateTime, TextAreaLong) rather than inserted as-is,
+// which would otherwise silently break the diagram wherever it's pasted
+// (GitHub, the Mermaid Live Editor, etc).
+function mermaidSafeType(type) {
+    return type.replace(/[^A-Za-z0-9]+/g, '') || 'field';
+}
+
 export function buildMermaidErDiagram(model) {
     const lines = ['erDiagram'];
 
@@ -377,8 +394,15 @@ export function buildMermaidErDiagram(model) {
         ent.fields.forEach((f) => {
             if (f.isRelationship) {
                 lines.push(`        reference ${f.name} FK`);
+            } else if (f.isRollupSummary) {
+                lines.push(`        rollupsummary ${f.name}`);
             } else {
-                lines.push(`        string ${f.name}`);
+                // A real Salesforce data type when one was imported/typed in
+                // (e.g. "Currency", "Text Area (Long)"), otherwise Mermaid's
+                // own generic "string" — exactly the prior behavior for DSL
+                // that never carried type info at all.
+                const type = f.dataType ? mermaidSafeType(f.dataType) : 'string';
+                lines.push(`        ${type} ${f.name}`);
             }
         });
         lines.push('    }');
@@ -402,6 +426,13 @@ function drawioEntityLabelHtml(ent) {
         if (f.isRelationship) {
             const targets = f.relatesTo && f.relatesTo.length ? f.relatesTo.join(' / ') : '?';
             rows.push(`${f.name} \u2192 ${targets} (${kindLabel(f.kind)})`);
+        } else if (f.isRollupSummary) {
+            rows.push(`${f.name} (Roll-Up Summary)`);
+        } else if (f.dataType) {
+            // Plain HTML label text here, not a grammar Mermaid has to
+            // parse — the friendly type can be shown exactly as-is,
+            // spaces/parens included, with no sanitizing needed.
+            rows.push(`${f.name} (${escapeXml(f.dataType)})`);
         } else {
             rows.push(f.name);
         }

@@ -110,6 +110,77 @@ private class DiagramFileControllerTest {
     }
 
     @isTest
+    static void testSaveFileRejectsANameThatAnotherRecordAlreadyHas() {
+        insert makeDiagram('Vikas File');
+
+        Test.startTest();
+        Boolean threw = false;
+        try {
+            DiagramFileController.saveFile(null, 'Vikas File', 'ER', 'entity Account : Name');
+        } catch (AuraHandledException e) {
+            threw = true;
+        }
+        Test.stopTest();
+
+        Assert.isTrue(threw, 'Saving a new diagram with a name another record already has should throw');
+        Assert.areEqual(1, [SELECT COUNT() FROM Diagram_File__c], 'The duplicate-named record should never have been created');
+    }
+
+    @isTest
+    static void testSaveFileNameCheckIsCaseInsensitive() {
+        insert makeDiagram('Vikas File');
+
+        Test.startTest();
+        Boolean threw = false;
+        try {
+            DiagramFileController.saveFile(null, 'vikas file', 'ER', 'entity Account : Name');
+        } catch (AuraHandledException e) {
+            threw = true;
+        }
+        Test.stopTest();
+
+        Assert.isTrue(threw, '"vikas file" should be treated as the same name as "Vikas File", not a different one');
+    }
+
+    @isTest
+    static void testSaveFileAllowsResavingARecordWithoutChangingItsOwnName() {
+        Diagram_File__c d = makeDiagram('My Diagram');
+        insert d;
+
+        // Saving the same record again, keeping its own name, must not
+        // trip the uniqueness check against itself.
+        Test.startTest();
+        Id resultId = DiagramFileController.saveFile(d.Id, 'My Diagram', 'ER', 'entity Contact : LastName');
+        Test.stopTest();
+
+        Assert.areEqual(d.Id, resultId);
+        Assert.areEqual(1, [SELECT COUNT() FROM Diagram_File__c]);
+    }
+
+    @isTest
+    static void testRenameFileRejectsANameAnotherRecordAlreadyHas() {
+        insert makeDiagram('First Diagram');
+        Diagram_File__c second = makeDiagram('Second Diagram');
+        insert second;
+
+        Test.startTest();
+        Boolean threw = false;
+        try {
+            DiagramFileController.renameFile(second.Id, 'First Diagram');
+        } catch (AuraHandledException e) {
+            threw = true;
+        }
+        Test.stopTest();
+
+        Assert.isTrue(threw, 'Renaming to a name another record already has should throw, same as Save does');
+        Assert.areEqual(
+            'Second Diagram',
+            [SELECT Name FROM Diagram_File__c WHERE Id = :second.Id].Name,
+            'The rejected rename should never have been applied'
+        );
+    }
+
+    @isTest
     static void testRenameFileChangesOnlyTheName() {
         Diagram_File__c d = makeDiagram('Old Name');
         insert d;

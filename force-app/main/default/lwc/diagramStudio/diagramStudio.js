@@ -523,6 +523,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleClearCanvas() {
         // eslint-disable-next-line no-alert
         if (!window.confirm('Clear the entire canvas? This cannot be undone.')) return;
+        this.hideHoverCard(); // every box on the canvas is about to disappear
         this.erPositions  = {};
         this.boxHeightOverrides = {};
         this.boxWidthOverrides  = {};
@@ -731,6 +732,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
             event.preventDefault();
             this.handleSave();
+        }
+        if (event.key === 'Escape') {
+            this.hideHoverCard();
         }
     }
 
@@ -983,7 +987,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         objects.forEach((o) => {
             const plain = o.fields
                 .filter((f) => !f.isRelationship)
-                .map((f) => (f.isRollupSummary ? `${f.apiName}[rollup]` : f.apiName));
+                .map((f) => {
+                    if (f.isRollupSummary) return `${f.apiName}[rollup]`;
+                    if (f.friendlyType) return `${f.apiName}[${f.friendlyType}]`;
+                    return f.apiName;
+                });
             lines.push(`entity ${o.apiName} : ${plain.join(', ')}`);
         });
         lines.push('');
@@ -1169,6 +1177,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleDeleteEntity(event) {
         event.stopPropagation();
+        this.hideHoverCard(); // the box under the cursor is about to disappear
         const name = event.currentTarget.dataset.name;
         try {
             const filtered = this.sourceText.split('\n').filter((line) => {

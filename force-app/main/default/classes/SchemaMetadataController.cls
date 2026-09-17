@@ -21,6 +21,7 @@ public with sharing class SchemaMetadataController {
         @AuraEnabled public Boolean isCustom;
         @AuraEnabled public Boolean isPrimaryKey;
         @AuraEnabled public Boolean isRollupSummary; // computed on both describe paths — see isRollupSummaryField()
+        @AuraEnabled public String friendlyType;     // Setup-style label for plain (non-relationship) fields only — computed on both describe paths, additive alongside the raw dataType above, which stays untouched for describeObjects() (DSL) callers that already depend on its exact format
         @AuraEnabled public String description;      // Data Dictionary only — from FieldDefinition
         @AuraEnabled public String lastModifiedDate; // Data Dictionary only — from FieldDefinition, yyyy-MM-dd
     }
@@ -97,6 +98,7 @@ public with sharing class SchemaMetadataController {
                 pk.isCustom = false;
                 pk.isPrimaryKey = true;
                 pk.isRollupSummary = false;
+                pk.friendlyType = 'ID';
                 ow.fields.add(pk);
             }
 
@@ -161,6 +163,13 @@ public with sharing class SchemaMetadataController {
                             }
                         }
                     }
+                }
+
+                // Friendly type for plain (non-relationship) fields only —
+                // relationship fields already carry their type info via
+                // relationshipType/relatesTo, shown separately by callers.
+                if (!fw.isRelationship) {
+                    fw.friendlyType = friendlyDataType(fdr, null);
                 }
 
                 // The Data Dictionary wants Setup's actual field-type labels
