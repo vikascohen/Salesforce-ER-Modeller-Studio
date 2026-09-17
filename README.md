@@ -399,18 +399,8 @@ sf apex run test --code-coverage --result-format human --synchronous
 - Diagrams are plain text under the hood (`Source_Code__c`), so they diff
   and version cleanly if you ever want to track them outside Salesforce
   too.
-- Sharing View and the Data Dictionary's description/last-modified
-  columns read from `EntityDefinition`/`FieldDefinition` — Salesforce's
-  metadata catalog, not the regular describe API. Visibility into these
-  generally requires **View Setup and Configuration** (most System
-  Administrator-type profiles have it by default). If a user lacks it,
-  both features degrade gracefully — sharing badges just won't show, and
-  those two columns show blank — rather than erroring.
-- Every user with the `Diagram Studio User` permission set can currently
-  see and edit every diagram in the org (`Diagram_File__c`'s org-wide
-  default is Public Read/Write, and the Apex layer doesn't filter by
-  owner). If your org needs diagrams to be private to their creator,
-  that's a deliberate follow-up, not something this build currently does.
+
+
 
 ## Author
 
