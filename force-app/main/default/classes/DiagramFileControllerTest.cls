@@ -273,4 +273,89 @@ private class DiagramFileControllerTest {
         Assert.isFalse(cv.PathOnClient.contains('?'));
         Assert.isTrue(cv.PathOnClient.endsWith('.png'), 'Exported file should always end in .png');
     }
+
+    // ── Private sharing: a non-owner genuinely cannot see or touch
+    //    another user's diagram ──
+    //
+    // Unlike an FLS-based scenario (which depends on org-specific field
+    // defaults and can't be reliably constructed the same way in every
+    // org), ownership here is fully controlled by the test itself, via
+    // System.runAs() with freshly created users -- a portable, reliable
+    // way to prove Diagram_File__c's Private sharing model actually
+    // works end to end, not just that the metadata says "Private".
+    //
+    // Deliberately NOT using an admin-type profile for either test user:
+    // System Administrator (and similar) profiles typically carry "View
+    // All Data"/"Modify All Data", which bypasses sharing entirely
+    // regardless of the object's own setting -- that would prove nothing
+    // about whether Private sharing is actually doing its job.
+
+    private static User createStandardTestUser(String suffix) {
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'Standard User' LIMIT 1];
+        String stamp = String.valueOf(System.currentTimeMillis()) + suffix;
+        User u = new User(
+            Alias = 'dsu' + suffix,
+            Email = 'dsu' + stamp + '@example.com.invalid',
+            EmailEncodingKey = 'UTF-8',
+            LastName = 'DiagramTester' + suffix,
+            LanguageLocaleKey = 'en_US',
+            LocaleSidKey = 'en_US',
+            ProfileId = p.Id,
+            TimeZoneSidKey = 'America/Los_Angeles',
+            Username = 'dsu' + stamp + '@example.com.invalid'
+        );
+        insert u;
+        insert new PermissionSetAssignment(
+            AssigneeId = u.Id,
+            PermissionSetId = [SELECT Id FROM PermissionSet WHERE Name = 'Diagram_Studio_User' LIMIT 1].Id
+        );
+        return u;
+    }
+
+    @isTest
+    static void testPrivateSharingBlocksANonOwnerFromSeeingOrEditingAnotherUsersDiagram() {
+        User owner    = createStandardTestUser('Own');
+        User outsider = createStandardTestUser('Out');
+
+        Id diagramId;
+        System.runAs(owner) {
+            Diagram_File__c d = makeDiagram('Owner Private Diagram');
+            insert d;
+            diagramId = d.Id;
+        }
+
+        System.runAs(outsider) {
+            // listFiles() must not surface a diagram the outsider does not own.
+            Boolean foundInList = false;
+            for (DiagramFileController.FileSummary f : DiagramFileController.listFiles()) {
+                if (f.id == diagramId) foundInList = true;
+            }
+            Assert.isFalse(foundInList, 'Private sharing should hide another users diagram from the file list');
+
+            // getFile() must not return a record the outsider cannot see.
+            Diagram_File__c fetched = DiagramFileController.getFile(diagramId);
+            Assert.isNull(fetched, 'Private sharing should block reading another users diagram directly by Id');
+
+            // Attempting to update it must fail outright.
+            Boolean threw = false;
+            try {
+                DiagramFileController.saveFile(diagramId, 'Hijacked Name', 'ER', 'entity Hacked : Name');
+            } catch (Exception e) {
+                threw = true;
+            }
+            Assert.isTrue(threw, 'A non-owner should not be able to update another users diagram under Private sharing');
+        }
+
+        // Confirm the blocked attempt genuinely changed nothing.
+        Diagram_File__c stillOwners = [SELECT Name, Source_Code__c FROM Diagram_File__c WHERE Id = :diagramId];
+        Assert.areEqual('Owner Private Diagram', stillOwners.Name);
+        Assert.areEqual('entity Account : Name', stillOwners.Source_Code__c);
+
+        // And confirm the owner themselves is completely unaffected by any of this.
+        System.runAs(owner) {
+            Diagram_File__c ownersOwnView = DiagramFileController.getFile(diagramId);
+            Assert.isNotNull(ownersOwnView, 'The owner must always be able to read their own diagram');
+            Assert.areEqual('Owner Private Diagram', ownersOwnView.Name);
+        }
+    }
 }

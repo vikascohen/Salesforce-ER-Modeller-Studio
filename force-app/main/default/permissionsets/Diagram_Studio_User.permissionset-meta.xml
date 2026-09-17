@@ -7,7 +7,7 @@
         <allowRead>true</allowRead>
         <allowEdit>true</allowEdit>
         <allowDelete>true</allowDelete>
-        <viewAllRecords>true</viewAllRecords>
+        <viewAllRecords>false</viewAllRecords>
         <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
     <fieldPermissions>
