@@ -312,6 +312,61 @@ describe('c-diagram-studio', () => {
         expect(dslValue).toContain('AnnualRevenue[Currency]');
     });
 
+    it('BUG REPRO: dragging a new entity onto the canvas does not touch a manually-curated field list on an existing entity', async () => {
+        // User has typed Account by hand with only 3 fields -- a deliberately
+        // trimmed-down list, not what a full describe would return.
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name, Industry, Phone';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(el.shadowRoot.querySelectorAll('.entity-group').length).toBe(1);
+
+        // Contact is dragged onto the canvas. If Account were re-described
+        // here too, this mock would need an Account entry -- it deliberately
+        // only has Contact, so the test fails loudly if the fix regresses
+        // and the component tries to re-describe Account as well.
+        describeObjects.mockImplementation(({ objectApiNames }) => {
+            expect(objectApiNames).toEqual(['Contact']); // never re-describes Account
+            return Promise.resolve([
+                {
+                    apiName: 'Contact',
+                    label: 'Contact',
+                    isCustom: false,
+                    fields: [
+                        { apiName: 'LastName', label: 'Last Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text' },
+                        {
+                            apiName: 'AccountId', label: 'Account', isRelationship: true,
+                            relatesTo: 'Account', relationshipType: 'Lookup', isRollupSummary: false
+                        }
+                    ]
+                }
+            ]);
+        });
+
+        const dropEvent = new CustomEvent('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(dropEvent, 'dataTransfer', { value: { getData: () => 'Contact' } });
+        Object.defineProperty(dropEvent, 'clientX', { value: 300 });
+        Object.defineProperty(dropEvent, 'clientY', { value: 200 });
+        const canvasWrap = el.shadowRoot.querySelector('.canvas-wrap');
+        canvasWrap.dispatchEvent(dropEvent);
+        await flushPromises();
+
+        const dslValue = el.shadowRoot.querySelector('.code-editor').value;
+        // Account's original, manually-curated field list survives exactly —
+        // no field it didn't have before, nothing dropped either. This exact
+        // line match is the real proof; Account never gets touched at all.
+        expect(dslValue).toContain('entity Account : Name, Industry, Phone');
+        // Contact was correctly added, including its relationship to Account.
+        expect(dslValue).toContain('entity Contact : LastName');
+        expect(dslValue).toContain('Contact.AccountId -> Account');
+
+        expect(el.shadowRoot.querySelectorAll('.entity-group').length).toBe(2);
+        expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
+    });
+
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {
         const el = createStudio();
         await flushPromises();

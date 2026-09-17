@@ -981,8 +981,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    buildErSource(objects) {
-        const presentNames = new Set(objects.map((o) => o.apiName));
+    // presentNamesOverride: normally presentNames is just the names of the
+    // objects passed in (the full Import from Org case, rebuilding DSL for
+    // all of them). addEntityByDrop() passes only the one newly dropped
+    // object here, but still needs relationships to whatever's ALREADY on
+    // the canvas to wire correctly — hence the override, covering every
+    // entity name currently present, not just the one being described.
+    buildErSource(objects, presentNamesOverride) {
+        const presentNames = presentNamesOverride || new Set(objects.map((o) => o.apiName));
         const lines = [];
         objects.forEach((o) => {
             const plain = o.fields
@@ -1157,11 +1163,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 try { existingNames = parseEr(this.sourceText).entities.map((e) => e.name); } catch (_) {}
             }
             if (existingNames.includes(name)) return;
-            const allNames = Array.from(new Set([...existingNames, name]));
-            const objects  = await describeObjects({ objectApiNames: allNames });
+
+            // Describe ONLY the newly dropped entity, never re-describe and
+            // rebuild the whole DSL from the org — that would silently
+            // overwrite any entity already on the canvas back to its full,
+            // as-described field list, discarding a manually trimmed-down
+            // field list the user had typed for it. Existing entities are
+            // appended to, never regenerated, unless the user deletes and
+            // re-adds them.
+            const objects = await describeObjects({ objectApiNames: [name] });
             if (!objects || !objects.length) { this.errorMessage = `Could not find "${name}", or you lack access.`; return; }
+            const newObject = objects[0];
+
             this.erPositions[name] = { x: x - 120, y: y - 18 };
-            this.sourceText = this.buildErSource(objects);
+            const newLines = this.buildErSource([newObject], new Set([...existingNames, name]));
+            this.sourceText = (this.sourceText.trim() ? this.sourceText.trimEnd() + '\n\n' : '') + newLines;
             this.isDirty    = true;
             this._markTabDirty(this.activeTabId, true);
             this.errorMessage = '';
