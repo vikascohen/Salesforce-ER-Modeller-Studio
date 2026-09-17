@@ -21,6 +21,7 @@ for a plain-language feature overview with no code or setup steps.
   - [Workspace & appearance](#workspace--appearance)
 - [Components](#components)
 - [Architecture](#architecture)
+  - [How the DSL parser works internally](docs/dsl-compiler-architecture.md)
 - [Deploying to an org](#deploying-to-an-org)
 - [Setting it up in the org](#setting-it-up-in-the-org)
 - [Quick start](#quick-start)
@@ -63,7 +64,9 @@ same result, nothing leaves your machine.
   file explorer where you type entity/relationship lines and watch the
   canvas render as you type. Context-aware autocomplete (entity names,
   field names, relationship arrows, target entities) suggests from your
-  org's real schema — see [docs/DSL.md](docs/DSL.md) for the full syntax.
+  org's real schema — see [docs/DSL.md](docs/DSL.md) for the full syntax,
+  or [docs/dsl-compiler-architecture.md](docs/dsl-compiler-architecture.md)
+  for how parsing and rendering actually work internally.
 - **Import from your org** — **File > Import from Org**: give it object
   API names and it describes them from your org's actual fields and
   relationships (Master-Detail, Lookup, Polymorphic Lookup) and generates

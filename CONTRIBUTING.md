@@ -22,7 +22,10 @@ fit together. The short version: `diagramStudio` and `diagramViewer` are
 thin UI shells — almost all of the interesting logic (DSL parsing, layout,
 the export legend) lives in `erDiagramLogic.js`, which has zero LWC/Apex
 dependencies. If you're fixing a rendering or parsing bug, that's almost
-always the right file.
+always the right file — see
+[docs/dsl-compiler-architecture.md](docs/dsl-compiler-architecture.md)
+for a full walkthrough of what that file actually does, stage by stage,
+plus a "where to make a change" map at the end.
 
 ## Scope: what this tool deliberately won't show
 
