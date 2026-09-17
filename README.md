@@ -391,17 +391,6 @@ and preference-storage paths respectively. Run them in your org:
 sf apex run test --code-coverage --result-format human --synchronous
 ```
 
-## Notes
-
-- Only objects you have access to (readable/queryable) show up in the
-  palette or can be imported — the Apex layer respects field- and
-  object-level security throughout.
-- Diagrams are plain text under the hood (`Source_Code__c`), so they diff
-  and version cleanly if you ever want to track them outside Salesforce
-  too.
-
-
-
 ## Author
 
 Vikas Cohen — Passionate transhumanist and a programmer when get extremely bored.
