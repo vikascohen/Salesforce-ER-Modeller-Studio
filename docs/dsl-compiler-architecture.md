@@ -19,6 +19,18 @@ to look complete. If you're here to extend the codebase, the "Where to
 make a change" section at the end is probably more useful than the
 theory — read that first if you just want to get something done.
 
+A naming note, since it's come up: "DSL" is the general term, and it's
+accurate here — a DSL just needs its own grammar and a narrow domain, it
+doesn't need to be Turing-complete (most well-known DSLs aren't: SQL,
+regex, CSS). What this particular language does — declare entities and
+the relationships between them, nothing else — is close enough in spirit
+to what GraphQL calls its "Schema Definition Language" (SDL) that SDL
+would arguably be the more precise term for anyone who already knows it.
+This document sticks with "DSL" throughout because that's what the
+codebase's actual identifiers use (`dslPanelOpen`, `parseEr`'s own doc
+comment, `DSL.md`...), and matching the code beats being marginally more
+precise in prose that describes it.
+
 If you haven't read [DSL.md](DSL.md) yet, read that first — it's the
 syntax reference (what to type). This document is the opposite direction:
 what happens *after* you type it.
