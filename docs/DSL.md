@@ -34,6 +34,12 @@ entity <Name> : <field1>, <field2>, <field3>
   brackets matter. Every marker is entirely optional and independent of
   the others, so DSL written before any of this existed still parses
   identically.
+- **A field with no bracket at all records no type information — it does
+  not mean "this field is Text."** `FirstName` with nothing after it just
+  means nothing was specified; the field's actual type, whatever it is,
+  simply isn't recorded in the DSL text. This distinction matters most
+  when reading DSL someone else wrote or imported — a bare field name is
+  "unknown/unspecified," not "confirmed to be Text."
 - When importing from your org, required fields (the field's own schema
   definition — not nillable — not whether the importing user happens to
   be able to create records) are sorted to the top of each entity's field
@@ -46,7 +52,7 @@ entity <Name> : <field1>, <field2>, <field3>
 entity Account : Name, Industry, Phone, Website, Type, AnnualRevenue[Currency], Description[Text Area (Long)]
 entity Order__c : Order_Date__c, Status__c
 entity WebCart : Name, TotalProductAmount[rollup]
-entity Contact : LastName[Required], FirstName, Email[Email, Required]
+entity Contact : LastName[Required], FirstName, Email[required]
 
 ```
 
