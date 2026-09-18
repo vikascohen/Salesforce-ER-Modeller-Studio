@@ -64,7 +64,11 @@ same result, nothing leaves your machine.
   file explorer where you type entity/relationship lines and watch the
   canvas render as you type. Context-aware autocomplete (entity names,
   field names, relationship arrows, target entities) suggests from your
-  org's real schema — see [docs/DSL.md](docs/DSL.md) for the full syntax,
+  org's real schema — picking a field inserts its real type (and
+  required/roll-up markers, when they apply) automatically, the exact
+  same bracket text Import from Org would generate for that field, so
+  hand-picking from the dropdown and importing the whole object produce
+  identical DSL. See [docs/DSL.md](docs/DSL.md) for the full syntax,
   or [docs/dsl-compiler-architecture.md](docs/dsl-compiler-architecture.md)
   for how parsing and rendering actually work internally.
 - **Import from your org** — **File > Import from Org**: give it object
@@ -370,16 +374,18 @@ Id" button in the studio's sidebar to grab it).
 
 **LWC (Jest)**
 
-63 tests across all four LWC bundles: `erDiagramLogic` (parsing,
+73 tests across all four LWC bundles: `erDiagramLogic` (parsing,
 geometry, Mermaid/draw.io export with real per-field data types, legend,
-Roll-Up Summary marker handling), `diagramExportUtils` (PNG rendering,
+Roll-Up Summary and Required-field marker handling, including their
+combined-bracket syntax), `diagramExportUtils` (PNG rendering,
 including a mocked canvas/Image success path, not just error branches),
 `diagramViewer`, and `diagramStudio` (core flows — init, DSL typing →
-render, import round-trips including friendly data-type annotations,
-New/Save/Clear/Auto Layout, error handling, Focus mode, the object
-summary hover card and its dismissal on Esc/entity deletion, and a
-dedicated Data Dictionary suite covering its Clear button, sortable
-columns, and a real race-condition regression test).
+render, import round-trips including friendly data-type and required-field
+annotations, the DSL autocomplete inserting those same annotations when a
+field is picked from the dropdown, New/Save/Clear/Auto Layout, error
+handling, Focus mode, the object summary hover card and its dismissal on
+Esc/entity deletion, and a dedicated Data Dictionary suite covering its
+Clear button, sortable columns, and a real race-condition regression test).
 
 **Apex** — `DiagramFileControllerTest` (CRUD, including the unique-name
 validation on both save and rename), `SchemaMetadataControllerTest`,

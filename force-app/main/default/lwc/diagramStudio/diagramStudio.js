@@ -981,6 +981,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
+    // Shared by buildErSource() and the DSL autocomplete (detectDslContext,
+    // the "entity Name : field1, <partial>" case) so the exact same
+    // "[Type, Required]" bracket text is generated whichever way a field
+    // ends up in the DSL — importing an object and picking a field from
+    // the intellisense dropdown produce byte-identical output for the
+    // same field, not two similar-but-separately-maintained versions of
+    // this logic that could drift apart over time.
+    buildFieldMarkerSuffix(f) {
+        const markers = [];
+        if (f.isRollupSummary) markers.push('rollup');
+        else if (f.friendlyType) markers.push(f.friendlyType);
+        if (f.required) markers.push('Required');
+        return markers.length ? `[${markers.join(', ')}]` : '';
+    }
+
     // presentNamesOverride: normally presentNames is just the names of the
     // objects passed in (the full Import from Org case, rebuilding DSL for
     // all of them). addEntityByDrop() passes only the one newly dropped
@@ -1000,13 +1015,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 // every engine this app runs on), so this only ever
                 // reorders required-vs-not, nothing else.
                 .sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0))
-                .map((f) => {
-                    const markers = [];
-                    if (f.isRollupSummary) markers.push('rollup');
-                    else if (f.friendlyType) markers.push(f.friendlyType);
-                    if (f.required) markers.push('Required');
-                    return markers.length ? `${f.apiName}[${markers.join(', ')}]` : f.apiName;
-                });
+                .map((f) => `${f.apiName}${this.buildFieldMarkerSuffix(f)}`);
             lines.push(`entity ${o.apiName} : ${plain.join(', ')}`);
         });
         lines.push('');
@@ -2049,7 +2058,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const items = (cached || [])
                 .filter((f) => f.apiName.toLowerCase().startsWith(partial) && !already.has(f.apiName.toLowerCase()))
                 .slice(0, 50)
-                .map((f) => ({ id: 'fld-' + f.apiName, label: f.apiName, detail: f.isRelationship ? 'Lookup field' : 'Field', insertText: f.apiName }));
+                .map((f) => ({
+                    id: 'fld-' + f.apiName,
+                    label: f.apiName,
+                    detail: f.isRelationship ? 'Lookup field' : 'Field',
+                    // Same marker text buildErSource() would generate for
+                    // this exact field — picking it from the dropdown and
+                    // importing the object it belongs to produce identical
+                    // DSL, not two different representations of the same field.
+                    insertText: f.apiName + this.buildFieldMarkerSuffix(f)
+                }));
             return { replaceStart: start, items };
         }
 

@@ -487,6 +487,38 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
     });
 
+    it('selecting a field from the DSL autocomplete dropdown inserts its type marker automatically, matching what Import from Org would generate', async () => {
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Contact',
+                label: 'Contact',
+                isCustom: false,
+                fields: [
+                    { apiName: 'AccountNumber', label: 'Account Number', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Contact : AccountNum';
+        textarea.selectionStart = textarea.value.length;
+        textarea.selectionEnd = textarea.value.length;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await flushPromises(); // ensureFieldsCached()'s describeObjects call resolves, re-triggering suggestions
+
+        const items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const match = items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'AccountNumber');
+        expect(match).toBeDefined();
+
+        match.dispatchEvent(new CustomEvent('click'));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Contact : AccountNumber[Text]');
+    });
+
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {
         const el = createStudio();
         await flushPromises();
