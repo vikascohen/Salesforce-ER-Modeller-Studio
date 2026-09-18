@@ -81,6 +81,15 @@ same result, nothing leaves your machine.
   genuine roll-up (vs. an ordinary Formula field, which describes almost
   identically) uses a verified technique, not a guess: a roll-up's
   `getCalculatedFormula()` comes back blank, a real formula's doesn't.
+- **Required fields are visible on the canvas too** — a small red `R` at
+  the right edge of the field's row, independent of and combinable with
+  the PK/relationship/rollup markers on the left. Populated automatically
+  when importing from your org (using the field's own schema definition —
+  not nillable — never the importing user's own create permission), or
+  written by hand with `[Required]` — combinable with a type label or
+  `[rollup]` in the same bracket, e.g. `AnnualRevenue[Currency, Required]`.
+  Required fields are also sorted to the top of each entity's field list
+  automatically on import, ahead of everything else.
 - **Object palette** — a searchable list of every object you can access;
   drag one onto the canvas and it auto-wires any relationships it has to
   entities already there.

@@ -20,16 +20,24 @@ entity <Name> : <field1>, <field2>, <field3>
   ignored.
 - Every entity automatically gets an `Id` field at the top of its box —
   don't declare it yourself.
-- Any field can carry an optional bracket suffix. The special value
-  `[rollup]` (case-insensitive) marks it as a Roll-Up Summary field,
-  shown as a small teal Σ next to the field on the canvas. Anything else
-  in the brackets is taken as a display-only data type label — used in
-  the Mermaid/draw.io exports instead of a generic placeholder — e.g.
-  `AnnualRevenue[Currency]`, `Description[Text Area (Long)]`. The type
-  itself can contain spaces and parentheses freely; only the outermost
-  brackets matter. Entirely optional either way — a field with no
-  suffix at all is just a normal field, so DSL written before this
-  existed still parses identically.
+- Any field can carry an optional bracket suffix with one or more
+  comma-separated markers. `rollup` (case-insensitive) marks it as a
+  Roll-Up Summary field, shown as a small teal Σ next to the field on the
+  canvas. `Required` (case-insensitive) marks it required, shown as a
+  small red **R** at the right edge of the field's row. Anything else in
+  the brackets is taken as a display-only data type label — used in the
+  Mermaid/draw.io exports instead of a generic placeholder. All three can
+  combine freely in any order: `LastName[Required]`,
+  `AnnualRevenue[Currency, Required]`, `TotalAmount[rollup, Required]`.
+  The type label itself can contain spaces and parentheses freely — only
+  the comma separating it from `rollup`/`Required` and the outermost
+  brackets matter. Every marker is entirely optional and independent of
+  the others, so DSL written before any of this existed still parses
+  identically.
+- When importing from your org, required fields (the field's own schema
+  definition — not nillable — not whether the importing user happens to
+  be able to create records) are sorted to the top of each entity's field
+  list automatically, ahead of everything else.
 - An entity whose API name ends in `__c` is drawn with a purple header
   (custom object); everything else gets the standard blue header
   (standard object). This is purely visual, not something you configure.
@@ -38,6 +46,7 @@ entity <Name> : <field1>, <field2>, <field3>
 entity Account : Name, Industry, Phone, Website, Type, AnnualRevenue[Currency], Description[Text Area (Long)]
 entity Order__c : Order_Date__c, Status__c
 entity WebCart : Name, TotalProductAmount[rollup]
+entity Contact : LastName[Required], FirstName, Email[Email, Required]
 
 ```
 

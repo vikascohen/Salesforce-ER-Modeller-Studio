@@ -277,6 +277,21 @@ describe('c-diagram-studio', () => {
         expect(sigmaMarkers).toHaveLength(1);
     });
 
+    it('a required field renders a red "R" marker on the canvas, a non-required field does not', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        const dslEditor = el.shadowRoot.querySelector('.code-editor');
+        dslEditor.value = 'entity Contact : LastName[Required], Fax';
+        dslEditor.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const requiredMarkers = Array.from(el.shadowRoot.querySelectorAll('.entity-group text')).filter(
+            (t) => t.textContent === 'R' && t.getAttribute('fill') === '#d92d20'
+        );
+        expect(requiredMarkers).toHaveLength(1);
+    });
+
     it('importing an object emits "[FriendlyType]" for plain fields, using the real Setup-style label', async () => {
         describeObjects.mockResolvedValue([
             {
@@ -310,6 +325,57 @@ describe('c-diagram-studio', () => {
         const dslValue = el.shadowRoot.querySelector('.code-editor').value;
         expect(dslValue).toContain('Name[Text]');
         expect(dslValue).toContain('AnnualRevenue[Currency]');
+    });
+
+    it('importing an object emits "[Required]", combines it with the type/rollup marker, and sorts required fields first', async () => {
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Contact',
+                label: 'Contact',
+                isCustom: false,
+                fields: [
+                    // Deliberately listed NOT-required-first in the mock,
+                    // so a passing test proves real sorting happened, not
+                    // that the mock's own order was echoed back untouched.
+                    { apiName: 'Fax', label: 'Fax', isRelationship: false, isRollupSummary: false, friendlyType: 'Phone', required: false },
+                    { apiName: 'LastName', label: 'Last Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: true },
+                    { apiName: 'Email', label: 'Email', isRelationship: false, isRollupSummary: false, friendlyType: 'Email', required: false },
+                    { apiName: 'AccountId', label: 'Account', isRelationship: true, relatesTo: null, isRollupSummary: false, required: true }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        el.shadowRoot.querySelector('[data-menu="file"]').click();
+        await flushPromises();
+        const importItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Import from Org')
+        );
+        importItem.click();
+        await flushPromises();
+
+        const namesInput = el.shadowRoot.querySelector('.import-textarea');
+        namesInput.value = 'Contact';
+        namesInput.dispatchEvent(new CustomEvent('input'));
+        el.shadowRoot.querySelector('.sb-full-btn').click();
+        await flushPromises();
+
+        const dslValue = el.shadowRoot.querySelector('.code-editor').value;
+        expect(dslValue).toContain('LastName[Text, Required]');
+
+        // Required field (LastName) sorted before the non-required ones
+        // (Fax, Email), even though the mock listed it second.
+        const entityLine = dslValue.split('\n').find((l) => l.startsWith('entity Contact'));
+        expect(entityLine.indexOf('LastName')).toBeLessThan(entityLine.indexOf('Fax'));
+        expect(entityLine.indexOf('LastName')).toBeLessThan(entityLine.indexOf('Email'));
+
+        // A required RELATIONSHIP field (AccountId) is untouched by this —
+        // relationship fields never appear in the plain field list at all,
+        // required or not; they only ever appear as a separate relationship
+        // line, which has no concept of "required" to begin with.
+        expect(entityLine).not.toContain('AccountId');
     });
 
     it('BUG REPRO: dragging a new entity onto the canvas does not touch a manually-curated field list on an existing entity', async () => {

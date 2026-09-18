@@ -993,10 +993,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         objects.forEach((o) => {
             const plain = o.fields
                 .filter((f) => !f.isRelationship)
+                .slice() // sort a copy — don't mutate the shared fields array
+                // Required fields first, in a stable sort — everything with
+                // equal required-ness keeps its original relative order
+                // (JS's Array.sort has been a stable sort since ES2019, in
+                // every engine this app runs on), so this only ever
+                // reorders required-vs-not, nothing else.
+                .sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0))
                 .map((f) => {
-                    if (f.isRollupSummary) return `${f.apiName}[rollup]`;
-                    if (f.friendlyType) return `${f.apiName}[${f.friendlyType}]`;
-                    return f.apiName;
+                    const markers = [];
+                    if (f.isRollupSummary) markers.push('rollup');
+                    else if (f.friendlyType) markers.push(f.friendlyType);
+                    if (f.required) markers.push('Required');
+                    return markers.length ? `${f.apiName}[${markers.join(', ')}]` : f.apiName;
                 });
             lines.push(`entity ${o.apiName} : ${plain.join(', ')}`);
         });

@@ -43,6 +43,30 @@ const LANE_GAP = 22;
 const SELF_LOOP_BASE = 54;
 const SELF_LOOP_STEP = 26;
 
+function splitFieldList(raw) {
+    // A plain split(',') doesn't know the difference between a comma that
+    // separates two different fields and a comma inside one field's own
+    // brackets separating two markers -- e.g. "AnnualRevenue[Currency,
+    // Required]" must stay one piece, not split into
+    // "AnnualRevenue[Currency" and " Required]" (a broken bracket plus a
+    // stray fragment). Splits only on commas outside any [...] bracket.
+    const parts = [];
+    let current = '';
+    let depth = 0;
+    for (const ch of raw) {
+        if (ch === '[') depth++;
+        else if (ch === ']') depth = Math.max(0, depth - 1);
+        if (ch === ',' && depth === 0) {
+            parts.push(current);
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    if (current.trim()) parts.push(current);
+    return parts;
+}
+
 export function parseEr(text) {
     const entities = new Map();      // keyed by lowercase name; preserves first-seen casing
     const relationships = [];
@@ -60,7 +84,7 @@ export function parseEr(text) {
         const ent = ensureEntity(entityName);
         let f = ent.fields.find((x) => x.name.toLowerCase() === fieldName.toLowerCase());
         if (!f) {
-            f = { name: fieldName, isRelationship: false, relatesTo: [], isRollupSummary: false, dataType: null };
+            f = { name: fieldName, isRelationship: false, relatesTo: [], isRollupSummary: false, isRequired: false, dataType: null };
             ent.fields.push(f);
         }
         return f;
@@ -74,29 +98,40 @@ export function parseEr(text) {
         const entityMatch = line.match(/^entity\s+(\w+)\s*(:\s*(.*))?$/i);
         if (entityMatch) {
             const ent = ensureEntity(entityMatch[1]);
-            // A field can carry an optional bracket suffix: "[rollup]" marks
-            // it as a Roll-Up Summary field, anything else is taken as a
-            // display-only data type label (e.g. "TotalAmount[Currency]",
-            // "Description[Text Area (Long)]" — the type itself can contain
-            // spaces/parens freely, only the outermost brackets matter).
-            // Entirely optional either way, so DSL written or saved before
-            // this existed still parses exactly as it always did.
-            const fieldList = (entityMatch[3] || '')
-                .split(',')
+            // A field can carry an optional bracket suffix with one or more
+            // comma-separated markers: "rollup" marks a Roll-Up Summary
+            // field, "required" marks it required — e.g.
+            // "LastName[Required]", "TotalAmount[Currency, Required]".
+            // Anything that isn't one of those two reserved keywords is
+            // taken as a display-only data type label instead (the type
+            // itself can contain spaces/parens freely — only the comma
+            // separating it from "required"/"rollup" and the outermost
+            // brackets matter). Every marker is entirely optional and can
+            // be combined freely, so DSL written or saved before this
+            // existed still parses exactly as it always did.
+            const fieldList = splitFieldList(entityMatch[3] || '')
                 .map((f) => f.trim())
                 .filter((f) => f)
                 .map((f) => {
                     const bracketMatch = f.match(/^(.+?)\s*\[\s*(.+?)\s*\]$/);
-                    if (!bracketMatch) return { name: f, isRollupSummary: false, dataType: null };
-                    const bracketContent = bracketMatch[2].trim();
-                    return bracketContent.toLowerCase() === 'rollup'
-                        ? { name: bracketMatch[1].trim(), isRollupSummary: true, dataType: null }
-                        : { name: bracketMatch[1].trim(), isRollupSummary: false, dataType: bracketContent };
+                    if (!bracketMatch) return { name: f, isRollupSummary: false, isRequired: false, dataType: null };
+                    const name = bracketMatch[1].trim();
+                    let isRollupSummary = false;
+                    let isRequired = false;
+                    const dataTypeParts = [];
+                    bracketMatch[2].split(',').map((p) => p.trim()).filter(Boolean).forEach((part) => {
+                        const lower = part.toLowerCase();
+                        if (lower === 'rollup') isRollupSummary = true;
+                        else if (lower === 'required') isRequired = true;
+                        else dataTypeParts.push(part);
+                    });
+                    return { name, isRollupSummary, isRequired, dataType: dataTypeParts.length ? dataTypeParts.join(', ') : null };
                 })
                 .filter(({ name }) => name && name.toLowerCase() !== 'id'); // "Id" is implicit — skip if redundantly listed
-            fieldList.forEach(({ name, isRollupSummary, dataType }) => {
+            fieldList.forEach(({ name, isRollupSummary, isRequired, dataType }) => {
                 const field = ensureField(ent.name, name);
                 if (isRollupSummary) field.isRollupSummary = true;
+                if (isRequired) field.isRequired = true;
                 if (dataType) field.dataType = dataType;
             });
             return;
@@ -243,14 +278,15 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
         const visibleRows = Math.floor((height - HEADER_HEIGHT - 12) / ROW_HEIGHT);
 
         const allFieldRows = [
-            { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false, isRollupSummary: false }
+            { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false, isRollupSummary: false, isRequired: false }
         ].concat(ent.fields.map((f, fi) => ({
             key: ent.name + '-' + fi,
             text: fieldLabel(f),
             isPrimaryKey: false,
             isRelationship: f.isRelationship,
             isPlain: !f.isRelationship,
-            isRollupSummary: !!f.isRollupSummary
+            isRollupSummary: !!f.isRollupSummary,
+            isRequired: !!f.isRequired
         })));
 
         const baseY = saved ? saved.y : gridY;
@@ -270,6 +306,12 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
             naturalHeight,
             isCustom: custom,
             headerFill: custom ? '#5c2d91' : '#0070d2',
+            // A dx offset (relative to the box's own left edge, x) for the
+            // red "R" required-field marker, positioned near the box's
+            // right edge regardless of the row's other content — keeps it
+            // out of the way of the PK/relationship/rollup markers, which
+            // all live on the left side of each row.
+            reqMarkerDx: Math.max(width - 16, 22),
             fields,
             hiddenCount,
             totalFields: allFieldRows.length

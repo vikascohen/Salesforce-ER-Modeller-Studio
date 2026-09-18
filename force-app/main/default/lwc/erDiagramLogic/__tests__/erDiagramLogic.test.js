@@ -88,6 +88,36 @@ describe('parseEr', () => {
         expect(model.entities[0].fields.every((f) => f.isRollupSummary === false)).toBe(true);
     });
 
+    it('parses a "[Required]" marker as a required-field flag, case-insensitively', () => {
+        const model = parseEr('entity Contact : LastName[Required], FirstName[required]');
+        const last = model.entities[0].fields.find((f) => f.name === 'LastName');
+        const first = model.entities[0].fields.find((f) => f.name === 'FirstName');
+        expect(last.isRequired).toBe(true);
+        expect(first.isRequired).toBe(true);
+    });
+
+    it('"[Required]" combines with a data type label in the same bracket', () => {
+        const model = parseEr('entity Account : AnnualRevenue[Currency, Required]');
+        const field = model.entities[0].fields[0];
+        expect(field.isRequired).toBe(true);
+        expect(field.dataType).toBe('Currency');
+    });
+
+    it('"[Required]" combines with "rollup" in the same bracket, and order does not matter', () => {
+        const model1 = parseEr('entity WebCart : TotalAmount[rollup, Required]');
+        const model2 = parseEr('entity WebCart : TotalAmount[Required, rollup]');
+        [model1, model2].forEach((m) => {
+            const field = m.entities[0].fields[0];
+            expect(field.isRequired).toBe(true);
+            expect(field.isRollupSummary).toBe(true);
+        });
+    });
+
+    it('a field with no "[Required]" marker is not required, and existing DSL without it still parses identically', () => {
+        const model = parseEr('entity Account : Name, Industry[Picklist]');
+        expect(model.entities[0].fields.every((f) => f.isRequired === false)).toBe(true);
+    });
+
     it('parses a bracket suffix that is not "rollup" as a data type label instead', () => {
         const model = parseEr('entity Account : Name[Text], AnnualRevenue[Currency]');
         const name = model.entities[0].fields.find((f) => f.name === 'Name');
@@ -143,6 +173,18 @@ describe('buildErGeometry', () => {
         expect(idRow.isRollupSummary).toBe(false);
         expect(nameRow.isRollupSummary).toBe(false);
         expect(rollupRow.isRollupSummary).toBe(true);
+    });
+
+    it('propagates isRequired from the parsed model through to the rendered field rows, and never marks the synthetic Id row required', () => {
+        const model = parseEr('entity Contact : LastName[Required], Fax');
+        const geo = buildErGeometry(model, {}, {}, {});
+        const box = geo.boxes.find((b) => b.name === 'Contact');
+        const idRow = box.fields.find((f) => f.text === 'Id');
+        const lastNameRow = box.fields.find((f) => f.text === 'LastName');
+        const faxRow = box.fields.find((f) => f.text === 'Fax');
+        expect(idRow.isRequired).toBe(false);
+        expect(lastNameRow.isRequired).toBe(true);
+        expect(faxRow.isRequired).toBe(false);
     });
 
     it('reuses a saved position instead of recomputing the default grid slot', () => {

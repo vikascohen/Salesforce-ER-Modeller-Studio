@@ -481,6 +481,9 @@
                                 <g key={fld.key}>
                                     <text x={b.x} y={fld.rowY} dx="10" font-size="10" fill="#d4a72c">*</text>
                                     <text x={b.x} y={fld.rowY} dx="22" font-size="11" font-weight="600" fill="#101828">{fld.text}</text>
+                                    <template if:true={fld.isRequired}>
+                                        <text x={b.x} y={fld.rowY} dx={b.reqMarkerDx} font-size="10" font-weight="700" fill="#d92d20">R</text>
+                                    </template>
                                 </g>
                             </template>
                             <!-- Field rows — relationship fields -->
@@ -488,6 +491,9 @@
                                 <g key={fld.key}>
                                     <text x={b.x} y={fld.rowY} dx="10" font-size="10" fill="#7b5ea7">~</text>
                                     <text x={b.x} y={fld.rowY} dx="22" font-size="11" font-style="italic" fill="#667085">{fld.text}</text>
+                                    <template if:true={fld.isRequired}>
+                                        <text x={b.x} y={fld.rowY} dx={b.reqMarkerDx} font-size="10" font-weight="700" fill="#d92d20">R</text>
+                                    </template>
                                 </g>
                             </template>
                             <!-- Field rows — plain fields (roll-up summary fields get a Σ marker) -->
@@ -497,6 +503,9 @@
                                         <text x={b.x} y={fld.rowY} dx="10" font-size="10" fill="#0d9488">&#931;</text>
                                     </template>
                                     <text x={b.x} y={fld.rowY} dx="22" font-size="11" fill="#344054">{fld.text}</text>
+                                    <template if:true={fld.isRequired}>
+                                        <text x={b.x} y={fld.rowY} dx={b.reqMarkerDx} font-size="10" font-weight="700" fill="#d92d20">R</text>
+                                    </template>
                                 </g>
                             </template>
 
