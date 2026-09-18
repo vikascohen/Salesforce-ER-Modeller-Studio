@@ -20,20 +20,40 @@ entity <Name> : <field1>, <field2>, <field3>
   ignored.
 - Every entity automatically gets an `Id` field at the top of its box —
   don't declare it yourself.
-- Any field can carry an optional bracket suffix with one or more
-  comma-separated markers. `rollup` (case-insensitive) marks it as a
-  Roll-Up Summary field, shown as a small teal Σ next to the field on the
-  canvas. `Required` (case-insensitive) marks it required, shown as a
-  small red **R** at the right edge of the field's row. Anything else in
-  the brackets is taken as a display-only data type label — used in the
-  Mermaid/draw.io exports instead of a generic placeholder. All three can
-  combine freely in any order: `LastName[Required]`,
-  `AnnualRevenue[Currency, Required]`, `TotalAmount[rollup, Required]`.
-  The type label itself can contain spaces and parentheses freely — only
-  the comma separating it from `rollup`/`Required` and the outermost
-  brackets matter. Every marker is entirely optional and independent of
-  the others, so DSL written before any of this existed still parses
-  identically.
+
+### The optional `[...]` bracket suffix
+
+**You never have to use this.** Every field works perfectly well as just
+its bare name — `AnnualRevenue`, `LastName`, `TotalAmount` — with no
+brackets at all. Nothing about parsing, rendering, or the canvas requires
+it. The bracket only exists to *optionally* record extra information
+about a field, purely for these payoffs:
+
+- **A data type label** — e.g. `AnnualRevenue[Currency]` — shows up in
+  the Mermaid and draw.io exports as the real Setup-style type instead of
+  a generic placeholder. It has no effect at all if you never export to
+  those formats.
+- **`rollup`** (case-insensitive) marks a field as a Roll-Up Summary,
+  shown as a small teal Σ on the canvas.
+- **`Required`** (case-insensitive) marks a field as required, shown as
+  a small red **R** on the canvas.
+
+**And in practice, you rarely type any of this yourself anyway** — when
+you use **Import from Org**, the tool fills in the type, `rollup`, and
+`Required` markers automatically from the org's real field metadata.
+Hand-typing `[...]` only comes up if you're writing or editing DSL text
+directly by hand, and even then, only if you specifically want the extra
+detail it adds.
+
+If you do use the bracket, here's how it parses: all three markers can
+combine freely, in any order, comma-separated inside one bracket —
+`LastName[Required]`, `AnnualRevenue[Currency, Required]`,
+`TotalAmount[rollup, Required]`. The type label itself can contain
+spaces and parentheses freely — only the comma separating it from
+`rollup`/`Required` and the outermost brackets matter. Every marker is
+independent of the others, so DSL written before any of this existed
+still parses identically.
+
 - **A field with no bracket at all records no type information — it does
   not mean "this field is Text."** `FirstName` with nothing after it just
   means nothing was specified; the field's actual type, whatever it is,
