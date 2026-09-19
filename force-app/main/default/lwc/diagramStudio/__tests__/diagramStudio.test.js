@@ -519,6 +519,91 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Contact : AccountNumber[Text]');
     });
 
+    it('BUG REPRO: autocomplete still works for a second field typed right after a bracket-suffixed one from the dropdown', async () => {
+        // The exact reported bug: pick a field from the dropdown (which
+        // inserts "FieldName[Type]"), then try to autocomplete a second
+        // field right after it — this used to do nothing at all until the
+        // "[Type]" was deleted by hand, because the context-detection
+        // regex assumed every already-typed field was bracket-free.
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Contact',
+                label: 'Contact',
+                isCustom: false,
+                fields: [
+                    { apiName: 'AccountNumber', label: 'Account Number', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false },
+                    { apiName: 'Status__c', label: 'Status', isRelationship: false, isRollupSummary: false, friendlyType: 'Picklist', required: false }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        // First field, picked from the dropdown exactly like a real user would.
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Contact : AccountNum';
+        textarea.selectionStart = textarea.value.length;
+        textarea.selectionEnd = textarea.value.length;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        let items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'AccountNumber').dispatchEvent(new CustomEvent('click'));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Contact : AccountNumber[Text]');
+
+        // Now the user types ", Stat" to start a second field — this is
+        // the exact step that was broken.
+        const textarea2 = el.shadowRoot.querySelector('.code-editor');
+        textarea2.value = textarea2.value + ', Stat';
+        textarea2.selectionStart = textarea2.value.length;
+        textarea2.selectionEnd = textarea2.value.length;
+        textarea2.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const match = items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'Status__c');
+        expect(match).toBeDefined(); // this used to be undefined — the whole point of this test
+
+        match.dispatchEvent(new CustomEvent('click'));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Contact : AccountNumber[Text], Status__c[Picklist]');
+    });
+
+    it('a field already typed with a bracket suffix is correctly excluded from further suggestions, not just visually present', async () => {
+        // The second half of the same root bug: the "already typed" set
+        // used to be computed by naively splitting on comma without
+        // stripping the "[Type]" suffix, so "accountnumber[text]" never
+        // matched the bare "accountnumber" being checked against it —
+        // meaning the same field could be suggested and inserted a
+        // second time right next to itself.
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Contact',
+                label: 'Contact',
+                isCustom: false,
+                fields: [{ apiName: 'AccountNumber', label: 'Account Number', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false }]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Contact : AccountNumber[Text], Acc';
+        textarea.selectionStart = textarea.value.length;
+        textarea.selectionEnd = textarea.value.length;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        const items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const match = items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'AccountNumber');
+        expect(match).toBeUndefined(); // already typed once — must not be offered again
+    });
+
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {
         const el = createStudio();
         await flushPromises();

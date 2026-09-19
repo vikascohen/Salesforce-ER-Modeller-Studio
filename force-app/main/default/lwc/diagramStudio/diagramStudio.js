@@ -21,7 +21,7 @@ import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFie
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
-import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
+import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -2045,18 +2045,49 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             return { replaceStart: start, items };
         }
 
-        // 3) entity Name : field1, field2, <partial field>
-        m = linePrefix.match(/^entity\s+([A-Za-z0-9_]+)\s*:\s*(?:[A-Za-z0-9_]+\s*,\s*)*([A-Za-z0-9_]*)$/i);
+        // 3) entity Name : field1[Type], field2, <partial field>
+        //
+        // Real bug fixed here: the previous version of this regex assumed
+        // every already-typed field was plain [A-Za-z0-9_]+ with no
+        // bracket suffix at all, which was true right up until picking a
+        // field from this exact suggestion list started inserting
+        // "FieldName[Type]" automatically. The moment one bracketed field
+        // existed earlier on the same line, the regex could no longer
+        // match the line at all, and intellisense silently stopped
+        // working for every field typed after it — reported directly:
+        // typing "AccountNumber" then a type-bearing suggestion, then
+        // trying to autocomplete "Status" right after, did nothing until
+        // the "[Text]" was deleted by hand.
+        //
+        // Fixed by using the exact same bracket-aware splitting the
+        // parser itself uses (splitFieldList, imported from
+        // erDiagramLogic.js) instead of a single monolithic regex, so a
+        // comma inside an earlier field's own brackets (rollup/Required/
+        // a type label) is never mistaken for a field boundary here
+        // either — the same class of bug already fixed once in the
+        // parser, now fixed the same way in its second occurrence.
+        m = linePrefix.match(/^entity\s+([A-Za-z0-9_]+)\s*:\s*(.*)$/i);
         if (m) {
             const entityName = m[1];
-            const partial    = m[2].toLowerCase();
-            const start      = lineStart + m[0].length - m[2].length;
-            const afterColon = linePrefix.split(':')[1] || '';
-            const already    = new Set(afterColon.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+            const rawFieldsPortion = m[2];
+            const endsWithComma = /,\s*$/.test(rawFieldsPortion);
+            const parts = splitFieldList(rawFieldsPortion).map((s) => s.trim()).filter(Boolean);
+            const completeParts = endsWithComma ? parts : parts.slice(0, -1);
+            const partial = endsWithComma ? '' : (parts.length > 0 ? parts[parts.length - 1] : '');
+
+            // Only offer suggestions while genuinely mid-typing a plain,
+            // bracket-free field name — e.g. not while still inside an
+            // unclosed "[" for the field being typed right now, where
+            // "what field name is this" is already unambiguous and a
+            // suggestion would either be wrong or redundant.
+            if (!/^[A-Za-z0-9_]*$/.test(partial)) return null;
+
+            const start = lineStart + linePrefix.length - partial.length;
+            const already = new Set(completeParts.map((s) => s.replace(/\[.*$/, '').toLowerCase()));
             const cached = this.objectFieldsCache[entityName.toLowerCase()];
             this.ensureFieldsCached(entityName);
             const items = (cached || [])
-                .filter((f) => f.apiName.toLowerCase().startsWith(partial) && !already.has(f.apiName.toLowerCase()))
+                .filter((f) => f.apiName.toLowerCase().startsWith(partial.toLowerCase()) && !already.has(f.apiName.toLowerCase()))
                 .slice(0, 50)
                 .map((f) => ({
                     id: 'fld-' + f.apiName,

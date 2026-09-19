@@ -43,7 +43,7 @@ const LANE_GAP = 22;
 const SELF_LOOP_BASE = 54;
 const SELF_LOOP_STEP = 26;
 
-function splitFieldList(raw) {
+export function splitFieldList(raw) {
     // A plain split(',') doesn't know the difference between a comma that
     // separates two different fields and a comma inside one field's own
     // brackets separating two markers -- e.g. "AnnualRevenue[Currency,
