@@ -33,6 +33,26 @@ for a plain-language feature overview with no code or setup steps.
 
 ## Installing
 
+**Unmanaged package** — the simplest option: no GitHub OAuth, no CLI,
+just a link and a login.
+
+- **Production or Developer Edition:**
+  [https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+- **Sandbox:**
+  [https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+
+Same package either way — only the domain changes
+(`login.salesforce.com` vs `test.salesforce.com`), since that's what
+tells Salesforce which kind of org you're logging into. Click the link
+for your org type, log in, choose who to install it for (Admins Only is
+the safest default — you assign the `Diagram Studio User` permission
+set to specific people afterward), and install. This is an *unmanaged*
+package — once installed, every component is fully yours to edit
+directly in the org, same as if you'd deployed the source yourself; see
+[docs/SECURITY.md](docs/SECURITY.md) for what data it does and doesn't touch.
+
+**Or, deploy straight from GitHub:**
+
 <a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
   <img alt="Deploy to Salesforce"
   src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
@@ -42,7 +62,7 @@ for a plain-language feature overview with no code or setup steps.
   <img alt="Deploy to Sandbox" src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
 </a>
 
-Left button logs you into Production/Developer Edition, right button logs
+Left button logs you into Production/Developer Edition, right button lets
 you into a Sandbox, and either way you land on a page listing every
 component in this repo with checkboxes — review what's about to deploy,
 then click Deploy.
@@ -52,8 +72,9 @@ well-known community tool (not an official Salesforce or Anthropic
 product) that reads a GitHub repo over OAuth and pushes it straight into
 an org via the Metadata API — no local `sf` CLI or clone required. Since
 it's a third-party OAuth flow, only use it with orgs and repos you trust;
-if you'd rather not grant OAuth access at all, use the
-[`sf project deploy start`](#deploying-to-an-org) route below instead —
+if you'd rather not grant OAuth access at all, use the unmanaged package
+link above, or the
+[`sf project deploy start`](#deploying-to-an-org) route below —
 same result, nothing leaves your machine.
 
 ## What it does
