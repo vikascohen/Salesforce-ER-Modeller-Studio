@@ -1014,6 +1014,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const markers = [];
         if (f.isRollupSummary) markers.push('rollup');
         else if (f.friendlyType) markers.push(f.friendlyType);
+        // A relationship field with no friendlyType at all only happens
+        // when it's being shown as a PLAIN field rather than a relationship
+        // line — see the "orphaned relationship field" comment below.
+        // Falls back to its relationship kind (Lookup/Master-Detail/
+        // Polymorphic Lookup) so it still carries a meaningful label
+        // rather than showing as a bare, unannotated name.
+        else if (f.isRelationship && f.relationshipType) markers.push(f.relationshipType);
         if (f.required) markers.push('Required');
         return markers.length ? `[${markers.join(', ')}]` : '';
     }
@@ -1029,7 +1036,28 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const lines = [];
         objects.forEach((o) => {
             const plain = o.fields
-                .filter((f) => !f.isRelationship)
+                // A REAL BUG this fixes, not a design choice: a relationship
+                // field whose target object isn't (yet) on the canvas used
+                // to be dropped from the DSL entirely — excluded from the
+                // plain field list because it IS a relationship, and
+                // excluded from the relationship-line section below because
+                // its target isn't present to draw a line to. The field
+                // itself never appeared anywhere, silently, even though it
+                // genuinely exists on the object — reported directly
+                // against dropping a single object (e.g. Contact) without
+                // its related object (e.g. Account) also on the canvas.
+                // Fixed by showing it as a plain field, with its
+                // relationship kind as the type label (via
+                // buildFieldMarkerSuffix's fallback above), instead of
+                // omitting it. Known, accepted follow-on limitation, not
+                // silently different from how the rest of this function
+                // already behaves: if the missing target object gets added
+                // to the canvas later, this field is NOT automatically
+                // promoted into a real relationship line — the same
+                // "never rewrite an existing entity's already-typed field
+                // list" rule addEntityByDrop already follows elsewhere
+                // applies here too. The user can convert it by hand.
+                .filter((f) => !f.isRelationship || !presentNames.has(f.relatesTo))
                 .slice() // sort a copy — don't mutate the shared fields array
                 // Required fields first, in a stable sort — everything with
                 // equal required-ness keeps its original relative order

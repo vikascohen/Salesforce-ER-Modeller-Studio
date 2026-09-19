@@ -371,11 +371,59 @@ describe('c-diagram-studio', () => {
         expect(entityLine.indexOf('LastName')).toBeLessThan(entityLine.indexOf('Fax'));
         expect(entityLine.indexOf('LastName')).toBeLessThan(entityLine.indexOf('Email'));
 
-        // A required RELATIONSHIP field (AccountId) is untouched by this —
-        // relationship fields never appear in the plain field list at all,
-        // required or not; they only ever appear as a separate relationship
-        // line, which has no concept of "required" to begin with.
-        expect(entityLine).not.toContain('AccountId');
+        // AccountId is a REQUIRED relationship field, but with no target
+        // object specified in this mock (relatesTo: null) — it is correctly
+        // treated the same as any relationship field whose target isn't
+        // present: shown as a plain field, not silently dropped (see the
+        // dedicated orphaned-relationship-field test below for the full
+        // behavior, including the type label). With no relationshipType
+        // set in this mock either, only [Required] appears — no type prefix.
+        expect(entityLine).toContain('AccountId[Required]');
+    });
+
+    it('BUG FIX: a relationship field whose target object is not on the canvas is shown as a plain field with its relationship kind as the type label, not silently dropped', async () => {
+        // The real, reported bug: previously, a relationship field was
+        // excluded from the plain field list unconditionally (it IS a
+        // relationship), and only included as a relationship line if its
+        // target was also present. Import Contact alone, without Account,
+        // and AccountId disappeared from the DSL entirely — not in the
+        // field list, not as a relationship line, just gone, even though
+        // it's a real field on the object. Confirmed directly against
+        // dropping a single object without its related object also on the
+        // canvas.
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Contact',
+                label: 'Contact',
+                isCustom: false,
+                fields: [
+                    { apiName: 'LastName', label: 'Last Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: true },
+                    { apiName: 'AccountId', label: 'Account', isRelationship: true, relatesTo: 'Account', relationshipType: 'Lookup', isRollupSummary: false, required: false }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        el.shadowRoot.querySelector('[data-menu="file"]').click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Import from Org')).click();
+        await flushPromises();
+
+        const namesInput = el.shadowRoot.querySelector('.import-textarea');
+        namesInput.value = 'Contact'; // deliberately NOT importing Account too
+        namesInput.dispatchEvent(new CustomEvent('input'));
+        el.shadowRoot.querySelector('.sb-full-btn').click();
+        await flushPromises();
+
+        const dslValue = el.shadowRoot.querySelector('.code-editor').value;
+        const entityLine = dslValue.split('\n').find((l) => l.startsWith('entity Contact'));
+
+        expect(entityLine).toContain('AccountId[Lookup]');
+        // And critically: no broken relationship line pointing at an
+        // object that was never actually imported.
+        expect(dslValue).not.toContain('Contact.AccountId');
     });
 
     it('BUG REPRO: dragging a new entity onto the canvas does not touch a manually-curated field list on an existing entity', async () => {

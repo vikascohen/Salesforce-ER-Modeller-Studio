@@ -102,6 +102,17 @@ A few things worth knowing:
 - The child field is added to the child entity's box automatically and
   labelled with its target and relationship type — you don't need to also
   list it in the entity's field list.
+- **Importing or dragging a single object onto the canvas without its
+  related object also present** shows that object's relationship fields
+  as plain fields instead — e.g. `AccountId[Lookup]` on Contact if
+  Account isn't on the canvas yet — rather than silently leaving them out
+  entirely. There's nothing to draw a connector to yet, so it can't
+  appear as a proper relationship line, but the field itself still shows
+  up. If you later add the missing object too, this doesn't automatically
+  turn into a real relationship line — importing or dropping never
+  rewrites an entity already on the canvas, so you'd convert it to a
+  proper `ChildEntity.ChildField <arrow> ParentEntity` line by hand if
+  you want the connector drawn.
 - If the parent entity hasn't been declared with its own `entity` line,
   it's created implicitly (with no fields other than `Id`) so the
   connector still has something to point at.
