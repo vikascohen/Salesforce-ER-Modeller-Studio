@@ -1072,4 +1072,88 @@ describe('c-diagram-studio', () => {
             expect(newItem).toBeDefined();
         });
     });
+
+    describe('Compare with Org (schema drift)', () => {
+        it('BUG FIX: a field added via Compare with Org gets the same [Type] marker Import from Org would generate, not a bare name', async () => {
+            // Real reported bug: newFields, computed in checkSchemaDrift,
+            // was reduced to just { id, name: f.apiName } — discarding
+            // friendlyType/isRollupSummary/required entirely — so by the
+            // time addFieldToEntity ran, there was no way to know what
+            // marker the field should carry. Every other way a field gets
+            // added to the DSL (Import from Org, drag-and-drop, the
+            // autocomplete dropdown) already carried this marker; this was
+            // the one path that silently didn't.
+            const el = createStudio();
+            await flushPromises();
+
+            const dslEditor = el.shadowRoot.querySelector('.code-editor');
+            dslEditor.value = 'entity Account : Name';
+            dslEditor.dispatchEvent(new CustomEvent('input'));
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            describeObjects.mockResolvedValue([
+                {
+                    apiName: 'Account',
+                    label: 'Account',
+                    isCustom: false,
+                    fields: [
+                        { apiName: 'Name', label: 'Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false },
+                        { apiName: 'AnnualRevenue', label: 'Annual Revenue', isRelationship: false, isRollupSummary: false, friendlyType: 'Currency', required: false }
+                    ]
+                }
+            ]);
+
+            el.shadowRoot.querySelector('[data-menu="diagram"]').click();
+            await flushPromises();
+            const compareItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+                i.textContent.includes('Compare with Org')
+            );
+            compareItem.click();
+            await flushPromises();
+
+            const addBtn = el.shadowRoot.querySelector('.rel-suggest-add[data-field="AnnualRevenue"]');
+            expect(addBtn).not.toBeNull();
+            addBtn.click();
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Account : Name, AnnualRevenue[Currency]');
+        });
+
+        it('BUG FIX (Add All variant): every field added via Add All also carries its correct marker', async () => {
+            const el = createStudio();
+            await flushPromises();
+
+            const dslEditor = el.shadowRoot.querySelector('.code-editor');
+            dslEditor.value = 'entity Account : Name';
+            dslEditor.dispatchEvent(new CustomEvent('input'));
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            describeObjects.mockResolvedValue([
+                {
+                    apiName: 'Account',
+                    label: 'Account',
+                    isCustom: false,
+                    fields: [
+                        { apiName: 'Name', label: 'Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false },
+                        { apiName: 'AnnualRevenue', label: 'Annual Revenue', isRelationship: false, isRollupSummary: false, friendlyType: 'Currency', required: false },
+                        { apiName: 'LastName__c', label: 'Last Name', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: true }
+                    ]
+                }
+            ]);
+
+            el.shadowRoot.querySelector('[data-menu="diagram"]').click();
+            await flushPromises();
+            Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Compare with Org')).click();
+            await flushPromises();
+
+            const btn = el.shadowRoot.querySelector('.dsl-head-btn[data-entity="Account"]');
+            expect(btn).not.toBeNull();
+            btn.click();
+            await flushPromises();
+
+            const finalValue = el.shadowRoot.querySelector('.code-editor').value;
+            expect(finalValue).toContain('AnnualRevenue[Currency]');
+            expect(finalValue).toContain('LastName__c[Text, Required]');
+        });
+    });
 });

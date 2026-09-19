@@ -2338,7 +2338,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (newFields.length || missingFields.length) {
                     results.push({
                         entityName: ent.name,
-                        newFields: newFields.map((f) => ({ id: ent.name + '-new-' + f.apiName, name: f.apiName })),
+                        // Same marker text buildErSource()/the autocomplete
+                        // would generate for this exact field — computed
+                        // here, upfront, while the full field object (with
+                        // friendlyType/isRollupSummary/required) is still in
+                        // scope, since addFieldToEntity() only ever gets a
+                        // plain string and has no way to look this back up
+                        // once the field is reduced to just its name below.
+                        // A real bug this exact gap caused: fields added via
+                        // Compare with Org landed with no bracket at all,
+                        // out of sync with every other way a field gets
+                        // added to the DSL in this app.
+                        newFields: newFields.map((f) => ({
+                            id: ent.name + '-new-' + f.apiName,
+                            name: f.apiName,
+                            markerSuffix: this.buildFieldMarkerSuffix(f)
+                        })),
                         missingFields: missingFields.map((f) => ({ id: ent.name + '-miss-' + f.name, name: f.name }))
                     });
                 }
@@ -2356,7 +2371,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleAddDriftField(event) {
         const entityName = event.currentTarget.dataset.entity;
         const fieldName  = event.currentTarget.dataset.field;
-        this.addFieldToEntity(entityName, fieldName);
+        const result = this.driftResults.find((r) => r.entityName === entityName);
+        const field = result ? result.newFields.find((f) => f.name === fieldName) : null;
+        this.addFieldToEntity(entityName, fieldName, false, field ? field.markerSuffix : '');
         this.removeDriftEntry(entityName, 'newFields', fieldName);
     }
 
@@ -2364,7 +2381,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const entityName = event.currentTarget.dataset.entity;
         const result = this.driftResults.find((r) => r.entityName === entityName);
         if (!result) return;
-        result.newFields.forEach((f) => this.addFieldToEntity(entityName, f.name, /* skipRender */ true));
+        result.newFields.forEach((f) => this.addFieldToEntity(entityName, f.name, /* skipRender */ true, f.markerSuffix));
         this.renderDiagram();
         this.driftResults = this.driftResults
             .map((r) => (r.entityName === entityName ? { ...r, newFields: [] } : r))
@@ -2387,7 +2404,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             .filter((r) => r.newFields.length || r.missingFields.length);
     }
 
-    addFieldToEntity(entityName, fieldName, skipRender) {
+    addFieldToEntity(entityName, fieldName, skipRender, markerSuffix) {
+        const fieldText = fieldName + (markerSuffix || '');
         const lines = this.sourceText.split('\n');
         let found = false;
         for (let i = 0; i < lines.length; i++) {
@@ -2395,11 +2413,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
                 found = true;
                 const existing = (m[4] || '').trim();
-                lines[i] = `${m[1]}${m[2]} : ${existing ? existing + ', ' : ''}${fieldName}`;
+                lines[i] = `${m[1]}${m[2]} : ${existing ? existing + ', ' : ''}${fieldText}`;
                 break;
             }
         }
-        if (!found) lines.push(`entity ${entityName} : ${fieldName}`);
+        if (!found) lines.push(`entity ${entityName} : ${fieldText}`);
         this.sourceText = lines.join('\n');
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
