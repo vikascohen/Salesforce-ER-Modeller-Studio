@@ -137,13 +137,45 @@ public with sharing class SchemaMetadataController {
                 fw.apiName = fdr.getName();
                 fw.label = fdr.getLabel();
                 fw.dataType = String.valueOf(fdr.getType()); // raw Apex enum — kept as-is for describeObjects() (DSL) callers
-                // required reflects the field's own schema definition (not
-                // nillable), not whether the CURRENT user happens to be able
-                // to create records on this object — two different users
-                // looking at the same diagram should see the same "Required"
-                // flag on a field, since it's a property of the field, not
-                // of the viewer.
-                fw.required = !fdr.isNillable();
+                // required is a real, reported bug fix, not the original
+                // "not nillable alone" version -- that version marked every
+                // Checkbox field (DoNotCall, IsEmailBounced...) and every
+                // true system field (CreatedDate, LastModifiedDate,
+                // SystemModstamp, IsDeleted) as required on every single
+                // object, which is wrong and was visibly wrong on canvas.
+                // Two things were missing:
+                //   1. Checkbox fields are EXCLUDED entirely. A checkbox can
+                //      never be null by platform design (confirmed directly
+                //      against Salesforce's own help docs: "a checkbox field
+                //      is inherently required because it cannot be null") --
+                //      isNillable() returning false for a Checkbox is a
+                //      platform artifact, not a "you must fill this in"
+                //      signal the way it is for a Text or Number field.
+                //   2. isCreateable() is back as an AND condition. The
+                //      earlier version deliberately dropped it, reasoning
+                //      that two different users could see two different
+                //      Required flags on the same field based on their own
+                //      FLS -- a real concern for a custom field where an
+                //      admin has revoked Create access for one profile.
+                //      But CreatedDate/LastModifiedDate/SystemModstamp/
+                //      IsDeleted are TRUE system fields: read-only for
+                //      every user, always, with no FLS toggle that could
+                //      ever make them createable for anyone (confirmed
+                //      against Salesforce's own system-fields
+                //      documentation) -- isCreateable() for these is a
+                //      structural fact of the field, not a per-viewer FLS
+                //      fact, so it does not reintroduce the same
+                //      per-viewer inconsistency for THOSE fields. It could,
+                //      in principle, still do so for a genuinely required
+                //      custom field with Create FLS deliberately revoked
+                //      for one profile -- a real but far rarer edge case,
+                //      and the right tradeoff against every standard
+                //      object showing several fields incorrectly marked
+                //      required for every user, which is what shipped
+                //      without this.
+                fw.required = fdr.getType() != Schema.DisplayType.BOOLEAN
+                    && !fdr.isNillable()
+                    && fdr.isCreateable();
                 fw.isRelationship = false;
                 fw.isCustom = fdr.isCustom();
                 fw.isPrimaryKey = false;

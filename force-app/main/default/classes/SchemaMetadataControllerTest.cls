@@ -60,6 +60,40 @@ private class SchemaMetadataControllerTest {
     }
 
     @isTest
+    static void testDescribeObjectsMarksRequiredCorrectlyExcludingCheckboxesAndSystemFields() {
+        // Real, reported bug: a genuinely required text field (LastName)
+        // was correct, but every Checkbox field and every true system
+        // field on Contact was ALSO showing as required on canvas, which
+        // is wrong — neither is something a user is expected to "fill in".
+        Test.startTest();
+        List<SchemaMetadataController.ObjectWrap> result =
+            SchemaMetadataController.describeObjects(new List<String>{ 'Contact' });
+        Test.stopTest();
+
+        SchemaMetadataController.ObjectWrap contact = result[0];
+
+        SchemaMetadataController.FieldWrap lastName = findField(contact.fields, 'LastName');
+        Assert.isNotNull(lastName);
+        Assert.isTrue(lastName.required, 'LastName is a genuinely required standard field on Contact');
+
+        SchemaMetadataController.FieldWrap emailBounced = findField(contact.fields, 'IsEmailBounced');
+        Assert.isNotNull(emailBounced);
+        Assert.isFalse(emailBounced.required, 'A Checkbox field can never be null by platform design, but that does not make it "required" the way LastName is');
+
+        SchemaMetadataController.FieldWrap doNotCall = findField(contact.fields, 'DoNotCall');
+        Assert.isNotNull(doNotCall);
+        Assert.isFalse(doNotCall.required, 'Same Checkbox exclusion as IsEmailBounced above');
+
+        SchemaMetadataController.FieldWrap createdDate = findField(contact.fields, 'CreatedDate');
+        Assert.isNotNull(createdDate);
+        Assert.isFalse(createdDate.required, 'CreatedDate is a true system field — read-only for every user, not something anyone fills in');
+
+        SchemaMetadataController.FieldWrap systemModstamp = findField(contact.fields, 'SystemModstamp');
+        Assert.isNotNull(systemModstamp);
+        Assert.isFalse(systemModstamp.required, 'Same system-field exclusion as CreatedDate above');
+    }
+
+    @isTest
     static void testDescribeObjectsDetectsPolymorphicLookup() {
         // Task.WhoId is a standard, always-present polymorphic lookup
         // (Contact or Lead) — a reliable way to test this without needing
