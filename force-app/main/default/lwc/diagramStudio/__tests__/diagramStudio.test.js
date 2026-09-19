@@ -14,6 +14,7 @@ jest.mock('@salesforce/apex/DiagramFileController.renameFile', () => ({ default:
 jest.mock('@salesforce/apex/DiagramFileController.saveDiagramAsFile', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjects', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getSharingModels', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/SchemaMetadataController.getSharingSignals', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getRecordCounts', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => ({ default: jest.fn() }), { virtual: true });
@@ -30,6 +31,10 @@ const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataCon
 const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
 // eslint-disable-next-line no-undef
 const getRecordCounts = require('@salesforce/apex/SchemaMetadataController.getRecordCounts').default;
+// eslint-disable-next-line no-undef
+const getSharingModels = require('@salesforce/apex/SchemaMetadataController.getSharingModels').default;
+// eslint-disable-next-line no-undef
+const getSharingSignals = require('@salesforce/apex/SchemaMetadataController.getSharingSignals').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -201,6 +206,96 @@ describe('c-diagram-studio', () => {
         await new Promise((resolve) => setTimeout(resolve, 400));
         expect(el.shadowRoot.querySelector('.hover-card-freshness').textContent).not.toContain('Stale');
         expect(el.shadowRoot.querySelector('.hover-card-freshness').textContent).toContain('Last touched');
+    });
+
+    it('NEW FEATURE: hover card shows Sharing Rules and Apex Sharing, with Apex Sharing correctly marked "not determinable" on a standard object', async () => {
+        // Real, deliberate accuracy limit, not an oversight: Apex Managed
+        // Sharing on a STANDARD object uses the exact same RowCause
+        // ('Manual') as a person manually sharing one record — the two are
+        // genuinely indistinguishable there. Showing a definite Yes/No for
+        // Account specifically would be actively misleading, not just
+        // incomplete, so it must say "not determinable" instead — this
+        // test asserts on that exact wording, not just "something shows".
+        getSharingModels.mockResolvedValue({ Account: { internalModel: 'Private', externalModel: null } });
+        getSharingSignals.mockResolvedValue({
+            Account: { shareTableAvailable: true, isCustomObject: false, hasSharingRule: true, hasApexSharing: false }
+        });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Sharing View')).click();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const values = Array.from(el.shadowRoot.querySelectorAll('.hover-card-value')).map((v) => v.textContent);
+        expect(values).toContain('Yes'); // Sharing Rules
+        expect(values).toContain('Not determinable on standard objects'); // Apex Sharing on a standard object
+        expect(values).not.toContain('No'); // hasApexSharing was false, but must never surface as a definite "No" on a standard object
+    });
+
+    it('NEW FEATURE: Apex Sharing shows a real Yes/No on a custom object, since it is reliably detectable there', async () => {
+        getSharingModels.mockResolvedValue({ Diagram_File__c: { internalModel: 'Private', externalModel: null } });
+        getSharingSignals.mockResolvedValue({
+            Diagram_File__c: { shareTableAvailable: true, isCustomObject: true, hasSharingRule: false, hasApexSharing: true }
+        });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Diagram_File__c : Name';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Sharing View')).click();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Diagram_File__c"]');
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const values = Array.from(el.shadowRoot.querySelectorAll('.hover-card-value')).map((v) => v.textContent);
+        expect(values).toContain('No');  // Sharing Rules — hasSharingRule was false
+        expect(values).toContain('Yes'); // Apex Sharing — a real, definite answer on a custom object
+    });
+
+    it('NEW FEATURE: an object with no __Share table at all shows a clear "no sharing data" message, not a misleading No', async () => {
+        getSharingModels.mockResolvedValue({ Account: { internalModel: 'ReadWrite', externalModel: null } });
+        getSharingSignals.mockResolvedValue({
+            Account: { shareTableAvailable: false, isCustomObject: false, hasSharingRule: false, hasApexSharing: false }
+        });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Sharing View')).click();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        expect(el.shadowRoot.querySelectorAll('.hover-card-hint')[1].textContent).toBe('No sharing data for this object');
     });
 
     it('BUG FIX: hover card field count reflects the true total, not just the currently visible rows, after a box has been resized shorter', async () => {

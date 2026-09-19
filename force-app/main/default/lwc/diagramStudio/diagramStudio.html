@@ -48,6 +48,22 @@
                     <span class="hover-card-label">External Sharing</span>
                     <span class="hover-card-value">{hoverCard.externalSharingText}</span>
                 </div>
+                <template if:true={hoverCard.hasSharingSignalData}>
+                    <div class="hover-card-row">
+                        <span class="hover-card-label">Sharing Rules</span>
+                        <span class="hover-card-value">{hoverCard.sharingRuleText}</span>
+                    </div>
+                    <div class="hover-card-row">
+                        <span class="hover-card-label">Apex Sharing</span>
+                        <span class="hover-card-value">{hoverCard.apexSharingText}</span>
+                    </div>
+                </template>
+                <template if:false={hoverCard.hasSharingSignalData}>
+                    <div class="hover-card-row">
+                        <span class="hover-card-label">Sharing Rules / Apex Sharing</span>
+                        <span class="hover-card-hint">No sharing data for this object</span>
+                    </div>
+                </template>
             </template>
         </div>
     </template>

@@ -15,6 +15,7 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
+import getSharingSignals  from '@salesforce/apex/SchemaMetadataController.getSharingSignals';
 import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
@@ -162,6 +163,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // ── sharing model view ──
     @track sharingViewOn = false;
     @track sharingModels = {}; // lowercased apiName -> { internal, external } raw sharing model strings
+    @track sharingSignals = {}; // lowercased apiName -> { shareTableAvailable, isCustomObject, hasSharingRule, hasApexSharing }
     _sharingFetchTimer = null;
 
     // ── record-count heatmap ──
@@ -564,6 +566,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.sharingViewOn = false;
         this.heatmapOn = false;
         this.sharingModels = {};
+        this.sharingSignals = {};
         this.recordCounts = {};
     }
 
@@ -1524,7 +1527,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
         try {
             const names = this._erBoxes.map((b) => b.name);
-            const fresh = await getSharingModels({ objectApiNames: names });
+            const [fresh, freshSignals] = await Promise.all([
+                getSharingModels({ objectApiNames: names }),
+                getSharingSignals({ objectApiNames: names })
+            ]);
             const next = {};
             Object.keys(fresh || {}).forEach((name) => {
                 next[name.toLowerCase()] = {
@@ -1533,6 +1539,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 };
             });
             this.sharingModels = next;
+
+            const nextSignals = {};
+            Object.keys(freshSignals || {}).forEach((name) => {
+                nextSignals[name.toLowerCase()] = freshSignals[name];
+            });
+            this.sharingSignals = nextSignals;
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
@@ -1652,6 +1664,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
         const recordCount = this.recordCounts[key];
         const sharing     = this.sharingModels[key];
+        const signals     = this.sharingSignals[key];
 
         this.hoverCard = {
             name,
@@ -1681,7 +1694,24 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
             hasSharingData: this.sharingViewOn && !!sharing,
             internalSharingText: sharing && sharing.internal ? this.sharingBadgeFor(sharing.internal).label : 'Unknown',
-            externalSharingText: sharing && sharing.external ? this.sharingBadgeFor(sharing.external).label : 'None configured'
+            externalSharingText: sharing && sharing.external ? this.sharingBadgeFor(sharing.external).label : 'None configured',
+
+            // Reliable for any object: RowCause = 'Rule' on the object's
+            // own __Share table is the one value Salesforce documents as
+            // meaning a sharing rule has fired. Apex Managed Sharing is a
+            // different story — it can only be reliably told apart from
+            // plain manual sharing on a CUSTOM object, since standard
+            // objects can't define their own Apex Sharing Reason at all
+            // and both use the exact same RowCause ('Manual') there — so
+            // this is stated as genuinely "not determinable" for a
+            // standard object, not guessed at, since showing a definite
+            // answer there would be actively misleading rather than
+            // merely incomplete.
+            hasSharingSignalData: this.sharingViewOn && !!signals && signals.shareTableAvailable,
+            sharingRuleText: signals && signals.hasSharingRule ? 'Yes' : 'No',
+            apexSharingText: signals && signals.isCustomObject
+                ? (signals.hasApexSharing ? 'Yes' : 'No')
+                : 'Not determinable on standard objects'
         };
     }
 

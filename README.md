@@ -142,8 +142,28 @@ other two have already fetched.
   badge, when configured) side by side. A Master-Detail child's internal
   badge naturally comes back as *Controlled by Parent* — exactly what
   shows its sharing is inherited, reasoning that's normally spread across
-  several Setup pages. Scope is deliberately narrow: org-wide defaults
-  only, not sharing rules or role hierarchy.
+  several Setup pages. Org-wide defaults are read directly, via
+  `EntityDefinition`; role hierarchy is not read at all (there's no
+  narrow, per-object question to ask it — see below for why sharing
+  rules and Apex Managed Sharing are handled differently, on the hover
+  card, not here).
+- **Sharing Rules / Apex Sharing (on the hover card, alongside Sharing
+  View's org-wide default badges)** — deliberately Tooling-API-free:
+  rather than reading the actual `SharingRules` metadata (which would
+  need a Named Credential and a Connected App, neither required for
+  anything else in this app), this reads the *runtime effect* instead —
+  the distinct `RowCause` values present on the object's own `__Share`
+  table, which is plain, regular SOQL. `RowCause = 'Rule'` reliably
+  means a sharing rule has fired, on any object. Apex Managed Sharing is
+  a genuinely different story: it can only be told apart from a person
+  manually sharing one record on a **custom** object, since standard
+  objects can't define their own Apex Sharing Reason at all and both use
+  the exact same `RowCause` ('Manual') there — so the hover card says
+  **"Not determinable on standard objects"** rather than guessing, since
+  a definite answer there would be actively misleading, not just
+  incomplete. An object with no `__Share` table at all (a custom object
+  with Public Read/Write, for instance, never gets one) shows "No
+  sharing data for this object" instead of a false negative.
 - **Heatmap** — colors each box by activity, not just whether it has any
   records: light orange if genuinely empty, light blue if it has records
   and at least one was touched within the last year, light amber if it
@@ -160,10 +180,12 @@ other two have already fetched.
   status, plus whatever the two toggles above have already fetched:
   record count (with the same stale/active distinction the heatmap
   color encodes, stated in words — "Stale — Last touched 14/3/2023" vs.
-  "Last touched yesterday" — not left for you to infer from a color) and
-  internal/external sharing. Ties both views together into one glance
-  instead of separate badges to read — and for anything from a toggle
-  you haven't turned on yet, the card says so directly
+  "Last touched yesterday" — not left for you to infer from a color),
+  internal/external sharing, and Sharing Rules / Apex Sharing (see above
+  for the accuracy limit on standard objects — this is stated plainly
+  on the card itself, not glossed over). Ties every view together into
+  one glance instead of separate badges to read — and for anything from
+  a toggle you haven't turned on yet, the card says so directly
   ("Turn on Heatmap to see this") rather than just omitting the row
   silently. Dismisses on **Esc**, or automatically if you delete the
   entity it's showing — it never lingers over a box that's no longer
@@ -250,7 +272,7 @@ accessible object in the org — toggle it from the **View** menu.
 | LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts and freshness (most recent LastModifiedDate) for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, sharing rule and Apex Managed Sharing detection (via `__Share` table `RowCause` values, not Tooling API) for the hover card, per-object record counts and freshness (most recent LastModifiedDate) for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
 | Apex | `DiagramPreferenceController` | Gets/saves the current user's selected theme, backed by a Hierarchy Custom Setting. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 | Custom Setting | `Diagram_Studio_Pref__c` | Hierarchy custom setting holding each user's `Theme__c` preference. |

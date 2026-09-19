@@ -440,6 +440,103 @@ public with sharing class SchemaMetadataController {
         return result;
     }
 
+    public class SharingSignals {
+        @AuraEnabled public Boolean shareTableAvailable; // false if this object has no __Share table at all (e.g. a custom object with Public Read/Write OWD never gets one)
+        @AuraEnabled public Boolean isCustomObject;
+        @AuraEnabled public Boolean hasSharingRule;       // reliable for any object — RowCause = 'Rule' is the one value Salesforce documents as meaning a sharing rule fired
+        @AuraEnabled public Boolean hasApexSharing;        // only MEANINGFUL when isCustomObject is true — see class comment below
+    }
+
+    // RowCause values Salesforce's own documentation confirms: Owner,
+    // Manual, Rule, plus custom reasons on custom objects. Standard
+    // objects can't define a custom Apex Sharing Reason at all — Apex
+    // Managed Sharing on a standard object uses RowCause = 'Manual', the
+    // exact same value a person manually sharing one record from the UI
+    // also produces. That means Apex Managed Sharing and manual sharing
+    // are genuinely indistinguishable from this data alone on a standard
+    // object — hasApexSharing is only ever set from a non-standard
+    // RowCause value, which can only occur on a custom object with its
+    // own Apex Sharing Reason defined, so it's reported here regardless,
+    // but the caller must only actually SHOW it as "Apex Managed Sharing:
+    // Yes/No" for custom objects, and as "not determinable" for standard
+    // ones — showing a definitive answer for a standard object would be
+    // actively misleading, not just incomplete. This list of standard
+    // values is believed accurate but not exhaustively verified against
+    // every Salesforce feature that can generate its own RowCause
+    // (Territory Management and portal-related features included) — a
+    // standard value missing from this set would show as a false
+    // "custom reason detected" on a standard object, which is exactly
+    // why hasApexSharing on a standard object is never surfaced as fact.
+    private static final Set<String> KNOWN_STANDARD_ROW_CAUSES = new Set<String>{
+        'Owner', 'Manual', 'Rule', 'Team', 'Territory', 'Territory2',
+        'TerritoryManual', 'Territory2Manual', 'ImplicitChild', 'ImplicitParent'
+    };
+
+    /**
+     * Sharing rule and Apex Managed Sharing detection per object, for the
+     * canvas hover card. Deliberately Tooling-API-free, same reasoning as
+     * Search for Field Usage: reading the actual SharingRules metadata
+     * (which rules exist, their criteria) needs Tooling/Metadata API,
+     * which needs a Named Credential and a Connected App, which this app
+     * doesn't require for anything. What's used instead is the RUNTIME
+     * EFFECT of sharing rules and Apex sharing — the distinct RowCause
+     * values present on the object's own __Share table — which is plain,
+     * regular SOQL.
+     *
+     * Fully dynamic (Database.query() returning List<AggregateResult>,
+     * not a statically typed List<AccountShare>), because not every
+     * object has a __Share table at all: a custom object with Public
+     * Read/Write org-wide default never gets one, since sharing doesn't
+     * apply there. Referencing a specific Share object as a static Apex
+     * type would fail to COMPILE in any org where that particular
+     * object's table doesn't exist, regardless of whether the code path
+     * runs — the exact mistake already made and fixed once for
+     * OmniProcess/OmniProcessElement in FieldUsageController.cls.
+     *
+     * GROUP BY RowCause, not a plain SELECT, so this reads only the
+     * distinct RowCause values actually present — never the individual
+     * share records themselves, and never anything about who a record is
+     * shared with or which records are shared, only that some sharing
+     * mechanism has fired.
+     */
+    @AuraEnabled(cacheable=false)
+    public static Map<String, SharingSignals> getSharingSignals(List<String> objectApiNames) {
+        Map<String, SharingSignals> result = new Map<String, SharingSignals>();
+        for (String rawName : objectApiNames) {
+            String name = rawName == null ? null : rawName.trim();
+            if (!isSafeIdentifier(name)) {
+                continue;
+            }
+            SharingSignals signals = new SharingSignals();
+            signals.isCustomObject = name.endsWith('__c');
+            signals.hasSharingRule = false;
+            signals.hasApexSharing = false;
+            try {
+                List<AggregateResult> rows = Database.query(
+                    'SELECT RowCause FROM ' + name + 'Share GROUP BY RowCause',
+                    AccessLevel.USER_MODE
+                );
+                signals.shareTableAvailable = true;
+                for (AggregateResult ar : rows) {
+                    String rowCause = String.valueOf(ar.get('RowCause'));
+                    if (rowCause == 'Rule') {
+                        signals.hasSharingRule = true;
+                    } else if (!KNOWN_STANDARD_ROW_CAUSES.contains(rowCause)) {
+                        signals.hasApexSharing = true;
+                    }
+                }
+            } catch (Exception e) {
+                // No __Share table for this object at all (Public
+                // Read/Write custom object, or an object with no sharing
+                // concept), or it's genuinely inaccessible — either way,
+                // "no sharing data available" rather than a hard failure.
+                signals.shareTableAvailable = false;
+            }
+            result.put(name, signals);
+        }
+        return result;
+    }
+
     /**
      * Record count AND freshness per object, for the canvas heatmap.
      * A single aggregate query per object — COUNT(Id) and
