@@ -22,7 +22,7 @@ import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import searchFieldUsage from '@salesforce/apex/FieldUsageController.searchFieldUsage';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
-import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
+import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -123,6 +123,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dslPanelWidth  = 460;
     @track dslSuggestions = [];
     @track dslSuggestOpen = false;
+    // Not @track — a plain instance field. renderedCallback() checks this
+    // on every render and re-applies it if set, then clears it. See
+    // applySuggestionAtIndex() for why this exists: setting a textarea's
+    // .value programmatically (which renderedCallback's own "dirty value
+    // flag" workaround, just below, does whenever it detects a mismatch)
+    // resets the cursor position as a side effect, in every browser. A
+    // generic Promise.resolve().then() is not a reliable fix for that —
+    // it races against LWC's own render scheduling rather than being
+    // guaranteed to run after it. renderedCallback is LWC's actual
+    // guaranteed-to-run-after-every-render hook, so restoring the cursor
+    // there, unconditionally, removes the race instead of hoping to win it.
+    _pendingCaretPos = null;
     @track dslSuggestActiveIndex = 0;
     @track dslSuggestStyle = '';
     dslReplaceStart      = 0;
@@ -254,6 +266,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const ta = this.template.querySelector('.code-editor');
         if (ta && ta.value !== (this.sourceText || '')) {
             ta.value = this.sourceText || '';
+        }
+        // Whatever the block above just did (or didn't do) to ta.value,
+        // this runs unconditionally right after it, on every single
+        // render, guaranteed — restoring a caret position requested by
+        // applySuggestionAtIndex() (or anything else that sets
+        // _pendingCaretPos) after LWC's own render has had its say,
+        // rather than racing it.
+        if (ta && this._pendingCaretPos !== null) {
+            try { ta.setSelectionRange(this._pendingCaretPos, this._pendingCaretPos); } catch (_) { /* ignore */ }
+            this._pendingCaretPos = null;
         }
         const nameInput = this.template.querySelector('.diag-name-input');
         if (nameInput && nameInput.value !== (this.fileName || '') && this.template.activeElement !== nameInput) {
@@ -2041,6 +2063,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.sourceText = next;
             this.isDirty    = true;
             this._markTabDirty(this.activeTabId, true);
+            this._pendingCaretPos = start + 2;
             clearTimeout(this.renderTimer);
             this.renderTimer = setTimeout(() => this.renderDiagram(), 200);
         }
@@ -2079,10 +2102,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         clearTimeout(this.renderTimer);
         this.renderTimer = setTimeout(() => this.renderDiagram(), 150);
 
-        // Re-apply the selection once LWC's re-render settles the DOM value.
-        Promise.resolve().then(() => {
-            try { textareaEl.setSelectionRange(caretPos, caretPos); } catch (_) {}
-        });
+        // Re-apply the selection once LWC's own render cycle has run —
+        // see the _pendingCaretPos field comment and renderedCallback()
+        // for why this is handled there now, not via Promise.resolve().
+        this._pendingCaretPos = caretPos;
 
         // Only chain into another suggestion when the pick was a single token
         // (keyword/object/field name) the user would naturally keep typing from.
@@ -2177,18 +2200,49 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             return { replaceStart: start, items };
         }
 
-        // 3) entity Name : field1, field2, <partial field>
-        m = linePrefix.match(/^entity\s+([A-Za-z0-9_]+)\s*:\s*(?:[A-Za-z0-9_]+\s*,\s*)*([A-Za-z0-9_]*)$/i);
+        // 3) entity Name : field1[Type], field2, <partial field>
+        //
+        // Real bug fixed here: the previous version of this regex assumed
+        // every already-typed field was plain [A-Za-z0-9_]+ with no
+        // bracket suffix at all, which was true right up until picking a
+        // field from this exact suggestion list started inserting
+        // "FieldName[Type]" automatically. The moment one bracketed field
+        // existed earlier on the same line, the regex could no longer
+        // match the line at all, and intellisense silently stopped
+        // working for every field typed after it — reported directly:
+        // typing "AccountNumber" then a type-bearing suggestion, then
+        // trying to autocomplete "Status" right after, did nothing until
+        // the "[Text]" was deleted by hand.
+        //
+        // Fixed by using the exact same bracket-aware splitting the
+        // parser itself uses (splitFieldList, imported from
+        // erDiagramLogic.js) instead of a single monolithic regex, so a
+        // comma inside an earlier field's own brackets (rollup/Required/
+        // a type label) is never mistaken for a field boundary here
+        // either — the same class of bug already fixed once in the
+        // parser, now fixed the same way in its second occurrence.
+        m = linePrefix.match(/^entity\s+([A-Za-z0-9_]+)\s*:\s*(.*)$/i);
         if (m) {
             const entityName = m[1];
-            const partial    = m[2].toLowerCase();
-            const start      = lineStart + m[0].length - m[2].length;
-            const afterColon = linePrefix.split(':')[1] || '';
-            const already    = new Set(afterColon.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+            const rawFieldsPortion = m[2];
+            const endsWithComma = /,\s*$/.test(rawFieldsPortion);
+            const parts = splitFieldList(rawFieldsPortion).map((s) => s.trim()).filter(Boolean);
+            const completeParts = endsWithComma ? parts : parts.slice(0, -1);
+            const partial = endsWithComma ? '' : (parts.length > 0 ? parts[parts.length - 1] : '');
+
+            // Only offer suggestions while genuinely mid-typing a plain,
+            // bracket-free field name — e.g. not while still inside an
+            // unclosed "[" for the field being typed right now, where
+            // "what field name is this" is already unambiguous and a
+            // suggestion would either be wrong or redundant.
+            if (!/^[A-Za-z0-9_]*$/.test(partial)) return null;
+
+            const start = lineStart + linePrefix.length - partial.length;
+            const already = new Set(completeParts.map((s) => s.replace(/\[.*$/, '').toLowerCase()));
             const cached = this.objectFieldsCache[entityName.toLowerCase()];
             this.ensureFieldsCached(entityName);
             const items = (cached || [])
-                .filter((f) => f.apiName.toLowerCase().startsWith(partial) && !already.has(f.apiName.toLowerCase()))
+                .filter((f) => f.apiName.toLowerCase().startsWith(partial.toLowerCase()) && !already.has(f.apiName.toLowerCase()))
                 .slice(0, 50)
                 .map((f) => ({
                     id: 'fld-' + f.apiName,
