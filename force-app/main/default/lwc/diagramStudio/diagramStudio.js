@@ -2232,7 +2232,29 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             if (!/^[A-Za-z0-9_]*$/.test(partial)) return null;
 
             const start = lineStart + linePrefix.length - partial.length;
-            const already = new Set(completeParts.map((s) => s.replace(/\[.*$/, '').toLowerCase()));
+
+            // A REAL, SEPARATE bug this fixes, not the one just above:
+            // "already typed" was computed only from completeParts, which
+            // is everything BEFORE the caret on this line — a field
+            // already sitting AFTER wherever the caret happens to be (the
+            // common case when inserting a new field in the middle of an
+            // existing list, or just not typing strictly left-to-right)
+            // was never excluded at all. Reported directly: a field
+            // already on the entity's line kept showing up in the
+            // dropdown as if it weren't there yet, which is actively
+            // misleading, not just a missed convenience. Fixed by also
+            // reading whatever comes after the caret on the SAME line
+            // (from fullText, not just linePrefix, which by definition
+            // only ever holds text up to the caret) and folding those
+            // fields into the same exclusion set.
+            const caret = lineStart + linePrefix.length;
+            const restOfLineMatch = fullText.slice(caret).match(/^[^\n]*/);
+            const afterCaretText = restOfLineMatch ? restOfLineMatch[0] : '';
+            const afterCaretParts = splitFieldList(afterCaretText).map((s) => s.trim()).filter(Boolean);
+
+            const already = new Set(
+                completeParts.concat(afterCaretParts).map((s) => s.replace(/\[.*$/, '').toLowerCase())
+            );
             const cached = this.objectFieldsCache[entityName.toLowerCase()];
             this.ensureFieldsCached(entityName);
             const items = (cached || [])

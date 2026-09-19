@@ -1012,6 +1012,49 @@ describe('c-diagram-studio', () => {
         expect(match).toBeUndefined(); // already typed once — must not be offered again
     });
 
+    it('BUG FIX: a field already typed AFTER the cursor is also correctly excluded, not just fields typed before it', async () => {
+        // Real, reported bug, distinct from the one above: "already typed"
+        // was computed only from what comes BEFORE the cursor on the
+        // line — a field sitting AFTER wherever the cursor happens to be
+        // (the normal case when inserting a new field into the middle of
+        // an existing list, rather than always typing strictly left to
+        // right) was never excluded at all. Reported directly: a field
+        // already on the entity's line kept showing up in the dropdown as
+        // if it weren't there yet.
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Account',
+                label: 'Account',
+                isCustom: false,
+                fields: [
+                    { apiName: 'Active', label: 'Active', isRelationship: false, isRollupSummary: false, friendlyType: 'Checkbox', required: false },
+                    { apiName: 'AccountNumber', label: 'Account Number', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        // "Active" is already in the field list, AFTER the position the
+        // cursor is placed at (right after "Ac", before the comma) — both
+        // "Active" and "AccountNumber" start with "Ac", so this genuinely
+        // tests the exclusion, not just a prefix that happens not to match.
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        const value = 'entity Account : Ac, Active';
+        const caretPos = 'entity Account : Ac'.length;
+        textarea.value = value;
+        textarea.selectionStart = caretPos;
+        textarea.selectionEnd = caretPos;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        const items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const labels = items.map((i) => i.querySelector('.dsl-suggest-label').textContent);
+        expect(labels).toContain('AccountNumber');
+        expect(labels).not.toContain('Active'); // already on the line, just after the cursor — must not be offered
+    });
+
     it('shows the error banner with a line number for invalid DSL, without throwing', async () => {
         const el = createStudio();
         await flushPromises();
