@@ -128,31 +128,39 @@ public with sharing class FieldUsageController {
         List<OmniHit> hits = new List<OmniHit>();
         try {
             String pattern = '%' + fieldApiName + '%';
-            // PropertySetConfig is a large JSON field — SOQL's LIKE
-            // operator against it has not been verified against a live
-            // org from this environment; wrapped in try/catch so an
-            // unexpected "field not filterable"-type error degrades to
-            // "no OmniStudio references found" rather than a hard failure.
-            List<OmniProcessElement> elements = [
-                SELECT Id, Name, OmniProcessId
-                FROM OmniProcessElement
-                WHERE PropertySetConfig LIKE :pattern
-                LIMIT 200
-            ];
+            // Deliberately fully dynamic (Database.query() returning
+            // List<SObject>, fields read via .get() rather than dot
+            // notation) rather than statically typed List<OmniProcessElement>
+            // as an earlier version of this method used. This isn't just
+            // stylistic: Apex compiles an entire class per org, and a
+            // class that merely REFERENCES OmniProcessElement/OmniProcess
+            // as a static type fails to deploy at all in any org that
+            // doesn't have OmniStudio installed -- confirmed directly
+            // against a real deployment failure, not a hypothetical, since
+            // isOmniStudioAvailable() gating the CALL to this method at
+            // runtime does nothing to prevent a compile-time failure that
+            // happens regardless of whether the method ever actually runs.
+            // Dynamic SOQL sidesteps this entirely: the query itself only
+            // fails at runtime (already handled by the catch block below)
+            // if these objects genuinely don't exist, rather than blocking
+            // the whole class from deploying in the first place.
+            List<SObject> elements = Database.query(
+                'SELECT Id, Name, OmniProcessId FROM OmniProcessElement WHERE PropertySetConfig LIKE :pattern LIMIT 200'
+            );
             if (elements.isEmpty()) return hits;
 
             Set<Id> processIds = new Set<Id>();
-            for (OmniProcessElement el : elements) processIds.add(el.OmniProcessId);
-            Map<Id, OmniProcess> processes = new Map<Id, OmniProcess>(
-                [SELECT Id, Name, Type FROM OmniProcess WHERE Id IN :processIds]
+            for (SObject el : elements) processIds.add((Id) el.get('OmniProcessId'));
+            Map<Id, SObject> processes = new Map<Id, SObject>(
+                Database.query('SELECT Id, Name, Type FROM OmniProcess WHERE Id IN :processIds')
             );
 
-            for (OmniProcessElement el : elements) {
-                OmniProcess p = processes.get(el.OmniProcessId);
+            for (SObject el : elements) {
+                SObject p = processes.get((Id) el.get('OmniProcessId'));
                 OmniHit h = new OmniHit();
-                h.omniScriptName = p != null ? p.Name : '(unknown)';
-                h.omniScriptType = p != null ? p.Type : null;
-                h.elementName = el.Name;
+                h.omniScriptName = p != null ? (String) p.get('Name') : '(unknown)';
+                h.omniScriptType = p != null ? (String) p.get('Type') : null;
+                h.elementName = (String) el.get('Name');
                 hits.add(h);
             }
         } catch (Exception e) {
