@@ -519,6 +519,73 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Contact : AccountNumber[Text]');
     });
 
+    it('BUG REPRO 2: full end-to-end sequence via intellisense only — select the object itself from the dropdown, then a field, then try a second field whose name starts the same way as the first', async () => {
+        // A more precise reproduction than the previous test: the object
+        // name itself is picked from the dropdown (not typed by hand),
+        // and critically, the SECOND field search term ("acc") is a
+        // prefix of the FIRST field already added ("AccountStatus") —
+        // testing specifically whether the "already typed" exclusion
+        // still lets OTHER same-prefix fields through correctly, rather
+        // than only testing a case where the two field names don't overlap.
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Account',
+                label: 'Account',
+                isCustom: false,
+                fields: [
+                    { apiName: 'AccountStatus__c', label: 'Account Status', isRelationship: false, isRollupSummary: false, friendlyType: 'Picklist', required: false },
+                    { apiName: 'AccountSource', label: 'Account Source', isRelationship: false, isRollupSummary: false, friendlyType: 'Picklist', required: false }
+                ]
+            }
+        ]);
+
+        const el = createStudio();
+        objectNamesAdapter.emit(['Account']);
+        await flushPromises();
+
+        // Step 1: type "entity acc" and pick "Account" from the dropdown.
+        const ta = el.shadowRoot.querySelector('.code-editor');
+        ta.value = 'entity acc';
+        ta.selectionStart = ta.value.length;
+        ta.selectionEnd = ta.value.length;
+        ta.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        let items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const accountItem = items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'Account');
+        expect(accountItem).toBeDefined();
+        accountItem.dispatchEvent(new CustomEvent('click'));
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Account');
+
+        // Step 2: type " : acc" and pick "AccountStatus__c" from the dropdown.
+        let ta2 = el.shadowRoot.querySelector('.code-editor');
+        ta2.value = ta2.value + ' : acc';
+        ta2.selectionStart = ta2.value.length;
+        ta2.selectionEnd = ta2.value.length;
+        ta2.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const statusItem = items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'AccountStatus__c');
+        expect(statusItem).toBeDefined();
+        statusItem.dispatchEvent(new CustomEvent('click'));
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Account : AccountStatus__c[Picklist]');
+
+        // Step 3: type ", acc" again — this is the exact reported failure.
+        let ta3 = el.shadowRoot.querySelector('.code-editor');
+        ta3.value = ta3.value + ', acc';
+        ta3.selectionStart = ta3.value.length;
+        ta3.selectionEnd = ta3.value.length;
+        ta3.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        const sourceItem = items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'AccountSource');
+        expect(sourceItem).toBeDefined(); // this is what must not be undefined
+    });
+
     it('BUG REPRO: autocomplete still works for a second field typed right after a bracket-suffixed one from the dropdown', async () => {
         // The exact reported bug: pick a field from the dropdown (which
         // inserts "FieldName[Type]"), then try to autocomplete a second
