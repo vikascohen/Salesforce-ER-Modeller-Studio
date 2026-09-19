@@ -99,10 +99,15 @@ same result, nothing leaves your machine.
   entities already there.
 - **Freeform canvas** — drag boxes to reposition, resize the height or
   width of a box, collapse long field lists, zoom in/out, or use
-  **Diagram > Auto Layout** to snap everything back to a grid. Click an
-  entity's header to enter **Focus mode** — everything except it and its
-  direct relationships fades out; click it again (or empty canvas) to
-  release.
+  **Diagram > Auto Layout** to snap everything back to a grid. A box with
+  many fields (Account can easily have 70+) shows a **"+N more (click to
+  show all)"** hint at the bottom — click it, or double-click the resize
+  handle, to instantly restore the box to its natural height rather than
+  manually dragging it there, which for a large object can mean an
+  impractically long drag well beyond what fits on screen in one motion.
+  Click an entity's header to enter **Focus mode** — everything except
+  it and its direct relationships fades out; click it again (or empty
+  canvas) to release.
 - **Smart relationship linter** — once a couple of related objects are on
   the canvas, the DSL editor notices relationship fields pointing at
   another entity already there but not yet wired up, and suggests adding

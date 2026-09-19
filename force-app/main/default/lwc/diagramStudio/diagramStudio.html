@@ -517,7 +517,7 @@
 
                             <!-- More fields indicator -->
                             <template if:true={b.hasHidden}>
-                                <text x={b.x} y={b.moreTextY} dx="12" font-size="10" fill="#98a2b3">{b.moreLabel}</text>
+                                <text data-name={b.name} x={b.x} y={b.moreTextY} dx="12" font-size="10" fill="#98a2b3" class="more-fields-text" onclick={handleShowAllFields}>{b.moreLabel}</text>
                             </template>
 
                             <!-- Bottom resize handle -->
@@ -528,7 +528,8 @@
                                   class="resize-handle"
                                   onpointerdown={handleResizePointerDown}
                                   onpointermove={handleResizePointerMove}
-                                  onpointerup={handleResizePointerUp}></rect>
+                                  onpointerup={handleResizePointerUp}
+                                  ondblclick={handleShowAllFields}></rect>
                             <line x1={b.resizeDotX1} y1={b.resizeLineY} x2={b.resizeDotX2} y2={b.resizeLineY}
                                   stroke="#d0d5dd" stroke-width="2" stroke-dasharray="3,3" stroke-linecap="round"></line>
                             <!-- Right resize handle -->

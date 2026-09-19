@@ -481,6 +481,8 @@
 .delete-btn { cursor: pointer; opacity: 0; transition: opacity 0.1s; }
 .entity-group:hover .delete-btn { opacity: 1; }
 .resize-handle { cursor: ns-resize; }
+.more-fields-text { cursor: pointer; }
+.more-fields-text:hover { fill: var(--accent, #0070d2); text-decoration: underline; }
 .resize-handle-right { cursor: ew-resize; }
 .no-select { user-select: none; pointer-events: none; }
 

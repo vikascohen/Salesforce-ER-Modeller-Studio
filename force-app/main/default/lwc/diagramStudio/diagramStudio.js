@@ -384,7 +384,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 relFields,
                 plainFields,
                 hasHidden:       b.hiddenCount > 0,
-                moreLabel:       b.hiddenCount > 0 ? '+' + b.hiddenCount + ' more (drag bottom to expand)' : '',
+                moreLabel:       b.hiddenCount > 0 ? '+' + b.hiddenCount + ' more (click to show all)' : '',
                 xEnd:            b.x + b.width,
                 shadowX:         b.x + 3,
                 shadowY:         b.y + 4,
@@ -1409,6 +1409,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         event.stopPropagation();
         try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) {}
         this.resizingEntity = null;
+    }
+
+    // Real UX problem this fixes, not a hidden bug: a box with many fields
+    // (e.g. Account with 70+) needs a genuinely huge drag distance to
+    // manually resize tall enough to show everything -- 70 fields at
+    // ROW_HEIGHT (22px) plus the header is 1,500+ pixels, well beyond what
+    // a single mouse drag can comfortably cover on most screens, since the
+    // drag is bounded by the user's actual, physical cursor position
+    // (event.clientY), not the logical canvas size. Reported directly:
+    // stretching and shrinking a box still left many fields hidden,
+    // because the drag was hitting that real ceiling, not a code limit.
+    // Removing the height override entirely restores the box to its
+    // natural height, which buildErGeometry already computes to fit every
+    // field with no cap at all -- this is the same state a fresh drop or
+    // import starts in, just reachable again after a manual resize without
+    // needing to out-drag the monitor. Bound to two places: a double-click
+    // on the (invisible) resize handle, matching the Excel/Sheets
+    // auto-fit-column convention, and a single click directly on the
+    // "+N more" text itself, which is actually visible and far more
+    // discoverable than a hidden handle.
+    handleShowAllFields(event) {
+        event.stopPropagation();
+        const name = event.currentTarget.dataset.name;
+        if (!name) return;
+        delete this.boxHeightOverrides[name];
+        this.rerenderGeometry();
     }
 
     // ────────────────────────────────────────────────────────

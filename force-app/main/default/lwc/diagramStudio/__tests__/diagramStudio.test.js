@@ -237,6 +237,74 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.hover-card-sub').textContent).toContain('21 fields');
     });
 
+    it('NEW FEATURE: clicking "+N more" (or double-clicking the resize handle) restores a shrunk box to its natural height, showing every field', async () => {
+        // Real, reported problem: with enough fields (Account can easily
+        // have 70+), manually dragging a box tall enough to see everything
+        // requires an impractically large drag distance -- 70 fields at
+        // ROW_HEIGHT (22px) is 1,500+ pixels, well beyond what a single
+        // mouse drag comfortably covers, since the drag is bounded by the
+        // user's actual cursor position on screen, not the logical canvas
+        // size. Reported as "I stretched, shrunk, still shows limited
+        // fields" -- that's this exact ceiling, not a hidden bug in how
+        // many fields are hidden.
+        const el = createStudio();
+        await flushPromises();
+
+        const manyFields = Array.from({ length: 20 }, (_, i) => `Field${i}`).join(', ');
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = `entity Account : ${manyFields}`;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Shrink it hard first, so there's genuinely something hidden.
+        const handle = el.shadowRoot.querySelector('.resize-handle[data-name="Account"]');
+        handle.dispatchEvent(new CustomEvent('pointerdown', { clientY: 300, pointerId: 1 }));
+        handle.dispatchEvent(new CustomEvent('pointermove', { clientY: 60, pointerId: 1 }));
+        handle.dispatchEvent(new CustomEvent('pointerup', { pointerId: 1 }));
+        await flushPromises();
+
+        const moreText = el.shadowRoot.querySelector('.more-fields-text[data-name="Account"]');
+        expect(moreText).not.toBeNull();
+        expect(moreText.textContent).toContain('more');
+        expect(moreText.textContent).toContain('click to show all'); // the old "drag bottom to expand" text is gone
+
+        // Click it — this is the fix.
+        moreText.dispatchEvent(new CustomEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        // Every field row now renders, and the "+N more" indicator itself
+        // is gone since there's nothing left hidden.
+        const fieldRows = el.shadowRoot.querySelectorAll('.entity-group[data-name="Account"] text');
+        // Id + 20 explicit fields = 21 rows, plus the entity name itself in
+        // the header — comfortably more than the handful that fit before.
+        expect(fieldRows.length).toBeGreaterThanOrEqual(21);
+        expect(el.shadowRoot.querySelector('.more-fields-text[data-name="Account"]')).toBeNull();
+    });
+
+    it('NEW FEATURE: double-clicking the resize handle also restores the natural height', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        const manyFields = Array.from({ length: 20 }, (_, i) => `Field${i}`).join(', ');
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = `entity Account : ${manyFields}`;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const handle = el.shadowRoot.querySelector('.resize-handle[data-name="Account"]');
+        handle.dispatchEvent(new CustomEvent('pointerdown', { clientY: 300, pointerId: 1 }));
+        handle.dispatchEvent(new CustomEvent('pointermove', { clientY: 60, pointerId: 1 }));
+        handle.dispatchEvent(new CustomEvent('pointerup', { pointerId: 1 }));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.more-fields-text[data-name="Account"]')).not.toBeNull();
+
+        handle.dispatchEvent(new CustomEvent('dblclick', { bubbles: true }));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.more-fields-text[data-name="Account"]')).toBeNull();
+    });
+
     it('hover card disappears when the hovered box is deleted, not left orphaned', async () => {
         const el = createStudio();
         await flushPromises();
