@@ -40,32 +40,6 @@ match that existing behavior (no `isAccessible()`-style filtering on
 schema metadata) rather than introducing per-user filtering
 inconsistently with the rest of the app.
 
-**Apex/Trigger dependency tracking (via Tooling API) was investigated
-and declined — considered for cause, not overlooked.** Any feature that
-needs to know which Apex class or trigger references a given field
-(genuine field-usage/impact analysis, "where is this used") requires
-`MetadataComponentDependency`, which is Tooling API only. Reaching
-Tooling API from Apex needs a real, non-Lightning-session credential —
-a Named Credential backed by an External Client App's Client Credentials
-Flow — which needs real, per-org admin setup: an External Client App,
-a dedicated integration user, an External Credential, and a Named
-Credential, none of which this app otherwise requires for anything.
-Packaging doesn't reduce that cost: confirmed directly against
-Salesforce's own Named Credentials packaging documentation, the
-sensitive parts — the Consumer Key/Secret and the External Credential's
-populated Principal — are explicitly excluded from what a package can
-carry ("External credential certificates and access tokens aren't
-packageable"), for the stated reason that moving a secret between orgs
-in cleartext via the Metadata API isn't workable from a security
-standpoint. That means even a package built with the Named
-Credential/External Credential *shells* included still leaves every
-installing org needing to create their own External Client App,
-generate their own secret, and populate it by hand — the exact same
-admin burden as if nothing were packaged at all. Given that, this stays
-out: the cost is real and doesn't shrink with better packaging, and it
-would be the first thing in this app that isn't "deploy and go." If
-this gets proposed again, this is why it didn't happen.
-
 ## Before opening a PR
 
 - **JS syntax** — every `.js` file in this repo happens to parse cleanly
