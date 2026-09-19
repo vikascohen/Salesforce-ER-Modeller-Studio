@@ -122,6 +122,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dslPanelWidth  = 460;
     @track dslSuggestions = [];
     @track dslSuggestOpen = false;
+    // Not @track — a plain instance field. renderedCallback() checks this
+    // on every render and re-applies it if set, then clears it. See
+    // applySuggestionAtIndex() for why this exists: setting a textarea's
+    // .value programmatically (which renderedCallback's own "dirty value
+    // flag" workaround, just below, does whenever it detects a mismatch)
+    // resets the cursor position as a side effect, in every browser. A
+    // generic Promise.resolve().then() is not a reliable fix for that —
+    // it races against LWC's own render scheduling rather than being
+    // guaranteed to run after it. renderedCallback is LWC's actual
+    // guaranteed-to-run-after-every-render hook, so restoring the cursor
+    // there, unconditionally, removes the race instead of hoping to win it.
+    _pendingCaretPos = null;
     @track dslSuggestActiveIndex = 0;
     @track dslSuggestStyle = '';
     dslReplaceStart      = 0;
@@ -238,6 +250,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const ta = this.template.querySelector('.code-editor');
         if (ta && ta.value !== (this.sourceText || '')) {
             ta.value = this.sourceText || '';
+        }
+        // Whatever the block above just did (or didn't do) to ta.value,
+        // this runs unconditionally right after it, on every single
+        // render, guaranteed — restoring a caret position requested by
+        // applySuggestionAtIndex() (or anything else that sets
+        // _pendingCaretPos) after LWC's own render has had its say,
+        // rather than racing it.
+        if (ta && this._pendingCaretPos !== null) {
+            try { ta.setSelectionRange(this._pendingCaretPos, this._pendingCaretPos); } catch (_) { /* ignore */ }
+            this._pendingCaretPos = null;
         }
         const nameInput = this.template.querySelector('.diag-name-input');
         if (nameInput && nameInput.value !== (this.fileName || '') && this.template.activeElement !== nameInput) {
@@ -1909,6 +1931,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.sourceText = next;
             this.isDirty    = true;
             this._markTabDirty(this.activeTabId, true);
+            this._pendingCaretPos = start + 2;
             clearTimeout(this.renderTimer);
             this.renderTimer = setTimeout(() => this.renderDiagram(), 200);
         }
@@ -1947,10 +1970,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         clearTimeout(this.renderTimer);
         this.renderTimer = setTimeout(() => this.renderDiagram(), 150);
 
-        // Re-apply the selection once LWC's re-render settles the DOM value.
-        Promise.resolve().then(() => {
-            try { textareaEl.setSelectionRange(caretPos, caretPos); } catch (_) {}
-        });
+        // Re-apply the selection once LWC's own render cycle has run —
+        // see the _pendingCaretPos field comment and renderedCallback()
+        // for why this is handled there now, not via Promise.resolve().
+        this._pendingCaretPos = caretPos;
 
         // Only chain into another suggestion when the pick was a single token
         // (keyword/object/field name) the user would naturally keep typing from.

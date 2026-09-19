@@ -519,6 +519,42 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity Contact : AccountNumber[Text]');
     });
 
+    it('the caret lands at the end of the inserted text and stays there after a full render cycle settles, not reset by the dirty-value-flag workaround', async () => {
+        // Not a direct test of the real-browser "textarea ignores
+        // template value updates after the user has typed once" quirk
+        // itself — jsdom's textarea may not reproduce that exact
+        // behavior the same way every real browser does. What this DOES
+        // verify: the observable, correct end state — that
+        // _pendingCaretPos set by applySuggestionAtIndex is actually
+        // consumed by renderedCallback and the caret ends up exactly
+        // where it should, even after LWC's own render cycle (which
+        // includes the dirty-value-flag re-assignment of ta.value) has
+        // fully run, not just immediately after the synchronous click handler.
+        describeObjects.mockResolvedValue([
+            { apiName: 'Contact', label: 'Contact', isCustom: false, fields: [{ apiName: 'LastName', isRelationship: false, isRollupSummary: false, friendlyType: 'Text', required: false }] }
+        ]);
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Contact : LastNam';
+        textarea.selectionStart = textarea.value.length;
+        textarea.selectionEnd = textarea.value.length;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        const items = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggestions [data-index]'));
+        items.find((i) => i.querySelector('.dsl-suggest-label').textContent === 'LastName').dispatchEvent(new CustomEvent('click'));
+        await flushPromises(); // let every scheduled render cycle actually settle, not just the synchronous handler
+
+        const finalTextarea = el.shadowRoot.querySelector('.code-editor');
+        const expectedLength = 'entity Contact : LastName[Text]'.length;
+        expect(finalTextarea.value).toBe('entity Contact : LastName[Text]');
+        expect(finalTextarea.selectionStart).toBe(expectedLength);
+        expect(finalTextarea.selectionEnd).toBe(expectedLength);
+    });
+
     it('BUG REPRO 2: full end-to-end sequence via intellisense only — select the object itself from the dropdown, then a field, then try a second field whose name starts the same way as the first', async () => {
         // A more precise reproduction than the previous test: the object
         // name itself is picked from the dropdown (not typed by hand),
