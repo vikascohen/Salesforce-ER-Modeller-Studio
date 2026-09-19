@@ -334,6 +334,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (rc != null) {
                     const heatColor = this.heatColorFor(rc);
                     bodyFill = heatColor;
+                    const staleText = this.staleBadgeText(rc);
                     badges.push({
                         id: b.name + '-heat',
                         cx: badgeX, cy: badgeY,
@@ -341,8 +342,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                         strokeColor: '#1e1e2e',
                         textColor: '#ffffff',
                         filled: true,
-                        code: this.formatCount(rc),
-                        title: `${rc.toLocaleString()} record${rc === 1 ? '' : 's'}`
+                        code: this.formatCount(rc.count),
+                        title: `${rc.count.toLocaleString()} record${rc.count === 1 ? '' : 's'}`
+                            + (staleText ? ` — ${staleText}` : '')
                     });
                     badgeX += 32;
                 }
@@ -1562,8 +1564,31 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // at least one record, light orange for genuinely empty ones. A relative
     // gradient looked informative but was actually harder to read at a
     // glance than a simple "has data / doesn't" signal.
-    heatColorFor(count) {
-        return count > 0 ? '#cfe8fb' : '#fde3cc';
+    // Three distinct states, not the old binary "any records or not":
+    //   - empty (0 records) — unchanged from before, its own orange
+    //   - stale (records exist, but none touched in over a year) — new,
+    //     a genuinely different signal from "empty" worth its own color,
+    //     since an object with 50,000 untouched records from 3 years ago
+    //     is not the same situation as one with zero records at all
+    //   - active (records exist and at least one was touched within the
+    //     last year) — unchanged, the original blue
+    isStaleRecordInfo(rc) {
+        if (!rc || !rc.count || !rc.lastModifiedDate) return false; // 0 records is "empty", a separate case — not "stale"
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        return new Date(rc.lastModifiedDate) < oneYearAgo;
+    }
+
+    staleBadgeText(rc) {
+        if (!rc || !rc.lastModifiedDate) return '';
+        const dateText = new Date(rc.lastModifiedDate).toLocaleDateString();
+        return this.isStaleRecordInfo(rc) ? `stale, last touched ${dateText}` : `last touched ${dateText}`;
+    }
+
+    heatColorFor(rc) {
+        if (!rc || !rc.count) return '#fde3cc';           // empty — unchanged
+        if (this.isStaleRecordInfo(rc)) return '#fef3c7'; // stale — new, distinct amber
+        return '#cfe8fb';                                  // active — unchanged
     }
 
     formatCount(n) {
@@ -1616,7 +1641,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             objectTypeText: name.endsWith('__c') ? 'Custom Object' : 'Standard Object',
 
             hasRecordData: this.heatmapOn && recordCount != null,
-            recordCountText: recordCount != null ? recordCount.toLocaleString() : '',
+            recordCountText: recordCount != null ? recordCount.count.toLocaleString() : '',
+            // Shown alongside the count, not instead of it, so the hover
+            // card gives the same "is this actually being used" signal
+            // the heatmap's own color already does, in words rather than
+            // just a color: when there are records but none touched
+            // recently, that's a meaningfully different situation from
+            // simply having no records at all, worth saying explicitly
+            // rather than leaving the person to infer it from a color alone.
+            recordFreshnessText: recordCount && recordCount.lastModifiedDate
+                ? (this.isStaleRecordInfo(recordCount) ? 'Stale — ' : '') + 'Last touched ' + new Date(recordCount.lastModifiedDate).toLocaleDateString()
+                : '',
 
             hasSharingData: this.sharingViewOn && !!sharing,
             internalSharingText: sharing && sharing.internal ? this.sharingBadgeFor(sharing.internal).label : 'Unknown',

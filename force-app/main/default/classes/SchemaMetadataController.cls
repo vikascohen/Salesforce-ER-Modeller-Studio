@@ -441,23 +441,46 @@ public with sharing class SchemaMetadataController {
     }
 
     /**
-     * Record count per object, for the canvas heatmap — a plain COUNT(),
-     * nothing about the records themselves is read. Deliberately scoped to
-     * whatever's currently on the canvas (the caller decides which objects
-     * to ask about), never run against every object in the org at once.
-     * One query per object, each wrapped so a single object failing (huge
-     * table timing out, no access, etc.) doesn't blank out the rest.
+     * Record count AND freshness per object, for the canvas heatmap.
+     * A single aggregate query per object — COUNT(Id) and
+     * MAX(LastModifiedDate) together, not two separate round-trips —
+     * still nothing about individual records themselves is read, just
+     * these two aggregates. Deliberately scoped to whatever's currently
+     * on the canvas (the caller decides which objects to ask about),
+     * never run against every object in the org at once. One query per
+     * object, each wrapped so a single object failing (huge table timing
+     * out, no access, no LastModifiedDate field at all — rare, but a few
+     * objects genuinely lack one) doesn't blank out the rest.
      */
+    public class RecordCountInfo {
+        @AuraEnabled public Integer count;
+        // Deliberately left as a raw DateTime, not manually converted to a
+        // String — Apex's own String.valueOf(DateTime) produces a
+        // space-separated format that isn't reliably parseable by every
+        // JS engine's Date constructor. @AuraEnabled's own serialization
+        // of a DateTime field produces a proper ISO 8601 string (e.g.
+        // "2024-01-15T10:30:00.000Z") automatically, which new Date(...)
+        // parses consistently everywhere.
+        @AuraEnabled public DateTime lastModifiedDate;
+    }
+
     @AuraEnabled(cacheable=false)
-    public static Map<String, Integer> getRecordCounts(List<String> objectApiNames) {
-        Map<String, Integer> result = new Map<String, Integer>();
+    public static Map<String, RecordCountInfo> getRecordCounts(List<String> objectApiNames) {
+        Map<String, RecordCountInfo> result = new Map<String, RecordCountInfo>();
         for (String rawName : objectApiNames) {
             String name = rawName == null ? null : rawName.trim();
             if (!isSafeIdentifier(name)) {
                 continue;
             }
             try {
-                result.put(name, Database.countQuery('SELECT COUNT() FROM ' + name, AccessLevel.USER_MODE));
+                List<AggregateResult> agg = Database.query(
+                    'SELECT COUNT(Id) cnt, MAX(LastModifiedDate) lastMod FROM ' + name,
+                    AccessLevel.USER_MODE
+                );
+                RecordCountInfo info = new RecordCountInfo();
+                info.count = (Integer) agg[0].get('cnt');
+                info.lastModifiedDate = (DateTime) agg[0].get('lastMod');
+                result.put(name, info);
             } catch (Exception e) {
                 // Skip this one object's count, don't fail the batch.
             }

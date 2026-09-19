@@ -189,10 +189,31 @@ private class SchemaMetadataControllerTest {
         insert new Account(Name = 'Test Account 2');
 
         Test.startTest();
-        Map<String, Integer> counts = SchemaMetadataController.getRecordCounts(new List<String>{ 'Account' });
+        Map<String, SchemaMetadataController.RecordCountInfo> counts =
+            SchemaMetadataController.getRecordCounts(new List<String>{ 'Account' });
         Test.stopTest();
 
-        Assert.areEqual(2, counts.get('Account'), 'Should reflect the two Accounts inserted in this test');
+        Assert.areEqual(2, counts.get('Account').count, 'Should reflect the two Accounts inserted in this test');
+    }
+
+    @isTest
+    static void testGetRecordCountsReflectsMostRecentLastModifiedDate() {
+        insert new Account(Name = 'Freshness Test Account');
+
+        Test.startTest();
+        Map<String, SchemaMetadataController.RecordCountInfo> counts =
+            SchemaMetadataController.getRecordCounts(new List<String>{ 'Account' });
+        Test.stopTest();
+
+        SchemaMetadataController.RecordCountInfo info = counts.get('Account');
+        Assert.isNotNull(info.lastModifiedDate, 'A record was just inserted in this test, so this should never be null');
+        // Within the last minute is a generous but meaningful bound —
+        // this test just inserted the record, so its LastModifiedDate
+        // must be very recent, not merely "some date in the past".
+        Assert.isTrue(
+            info.lastModifiedDate > DateTime.now().addMinutes(-1),
+            'The most recent LastModifiedDate should reflect the record just inserted in this test, not be stale'
+        );
     }
 
     @isTest
@@ -201,7 +222,7 @@ private class SchemaMetadataControllerTest {
         // (they can't be bind variables there) — anything that isn't a
         // plain identifier must be rejected before it ever reaches a query.
         Test.startTest();
-        Map<String, Integer> counts = SchemaMetadataController.getRecordCounts(
+        Map<String, SchemaMetadataController.RecordCountInfo> counts = SchemaMetadataController.getRecordCounts(
             new List<String>{ 'Account; DELETE FROM Account', 'Account WHERE Id != null' }
         );
         Test.stopTest();

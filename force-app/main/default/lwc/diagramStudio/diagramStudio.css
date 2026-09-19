@@ -860,6 +860,7 @@
 .hover-card-label { color: var(--surface-text-muted); flex-shrink: 0; }
 .hover-card-value { color: var(--surface-text); font-weight: 600; text-align: right; }
 .hover-card-hint { color: var(--surface-text-muted); font-style: italic; text-align: right; font-size: 10px; }
+.hover-card-freshness { color: var(--surface-text-muted); font-size: 10px; text-align: right; width: 100%; }
 
 /* ── Data Dictionary ── */
 .dict-overlay {

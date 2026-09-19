@@ -96,7 +96,7 @@ describe('c-diagram-studio', () => {
     });
 
     it('hover card shows field count always, and real data only for toggles that are on', async () => {
-        getRecordCounts.mockResolvedValue({ Account: 42 });
+        getRecordCounts.mockResolvedValue({ Account: { count: 42, lastModifiedDate: new Date().toISOString() } });
 
         const el = createStudio();
         await flushPromises();
@@ -141,6 +141,66 @@ describe('c-diagram-studio', () => {
         const values = Array.from(el.shadowRoot.querySelectorAll('.hover-card-value')).map((v) => v.textContent);
         expect(values).toContain('42');
         expect(el.shadowRoot.querySelectorAll('.hover-card-hint').length).toBe(1); // sharing still off
+    });
+
+    it('NEW FEATURE: Heatmap distinguishes stale objects (records exist, none touched in over a year) from active ones, not just empty-vs-not', async () => {
+        // Real, reported limitation: the heatmap only ever showed two
+        // colors, any records vs zero records — an object with 50,000
+        // records nobody has touched in three years looked identical to
+        // one actively being used today, as long as both had at least one
+        // record. Two accounts here, one genuinely stale, one genuinely
+        // active, to prove the fix tells them apart rather than just
+        // asserting the color constant changed.
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        getRecordCounts.mockResolvedValue({
+            Account: { count: 500, lastModifiedDate: twoYearsAgo.toISOString() },
+            Contact: { count: 500, lastModifiedDate: yesterday.toISOString() }
+        });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name\nentity Contact : LastName';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Heatmap')).click();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        // The shadow rect (always #c8cdd6) renders before the body rect
+        // within each entity group, so querySelectorAll(...)[1] is the
+        // one whose fill actually reflects heatColorFor()'s result.
+        const accountRect = el.shadowRoot.querySelectorAll('.entity-group[data-name="Account"] rect')[1];
+        const contactRect = el.shadowRoot.querySelectorAll('.entity-group[data-name="Contact"] rect')[1];
+
+        // Stale and active must render as genuinely different colors —
+        // and neither should be the "empty" orange, since both have records.
+        expect(accountRect.getAttribute('fill')).toBe('#fef3c7'); // stale
+        expect(contactRect.getAttribute('fill')).toBe('#cfe8fb'); // active
+        expect(accountRect.getAttribute('fill')).not.toBe(contactRect.getAttribute('fill'));
+
+        // The hover card states this in words too, not just a color the
+        // person has to already know how to interpret.
+        const accountBox = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        accountBox.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        expect(el.shadowRoot.querySelector('.hover-card-freshness').textContent).toContain('Stale');
+        expect(el.shadowRoot.querySelector('.hover-card-freshness').textContent).toContain('Last touched');
+        accountBox.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+        await flushPromises();
+
+        const contactBox = el.shadowRoot.querySelector('.entity-group[data-name="Contact"]');
+        contactBox.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        expect(el.shadowRoot.querySelector('.hover-card-freshness').textContent).not.toContain('Stale');
+        expect(el.shadowRoot.querySelector('.hover-card-freshness').textContent).toContain('Last touched');
     });
 
     it('BUG FIX: hover card field count reflects the true total, not just the currently visible rows, after a box has been resized shorter', async () => {

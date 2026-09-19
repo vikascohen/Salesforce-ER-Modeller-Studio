@@ -27,6 +27,12 @@
                     <span class="hover-card-hint">Turn on Heatmap to see this</span>
                 </template>
             </div>
+            <template if:true={hoverCard.recordFreshnessText}>
+                <div class="hover-card-row">
+                    <span class="hover-card-label"></span>
+                    <span class="hover-card-freshness">{hoverCard.recordFreshnessText}</span>
+                </div>
+            </template>
 
             <div class="hover-card-row">
                 <span class="hover-card-label">Internal Sharing</span>

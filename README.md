@@ -139,16 +139,26 @@ other two have already fetched.
   shows its sharing is inherited, reasoning that's normally spread across
   several Setup pages. Scope is deliberately narrow: org-wide defaults
   only, not sharing rules or role hierarchy.
-- **Heatmap** — colors each box by whether the object has any records at
-  all: light blue if it does, light orange if it's genuinely empty — a
-  plain `COUNT()` per object, nothing about the records themselves is
-  read. The actual count is badged at the top (e.g. `1.2K`, `45`).
+- **Heatmap** — colors each box by activity, not just whether it has any
+  records: light orange if genuinely empty, light blue if it has records
+  and at least one was touched within the last year, light amber if it
+  has records but none touched in over a year — a real signal that's
+  easy to miss otherwise, since a box with thousands of records nobody's
+  touched in three years used to look identical to one being actively
+  used today. One aggregate query per object (`COUNT(Id)` and
+  `MAX(LastModifiedDate)` together), nothing about the records
+  themselves is read. The actual count is badged at the top (e.g.
+  `1.2K`, `45`); hovering the badge (or the object summary hover card
+  below) shows the exact last-touched date.
 - **Object summary hover card** — hover any entity on the canvas (no
   toggle needed) for a small card with its field count and standard/custom
   status, plus whatever the two toggles above have already fetched:
-  record count and internal/external sharing. Ties both views together
-  into one glance instead of separate badges to read — and for anything
-  from a toggle you haven't turned on yet, the card says so directly
+  record count (with the same stale/active distinction the heatmap
+  color encodes, stated in words — "Stale — Last touched 14/3/2023" vs.
+  "Last touched yesterday" — not left for you to infer from a color) and
+  internal/external sharing. Ties both views together into one glance
+  instead of separate badges to read — and for anything from a toggle
+  you haven't turned on yet, the card says so directly
   ("Turn on Heatmap to see this") rather than just omitting the row
   silently. Dismisses on **Esc**, or automatically if you delete the
   entity it's showing — it never lingers over a box that's no longer
@@ -235,7 +245,7 @@ accessible object in the org — toggle it from the **View** menu.
 | LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
 | LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
+| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts and freshness (most recent LastModifiedDate) for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
 | Apex | `DiagramPreferenceController` | Gets/saves the current user's selected theme, backed by a Hierarchy Custom Setting. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 | Custom Setting | `Diagram_Studio_Pref__c` | Hierarchy custom setting holding each user's `Theme__c` preference. |
