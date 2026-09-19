@@ -1605,7 +1605,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.hoverCard = {
             name,
             style: `left:${clientX + 16}px;top:${clientY + 12}px`,
-            fieldCount: box.fields.length,
+            // box.fields is only the currently VISIBLE rows (whatever fits
+            // in the box's current height) — a real, separate bug from the
+            // one just fixed in buildErSource: if a box has ever been
+            // resized shorter than its natural height, box.fields.length
+            // alone undercounts, silently reporting fewer fields than the
+            // entity actually has. box.hiddenCount (the rows that don't
+            // currently fit) has to be added back in for the true total.
+            fieldCount: box.fields.length + (box.hiddenCount || 0),
             objectTypeText: name.endsWith('__c') ? 'Custom Object' : 'Standard Object',
 
             hasRecordData: this.heatmapOn && recordCount != null,

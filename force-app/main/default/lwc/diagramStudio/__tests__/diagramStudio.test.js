@@ -143,6 +143,40 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelectorAll('.hover-card-hint').length).toBe(1); // sharing still off
     });
 
+    it('BUG FIX: hover card field count reflects the true total, not just the currently visible rows, after a box has been resized shorter', async () => {
+        // Real, related bug: box.fields from the geometry engine is only
+        // the rows that currently FIT in the box's height — resizing a
+        // box shorter hides some rows behind a "+N more" indicator, and
+        // the old fieldCount computation (box.fields.length alone) simply
+        // never accounted for those hidden rows, silently under-reporting
+        // the field count the moment a box had ever been shrunk.
+        const el = createStudio();
+        await flushPromises();
+
+        // 20 fields is comfortably more than fit in any reasonably-sized
+        // resized box, so shrinking guarantees a non-zero hidden count.
+        const manyFields = Array.from({ length: 20 }, (_, i) => `Field${i}`).join(', ');
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = `entity Account : ${manyFields}`;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const handle = el.shadowRoot.querySelector('.resize-handle[data-name="Account"]');
+        expect(handle).not.toBeNull();
+        handle.dispatchEvent(new CustomEvent('pointerdown', { clientY: 300, pointerId: 1 }));
+        handle.dispatchEvent(new CustomEvent('pointermove', { clientY: 60, pointerId: 1 })); // drag far up — shrink hard
+        handle.dispatchEvent(new CustomEvent('pointerup', { pointerId: 1 }));
+        await flushPromises();
+
+        const box = el.shadowRoot.querySelector('.entity-group[data-name="Account"]');
+        box.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 200, clientY: 150 }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        // 20 explicit fields + the implicit Id = 21, regardless of how many
+        // of those rows currently fit inside the shrunk box.
+        expect(el.shadowRoot.querySelector('.hover-card-sub').textContent).toContain('21 fields');
+    });
+
     it('hover card disappears when the hovered box is deleted, not left orphaned', async () => {
         const el = createStudio();
         await flushPromises();
