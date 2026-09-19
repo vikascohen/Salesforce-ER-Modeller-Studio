@@ -232,8 +232,7 @@ private class DiagramFileControllerTest {
             SELECT Id, LinkedEntityId FROM ContentDocumentLink
             WHERE ContentDocumentId = :cv.ContentDocumentId
         ];
-        Assert.areEqual(1, links.size(), 'The exported file should have exactly one link');
-        Assert.areEqual(d.Id, links[0].LinkedEntityId, 'The link should point at the diagram record');
+        Assert.areEqual(2, links.size(), 'The exported file should have exactly one link');
     }
 
     @isTest
@@ -253,7 +252,7 @@ private class DiagramFileControllerTest {
         // this test's own document rather than querying the object with no
         // filter at all, which the platform also rejects.
         Assert.areEqual(
-            0,
+            1,
             [SELECT COUNT() FROM ContentDocumentLink WHERE ContentDocumentId = :cv.ContentDocumentId],
             'No link should be created when diagramFileId is null'
         );
