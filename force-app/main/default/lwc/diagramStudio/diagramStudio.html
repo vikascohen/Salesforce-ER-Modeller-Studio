@@ -203,6 +203,7 @@
                     <div class="dd-menu-item" onclick={handleMenuSharingView}>{sharingViewMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuHeatmap}>{heatmapMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuDataDictionary}>{dictionaryMenuText}</div>
+                    <div class="dd-menu-item" onclick={handleMenuFieldUsage}>{fieldUsageMenuText}</div>
                 </div>
             </template>
         </div>
@@ -639,6 +640,135 @@
                                 </tbody>
                             </table>
                         </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Field Usage search — mirrors the Data Dictionary layout
+         (object list on the left, detail on the right) with a field
+         picker and Search step added before results appear. -->
+    <template if:true={fieldUsageOpen}>
+        <div class="dict-overlay dict-fullscreen">
+            <div class="dict-header">
+                <div class="dict-header-actions">
+                    <button class="dict-back-btn" onclick={handleCloseFieldUsage} title="Return to the ER canvas">&#8592; Back to Diagram</button>
+                    <span class="dict-title">Search for Field Usage</span>
+                </div>
+                <div class="dict-header-actions">
+                    <button class="modal-close" onclick={handleCloseFieldUsage}>x</button>
+                </div>
+            </div>
+            <p class="field-usage-scope-banner">
+                Checks Flows (per object, not per field) and OmniStudio
+                (OmniScripts/Integration Procedures, per field). Does NOT
+                check Apex classes, Apex triggers, or Page Layouts — a
+                field showing no results here has not been confirmed
+                unused, only that it wasn't found in the two sources this
+                tool can see.
+            </p>
+            <div class="dict-body">
+                <!-- Left: object list -->
+                <div class="dict-list-pane">
+                    <input type="text"
+                           class="dict-search-input"
+                           placeholder="Search objects..."
+                           value={fieldUsageObjectSearch}
+                           oninput={handleFieldUsageObjectSearchInput} />
+                    <p class="dict-list-count">{fieldUsageObjectCount} objects</p>
+                    <div class="dict-obj-list">
+                        <template for:each={fieldUsageObjectList} for:item="o">
+                            <div key={o.name} class={o.rowClass} data-name={o.name} onclick={handleSelectFieldUsageObject}>{o.name}</div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Right: field picker + results -->
+                <div class="dict-detail-pane">
+                    <template if:false={fieldUsageHasSelectedObject}>
+                        <div class="dict-empty-state">
+                            <p class="hint-text">Select an object on the left, then choose one or more fields to search.</p>
+                        </div>
+                    </template>
+                    <template if:true={fieldUsageFieldsLoading}>
+                        <p class="hint-text">Loading fields for {fieldUsageSelectedObject}...</p>
+                    </template>
+                    <template if:true={fieldUsageError}>
+                        <p class="error-text">{fieldUsageError}</p>
+                    </template>
+
+                    <template if:true={fieldUsageHasSelectedObject}>
+                        <template if:false={fieldUsageFieldsLoading}>
+                            <div class="field-usage-picker">
+                                <div class="field-usage-picker-head">
+                                    <span class="dict-detail-title">{fieldUsageSelectedObject}</span>
+                                    <div>
+                                        <button class="tb-btn tb-btn-primary" disabled={fieldUsageSearchDisabled} onclick={handleSearchFieldUsage}>
+                                            {fieldUsageSearchButtonLabel}
+                                        </button>
+                                        <button class="dsl-head-btn" onclick={handleClearFieldUsageResults} title="Clear the results below — keeps your object and field selection">Clean</button>
+                                    </div>
+                                </div>
+                                <div class="field-usage-checkbox-list">
+                                    <template for:each={fieldUsageAvailableFields} for:item="f">
+                                        <label key={f.apiName} class="field-usage-checkbox-row">
+                                            <input type="checkbox" data-api-name={f.apiName} checked={f.checked} onchange={handleToggleFieldUsageFieldCheckbox} />
+                                            {f.apiName}
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template if:true={fieldUsageHasResults}>
+                            <div class="field-usage-results">
+                                <template for:each={fieldUsageResultSections} for:item="sec">
+                                    <div key={sec.fieldApiName} class="field-usage-result-section">
+                                        <h3 class="field-usage-result-field-name">{sec.fieldApiName}</h3>
+
+                                        <template if:true={sec.nothingFound}>
+                                            <p class="hint-text">No Flow or OmniStudio references found for this field — not checked against Apex or Page Layouts.</p>
+                                        </template>
+
+                                        <template if:false={sec.nothingFound}>
+                                            <div class="field-usage-subsection">
+                                                <p class="field-usage-subsection-title">Flows associated with the {fieldUsageSelectedObject} object <span class="hint-text">(object-level, not specific to this field)</span></p>
+                                                <template if:true={sec.hasFlows}>
+                                                    <ul class="field-usage-list">
+                                                        <template for:each={sec.flows} for:item="fl">
+                                                            <li key={fl.apiName}>{fl.label} <span class="hint-text">({fl.apiName} &middot; {fl.processType})</span></li>
+                                                        </template>
+                                                    </ul>
+                                                </template>
+                                                <template if:false={sec.hasFlows}>
+                                                    <p class="hint-text">No active flows found on this object.</p>
+                                                </template>
+                                            </div>
+
+                                            <div class="field-usage-subsection">
+                                                <p class="field-usage-subsection-title">OmniStudio references to this field</p>
+                                                <template if:false={sec.omniStudioAvailable}>
+                                                    <p class="hint-text">OmniStudio not detected in this org (or an older package version not yet supported).</p>
+                                                </template>
+                                                <template if:true={sec.omniStudioAvailable}>
+                                                    <template if:true={sec.hasOmniHits}>
+                                                        <ul class="field-usage-list">
+                                                            <template for:each={sec.omniHits} for:item="oh">
+                                                                <li key={oh.elementName}>{oh.omniScriptName} <span class="hint-text">({oh.omniScriptType} &middot; element: {oh.elementName})</span></li>
+                                                            </template>
+                                                        </ul>
+                                                    </template>
+                                                    <template if:false={sec.hasOmniHits}>
+                                                        <p class="hint-text">No OmniStudio references found.</p>
+                                                    </template>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </template>
                 </div>
             </div>

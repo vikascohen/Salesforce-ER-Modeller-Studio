@@ -20,6 +20,7 @@ import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataControl
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
+import searchFieldUsage from '@salesforce/apex/FieldUsageController.searchFieldUsage';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml } from 'c/erDiagramLogic';
 
@@ -177,6 +178,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryExportBusy    = false;
     @track dictionaryExportAllBusy = false;
     @track dictionaryExportAllProgress = '';
+
+    // Field Usage search — object list on the left (reuses paletteObjects,
+    // same as the Dictionary), field checkboxes once an object is picked,
+    // results per field on the right. Deliberately its own, separate set
+    // of tracked state from Dictionary's, even though the two overlays
+    // are mutually exclusive — keeps each screen's state independent so
+    // clearing one never has to worry about accidentally touching the other's.
+    @track fieldUsageOpen = false;
+    @track fieldUsageObjectSearch = '';
+    @track fieldUsageSelectedObject = null;
+    @track fieldUsageAvailableFields = [];       // [{ apiName, checked }]
+    @track fieldUsageFieldsLoading = false;
+    @track fieldUsageSearching = false;
+    @track fieldUsageResults = [];               // FieldUsageController.FieldUsageResult[]
+    @track fieldUsageError = '';
     @track openMenu = null; // 'file' | 'diagram' | 'view' | null
     @track currentTheme = 'theme-dark-plus';
     sheetJsLoaded = false;
@@ -416,6 +432,40 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get dictionaryObjectCount() { return this.dictionaryObjectList.length; }
     get dictionaryHasSelection() { return !!this.dictionaryRow; }
+
+    // ── field usage search ──
+    get fieldUsageObjectList() {
+        const q = (this.fieldUsageObjectSearch || '').trim().toLowerCase();
+        const source = this.paletteObjects || [];
+        const list = q ? source.filter((n) => n.toLowerCase().includes(q)) : source;
+        return list.map((n) => ({
+            name: n,
+            rowClass: (this.fieldUsageSelectedObject && this.fieldUsageSelectedObject.toLowerCase() === n.toLowerCase())
+                ? 'dict-obj-row dict-obj-row-active'
+                : 'dict-obj-row'
+        }));
+    }
+    get fieldUsageObjectCount() { return this.fieldUsageObjectList.length; }
+    get fieldUsageHasSelectedObject() { return !!this.fieldUsageSelectedObject; }
+    get fieldUsageAnyFieldChecked() { return this.fieldUsageAvailableFields.some((f) => f.checked); }
+    get fieldUsageSearchDisabled() { return this.fieldUsageSearching || !this.fieldUsageAnyFieldChecked; }
+    get fieldUsageSearchButtonLabel() { return this.fieldUsageSearching ? 'Searching...' : 'Search'; }
+    get fieldUsageHasResults() { return this.fieldUsageResults.length > 0; }
+    // Precomputed once per result set, not per render — the object-level
+    // flow list is identical for every field, so its own "not field
+    // specific" framing only needs to render once, not once per field.
+    get fieldUsageResultSections() {
+        return this.fieldUsageResults.map((r) => ({
+            fieldApiName: r.fieldApiName,
+            hasFlows: r.objectFlows && r.objectFlows.length > 0,
+            flows: r.objectFlows || [],
+            omniStudioAvailable: r.omniStudioAvailable,
+            hasOmniHits: r.omniStudioHits && r.omniStudioHits.length > 0,
+            omniHits: r.omniStudioHits || [],
+            nothingFound: (!r.objectFlows || r.objectFlows.length === 0)
+                && (!r.omniStudioHits || r.omniStudioHits.length === 0)
+        }));
+    }
     get dictionaryPanelClass() { return this.dictionaryFullScreen ? 'dict-overlay dict-fullscreen' : 'dict-overlay'; }
     get dictionaryFullScreenIcon() { return this.dictionaryFullScreen ? 'utility:contract_alt' : 'utility:expand_alt'; }
     get dictionaryFullScreenLabel() { return this.dictionaryFullScreen ? 'Restore' : 'Full Screen'; }
@@ -784,6 +834,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get viewMenuOpen()    { return this.openMenu === 'view'; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
+    get fieldUsageMenuText()  { return this.fieldUsageOpen ? 'Search for Field Usage \u2713' : 'Search for Field Usage'; }
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
 
     // Each wraps an existing, already-tested handler — closes the dropdown
@@ -797,6 +848,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuClearCanvas()    { this.openMenu = null; this.handleClearCanvas(); }
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
     handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
+    handleMenuFieldUsage() { this.openMenu = null; this.handleToggleFieldUsage(); }
     handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
 
     // ────────────────────────────────────────────────────────
@@ -1573,6 +1625,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleToggleDictionary() {
         this.dictionaryOpen = !this.dictionaryOpen;
+        if (this.dictionaryOpen) this.fieldUsageOpen = false; // mutually exclusive full-screen overlays
         this.hideHoverCard(); // a hover triggered right before opening could still be pending
     }
 
@@ -1787,6 +1840,85 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.dictionaryExportAllBusy = false;
             this.dictionaryExportAllProgress = '';
         }
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  Field Usage search — Flow (object-level) and OmniStudio
+    //  (field-level text search) only. Deliberately does not cover Apex
+    //  or Page Layouts — see FieldUsageController.cls for the full
+    //  reasoning. Every result section on the right states this plainly,
+    //  not just this comment, so "nothing found" is never read as
+    //  "confirmed unused".
+    // ────────────────────────────────────────────────────────
+
+    handleToggleFieldUsage() {
+        this.fieldUsageOpen = !this.fieldUsageOpen;
+        if (this.fieldUsageOpen) this.dictionaryOpen = false; // mutually exclusive full-screen overlays
+        this.hideHoverCard();
+    }
+
+    handleCloseFieldUsage() {
+        this.fieldUsageOpen = false;
+        this.hideHoverCard();
+    }
+
+    handleFieldUsageObjectSearchInput(event) {
+        this.fieldUsageObjectSearch = event.target.value;
+    }
+
+    async handleSelectFieldUsageObject(event) {
+        const name = event.currentTarget.dataset.name;
+        this.fieldUsageSelectedObject = name;
+        this.fieldUsageAvailableFields = [];
+        this.fieldUsageResults = [];
+        this.fieldUsageError = '';
+        this.fieldUsageFieldsLoading = true;
+        try {
+            const objects = await describeObjects({ objectApiNames: [name] });
+            const fields = (objects && objects.length) ? objects[0].fields : [];
+            this.fieldUsageAvailableFields = fields
+                .map((f) => ({ apiName: f.apiName, checked: false }))
+                .sort((a, b) => a.apiName.localeCompare(b.apiName));
+        } catch (e) {
+            this.fieldUsageError = 'Could not load fields for ' + name + ': ' + (e.body ? e.body.message : e.message);
+        } finally {
+            this.fieldUsageFieldsLoading = false;
+        }
+    }
+
+    handleToggleFieldUsageFieldCheckbox(event) {
+        const apiName = event.target.dataset.apiName;
+        this.fieldUsageAvailableFields = this.fieldUsageAvailableFields.map((f) =>
+            f.apiName === apiName ? { ...f, checked: event.target.checked } : f
+        );
+    }
+
+    async handleSearchFieldUsage() {
+        const selectedFieldNames = this.fieldUsageAvailableFields.filter((f) => f.checked).map((f) => f.apiName);
+        if (!selectedFieldNames.length || !this.fieldUsageSelectedObject) return;
+
+        this.fieldUsageSearching = true;
+        this.fieldUsageError = '';
+        this.fieldUsageResults = [];
+        try {
+            this.fieldUsageResults = await searchFieldUsage({
+                objectApiName: this.fieldUsageSelectedObject,
+                fieldApiNames: selectedFieldNames
+            });
+        } catch (e) {
+            this.fieldUsageError = 'Search failed: ' + (e.body ? e.body.message : e.message);
+        } finally {
+            this.fieldUsageSearching = false;
+        }
+    }
+
+    // The "Clean" button — clears the right-hand results only. Deliberately
+    // leaves the selected object and checked fields alone, so re-running a
+    // search (or tweaking the field selection and searching again) doesn't
+    // require re-picking the object from scratch every time.
+    handleClearFieldUsageResults() {
+        this.fieldUsageResults = [];
+        this.fieldUsageError = '';
     }
 
     // ────────────────────────────────────────────────────────

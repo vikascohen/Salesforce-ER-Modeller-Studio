@@ -17,6 +17,7 @@ for a plain-language feature overview with no code or setup steps.
   - [Modeling the diagram](#modeling-the-diagram)
   - [Org-aware views](#org-aware-views)
   - [Data Dictionary](#data-dictionary)
+  - [Search for Field Usage](#search-for-field-usage)
   - [Export](#export)
   - [Workspace & appearance](#workspace--appearance)
 - [Components](#components)
@@ -187,6 +188,35 @@ accessible object in the org — toggle it from the **View** menu.
   to Diagram**, or the × close) returns you to the canvas exactly as you
   left it: zoom, position, and open tabs untouched.
 
+### Search for Field Usage
+
+A separate full-screen overlay, also toggled from the **View** menu,
+mutually exclusive with Data Dictionary (opening one closes the other,
+so they never overlap on screen).
+
+- **Left**: the same searchable object list as Data Dictionary. Pick an
+  object to load its fields as checkboxes on the right — select one or
+  several, then **Search**.
+- **Results, grouped per field**: for each selected field, a section
+  showing which **Flows** are associated with the *object* (not the
+  field specifically — Flow's own internal element-level detail, like
+  which Assignment reads a given field, needs Tooling API, which this
+  screen deliberately doesn't use) and which **OmniScripts/Integration
+  Procedures** reference that *exact field*, via a real text search
+  against their stored definitions.
+- **Deliberately does not check Apex classes, Apex triggers, or Page
+  Layouts** — the scope banner at the top of the screen says so plainly,
+  every time, not just here. A field with no results has not been
+  confirmed unused, only that it wasn't found in the two sources this
+  screen can actually see. See `CONTRIBUTING.md`'s Scope section and
+  `FieldUsageController.cls` for the full reasoning, including why —
+  Tooling API access would need a Named Credential, which needs a
+  Connected App, which this tool deliberately doesn't require for
+  anything, to stay a plain deploy-and-go installation.
+- **Clean** clears the results only — the selected object and checked
+  fields stay put, so tweaking the field selection and searching again
+  doesn't mean starting over from the object list.
+
 ### Export
 
 - Render the current diagram to **PNG** at native size, A4 landscape, or
@@ -237,6 +267,7 @@ accessible object in the org — toggle it from the **View** menu.
 | Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
 | Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, per-object record counts for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
 | Apex | `DiagramPreferenceController` | Gets/saves the current user's selected theme, backed by a Hierarchy Custom Setting. |
+| Apex | `FieldUsageController` | Backs Search for Field Usage — Flow (object-level, `FlowDefinitionView`) and OmniStudio (field-level text search, `OmniProcess`/`OmniProcessElement`) only, no Tooling API. |
 | Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
 | Custom Setting | `Diagram_Studio_Pref__c` | Hierarchy custom setting holding each user's `Theme__c` preference. |
 | Static Resource | `sheetjs` | [SheetJS](https://www.npmjs.com/package/xlsx) (Apache-2.0), bundled for real client-side `.xlsx` generation — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Only loaded on first use of an Excel export. |
@@ -374,7 +405,7 @@ Id" button in the studio's sidebar to grab it).
 
 **LWC (Jest)**
 
-73 tests across all four LWC bundles: `erDiagramLogic` (parsing,
+79 tests across all four LWC bundles: `erDiagramLogic` (parsing,
 geometry, Mermaid/draw.io export with real per-field data types, legend,
 Roll-Up Summary and Required-field marker handling, including their
 combined-bracket syntax), `diagramExportUtils` (PNG rendering,
@@ -384,11 +415,18 @@ render, import round-trips including friendly data-type and required-field
 annotations, the DSL autocomplete inserting those same annotations when a
 field is picked from the dropdown, New/Save/Clear/Auto Layout, error
 handling, Focus mode, the object summary hover card and its dismissal on
-Esc/entity deletion, and a dedicated Data Dictionary suite covering its
-Clear button, sortable columns, and a real race-condition regression test).
+Esc/entity deletion, a dedicated Data Dictionary suite covering its
+Clear button, sortable columns, and a real race-condition regression test,
+and a Search for Field Usage suite covering its mutual exclusion with
+Data Dictionary, field selection, the Apex call's actual arguments, and
+its Clean button preserving the current selection).
 
 **Apex** — `DiagramFileControllerTest` (CRUD, including the unique-name
 validation on both save and rename), `SchemaMetadataControllerTest`,
+`FieldUsageControllerTest` (input validation, and — against real
+Account/Contact metadata, not mocks — that results come back one per
+requested field, in order, and that `omniStudioAvailable` correctly
+reflects whether the org actually has the Core OmniStudio schema),
 and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
 and preference-storage paths respectively. Run them in your org:
 

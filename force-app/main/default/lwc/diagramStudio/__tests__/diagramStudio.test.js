@@ -19,6 +19,7 @@ jest.mock('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionar
 jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.getTheme', () => ({ default: jest.fn(() => Promise.resolve(null)) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.searchFieldUsage', () => ({ default: jest.fn() }), { virtual: true });
 
 // eslint-disable-next-line no-undef
 const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').default;
@@ -30,6 +31,8 @@ const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataCon
 const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
 // eslint-disable-next-line no-undef
 const getRecordCounts = require('@salesforce/apex/SchemaMetadataController.getRecordCounts').default;
+// eslint-disable-next-line no-undef
+const searchFieldUsage = require('@salesforce/apex/FieldUsageController.searchFieldUsage').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -882,6 +885,188 @@ describe('c-diagram-studio', () => {
                 i.textContent.includes('New')
             );
             expect(newItem).toBeDefined();
+        });
+    });
+
+    describe('Field Usage search', () => {
+        async function openFieldUsage(el) {
+            el.shadowRoot.querySelector('[data-menu="view"]').click();
+            await flushPromises();
+            const item = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+                i.textContent.includes('Search for Field Usage')
+            );
+            item.click();
+            await flushPromises();
+        }
+
+        it('opens from the View menu and shows the scope-limitation banner unconditionally', async () => {
+            const el = createStudio();
+            await flushPromises();
+            await openFieldUsage(el);
+
+            expect(el.shadowRoot.querySelector('.field-usage-scope-banner')).not.toBeNull();
+            expect(el.shadowRoot.querySelector('.field-usage-scope-banner').textContent).toContain('Does NOT check Apex');
+        });
+
+        it('is mutually exclusive with Data Dictionary in both directions — opening one closes the other', async () => {
+            const el = createStudio();
+            await flushPromises();
+
+            await openFieldUsage(el);
+            expect(el.shadowRoot.querySelector('.field-usage-scope-banner')).not.toBeNull();
+
+            el.shadowRoot.querySelector('[data-menu="view"]').click();
+            await flushPromises();
+            const dictItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+                i.textContent.includes('Data Dictionary')
+            );
+            dictItem.click();
+            await flushPromises();
+
+            // Data Dictionary is now open, Field Usage's own banner must be gone.
+            expect(el.shadowRoot.querySelector('.dict-list-count')).not.toBeNull();
+            expect(el.shadowRoot.querySelector('.field-usage-scope-banner')).toBeNull();
+
+            // And going back the other way closes Data Dictionary in turn.
+            await openFieldUsage(el);
+            expect(el.shadowRoot.querySelector('.field-usage-scope-banner')).not.toBeNull();
+        });
+
+        it('selecting an object loads its fields as checkboxes, all unchecked, Search disabled until one is checked', async () => {
+            describeObjects.mockResolvedValue([
+                { apiName: 'Contact', label: 'Contact', isCustom: false, fields: [
+                    { apiName: 'LastName', isRelationship: false },
+                    { apiName: 'Email', isRelationship: false }
+                ] }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Contact']);
+            await flushPromises();
+            await openFieldUsage(el);
+
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Contact"]').click();
+            await flushPromises();
+
+            const checkboxes = el.shadowRoot.querySelectorAll('.field-usage-checkbox-row input[type="checkbox"]');
+            expect(checkboxes.length).toBe(2);
+            expect(Array.from(checkboxes).every((c) => !c.checked)).toBe(true);
+
+            const searchBtn = Array.from(el.shadowRoot.querySelectorAll('.tb-btn-primary')).find(
+                (b) => b.textContent.trim() === 'Search'
+            );
+            expect(searchBtn.disabled).toBe(true);
+
+            checkboxes[0].checked = true;
+            checkboxes[0].dispatchEvent(new CustomEvent('change'));
+            await flushPromises();
+
+            const searchBtnAfter = Array.from(el.shadowRoot.querySelectorAll('.tb-btn-primary')).find(
+                (b) => b.textContent.trim() === 'Search'
+            );
+            expect(searchBtnAfter.disabled).toBe(false);
+        });
+
+        it('Search calls the Apex method with the selected object and only the checked fields, then renders results grouped per field', async () => {
+            describeObjects.mockResolvedValue([
+                { apiName: 'Contact', label: 'Contact', isCustom: false, fields: [
+                    { apiName: 'LastName', isRelationship: false },
+                    { apiName: 'Email', isRelationship: false }
+                ] }
+            ]);
+            searchFieldUsage.mockResolvedValue([
+                {
+                    fieldApiName: 'LastName',
+                    objectFlows: [{ apiName: 'Contact_Welcome', label: 'Contact Welcome', processType: 'AutoLaunchedFlow' }],
+                    omniStudioAvailable: true,
+                    omniStudioHits: []
+                }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Contact']);
+            await flushPromises();
+            await openFieldUsage(el);
+
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Contact"]').click();
+            await flushPromises();
+
+            const lastNameCheckbox = el.shadowRoot.querySelector('.field-usage-checkbox-row input[data-api-name="LastName"]');
+            lastNameCheckbox.checked = true;
+            lastNameCheckbox.dispatchEvent(new CustomEvent('change'));
+            await flushPromises();
+
+            const searchBtn = Array.from(el.shadowRoot.querySelectorAll('.tb-btn-primary')).find(
+                (b) => b.textContent.trim() === 'Search'
+            );
+            searchBtn.click();
+            await flushPromises();
+
+            expect(searchFieldUsage).toHaveBeenCalledWith({ objectApiName: 'Contact', fieldApiNames: ['LastName'] });
+
+            const sectionTitle = el.shadowRoot.querySelector('.field-usage-result-field-name');
+            expect(sectionTitle.textContent).toBe('LastName');
+            expect(el.shadowRoot.querySelector('.field-usage-list').textContent).toContain('Contact Welcome');
+        });
+
+        it('a field with nothing found in either source says so plainly, distinct from Apex/Layouts simply not being checked', async () => {
+            describeObjects.mockResolvedValue([
+                { apiName: 'Contact', label: 'Contact', isCustom: false, fields: [{ apiName: 'Fax', isRelationship: false }] }
+            ]);
+            searchFieldUsage.mockResolvedValue([
+                { fieldApiName: 'Fax', objectFlows: [], omniStudioAvailable: true, omniStudioHits: [] }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Contact']);
+            await flushPromises();
+            await openFieldUsage(el);
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Contact"]').click();
+            await flushPromises();
+
+            const cb = el.shadowRoot.querySelector('.field-usage-checkbox-row input[data-api-name="Fax"]');
+            cb.checked = true;
+            cb.dispatchEvent(new CustomEvent('change'));
+            await flushPromises();
+            Array.from(el.shadowRoot.querySelectorAll('.tb-btn-primary')).find((b) => b.textContent.trim() === 'Search').click();
+            await flushPromises();
+
+            const section = el.shadowRoot.querySelector('.field-usage-result-section');
+            expect(section.textContent).toContain('No Flow or OmniStudio references found');
+            expect(section.textContent).toContain('not checked against Apex or Page Layouts');
+        });
+
+        it('Clean clears the results but keeps the selected object and checked fields, so a re-search needs no re-selection', async () => {
+            describeObjects.mockResolvedValue([
+                { apiName: 'Contact', label: 'Contact', isCustom: false, fields: [{ apiName: 'LastName', isRelationship: false }] }
+            ]);
+            searchFieldUsage.mockResolvedValue([
+                { fieldApiName: 'LastName', objectFlows: [], omniStudioAvailable: true, omniStudioHits: [] }
+            ]);
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Contact']);
+            await flushPromises();
+            await openFieldUsage(el);
+            el.shadowRoot.querySelector('.dict-obj-row[data-name="Contact"]').click();
+            await flushPromises();
+
+            const cb = el.shadowRoot.querySelector('.field-usage-checkbox-row input[data-api-name="LastName"]');
+            cb.checked = true;
+            cb.dispatchEvent(new CustomEvent('change'));
+            await flushPromises();
+            Array.from(el.shadowRoot.querySelectorAll('.tb-btn-primary')).find((b) => b.textContent.trim() === 'Search').click();
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.field-usage-result-section')).not.toBeNull();
+
+            const cleanBtn = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn')).find((b) => b.textContent === 'Clean');
+            cleanBtn.click();
+            await flushPromises();
+
+            expect(el.shadowRoot.querySelector('.field-usage-result-section')).toBeNull();
+            // Object and checkbox selection survive Clean.
+            expect(el.shadowRoot.querySelector('.field-usage-checkbox-row input[data-api-name="LastName"]').checked).toBe(true);
         });
     });
 });

@@ -27,4 +27,8 @@
         <apexClass>DiagramPreferenceController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>FieldUsageController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
 </PermissionSet>

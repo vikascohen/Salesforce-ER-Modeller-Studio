@@ -62,6 +62,36 @@ Two features were evaluated against this rule and set aside:
 If either of these gets proposed again, this is why they didn't happen —
 considered and set aside for cause, not overlooked.
 
+**Search for Field Usage** is a third case worth naming explicitly,
+because it looks like it should have been rejected by the same rule
+above and wasn't — worth being honest about that tension rather than
+quietly building past it. It genuinely does describe what acts on a
+field from the outside (Flows, OmniScripts referencing it), which is
+exactly what the rule above says doesn't fit. The distinction that
+actually holds: the rule was written about the *canvas* — keeping the
+core diagramming view about structure, not automation. This feature is
+a separate, opt-in screen a user deliberately navigates to (same
+category as Data Dictionary, which already shows record-derived data
+like % Used), not something integrated into the diagram itself. If a
+canvas badge for "used by N flows" gets proposed again, that's the
+Automation view above, already rejected — a dedicated search screen is
+a different thing.
+
+It also has a real, deliberate scope limit of its own, independent of
+the canvas question: it covers Flow (object-level only — which flows
+run on an object, not which specific element inside one reads a given
+field) and OmniStudio (field-level, via a plain-text search against
+`OmniProcess`/`OmniProcessElement`, not Tooling API). It does **not**
+cover Apex classes, Apex triggers, or Page Layouts — reading Apex
+source or a layout's definition requires Tooling API, which requires a
+Named Credential, which requires a Connected App, all deliberately
+declined for this tool to keep it a plain "deploy and go" installation
+with nothing calling out or in. `FieldUsageController.cls` carries this
+same reasoning in its own header comment. A field showing no results
+in this screen has not been confirmed unused — only that it wasn't
+found in the two sources this tool can actually see — and the results
+screen says so directly, not just this file.
+
 ## Security
 
 See [docs/SECURITY.md](docs/SECURITY.md) before touching anything

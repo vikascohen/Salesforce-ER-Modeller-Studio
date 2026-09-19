@@ -1007,3 +1007,66 @@
 }
 .dict-field-row:hover td { background: var(--surface-bg-alt); }
 .dict-field-pk td:first-child { font-weight: 700; color: #d4a72c; }
+
+/* ── Field Usage search ── */
+.field-usage-scope-banner {
+    margin: 0;
+    padding: 10px 20px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--surface-text-muted);
+    background: var(--surface-bg-alt);
+    border-bottom: 1px solid var(--surface-border);
+    flex-shrink: 0;
+}
+.field-usage-picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.field-usage-checkbox-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 4px 16px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--surface-border);
+    margin-bottom: 16px;
+}
+.field-usage-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--surface-text);
+    padding: 3px 0;
+    cursor: pointer;
+}
+.field-usage-result-section {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--surface-border);
+}
+.field-usage-result-section:last-child { border-bottom: none; }
+.field-usage-result-field-name {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--surface-text-strong);
+}
+.field-usage-subsection { margin-bottom: 12px; }
+.field-usage-subsection-title {
+    margin: 0 0 4px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--surface-text);
+}
+.field-usage-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: var(--surface-text);
+    line-height: 1.6;
+}
+.error-text { font-size: 12px; color: #d92d20; line-height: 1.5; }
