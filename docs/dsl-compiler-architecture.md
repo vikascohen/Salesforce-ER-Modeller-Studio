@@ -1,36 +1,33 @@
 # The ER DSL Compiler Architecture
 
-Author: Vikas Cohen  
-Compiler Architect and System Designer
+**Author:** Vikas Cohen  
+**Compiler Architect and System Designer**
+
+## Abstract
+
+This document presents an implementation-oriented and academically structured account of the Entity-Relationship (ER) domain-specific language (DSL) compiler used by Salesforce ER Modeller Studio. The compiler translates line-oriented declarations into a normalized semantic graph and then into geometry and target-specific artifacts. Its design illustrates core compiler principles—recognition, semantic analysis, intermediate representations, diagnostics, code generation, and testing—without introducing machinery that the language does not require.
+
+The semantic model is authoritative. Geometry, SVG, Mermaid, draw.io XML, and PNG are derived representations. This invariant allows all renderers to share one interpretation of the source.
+
+---
 
 ## 1. The philosophy behind the compiler
 
-The ER DSL in this project is a small, declarative schema language whose purpose is to define business objects and their relationships. It is not a general-purpose programming language.
+The language is declarative rather than operational. A program specifies entities, fields, and relationships; it does not specify an execution sequence. Its meaning is therefore structural: the compiler constructs a labeled graph and translates that graph into visual targets.
 
-The architecture follows the broad compiler pattern: source text is classified, interpreted into a semantic model, transformed into geometry when needed, and emitted through one or more rendering back ends.
+A useful abstraction is:
 
-The implementation deliberately keeps the pipeline lightweight:
+```text
+source text -> semantic model -> optional geometry IR -> target artifact
+```
 
-- the source is a line-oriented DSL,
-- the grammar is shallow and flat,
-- semantic interpretation happens early,
-- geometry is generated only after the meaning is known,
-- the final product is diagram output rather than executable code.
+`parseEr()` combines line classification, syntactic recognition, and early semantic normalization because the grammar is flat. This is a deliberate application of proportionality. A token stream, parser generator, or AST would become valuable if the language acquired nesting, precedence, blocks, or multiline constructs; for the current grammar, they would add complexity without improving correctness.
 
 ## 2. Why the design is reusable
 
-The project separates concerns along natural compiler boundaries:
+The architecture separates six concerns: source acquisition, syntactic recognition, semantic normalization, domain-model construction, geometry generation, and target rendering. Each boundary has a contract. The parser returns a model or diagnostics; the geometry builder returns coordinates and paths; exporters return target artifacts.
 
-1. textual input,
-2. syntactic recognition,
-3. semantic normalization,
-4. domain model construction,
-5. geometry generation,
-6. target rendering and export.
-
-`parseEr()` performs recognition and early semantic work. The semantic model is a stable intermediate object, `buildErGeometry()` converts that model into diagram coordinates, and exporters such as Mermaid and draw.io consume the same underlying semantics.
-
-The diagram geometry is not the source of truth; the semantic model is. This allows the live canvas, Mermaid export, draw.io XML export, and PNG output to share one interpretation of the source.
+This separation is reusable because meaning is not mixed with presentation. A relationship's kind is semantic; its connector lane is geometric; Mermaid identifier sanitization is target-specific. The semantic model can consequently support the live canvas, Mermaid, draw.io, and PNG without duplicating interpretation logic.
 
 ## 3. The compiler pipeline
 
@@ -39,94 +36,81 @@ flowchart TD
     A["Source Text<br/>DSL input"] --> B["Line-based Lexer / Classifier"]
     B --> C["Top-level Grammar Dispatch"]
     C --> D["Semantic Normalization<br/>ensureEntity / ensureField"]
-    D --> E["Semantic Model<br/>entities, relationships"]
+    D --> E["Semantic Model<br/>entities, fields, relationships"]
     E --> F["Geometry IR<br/>buildErGeometry()"]
     E --> G["Mermaid Export<br/>buildMermaidErDiagram()"]
     F --> H["Canvas Rendering"]
     F --> I["draw.io XML Export"]
     H --> J["PNG Rasterization"]
-    G --> K["Mermaid text target"]
-    I --> L[".drawio target"]
-    H --> M["Live SVG target"]
-
-    style A fill:#f9f,stroke:#333,stroke-width:1px
-    style E fill:#cfe2f3,stroke:#333,stroke-width:1px
-    style F fill:#d9ead3,stroke:#333,stroke-width:1px
-    style G fill:#d9ead3,stroke:#333,stroke-width:1px
-    style I fill:#d9ead3,stroke:#333,stroke-width:1px
 ```
 
-Labels are quoted intentionally. Mermaid flowchart labels containing braces, parentheses, slashes, or HTML breaks can otherwise be interpreted as diagram syntax rather than label text.
+The stages are: split input into lines; classify each line; extract components; intern names and fields; normalize relationships; optionally compute geometry; and emit target syntax. Quoted Mermaid labels are intentional because braces, parentheses, slashes, and HTML breaks can otherwise be parsed as diagram syntax.
 
 ## 4. Main implementation modules
 
 ### 4.1 `erDiagramLogic.js`
 
-This is the compiler core. It owns the parser, semantic model construction, and essential domain logic.
+This is the compiler core. It owns parsing, semantic construction, geometry generation, connector routing, Mermaid generation, draw.io generation, and domain helpers. Keeping these operations near the model makes them independently testable.
 
 ### 4.2 `diagramStudio.js`
 
-This provides the application host. It feeds raw DSL text into the parser and receives the semantic model and diagram data used by the editor and runtime canvas.
+This is the application host. It owns editor state, persisted positions, resizing, interaction, and compiler invocation. It supplies source text to `parseEr()` and layout overrides to `buildErGeometry()`.
 
 ### 4.3 `buildErGeometry()`
 
-This produces the geometry-oriented intermediate representation used for visual rendering, including boxes, connector routes, lane assignments, self-loop paths, and canvas bounds.
+This creates the visual IR: entity boxes, dimensions, visible rows, hidden-field counts, connector paths, self-loops, lane offsets, and canvas bounds. Saved coordinates are presentation state, not source semantics.
 
 ### 4.4 Export generators
 
-The project generates Mermaid text, draw.io XML, SVG on the live canvas, and PNG through a separate rasterization step. Each target has different syntax and presentation constraints, but all depend on the same parsed semantics.
+Mermaid consumes the semantic model and performs layout itself. Canvas and draw.io consume geometry. PNG rasterizes generated SVG through a separate utility. All targets derive from the same semantic interpretation.
 
 ## 5. What a compiler does in this domain
 
-The compiler:
+The compiler reads text, recognizes declarations, extracts names and annotations, resolves identities, normalizes duplicates, constructs a graph, diagnoses invalid input, and translates the graph to target languages. Entities are nodes, fields are node attributes, and relationships are directed edges.
 
-1. reads source text,
-2. recognizes entity and relationship declarations,
-3. resolves them into a normalized semantic model,
-4. emits diagram-oriented output for a display or export backend.
-
-It therefore includes recognition, name and identity tracking, semantic normalization, structure building, validation, and target-specific translation, while omitting features that do not apply to this flat schema language.
+The compiler does not execute business logic, query Salesforce, or calculate authorization. A feature belongs here when it changes accepted syntax, source meaning, or target meaning; user-interface behavior and pixel placement are downstream concerns.
 
 ## 6. Lexical analysis: scanning the text
 
-The language is line-oriented. Each line is classified as an entity declaration, relationship declaration, blank line, comment, or invalid input. The parser effectively performs lexing and parsing in one step.
-
-For example, entity declarations are recognized with a pattern such as:
+The language is line-oriented. Blank lines and lines beginning with `#` are ignored. Recognition uses narrow patterns:
 
 ```js
 const entityMatch = line.match(/^entity\s+(\w+)\s*(:\s*(.*))?$/i);
-```
-
-Relationship declarations use a second pattern:
-
-```js
 const relMatch = line.match(/^(\w+)\.(\w+)\s*(=>|~>|->)\s*(\w+)\s*$/);
 ```
 
-A full token stream is unnecessary because the DSL has no nested grammar or multi-line expression rules.
+The first captures an entity and optional field list; the second captures child entity, child field, operator, and parent entity. Because declarations do not span lines, classification and extraction can safely occur in one operation. Bracket metadata such as `AnnualRevenue[Currency, Required]` is then split into reserved markers and display type text.
 
 ## 7. Indentation and tree construction
 
-Indentation-based parsing and nested AST construction do not apply to the current DSL. There are no nested declarations, block scopes, or meaningful indentation levels. The architecture is intentionally flat because that reflects the actual language.
+Indentation has no semantic significance because the grammar has no blocks, nesting, or continuation lines. An AST is likewise omitted: each declaration contributes directly to a flat semantic graph. Building a tree only to flatten it would be unnecessary overhead.
+
+If namespaces, inheritance blocks, aliases, or multiline declarations are added, an AST should be inserted between recognition and semantic analysis. The semantic-model contract can remain stable while the front end becomes more formal.
 
 ## 8. Grammar and top-level dispatch
 
-Each line is processed by a narrow set of recognizers:
+An informal grammar is:
 
-- entity pattern,
-- relationship pattern,
-- blank or comment pattern,
-- otherwise, parse error.
+```text
+program      ::= line*
+line         ::= blank | comment | entity | relationship
+entity       ::= "entity" identifier (":" field-list)?
+relationship ::= identifier "." identifier operator identifier
+operator     ::= "->" | "=>" | "~>"
+field-list   ::= field ("," field)*
+```
 
-This gives the implementation a simple and readable top-level dispatch structure.
+Dispatch handles blank/comment lines, then entity syntax, then relationship syntax, and otherwise reports an error. Ordering matters: a broad recognizer placed before a narrow one can introduce ambiguity. A written grammar is valuable even for a small DSL because it defines boundaries and guides negative tests.
 
 ## 9. Recursive descent parsing for conditions
 
-This chapter does not apply. The ER schema language does not parse arbitrary boolean expressions, nested predicates, or condition trees. A recursive-descent condition parser would add complexity without representing any current language feature.
+Recursive descent is not applicable because the DSL has no boolean expressions, predicates, precedence, or nested condition nodes. The lesson is methodological: parsing strategy should follow grammar structure, not compiler fashion.
+
+If expressions are added later, parse them into an AST with explicit precedence and analyze them separately. Do not encode nesting in increasingly complex regular expressions.
 
 ## 10. Name resolution and symbol tables
 
-The parser maintains a symbol-table-like map of entities indexed case-insensitively. Conceptually, the operation is:
+Entities are indexed case-insensitively while preserving first-seen display casing:
 
 ```js
 const ensureEntity = (name) => {
@@ -136,110 +120,130 @@ const ensureEntity = (name) => {
 };
 ```
 
-This normalizes entity names, provides stable identity, supports forward references, and allows referenced entities to be created implicitly.
+This establishes identity semantics: `Account`, `account`, and `ACCOUNT` denote one entity. Relationship targets can be referenced before declaration; implicit creation is a deliberate policy that supports forward references. A strict mode could instead diagnose undeclared targets.
+
+A symbol table defines identity, lookup, normalization, and scope. This DSL has one global namespace; larger languages may require nested symbol tables.
 
 ## 11. Stateful interpretation and safe mutation
 
-The semantic model is built incrementally as each line is parsed. Entities live in one map, fields are normalized consistently, duplicate relationships are discarded, and the parser does not need to undo earlier work. This is appropriate because declarations add information monotonically.
+`parseEr()` incrementally updates an entity map, field arrays, relationship records, and a deduplication set. `ensureField()` creates a field once and merges later metadata, so entity declarations and relationship declarations refer to one stable object.
+
+Exact duplicate relationships are identified by child entity, child field, parent entity, and kind. Controlled mutation is acceptable internally, but the returned model should have stable defaults such as `isRelationship`, `relatesTo`, `isRollupSummary`, `isRequired`, and `dataType`. Stable shape reduces downstream defensive code.
 
 ## 12. Intermediate representation and step generation
 
-The semantic model is the primary artifact. The geometry builder creates an optional visual IR containing box positions, box sizes, connector paths, lane assignments, self-loop geometry, and canvas dimensions.
+The semantic model is the primary IR:
 
-Mermaid generation can consume the semantic model directly because Mermaid performs layout itself. The canvas and draw.io exporters require the geometry IR. This provides one shared semantic model with several target-specific generators.
+```js
+{ entities: [{ name, fields: [...] }],
+  relationships: [{ childEntity, childField, parentEntity, kind }] }
+```
+
+It stores meaning rather than pixels. `buildErGeometry()` creates a second IR containing boxes, rows, paths, lane assignments, and SVG dimensions. Mermaid bypasses this IR because it has its own layout engine; canvas and draw.io require it.
+
+Separate IRs localize failures: semantic errors can be tested without a browser, routing errors without reparsing, and escaping errors within one backend.
 
 ## 13. Semantic validation and domain-aware checks
 
-The parser performs domain-aware validation, including case-insensitive entity matching, implicit creation of missing referenced entities, preservation of field metadata, rejection of unrecognized top-level forms, and deduplication of exact duplicate relationships.
+Validation has lexical, syntactic, structural, domain, and target-aware levels. The parser validates line shape, normalizes case, creates missing relationship endpoints according to policy, preserves field metadata, rejects unknown top-level syntax, and deduplicates exact edges.
 
-## 14. User conditions vs record criteria: two expression languages
+Unknown bracket content is retained as display metadata rather than checked against a closed type vocabulary. This distinction between preservation and type checking is important for imported Salesforce metadata. Every permissive behavior should be documented and tested; strict and permissive modes may be useful later.
 
-This chapter does not apply. The source language represents declarations rather than user conditions, record filters, or query predicates.
+## 14. User conditions vs. record criteria: two expression languages
+
+This compiler does not parse filters or predicates. A condition language has truth values, operators, precedence, null semantics, and coercion; the ER DSL has declaration semantics. These should not be conflated.
+
+Diagram filtering should normally remain a view concern. If filters become source syntax, they require an explicit grammar and semantic model rather than embedded JavaScript expressions.
 
 ## 15. Applying steps and graph expansion
 
-This chapter does not apply. The compiler does not evaluate a program step by step or expand a graph through sequential execution.
+The compiler does not execute a program step by step. A relationship declaration creates an edge; it does not trigger traversal or computation. Layout may traverse edges to route connectors, but that is a rendering algorithm, not source execution.
+
+Future dependency or impact analysis should be implemented as explicit analyses over the semantic model, with derived outputs rather than hidden semantic mutations.
 
 ## 16. Access calculation and analysis
 
-This chapter does not apply. The current design does not compute access control, privilege analysis, or authorization graphs.
+The compiler does not calculate authorization, sharing, or privilege. Structural association must not be interpreted as permission. If access analysis is introduced, it should use typed policy edges or a separate analysis model with documented inheritance and override rules.
+
+A display may combine structural and policy information, but the underlying representations should distinguish their meanings.
 
 ## 17. Optimization and performance thinking
 
-Optimization is modest and focused on rendering. Examples include deduplicating relationships, assigning lanes for overlapping connectors, clamping bounds, and reducing visual congestion in dense layouts.
+There is no conventional optimization pass such as constant folding because declarations do not produce executable instructions. Relevant costs are scanning, model construction, geometry, DOM rendering, and rasterization. Recognition is approximately linear in input size; entity lookup uses a map and field lookup uses arrays appropriate for expected diagrams.
+
+The principal optimizations are visual: edge deduplication, lane fan-out, self-loop routing, and canvas-bound clamping. They must preserve semantic invariants. Measure parser, geometry, browser, and export time separately so bottlenecks are correctly located.
 
 ## 18. Diagnostics and error recovery
 
-The main failure modes are unrecognized lines, malformed entity declarations, malformed relationship declarations, and inconsistent semantic references. Diagnostics identify the offending line. Elaborate recovery is unnecessary for this flat and deterministic grammar.
+Failures include unrecognized lines, malformed declarations, and inconsistent input. A useful diagnostic contains severity, line/column, stable code, message, and correction guidance. The current exception-style API is adequate for synchronous compilation; a richer language service could return `{ model, diagnostics }` and continue after errors.
+
+Recovery may skip a malformed line or retain an error node, but must not invent business meaning silently. A partial model with a visible diagnostic is safer than a plausible but incorrect diagram.
 
 ## 19. The code-generation model in the DSL
 
-The project has several target-generation paths:
+Each backend targets a different grammar. Mermaid requires identifier-safe type tokens; draw.io requires XML escaping, IDs, and coordinates; SVG consumes geometry; PNG rasterizes SVG separately. Escaping and sanitization therefore belong at target boundaries, not in the parser.
 
-- Mermaid export requires identifier-safe names and target type tokens,
-- draw.io export writes XML with HTML label content,
-- the canvas renders SVG from geometry structures,
-- PNG export performs a separate rasterization step.
-
-The semantics remain shared while each target applies its own grammar and escaping rules.
+Generators should be deterministic. Stable ordering and IDs improve tests, caching, diffs, and trust. Test special characters, empty entities, all relationship kinds, self-relationships, and parallel edges.
 
 ## 20. Editor integration and language services
 
-The parser and semantic model support autocomplete for entity and field names, relationship suggestions, arrow completion, object suggestions, semantic linter hints, and import-based schema generation. The compiler is therefore a live editing substrate rather than only a batch translator.
+The semantic model supports entity and field completion, relationship suggestions, arrow completion, lint hints, and import assistance. The editor must reuse compiler normalization rules rather than implement a second parser.
+
+Pure parsing and geometry functions can be debounced and cached. Context-sensitive completion should use the cursor position: after `Contact.` suggest fields, after an operator suggest entities, and inside brackets suggest markers or known types. Diagnostics and rendering must agree about case sensitivity and implicit declarations.
 
 ## 21. Testing the compiler properly
 
-The architecture supports parser recognition tests, semantic model tests, geometry layout tests, export generation tests, and end-to-end rendering tests. Semantic tests are especially important because rendering targets should consume trusted semantics rather than independently reimplementing them.
+Tests should be layered: recognition, semantic normalization, geometry, backend emission, and end-to-end rendering/export. Semantic tests have the highest leverage because every target depends on the model.
+
+Property-based tests can enforce invariants such as one entity per normalized identity, no exact duplicate edges, positive box dimensions, and non-degenerate self-loops. Golden files are useful for complete output but should be combined with structural assertions to avoid brittle formatting tests.
 
 ## 22. Complete example end-to-end
-
-Consider:
 
 ```text
 entity Account : Name, AnnualRevenue[Currency]
 Contact.AccountId -> Account
 ```
 
-The first line creates or reuses `Account`; the second creates or reuses `Contact`, adds the relationship field, and records the relationship. The resulting semantic model can then be passed to geometry generation and the selected export backend.
+The first line creates `Account`, `Name`, and `AnnualRevenue` with type metadata. The second creates `Contact`, marks `AccountId` as a relationship field, resolves `Account`, and records a lookup edge. Geometry creates two boxes and a connector; Mermaid produces a dashed non-identifying relationship; draw.io emits positioned cells; SVG renders the live view; PNG rasterizes SVG. No backend reparses the original text.
 
 ## 23. Extending the language
 
-Extensions should follow the compiler pipeline:
+Use this sequence: define syntax and ambiguity rules; update recognition; normalize into explicit model fields; update defaults and consumers; update geometry; update every backend; add positive, negative, semantic, and export tests; document compatibility.
 
-1. syntax recognition,
-2. semantic normalization,
-3. model shape update,
-4. geometry and visual representation,
-5. export translation,
-6. tests.
-
-The semantic model should be updated before renderers are extended.
+A new marker is incomplete if only `parseEr()` recognizes it. It must survive field construction, geometry rows, Mermaid output, draw.io labels, and tests. Extend from the model outward, not from one renderer inward.
 
 ## 24. Current limitations and future improvements
 
-The current constraints are a flat line-based grammar, no nested conditions or expressions, no separate type system, no elaborate optimization pipeline, and no extensive recovery strategy. Future improvements could add richer semantic validation, stronger diagnostics, multi-pass verification for imported schema data, additional targets, and a more explicit IR definition.
+The language is flat, lacks nested expressions and a closed type system, has no conventional optimization pass, and provides limited recovery. Types are primarily display metadata.
+
+Potential improvements include a token stream and AST, structured source-range diagnostics, strict/permissive modes, a Salesforce type registry, schema versioning, stable IDs, incremental parsing, configurable layout, accessibility metadata, and cross-backend conformance tests. Each should be evaluated against complexity, compatibility, and user value.
 
 ## 25. Final architecture summary
 
-The ER DSL is a compact domain-specific compiler with lexical recognition, parsing, symbol resolution, semantic model construction, an optional intermediate representation, target generation, and diagnostics. It deliberately omits deep ASTs, nested expressions, a full type system, dedicated optimization passes, and general-purpose runtime semantics.
+The ER DSL compiler provides line-oriented recognition, shallow dispatch, case-insensitive symbol resolution, incremental semantic normalization, explicit entity/field/relationship structures, optional geometry IR, target-specific emission, diagnostics, language-service support, and layered tests.
+
+Its essential invariant is that the semantic model is authoritative. Geometry, SVG, Mermaid, draw.io, and PNG are derived artifacts, allowing renderers to evolve independently without duplicating language semantics.
 
 ## 26. Design principles every compiler author can reuse
 
-1. Match the architecture to the problem.
-2. Keep the semantic model authoritative.
-3. Use a lightweight front end when the grammar is simple.
-4. Separate syntax from semantics.
-5. Prefer stable intermediate artifacts over ad hoc mutations.
-6. Design targets around grammar differences.
-7. Test the compiler at the semantic layer.
+1. Match architecture to grammar.
+2. Keep semantics authoritative.
+3. Separate syntax from semantic decisions.
+4. Make normalization policies explicit.
+5. Use stable intermediate representations.
+6. Design each backend around its target grammar.
+7. Treat diagnostics as part of the language interface.
+8. Test invariants as well as examples.
+9. Extend from the model outward.
+10. Prefer intentional simplicity over ceremonial complexity.
 
 ## 27. Closing thought
 
-The ER DSL is a small compiler, but it is a carefully designed translation system whose power comes from constraint, clarity, and intentional simplicity. It demonstrates that a system does not need the complexity of a general-purpose language ecosystem to benefit from compiler architecture.
+Compiler engineering applies to diagram languages as much as to general-purpose languages. Symbol tables, intermediate representations, diagnostics, code generation, and semantic invariants remain valuable even when the language contains only declarations. The scale of the language changes the amount of machinery required; it does not remove the need for architectural reasoning.
 
-Vikas Cohen  
-Compiler Architect and System Designer
+**Vikas Cohen**  
+**Compiler Architect and System Designer**
 
 ---
 
-This document reflects the compiler-style architecture used in the ER DSL implementation, as a conceptual model for understanding how the source DSL is transformed into diagram output and export artifacts.
+This document describes the compiler-style architecture used by the ER DSL implementation as a conceptual and technical guide for transforming source declarations into semantic data, diagram geometry, and export artifacts.
