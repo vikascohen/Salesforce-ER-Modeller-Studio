@@ -23,7 +23,7 @@ import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
-import { analyseArchitecture } from 'c/architectureIntelligence';
+import { analyseArchitecture, analyseObject } from 'c/architectureIntelligence';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -87,6 +87,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track exportModalOpen   = false;
     @track architectureOpen  = false;
     @track architectureError = '';
+    @track architectureSelectedObject = '';
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -845,7 +846,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.architectureOpen = !this.architectureOpen;
         if (this.architectureOpen) this.refreshArchitectureAnalysis();
     }
-    handleCloseArchitecture()  { this.architectureOpen = false; }
+    handleCloseArchitecture()  { this.architectureOpen = false; this.architectureSelectedObject=''; }
+    handleArchitectureObjectSelect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
+    handleArchitectureDrillClose() { this.architectureSelectedObject=''; }
+    get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
+    get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
+    get architectureObjectParentsText() { const d=this.architectureObjectDetail; return d?.parents?.length ? d.parents.map(x=>x.name+(x.field?' via '+x.field:'')).join(', ') : 'None in current model'; }
+    get architectureObjectChildrenText() { const d=this.architectureObjectDetail; return d?.children?.length ? d.children.map(x=>x.name+(x.field?' via '+x.field:'')).join(', ') : 'None in current model'; }
+    get architectureObjectCyclesText() { const d=this.architectureObjectDetail; return d?.cycles?.length ? d.cycles.map(c=>c.join(' → ')).join(' | ') : 'No detected cycles involving this object.'; }
+    get architectureObjectReach() { const d=this.architectureObjectDetail; return d ? [d.reach1,d.reach2,d.reach3] : []; }
     refreshArchitectureAnalysis(force=false) {
         const source=this.sourceText || '';
         this.architectureError='';
