@@ -1336,3 +1336,17 @@
 .arch-map-gravity{border:2px solid var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent),0 3px 10px rgba(0,0,0,.18)}.arch-map-gravity span{color:var(--accent);font-weight:700}.arch-map-bridge{border-style:dashed;border-width:2px}
 .arch-map-island{opacity:.72}.arch-map-legend{display:flex;gap:18px;padding:10px 14px 14px;font-size:9px;color:var(--surface-text-muted)}
 @media print{.arch-insight-map{height:420px!important;min-width:0!important;background:#fff!important;break-inside:avoid}.arch-map-node{background:#fff!important;color:#111!important}.arch-map-edge{background:#777!important}}
+
+/* Architecture Map large canvas and explicit relationship direction */
+.arch-map-viewport{height:620px;margin:8px 14px 0;border:1px solid var(--surface-border);border-radius:10px;overflow:scroll;scrollbar-gutter:stable both-edges;background:var(--surface-bg-alt)}
+.arch-map-viewport::-webkit-scrollbar{width:15px;height:15px}.arch-map-viewport::-webkit-scrollbar-track{background:var(--surface-bg)}.arch-map-viewport::-webkit-scrollbar-thumb{background:var(--accent);border:3px solid var(--surface-bg);border-radius:8px}
+.arch-map-viewport .arch-insight-map{position:relative!important;margin:0!important;border:0!important;border-radius:0!important;min-width:0!important;height:auto;overflow:visible!important;background:var(--surface-bg-alt)}
+.arch-map-edge{height:2px!important;overflow:visible!important}.arch-map-edge b{position:absolute;right:-1px;top:50%;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:9px solid var(--surface-border-strong);transform:translateY(-50%);display:block}
+.arch-map-node{width:150px!important;min-height:66px!important}
+@media print{
+ .arch-map-viewport{height:auto!important;overflow:visible!important;margin:8px 0!important;border:0!important}
+ .arch-map-viewport .arch-insight-map{transform:none!important;overflow:visible!important}
+ .arch-map-edge b{border-left-color:#555!important}
+ .arch-map-section{break-before:page;break-after:page}
+ .arch-deep-intelligence,.arch-advice-section{break-before:page}
+}
