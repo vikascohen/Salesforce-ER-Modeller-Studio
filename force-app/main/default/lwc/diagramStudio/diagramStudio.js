@@ -119,6 +119,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
+    _fileLoadToken    = 0;
+    _sharingRequestToken = 0;
+    _heatmapRequestToken = 0;
+    _isDisconnected = false;
     _focusNameOnNextRender = false;
 
     // ── DSL editor panel (left, next to the file explorer) ──
@@ -204,6 +208,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // ────────────────────────────────────────────────────────
 
     connectedCallback() {
+        this._isDisconnected = false;
         window.addEventListener('keydown', this._handleKeyDown = this.handleKeyDown.bind(this));
         window.addEventListener('click',   this._handleGlobalClick = this.handleGlobalClick.bind(this));
         if (this.diagramId) {
@@ -228,6 +233,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     disconnectedCallback() {
+        this._isDisconnected = true;
+        this._fileLoadToken++;
+        this._sharingRequestToken++;
+        this._heatmapRequestToken++;
+        this._dictionaryRequestToken++;
+        [this.renderTimer, this._sharingFetchTimer, this._heatmapFetchTimer, this._hoverTimer, this._relScanTimer].forEach((timer) => clearTimeout(timer));
         window.removeEventListener('keydown', this._handleKeyDown);
         window.removeEventListener('click',   this._handleGlobalClick);
     }
@@ -939,8 +950,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async loadById(id) {
+        const myToken = ++this._fileLoadToken;
         try {
             const rec = await getFile({ fileId: id });
+            if (myToken !== this._fileLoadToken || this._isDisconnected) return;
             if (rec) {
                 this.currentId  = rec.Id;
                 this.fileName   = rec.Name;
@@ -960,7 +973,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.errorMessage = `No saved diagram found for Id "${id}".`;
             }
         } catch (e) {
-            this.errorMessage = this.reduceError(e);
+            if (myToken === this._fileLoadToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
         }
     }
 
@@ -1586,12 +1599,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async fetchSharingModels() {
         if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
+        const myToken = ++this._sharingRequestToken;
+        const names = this._erBoxes.map((b) => b.name);
+        const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const names = this._erBoxes.map((b) => b.name);
             const [fresh, freshSignals] = await Promise.all([
                 getSharingModels({ objectApiNames: names }),
                 getSharingSignals({ objectApiNames: names })
             ]);
+            const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+            if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
             Object.keys(fresh || {}).forEach((name) => {
                 next[name.toLowerCase()] = {
@@ -1645,9 +1662,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async fetchRecordCounts() {
         if (!this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
+        const myToken = ++this._heatmapRequestToken;
+        const names = this._erBoxes.map((b) => b.name);
+        const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const names = this._erBoxes.map((b) => b.name);
             const fresh = await getRecordCounts({ objectApiNames: names });
+            const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+            if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
             Object.keys(fresh || {}).forEach((name) => { next[name.toLowerCase()] = fresh[name]; });
             this.recordCounts = next;
@@ -1857,10 +1878,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async handleCalculateUsage() {
         if (!this.dictionaryRow) return;
+        const myToken = this._dictionaryRequestToken;
+        const objectName = this.dictionaryRow.apiName;
         this.dictionaryUsagePending = true;
         try {
             const fieldNames = this.dictionaryRow.fields.filter((f) => !f.isPrimaryKey).map((f) => f.apiName);
-            const stats = await getFieldUsageStats({ objectApiName: this.dictionaryRow.apiName, fieldApiNames: fieldNames });
+            const stats = await getFieldUsageStats({ objectApiName: objectName, fieldApiNames: fieldNames });
+            if (myToken !== this._dictionaryRequestToken || !this.dictionaryRow || this.dictionaryRow.apiName !== objectName || this._isDisconnected) return;
             const pct = (stats && stats.percentages) || {};
             this.dictionaryRow = {
                 ...this.dictionaryRow,
@@ -1872,9 +1896,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.dictionaryUsageComputed = true;
             if (stats && stats.error) this.errorMessage = stats.error;
         } catch (e) {
-            this.errorMessage = this.reduceError(e);
+            if (myToken === this._dictionaryRequestToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
         } finally {
-            this.dictionaryUsagePending = false;
+            if (myToken === this._dictionaryRequestToken && !this._isDisconnected) this.dictionaryUsagePending = false;
         }
     }
 
