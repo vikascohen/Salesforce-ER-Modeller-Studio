@@ -1135,3 +1135,19 @@
 .dict-intelligence-collapsed .dict-intelligence-body{display:none}
 .dict-intelligence-expanded{height:360px}
 .dict-intelligence-body{min-width:0}
+
+/* Data Model Archaeologist: on demand intelligence, deliberately outside the normal dictionary flow. */
+.dict-archaeologist-launch{font-weight:700;border-color:var(--accent)!important}
+.dict-archaeologist-overlay{position:absolute;inset:0;z-index:30;background:var(--surface-bg);overflow:auto;padding:18px}
+.dict-archaeologist-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:4px 2px 16px;border-bottom:1px solid var(--surface-border)}
+.dict-archaeologist-head>div{display:flex;flex-direction:column;gap:4px}.dict-archaeologist-head strong{font-size:20px;color:var(--surface-text-strong)}.dict-archaeologist-head p{margin:0;max-width:720px;color:var(--surface-text-muted);font-size:11px}
+.dict-archaeology-facts{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:16px 0}
+.dict-archaeology-facts article{border:1px solid var(--surface-border);background:var(--surface-bg-alt);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:5px}
+.dict-archaeology-facts article>span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--surface-text-muted)}.dict-archaeology-facts article>strong{font-size:22px;color:var(--surface-text-strong)}.dict-archaeology-facts p{margin:0;font-size:10px;color:var(--surface-text-muted);line-height:1.45}
+.dict-archaeology-section{border:1px solid var(--surface-border);border-radius:8px;background:var(--surface-bg-alt);padding:12px;margin-top:10px}
+.dict-archaeology-title{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}.dict-archaeology-title strong{font-size:12px;color:var(--surface-text-strong)}.dict-archaeology-title span{font-size:10px;color:var(--surface-text-muted)}
+.dict-family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.dict-family-card{appearance:none;text-align:left;border:1px solid var(--surface-border);border-radius:7px;background:var(--surface-bg);padding:10px;cursor:pointer;color:var(--surface-text);display:flex;flex-direction:column;gap:4px}.dict-family-card:hover{border-color:var(--accent);transform:translateY(-1px)}.dict-family-card span{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--surface-text-muted)}.dict-family-card strong{font-size:13px}.dict-family-card small{font-size:9px;color:var(--surface-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dict-archaeology-columns{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dict-landscape{display:flex;flex-direction:column;gap:5px}.dict-landscape-row{display:flex;justify-content:space-between;gap:10px;padding:7px 8px;border-bottom:1px solid var(--surface-border);font-size:10px}.dict-landscape-row strong{color:var(--surface-text-strong)}
+.dict-overlap-list{display:flex;flex-direction:column;gap:6px}.dict-overlap-list article{border-left:3px solid var(--accent);padding:7px 9px;background:var(--surface-bg)}.dict-overlap-list article strong,.dict-overlap-list article span{font-size:10px}.dict-overlap-list article span{margin-left:8px;color:var(--surface-text-muted)}.dict-overlap-list p{margin:4px 0 0;font-size:9px;color:var(--surface-text-muted);overflow-wrap:anywhere}
+@media(max-width:900px){.dict-archaeology-facts{grid-template-columns:1fr 1fr}.dict-archaeology-columns{grid-template-columns:1fr}}
