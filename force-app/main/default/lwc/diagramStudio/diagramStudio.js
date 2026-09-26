@@ -193,6 +193,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryOpen       = false;
     @track dictionaryFullScreen = true;
     @track dictionarySearch     = '';
+    @track dictionaryFieldSearch = '';
+    @track dictionaryFieldFilter = 'all';
+    @track dictionarySelectedField = '';
     @track dictionarySelectedObject = null;
     @track dictionaryRow        = null;  // ObjectWrap for the selected object
     @track dictionaryLoading    = false;
@@ -494,22 +497,99 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionarySort = { column, direction };
     }
 
+    get dictionaryRawFields() { return (this.dictionaryRow&&this.dictionaryRow.fields)||[]; }
+    get dictionaryObjectSummary() {
+        const fields=this.dictionaryRawFields, nonPk=fields.filter(f=>!f.isPrimaryKey);
+        const custom=nonPk.filter(f=>f.isCustom).length, relationships=nonPk.filter(f=>f.isRelationship).length;
+        const required=nonPk.filter(f=>f.required).length, formulas=nonPk.filter(f=>String(f.dataType||'').startsWith('Formula')).length;
+        const picklists=nonPk.filter(f=>String(f.dataType||'').includes('Picklist')).length;
+        const described=nonPk.filter(f=>(f.description||'').trim()).length;
+        return [
+            {label:'Fields',value:nonPk.length},{label:'Custom',value:custom},{label:'Required',value:required},
+            {label:'Relationships',value:relationships},{label:'Formula',value:formulas},{label:'Picklist',value:picklists},
+            {label:'Documented',value:nonPk.length?Math.round(described/nonPk.length*100)+'%':'—'}
+        ];
+    }
+    get dictionaryMetadataFindings() {
+        const fields=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), findings=[];
+        const missing=fields.filter(f=>f.isCustom&&!(f.description||'').trim());
+        if(missing.length) findings.push({key:'descriptions',kind:'DOCUMENTATION',title:missing.length+' custom field'+(missing.length===1?' is':'s are')+' missing descriptions',detail:'Descriptions make intent easier to understand for architects, designers and developers. Missing descriptions are documentation gaps, not proof that a field is unnecessary.'});
+        const rel=fields.filter(f=>f.isRelationship);
+        if(rel.length) findings.push({key:'relationships',kind:'RELATIONSHIPS',title:rel.length+' relationship field'+(rel.length===1?'':'s')+' connect this object',detail:'Relationship fields define this object’s structural dependencies. Review their targets and relationship types when assessing change impact.'});
+        const formulas=fields.filter(f=>String(f.dataType||'').startsWith('Formula'));
+        if(formulas.length) findings.push({key:'formula',kind:'DERIVED DATA',title:formulas.length+' formula field'+(formulas.length===1?'':'s')+' detected',detail:'Formula fields represent derived behaviour. They are useful review points when changing source fields or business semantics.'});
+        if(this.dictionaryUsageComputed){
+            const zero=fields.filter(f=>f.percentUsed===0), low=fields.filter(f=>f.percentUsed>0&&f.percentUsed<5);
+            if(zero.length) findings.push({key:'unused',kind:'USAGE',title:zero.length+' field'+(zero.length===1?' has':'s have')+' 0% population',detail:'These are review candidates only. A zero population rate can be valid for new, seasonal, integration-specific or rarely used fields.'});
+            if(low.length) findings.push({key:'low',kind:'USAGE',title:low.length+' field'+(low.length===1?' is':'s are')+' below 5% population',detail:'Low population can signal specialised fields or possible simplification opportunities. Confirm business purpose before drawing conclusions.'});
+        }
+        return findings.slice(0,6);
+    }
+    get dictionaryRelationshipRows() {
+        return this.dictionaryRawFields.filter(f=>f.isRelationship).map(f=>({key:f.apiName,field:f.apiName,target:f.relatesTo||'—',type:f.dataType||f.relationshipType||'Relationship'}));
+    }
+    get dictionaryHasRelationships() { return this.dictionaryRelationshipRows.length>0; }
+    get dictionaryUsageSummary() {
+        if(!this.dictionaryUsageComputed) return [];
+        const fields=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey&&f.percentUsed!=null);
+        return [
+            {label:'0% populated',value:fields.filter(f=>f.percentUsed===0).length},
+            {label:'Below 5%',value:fields.filter(f=>f.percentUsed>0&&f.percentUsed<5).length},
+            {label:'5–49%',value:fields.filter(f=>f.percentUsed>=5&&f.percentUsed<50).length},
+            {label:'50–89%',value:fields.filter(f=>f.percentUsed>=50&&f.percentUsed<90).length},
+            {label:'90%+',value:fields.filter(f=>f.percentUsed>=90).length}
+        ];
+    }
+    get dictionaryHasUsageSummary() { return this.dictionaryUsageComputed&&this.dictionaryUsageSummary.length>0; }
+    get dictionaryFilterOptions() { return [
+        {label:'All fields',value:'all'},{label:'Custom',value:'custom'},{label:'Standard',value:'standard'},
+        {label:'Required',value:'required'},{label:'Relationships',value:'relationship'},{label:'Formula',value:'formula'},
+        {label:'Picklist',value:'picklist'},{label:'Missing description',value:'undocumented'},
+        {label:'0% used',value:'unused'},{label:'Below 5% used',value:'lowusage'}
+    ]; }
+    get dictionaryFilteredSortedFields() {
+        const q=(this.dictionaryFieldSearch||'').trim().toLowerCase(), filter=this.dictionaryFieldFilter;
+        return this.getSortedDictionaryFields().filter(f=>{
+            if(q&&![(f.apiName||''),(f.label||''),(f.description||''),(f.dataType||''),(f.relatesTo||'')].some(v=>v.toLowerCase().includes(q))) return false;
+            if(filter==='custom'&&!f.isCustom) return false;
+            if(filter==='standard'&&f.isCustom) return false;
+            if(filter==='required'&&!f.required) return false;
+            if(filter==='relationship'&&!f.isRelationship) return false;
+            if(filter==='formula'&&!String(f.dataType||'').startsWith('Formula')) return false;
+            if(filter==='picklist'&&!String(f.dataType||'').includes('Picklist')) return false;
+            if(filter==='undocumented'&&(f.description||'').trim()) return false;
+            if(filter==='unused'&&f.percentUsed!==0) return false;
+            if(filter==='lowusage'&&!(f.percentUsed>0&&f.percentUsed<5)) return false;
+            return true;
+        });
+    }
+    get dictionaryVisibleFieldCount() { return this.dictionaryFilteredSortedFields.length; }
     get dictionaryFieldRows() {
-        return this.getSortedDictionaryFields().map((f) => ({
-            key: f.apiName,
-            apiName: f.apiName,
-            label: f.label || '',
-            description: f.description || '—',
-            dataType: f.dataType || '',
-            requiredText: f.required ? 'Yes' : 'No',
-            customText: f.isCustom ? 'Yes' : 'No',
-            pkText: f.isPrimaryKey ? 'Yes' : 'No',
-            fkText: f.isRelationship ? 'Yes' : 'No',
-            fkTarget: f.isRelationship ? (f.relatesTo || '—') : '—',
-            lastModified: f.lastModifiedDate || '—',
-            usageText: f.percentUsed != null ? (Math.round(f.percentUsed * 10) / 10 + '%') : (this.dictionaryUsageComputed ? 'N/A' : '—'),
-            rowClass: f.isPrimaryKey ? 'dict-field-row dict-field-pk' : 'dict-field-row'
+        return this.dictionaryFilteredSortedFields.map((f) => ({
+            key: f.apiName, apiName:f.apiName, label:f.label||'', description:f.description||'—', dataType:f.dataType||'',
+            requiredText:f.required?'Yes':'No', customText:f.isCustom?'Yes':'No', pkText:f.isPrimaryKey?'Yes':'No',
+            fkText:f.isRelationship?'Yes':'No', fkTarget:f.isRelationship?(f.relatesTo||'—'):'—',
+            lastModified:f.lastModifiedDate||'—', usageText:f.percentUsed!=null?(Math.round(f.percentUsed*10)/10+'%'):(this.dictionaryUsageComputed?'N/A':'—'),
+            rowClass:f.isPrimaryKey?'dict-field-row dict-field-pk':'dict-field-row'
         }));
+    }
+    handleDictionaryFieldSearch(event){ this.dictionaryFieldSearch=event.target.value||''; }
+    handleDictionaryFieldFilter(event){ this.dictionaryFieldFilter=event.target.value||'all'; }
+    handleDictionaryFieldSelect(event){ this.dictionarySelectedField=event.currentTarget.dataset.name||''; }
+    handleDictionaryFieldDrillClose(){ this.dictionarySelectedField=''; }
+    get dictionaryFieldDetail(){
+        const f=this.dictionaryRawFields.find(x=>x.apiName===this.dictionarySelectedField); if(!f) return null;
+        return {apiName:f.apiName,label:f.label||'',description:f.description||'No description provided.',dataType:f.dataType||'',
+            required:f.required?'Yes':'No',custom:f.isCustom?'Yes':'No',relationship:f.isRelationship?'Yes':'No',
+            target:f.isRelationship?(f.relatesTo||'—'):'—',lastModified:f.lastModifiedDate||'—',
+            usage:f.percentUsed!=null?(Math.round(f.percentUsed*10)/10+'%'):(this.dictionaryUsageComputed?'N/A':'Not calculated')};
+    }
+    get dictionaryHasFieldDetail(){ return !!this.dictionaryFieldDetail; }
+    handleDictionaryViewArchitecture(){
+        const name=this.dictionarySelectedObject; if(!name) return;
+        this.dictionaryOpen=false; this.architectureOpen=true; this.refreshArchitectureAnalysis(true);
+        const exists=(this.architectureNodes||[]).some(n=>n.name.toLowerCase()===name.toLowerCase());
+        this.architectureSelectedObject=exists?name:'';
     }
     get dictSortArrowApiName() { return this.dictSortArrowFor('apiName'); }
     get dictSortArrowCustom()  { return this.dictSortArrowFor('isCustom'); }
@@ -1951,6 +2031,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionaryRow = null;
         this.dictionaryUsageComputed = false;
         this.dictionarySort = null;
+        this.dictionaryFieldSearch=''; this.dictionaryFieldFilter='all'; this.dictionarySelectedField='';
         this.dictionaryLoading = true;
         try {
             const rows = await describeObjectsForDictionary({ objectApiNames: [name] });
