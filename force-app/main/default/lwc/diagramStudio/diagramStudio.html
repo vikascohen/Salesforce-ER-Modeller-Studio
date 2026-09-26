@@ -572,12 +572,32 @@
     <!-- PHASE 2: DATA ARCHITECTURE INTELLIGENCE -->
     <template if:true={architectureOpen}>
         <div class="arch-panel">
-            <div class="arch-header"><div><span class="arch-kicker">PHASE 2</span><span class="arch-title">Data Architecture Intelligence</span></div><button class="modal-close" onclick={handleCloseArchitecture}>x</button></div>
+            <div class="arch-header">
+                <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Structural evidence from the ER model currently on the canvas.</div></div>
+                <div class="arch-header-actions"><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
+            </div>
             <template if:true={architectureHasModel}>
-                <div class="arch-summary"><template for:each={architectureSummary} for:item="m"><div class="arch-metric" key={m.label}><span class="arch-metric-value">{m.value}</span><span class="arch-metric-label">{m.label}</span></div></template></div>
-                <div class="arch-insights"><div><strong>Structural hubs</strong><p>{architectureHubsText}</p></div><div><strong>Isolated objects</strong><p>{architectureIslandsText}</p></div><div><strong>Relationship cycles</strong><p>{architectureCyclesText}</p></div></div>
-                <div class="arch-table-wrap"><table class="arch-table"><thead><tr><th>Object</th><th>Fields</th><th>Incoming</th><th>Outgoing</th><th>Degree</th><th>Required</th><th>Rollups</th></tr></thead><tbody><template for:each={architectureNodes} for:item="n"><tr key={n.name}><td>{n.name}</td><td>{n.fieldCount}</td><td>{n.incoming}</td><td>{n.outgoing}</td><td>{n.degree}</td><td>{n.requiredFieldCount}</td><td>{n.rollupFieldCount}</td></tr></template></tbody></table></div>
-                <p class="arch-note">Descriptive data-model graph metrics only. Security posture and permission analysis remain outside ER Modeller Studio.</p>
+                <section class="arch-section"><div class="arch-section-head"><span>Model Overview</span><span class="arch-section-hint">Current diagram</span></div>
+                    <div class="arch-summary"><template for:each={architectureSummary} for:item="m"><div class="arch-metric" key={m.label}><span class="arch-metric-value">{m.value}</span><span class="arch-metric-label">{m.label}</span></div></template></div>
+                </section>
+                <section class="arch-section"><div class="arch-section-head"><span>Complexity &amp; Topology</span><span class="arch-section-hint">Graph characteristics</span></div>
+                    <div class="arch-topology"><template for:each={architectureTopologySummary} for:item="m"><div class="arch-topology-row" key={m.label}><span>{m.label}</span><strong>{m.value}</strong></div></template></div>
+                </section>
+                <section class="arch-section"><div class="arch-section-head"><span>Architecture Observations</span><span class="arch-section-hint">Evidence, not a health score</span></div>
+                    <div class="arch-observations"><template for:each={architectureObservations} for:item="o"><div class="arch-observation" key={o.title}><span class="arch-tag">{o.kind}</span><div><strong>{o.title}</strong><p>{o.detail}</p></div></div></template></div>
+                </section>
+                <section class="arch-section"><div class="arch-section-head"><span>Hotspots &amp; Shape</span><span class="arch-section-hint">Where model complexity concentrates</span></div>
+                    <div class="arch-insights">
+                        <div><strong>Structural hubs</strong><p>{architectureHubsText}</p></div>
+                        <div><strong>Isolated objects</strong><p>{architectureIslandsText}</p></div>
+                        <div><strong>Relationship cycles</strong><p>{architectureCyclesText}</p></div>
+                    </div>
+                    <div class="arch-ranked-grid"><div><h4>Most connected</h4><template for:each={architectureMostConnected} for:item="n"><div class="arch-rank-row" key={n.name}><span>{n.name}</span><strong>{n.degree} rel.</strong></div></template></div><div><h4>Largest definitions</h4><template for:each={architectureLargestObjects} for:item="n"><div class="arch-rank-row" key={n.name}><span>{n.name}</span><strong>{n.fieldCount} fields</strong></div></template></div></div>
+                </section>
+                <section class="arch-section"><div class="arch-section-head"><span>Object-Level Metrics</span><span class="arch-section-hint">Sorted by relationship degree</span></div>
+                    <div class="arch-table-wrap"><table class="arch-table"><thead><tr><th>Object</th><th>Fields</th><th>Rel. Fields</th><th>Incoming</th><th>Outgoing</th><th>Total Degree</th><th>Required</th><th>Rollups</th></tr></thead><tbody><template for:each={architectureNodes} for:item="n"><tr key={n.name}><td class="arch-object-name">{n.name}</td><td>{n.fieldCount}</td><td>{n.relationshipFieldCount}</td><td>{n.incoming}</td><td>{n.outgoing}</td><td><strong>{n.degree}</strong></td><td>{n.requiredFieldCount}</td><td>{n.rollupFieldCount}</td></tr></template></tbody></table></div>
+                </section>
+                <div class="arch-boundary"><strong>Scope:</strong> data-model architecture only. Permissions, CRUD/FLS, vulnerability and security-posture analysis remain outside ER Modeller Studio.</div>
             </template>
             <template if:false={architectureHasModel}><div class="arch-empty">Add or import objects to the diagram to analyse its architecture.</div></template>
         </div>
