@@ -1327,3 +1327,12 @@
 .arch-deep-row{display:grid;grid-template-columns:minmax(110px,.35fr) minmax(0,1fr);gap:10px;align-items:start;padding:8px 0;border-bottom:1px solid var(--surface-border);font-size:9.5px}.arch-deep-row:last-child{border-bottom:0}.arch-deep-row>span{color:var(--surface-text-muted);line-height:1.4}.arch-corridor-row strong{color:var(--accent)}
 @media(max-width:900px){.arch-deep-grid{grid-template-columns:1fr}}
 @media print{.arch-deep-card{background:#fff!important;color:#111!important;break-inside:avoid}.arch-deep-title span,.arch-deep-row>span{color:#333!important}}
+
+/* Architecture Map: visual explanation before analytical insight */
+.arch-map-explainer{display:flex;gap:10px;align-items:baseline;padding:10px 14px;border-bottom:1px solid var(--surface-border);font-size:10px}.arch-map-explainer strong{color:var(--accent);white-space:nowrap}.arch-map-explainer span{color:var(--surface-text-muted)}
+.arch-insight-map{position:relative;height:520px;min-width:820px;margin:8px 14px 0;border:1px solid var(--surface-border);border-radius:10px;background:var(--surface-bg-alt);overflow:hidden}
+.arch-map-edge{position:absolute;height:1px;background:var(--surface-border-strong);transform-origin:0 50%;z-index:1;opacity:.7}
+.arch-map-node{position:absolute;transform:translate(-50%,-50%);z-index:3;width:132px;min-height:58px;padding:7px;border:1px solid var(--surface-border-strong);border-radius:8px;background:var(--surface-bg);color:var(--surface-text);text-align:left;box-shadow:0 2px 8px rgba(0,0,0,.12);cursor:pointer}.arch-map-node strong,.arch-map-node span,.arch-map-node small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.arch-map-node strong{font-size:10px;color:var(--surface-text-strong)}.arch-map-node span{font-size:8px;color:var(--surface-text-muted);margin:3px 0}.arch-map-node small{font-size:8px;color:var(--surface-text-muted)}
+.arch-map-gravity{border:2px solid var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent),0 3px 10px rgba(0,0,0,.18)}.arch-map-gravity span{color:var(--accent);font-weight:700}.arch-map-bridge{border-style:dashed;border-width:2px}
+.arch-map-island{opacity:.72}.arch-map-legend{display:flex;gap:18px;padding:10px 14px 14px;font-size:9px;color:var(--surface-text-muted)}
+@media print{.arch-insight-map{height:420px!important;min-width:0!important;background:#fff!important;break-inside:avoid}.arch-map-node{background:#fff!important;color:#111!important}.arch-map-edge{background:#777!important}}
