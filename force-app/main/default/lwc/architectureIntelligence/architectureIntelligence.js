@@ -22,6 +22,8 @@ export function analyseArchitecture(model) {
     const incoming = new Map(names.map(n => [n.toLowerCase(), 0]));
     const outgoing = new Map(names.map(n => [n.toLowerCase(), 0]));
     const adjacency = new Map(names.map(n => [n.toLowerCase(), new Set()]));
+    const outboundByNode = new Map(names.map(n => [n.toLowerCase(), []]));
+    const inboundByNode = new Map(names.map(n => [n.toLowerCase(), []]));
 
     const ignoredRelationships=[];
     relationships.forEach((r,index) => {
@@ -32,8 +34,10 @@ export function analyseArchitecture(model) {
         }
         outgoing.set(c,(outgoing.get(c)||0)+1);
         incoming.set(p,(incoming.get(p)||0)+1);
-        if(adjacency.has(c)) adjacency.get(c).add(p);
-        if(adjacency.has(p)) adjacency.get(p).add(c);
+        adjacency.get(c).add(p);
+        adjacency.get(p).add(c);
+        outboundByNode.get(c).push(r);
+        inboundByNode.get(p).push(r);
     });
 
     const nodes = entities.map(e => {
@@ -53,7 +57,10 @@ export function analyseArchitecture(model) {
     const hubs = nodes.filter(n=>n.degree>=Math.max(3, Math.ceil(relationships.length/Math.max(1,entities.length))));
     const islands = nodes.filter(n=>n.degree===0);
 
-    return {
+    const validRelationships = relationships.filter(r =>
+        adjacency.has(r.childEntity.toLowerCase()) && adjacency.has(r.parentEntity.toLowerCase())
+    );
+    const analysis = {
         entityCount:entities.length, fieldCount:entities.reduce((s,e)=>s+(e.fields||[]).length,0),
         relationshipCount:relationships.length,
         lookupCount:relationships.filter(r=>r.kind==='lookup').length,
@@ -65,10 +72,17 @@ export function analyseArchitecture(model) {
         averageFieldsPerObject:Number(avgFields.toFixed(1)),
         mostConnected:nodes.slice(0,5),
         largestObjects:[...nodes].sort((a,b)=>b.fieldCount-a.fieldCount || a.name.localeCompare(b.name)).slice(0,5),
-        relationships: relationships.filter(r=>adjacency.has(r.childEntity.toLowerCase())&&adjacency.has(r.parentEntity.toLowerCase())),
+        relationships: validRelationships,
         ignoredRelationships,
-        observations: buildObservations(nodes, relationships, components, cycles, maxDepth, avgDegree, ignoredRelationships)
+        observations: buildObservations(nodes, validRelationships, components, cycles, maxDepth, avgDegree, ignoredRelationships)
     };
+
+    Object.defineProperty(analysis, '_graphIndex', {
+        value: { names: byKey, adj: adjacency, outboundByNode, inboundByNode },
+        enumerable: false,
+        writable: false
+    });
+    return analysis;
 }
 function connectedComponents(names, adjacency) {
     const seen = new Set();
@@ -248,34 +262,21 @@ export function analyseObject(analysis, objectName) {
     const node = nodes.find(item => item.name.toLowerCase() === key);
     if (!node) return null;
 
-    const relationships = analysis.relationships || [];
-    const parents = [];
-    const children = [];
-    const neighbors = new Set();
-
-    relationships.forEach(relationship => {
-        const child = relationship.childEntity.toLowerCase();
-        const parent = relationship.parentEntity.toLowerCase();
-
-        if (child === key) {
-            parents.push({
-                name: relationship.parentEntity,
-                field: relationship.childField || '',
-                kind: relationship.kind || 'relationship'
-            });
-            neighbors.add(relationship.parentEntity);
-        }
-        if (parent === key) {
-            children.push({
-                name: relationship.childEntity,
-                field: relationship.childField || '',
-                kind: relationship.kind || 'relationship'
-            });
-            neighbors.add(relationship.childEntity);
-        }
-    });
-
-    const { names, adj } = graphIndex(analysis);
+    const { names, adj, outboundByNode, inboundByNode } = graphIndex(analysis);
+    const parents = (outboundByNode.get(key) || []).map(relationship => ({
+        name: relationship.parentEntity,
+        field: relationship.childField || '',
+        kind: relationship.kind || 'relationship'
+    }));
+    const children = (inboundByNode.get(key) || []).map(relationship => ({
+        name: relationship.childEntity,
+        field: relationship.childField || '',
+        kind: relationship.kind || 'relationship'
+    }));
+    const neighbors = new Set([
+        ...parents.map(parent => parent.name),
+        ...children.map(child => child.name)
+    ]);
     const levels = [];
     let frontier = new Set([key]);
     const seen = new Set([key]);
@@ -323,10 +324,14 @@ export function analyseObject(analysis, objectName) {
 }
 
 function graphIndex(analysis) {
+    if (analysis?._graphIndex) return analysis._graphIndex;
+
     const nodes = analysis?.nodes || [];
     const relationships = analysis?.relationships || [];
     const names = new Map(nodes.map(node => [node.name.toLowerCase(), node.name]));
     const adj = new Map(nodes.map(node => [node.name.toLowerCase(), new Set()]));
+    const outboundByNode = new Map(nodes.map(node => [node.name.toLowerCase(), []]));
+    const inboundByNode = new Map(nodes.map(node => [node.name.toLowerCase(), []]));
 
     relationships.forEach(relationship => {
         const child = relationship.childEntity.toLowerCase();
@@ -334,10 +339,12 @@ function graphIndex(analysis) {
         if (adj.has(child) && adj.has(parent)) {
             adj.get(child).add(parent);
             adj.get(parent).add(child);
+            outboundByNode.get(child).push(relationship);
+            inboundByNode.get(parent).push(relationship);
         }
     });
 
-    return { names, adj };
+    return { names, adj, outboundByNode, inboundByNode };
 }
 
 export function findArchitecturePath(analysis, source, target) {
@@ -427,13 +434,11 @@ export function analyseBlastRadius(analysis, objectName, maxDepth = 3) {
 export function detectJunctionObjects(analysis) {
     if (!analysis) return [];
 
-    const relationships = analysis.relationships || [];
+    const { outboundByNode } = graphIndex(analysis);
     return (analysis.nodes || [])
         .map(node => {
             const nodeKey = node.name.toLowerCase();
-            const outbound = relationships.filter(
-                relationship => relationship.childEntity.toLowerCase() === nodeKey
-            );
+            const outbound = outboundByNode.get(nodeKey) || [];
             const targets = [...new Set(outbound.map(
                 relationship => relationship.parentEntity.toLowerCase()
             ))];
