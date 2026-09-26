@@ -37,3 +37,7 @@ Later Phase 2 work can add schema snapshots/drift history, domain grouping and c
 Architecture Intelligence is designed for interactive use on large Salesforce models. Analysis is performed locally over the already-parsed diagram, with no additional server round-trip. Graph depth uses bounded breadth-first traversal rather than exponential longest-simple-path enumeration; cycle discovery is depth- and result-limited; and the LWC caches analysis for an unchanged DSL source so reactive getters do not repeatedly recompute the graph.
 
 The feature should continue to prefer deterministic O(V+E) / polynomial graph operations, bounded result sets and lazy/on-open computation as new intelligence capabilities are added.
+
+## Error handling
+
+Architecture Intelligence fails closed and does not mutate the diagram. Invalid parsed-model inputs produce explicit errors; malformed relationships whose endpoints are absent are excluded from graph calculations and reported as data-quality observations. The UI distinguishes an empty model from an analysis failure, displays a recoverable error state, and offers Retry Analysis after the underlying DSL/model is corrected.
