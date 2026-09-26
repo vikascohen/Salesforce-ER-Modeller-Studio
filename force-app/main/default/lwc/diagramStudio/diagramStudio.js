@@ -85,6 +85,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // ── export modal ──
     @track exportModalOpen   = false;
+    @track architectureOpen  = false;
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
