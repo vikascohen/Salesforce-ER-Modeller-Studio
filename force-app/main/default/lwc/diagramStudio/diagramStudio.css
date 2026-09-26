@@ -1080,3 +1080,46 @@
 .dict-field-drill-head{display:flex;justify-content:space-between;gap:10px}.dict-field-drill-head>div{display:flex;flex-direction:column;gap:3px}.dict-field-drill-head strong{font-size:16px;color:var(--surface-text-strong)}.dict-field-drill-head p{font-size:10px;color:var(--surface-text-muted);margin:0}.dict-field-description{font-size:10.5px;line-height:1.5;color:var(--surface-text);padding:10px 0;border-bottom:1px solid var(--surface-border)}
 .dict-field-facts{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dict-field-facts>div{border:1px solid var(--surface-border);border-radius:5px;padding:7px;display:flex;flex-direction:column;gap:2px}.dict-field-facts span{font-size:8.5px;text-transform:uppercase;color:var(--surface-text-muted)}.dict-field-facts strong{font-size:10px;color:var(--surface-text-strong)}
 @media(max-width:1000px){.dict-summary-grid{grid-template-columns:repeat(4,1fr)}.dict-findings{grid-template-columns:1fr}.dict-field-tools{grid-template-columns:1fr 170px}.dict-visible-count{grid-column:1/-1}.dict-field-drill{width:min(520px,75%)}}
+
+
+/* Phase 2 Architecture Intelligence: explicit two-axis scrolling.
+   Keep the scroll affordance visible so users immediately know the
+   full-screen workspace continues both vertically and horizontally. */
+.arch-panel{
+  overflow:scroll!important;
+  scrollbar-width:auto;
+  scrollbar-color:var(--accent) var(--surface-bg-alt);
+}
+.arch-panel::-webkit-scrollbar{
+  width:14px;
+  height:14px;
+}
+.arch-panel::-webkit-scrollbar-track{
+  background:var(--surface-bg-alt);
+  border-left:1px solid var(--surface-border);
+  border-top:1px solid var(--surface-border);
+}
+.arch-panel::-webkit-scrollbar-thumb{
+  background:var(--accent);
+  border:3px solid var(--surface-bg-alt);
+  border-radius:8px;
+  min-height:44px;
+}
+.arch-panel::-webkit-scrollbar-thumb:hover{
+  filter:brightness(1.12);
+}
+.arch-panel::-webkit-scrollbar-corner{
+  background:var(--surface-bg-alt);
+}
+.arch-panel > .arch-header,
+.arch-panel > .arch-section,
+.arch-panel > .arch-brief{
+  min-width:900px;
+}
+@media(max-width:900px){
+  .arch-panel > .arch-header,
+  .arch-panel > .arch-section,
+  .arch-panel > .arch-brief{
+    min-width:760px;
+  }
+}
