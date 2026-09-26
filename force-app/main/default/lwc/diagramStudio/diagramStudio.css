@@ -1319,3 +1319,11 @@
   .arch-tag{border:1px solid #777!important;background:#fff!important;color:#111!important}
 }
 @media(max-width:900px){.arch-advice-grid{grid-template-columns:1fr}}
+
+/* Deep deterministic architecture intelligence */
+.arch-deep-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px}
+.arch-deep-card{border:1px solid var(--surface-border);border-radius:8px;background:var(--surface-bg-alt);padding:12px;min-height:120px}
+.arch-deep-title{display:flex;flex-direction:column;gap:3px;padding-bottom:8px;border-bottom:1px solid var(--surface-border)}.arch-deep-title span{font-size:8px;letter-spacing:.09em;color:var(--accent);font-weight:700}.arch-deep-title strong{font-size:11px;color:var(--surface-text-strong)}
+.arch-deep-row{display:grid;grid-template-columns:minmax(110px,.35fr) minmax(0,1fr);gap:10px;align-items:start;padding:8px 0;border-bottom:1px solid var(--surface-border);font-size:9.5px}.arch-deep-row:last-child{border-bottom:0}.arch-deep-row>span{color:var(--surface-text-muted);line-height:1.4}.arch-corridor-row strong{color:var(--accent)}
+@media(max-width:900px){.arch-deep-grid{grid-template-columns:1fr}}
+@media print{.arch-deep-card{background:#fff!important;color:#111!important;break-inside:avoid}.arch-deep-title span,.arch-deep-row>span{color:#333!important}}
