@@ -1,28 +1,18 @@
 # Salesforce ER Modeller Studio — Phase 2: Data Architecture Intelligence
 
-## Built by Crius Consulting architects — contributed to open source
+## Built by Crius Consulting architects — our commitment to open source
 
-Salesforce ER Modeller Studio, including the original **Phase 1**, was built by architects at **Crius Consulting**. Phase 2 continues that work by extending the Studio from ER modelling and org-aware documentation into deeper **Data Architecture Intelligence**.
+Salesforce ER Modeller Studio — from the original **Phase 1 foundation through the continuing Phase 2 work** — has been built by architects at **Crius Consulting**. We are proud to contribute it openly because we believe the Salesforce ecosystem becomes stronger when architects do more than consume community knowledge: we should also create, experiment, share and give useful engineering capability back.
 
-This project reflects a core **Crius Consulting philosophy**: architects should not only design solutions for individual organisations; where appropriate, they should also build useful engineering tools and contribute practical capability back to the **open-source community**. We believe architecture knowledge becomes more valuable when it can be inspected, challenged, improved and reused by other practitioners.
+That philosophy is influenced by a tradition deeply rooted in the Salesforce ecosystem: Salesforce's **1-1-1 model** and the broader **Pledge 1%** movement encourage companies to make giving back part of how they operate. Crius Consulting brings that spirit into our engineering work through a passion for sharing knowledge, contributing time and making practical technology available to the wider community. ER Modeller Studio is one expression of that commitment.
 
-ER Modeller Studio is therefore both a working Salesforce architecture tool and a Crius Consulting open-source contribution. Phase 1 established the modelling, DSL, metadata, visualisation, data-dictionary and export foundations. Phase 2 builds on those foundations with graph-based architecture intelligence, deeper structural analysis, performance guardrails and resilient error handling.
+For us, open source is not simply publishing a repository. It means putting real architecture work into the hands of other architects and engineers: something they can inspect, challenge, learn from, extend and use in their own organisations. We want our contribution to be measured by whether it helps somebody solve a real problem, understand a Salesforce data model more deeply, or build something better because the foundations were shared with them.
 
-The intent is to keep the project useful to working Salesforce architects and engineers: transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and clear separation of concerns between **data architecture intelligence in ER Modeller Studio** and **security intelligence in Warden Studio**.
+**Phase 1** established the modelling engine, DSL/compiler foundations, Salesforce metadata integration, visualisation, Data Dictionary, export capabilities and the working Studio experience. **Phase 2** continues that contribution with Data Architecture Intelligence, graph-based structural analysis, object drill-down, topology evidence, performance safeguards and stronger resilience.
 
-> **Phase 2 development branch** — Data Architecture Intelligence. The preserved Phase 1 release is available on the `phase-1-stable` branch; `main` remains unchanged. Existing Salesforce deployment/install paths are retained. The GitHub deploy buttons below still target `main` intentionally until Phase 2 is promoted as a release.
+This is part of the culture we want at **Crius Consulting**: build deeply, share what can be shared, contribute useful technology back to the ecosystem, and keep learning from the community in return. We believe commercial consulting and meaningful open-source contribution can strengthen each other.
 
-Phase 2 adds **View → Architecture Intelligence**, a compact graph-analysis workspace for the current model: structural hubs, isolated objects, incoming/outgoing coupling, relationship mix, connected components, relationship depth and cycle detection. These are descriptive architecture metrics, not a synthetic health score. Security posture, permissions and vulnerability analysis are explicitly outside this product and remain a Warden Studio concern. See [Phase 2 architecture notes](docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md).
-
-A native Lightning Web Component app for building Entity-Relationship
-diagrams of your Salesforce data model. Diagrams are stored as records
-(`Diagram_File__c`) inside your org, so they live alongside the metadata
-they describe and can be opened, edited, or pinned to a page by anyone
-with access.
-
-📄 **Not technical, or just want the short version?** See
-[docs/ER-Modeller-Studio-Feature-List.pdf](docs/ER-Modeller-Studio-Feature-List.pdf)
-for a plain-language feature overview with no code or setup steps.
+Our engineering principle remains simple: **transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and useful contribution rather than technology built only to be talked about.**
 
 ## Contents
 
