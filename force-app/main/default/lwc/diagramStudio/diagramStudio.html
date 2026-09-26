@@ -574,7 +574,7 @@
         <div class="arch-panel">
             <div class="arch-header">
                 <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Structural evidence from the ER model currently on the canvas.</div></div>
-                <div class="arch-header-actions"><template if:true={architectureHasModel}><button class="arch-action-btn arch-export-btn" onclick={handleExportArchitectureImage}>Export PNG Report</button><button class="arch-action-btn arch-print-btn" onclick={handlePrintArchitectureReport}>Print / Save PDF</button></template><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
+                <div class="arch-header-actions"><template if:true={architectureHasModel}><button class="arch-action-btn arch-print-btn" onclick={handlePrintArchitectureReport}>Print / Save PDF</button></template><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
             </div>
             <template if:true={architectureHasError}>
                 <div class="arch-error" role="alert">
@@ -620,7 +620,7 @@
                     </div>
                 </section>
 
-                <section class="arch-section arch-deep-intelligence">
+                <section class="arch-section arch-map-section"><div class="arch-section-head"><span>Architecture Map</span><span class="arch-section-hint">Start here: see the structure before reading the intelligence</span></div><div class="arch-map-explainer"><strong>How to read this</strong><span>Lines are relationships. Highlighted objects are structurally important. Click an object to inspect it. The insights below explain why particular objects or paths matter.</span></div><div class="arch-insight-map"><template for:each={architectureInsightMapEdges} for:item="edge"><i class="arch-map-edge" key={edge.key} style={edge.style}></i></template><template for:each={architectureInsightMapNodes} for:item="node"><button key={node.name} class={node.className} style={node.style} data-name={node.name} onclick={handleArchitectureObjectSelect}><strong>{node.name}</strong><span>{node.role}</span><small>{node.degree} relationships · {node.fieldCount} fields</small></button></template></div><div class="arch-map-legend"><span>Structural gravity</span><span>Bridge object</span><span>Model object</span></div></section><section class="arch-section arch-deep-intelligence">
                     <div class="arch-section-head"><span>Architecture Intelligence Insights</span><span class="arch-section-hint">Correlated graph patterns, derived without AI</span></div>
                     <div class="arch-deep-grid">
                         <article class="arch-deep-card"><div class="arch-deep-title"><span>STRUCTURAL GRAVITY</span><strong>Where the model concentrates</strong></div><template if:true={architectureHasGravity}><template for:each={architectureGravity} for:item="n"><div class="arch-deep-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><span>{n.degree} rel. · {n.reachPct}% reach · {n.fieldCount} fields</span></div></template></template></article>
