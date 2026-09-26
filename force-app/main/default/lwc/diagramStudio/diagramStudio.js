@@ -1106,15 +1106,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get architectureNodes() { return this.architectureAnalysis?.nodes || []; }
     get architectureInsightMap() {
-        const a=this.architectureAnalysis; if(!a) return {nodes:[],edges:[]};
-        const source=(a.nodes||[]).slice(0,18), count=source.length, cx=50, cy=50, rx=40, ry=36;
+        const a=this.architectureAnalysis; if(!a) return {nodes:[],edges:[],canvasStyle:''};
+        const source=a.nodes||[], count=source.length, cols=Math.max(3,Math.ceil(Math.sqrt(Math.max(1,count)*1.6))), rows=Math.ceil(count/cols);
+        const cellW=240, cellH=170, padX=130, padY=100, width=Math.max(1100,padX*2+(cols-1)*cellW), height=Math.max(700,padY*2+(rows-1)*cellH);
         const gravity=new Set(this.architectureGravity.map(x=>x.name)), bridges=new Set(this.architectureBridges.map(x=>x.name));
-        const nodes=source.map((n,i)=>{const angle=(Math.PI*2*i/Math.max(1,count))-Math.PI/2,x=cx+Math.cos(angle)*rx,y=cy+Math.sin(angle)*ry;
-            return {...n,x,y,style:'left:'+x+'%;top:'+y+'%',role:gravity.has(n.name)?'Gravity centre':bridges.has(n.name)?'Bridge object':n.degree===0?'Isolated object':'Model object',className:'arch-map-node '+(gravity.has(n.name)?'arch-map-gravity':bridges.has(n.name)?'arch-map-bridge':n.degree===0?'arch-map-island':'')};
+        const ordered=[...source].sort((x,y)=>y.degree-x.degree||x.name.localeCompare(y.name));
+        const nodes=ordered.map((n,i)=>{const col=i%cols,row=Math.floor(i/cols),x=padX+col*cellW,y=padY+row*cellH;
+            return {...n,x,y,style:'left:'+x+'px;top:'+y+'px',role:gravity.has(n.name)?'Gravity centre':bridges.has(n.name)?'Bridge object':n.degree===0?'Isolated object':'Model object',className:'arch-map-node '+(gravity.has(n.name)?'arch-map-gravity':bridges.has(n.name)?'arch-map-bridge':n.degree===0?'arch-map-island':'')};
         });
         const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])), edges=[];
-        (a.relationships||[]).forEach((rel,i)=>{const s=pos.get(rel.childEntity.toLowerCase()),t=pos.get(rel.parentEntity.toLowerCase());if(!s||!t||s===t)return;const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;edges.push({key:i+'-'+s.name+'-'+t.name,style:'left:'+s.x+'%;top:'+s.y+'%;width:'+len+'%;transform:rotate('+angle+'deg)',kind:rel.kind||'relationship'});});
-        return {nodes,edges};
+        (a.relationships||[]).forEach((rel,i)=>{const s=pos.get(rel.childEntity.toLowerCase()),t=pos.get(rel.parentEntity.toLowerCase());if(!s||!t||s===t)return;const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;
+            edges.push({key:i+'-'+s.name+'-'+t.name,style:'left:'+s.x+'px;top:'+s.y+'px;width:'+len+'px;transform:rotate('+angle+'deg)',kind:rel.kind||'relationship',title:s.name+' → '+t.name});
+        });
+        return {nodes,edges,canvasStyle:'width:'+width+'px;height:'+height+'px'};
     }
     get architectureInsightMapNodes(){ return this.architectureInsightMap.nodes; }
     get architectureInsightMapEdges(){ return this.architectureInsightMap.edges; }
@@ -1193,7 +1197,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return advice.slice(0,6);
     }
     handlePrintArchitectureReport() {
-        try { window.print(); }
+        try { document.body.classList.add('architecture-printing'); window.print(); setTimeout(()=>document.body.classList.remove('architecture-printing'),500); }
         catch(e) { this.architectureError='Print preview could not be opened. '+(e?.message||'Use the browser print command to save the report as PDF.'); }
     }
     handleArchitectureFindingInspect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
