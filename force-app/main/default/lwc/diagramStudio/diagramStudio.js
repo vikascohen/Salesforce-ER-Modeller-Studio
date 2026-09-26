@@ -571,7 +571,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get dictionaryRelationshipMap(){
         const rel=this.dictionaryRelationshipConcentration, total=rel.length, radius=38;
-        return rel.slice(0,8).map((x,i)=>{const a=(Math.PI*2*i/Math.max(total,1))-Math.PI/2;return {...x,x:50+Math.cos(a)*radius,y:50+Math.sin(a)*radius};});
+        return rel.slice(0,8).map((x,i)=>{const a=(Math.PI*2*i/Math.max(total,1))-Math.PI/2, px=50+Math.cos(a)*radius, py=50+Math.sin(a)*radius;return {...x,x:px,y:py,style:'left:'+px+'%;top:'+py+'%'};});
     }
     get dictionaryHasRelationshipMap(){ return this.dictionaryRelationshipMap.length>0; }
     get dictionaryRawFields() { return (this.dictionaryRow&&this.dictionaryRow.fields)||[]; }
