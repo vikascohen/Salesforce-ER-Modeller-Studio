@@ -1,5 +1,6 @@
 /**
  * Phase 2 — Data Architecture Intelligence.
+ * Author: Vikas Cohen
  * Pure graph analysis over the ER model produced by erDiagramLogic.parseEr().
  * No security/permission analysis belongs here; that remains a Warden Studio concern.
  */
@@ -117,8 +118,7 @@ export function analyseObject(analysis, objectName) {
         if(c===key){parents.push({name:r.parentEntity,field:r.childField||'',kind:r.kind||'relationship'});neighbors.add(r.parentEntity);}
         if(p===key){children.push({name:r.childEntity,field:r.childField||'',kind:r.kind||'relationship'});neighbors.add(r.childEntity);}
     });
-    const adj=new Map((analysis.nodes||[]).map(n=>[n.name.toLowerCase(),new Set()]));
-    rels.forEach(r=>{const c=r.childEntity.toLowerCase(),p=r.parentEntity.toLowerCase();if(adj.has(c)&&adj.has(p)){adj.get(c).add(p);adj.get(p).add(c);}});
+    const { adj } = graphIndex(analysis);
     const levels=[];let frontier=new Set([key]),seen=new Set([key]);
     for(let depth=1;depth<=3;depth++){const next=new Set();frontier.forEach(x=>(adj.get(x)||[]).forEach(y=>{if(!seen.has(y)){seen.add(y);next.add(y);}}));levels.push({depth,count:next.size,names:[...next].map(k=>(analysis.nodes||[]).find(n=>n.name.toLowerCase()===k)?.name||k)});frontier=next;}
     const objectCycles=(analysis.cycles||[]).filter(c=>c.some(n=>n.toLowerCase()===key));
@@ -126,12 +126,22 @@ export function analyseObject(analysis, objectName) {
     return {...node,role,parents,children,neighbors:[...neighbors].sort(),reach1:levels[0],reach2:levels[1],reach3:levels[2],reachableWithin3:[...seen].filter(k=>k!==key).length,cycles:objectCycles};
 }
 
-function graphIndex(analysis){
-    const nodes=analysis?.nodes||[], rels=analysis?.relationships||[];
-    const names=new Map(nodes.map(n=>[n.name.toLowerCase(),n.name]));
-    const adj=new Map(nodes.map(n=>[n.name.toLowerCase(),new Set()]));
-    rels.forEach(r=>{const c=r.childEntity.toLowerCase(),p=r.parentEntity.toLowerCase();if(adj.has(c)&&adj.has(p)){adj.get(c).add(p);adj.get(p).add(c);}});
-    return {names,adj};
+function graphIndex(analysis) {
+    const nodes = analysis?.nodes || [];
+    const relationships = analysis?.relationships || [];
+    const names = new Map(nodes.map(node => [node.name.toLowerCase(), node.name]));
+    const adj = new Map(nodes.map(node => [node.name.toLowerCase(), new Set()]));
+
+    relationships.forEach(relationship => {
+        const child = relationship.childEntity.toLowerCase();
+        const parent = relationship.parentEntity.toLowerCase();
+        if (adj.has(child) && adj.has(parent)) {
+            adj.get(child).add(parent);
+            adj.get(parent).add(child);
+        }
+    });
+
+    return { names, adj };
 }
 export function findArchitecturePath(analysis,source,target){
     if(!analysis||!source||!target)return null;const {names,adj}=graphIndex(analysis),s=source.toLowerCase(),t=target.toLowerCase();
