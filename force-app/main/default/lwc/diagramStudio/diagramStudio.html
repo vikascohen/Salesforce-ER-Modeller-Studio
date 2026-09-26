@@ -583,22 +583,57 @@
                 </div>
             </template>
             <template if:true={architectureHasModel}>
-                <section class="arch-section"><div class="arch-section-head"><span>Model Overview</span><span class="arch-section-hint">Current diagram</span></div>
+                <section class="arch-brief">
+                    <div class="arch-brief-label">ARCHITECTURE SUMMARY</div>
+                    <p class="arch-brief-text">{architectureExecutiveSummary}</p>
+                    <div class="arch-brief-signals">
+                        <div><span>Connectivity</span><strong>{architectureConnectivityLabel}</strong></div>
+                        <div><span>Maximum reach</span><strong>{architectureAnalysis.maxRelationshipDepth} hops</strong></div>
+                        <div><span>Cycles</span><strong>{architectureCycleLabel}</strong></div>
+                        <div><span>Isolated objects</span><strong>{architectureIslandLabel}</strong></div>
+                        <div><span>Junctions</span><strong>{architectureJunctionLabel}</strong></div>
+                        <div><span>Relationship mix</span><strong>{architectureRelationshipSemantics}</strong></div>
+                    </div>
+                </section>
+
+                <template if:true={architectureReviewLead}>
+                    <section class="arch-section arch-review-first">
+                        <div class="arch-section-head"><span>Where Should I Look First?</span><span class="arch-section-hint">Evidence-led starting point</span></div>
+                        <div class="arch-review-card">
+                            <div class="arch-review-rank">1</div>
+                            <div class="arch-review-main"><div class="arch-review-title"><strong>{architectureReviewLead.name}</strong><span class="arch-tag">{architectureReviewLead.role}</span></div><p>{architectureReviewLead.reason}</p><div class="arch-evidence">{architectureReviewLead.evidence} · {architectureReviewLead.reach}</div></div>
+                            <button class="arch-action-btn" data-name={architectureReviewLead.name} onclick={handleArchitectureFindingInspect}>Inspect Object</button>
+                        </div>
+                    </section>
+                </template>
+
+                <section class="arch-section">
+                    <div class="arch-section-head"><span>Architecture Findings</span><span class="arch-section-hint">Finding → evidence → why it matters → next investigation</span></div>
+                    <div class="arch-findings">
+                        <template for:each={architectureFindings} for:item="f">
+                            <article class="arch-finding" key={f.key}>
+                                <div class="arch-finding-top"><span class="arch-tag">{f.kind}</span><strong>{f.title}</strong></div>
+                                <div class="arch-finding-grid"><div><span>Evidence</span><p>{f.evidence}</p></div><div><span>Why it matters</span><p>{f.impact}</p></div><div><span>Investigate</span><p>{f.action}</p></div></div>
+                                <template if:true={f.hasObject}><button class="arch-inline-link" data-name={f.objectName} onclick={handleArchitectureFindingInspect}>Inspect {f.objectName} →</button></template>
+                            </article>
+                        </template>
+                    </div>
+                </section>
+
+                <section class="arch-section">
+                    <div class="arch-section-head"><span>Model Evidence</span><span class="arch-section-hint">Technical measures supporting the findings</span></div>
                     <div class="arch-summary"><template for:each={architectureSummary} for:item="m"><div class="arch-metric" key={m.label}><span class="arch-metric-value">{m.value}</span><span class="arch-metric-label">{m.label}</span></div></template></div>
-                </section>
-                <section class="arch-section"><div class="arch-section-head"><span>Complexity &amp; Topology</span><span class="arch-section-hint">Graph characteristics</span></div>
                     <div class="arch-topology"><template for:each={architectureTopologySummary} for:item="m"><div class="arch-topology-row" key={m.label}><span>{m.label}</span><strong>{m.value}</strong></div></template></div>
+                    <div class="arch-density-note">{architectureDensityHelp}</div>
                 </section>
-                <section class="arch-section"><div class="arch-section-head"><span>Architecture Observations</span><span class="arch-section-hint">Evidence, not a health score</span></div>
-                    <div class="arch-observations"><template for:each={architectureObservations} for:item="o"><div class="arch-observation" key={o.title}><span class="arch-tag">{o.kind}</span><div><strong>{o.title}</strong><p>{o.detail}</p></div></div></template></div>
-                </section>
-                <section class="arch-section"><div class="arch-section-head"><span>Hotspots &amp; Shape</span><span class="arch-section-hint">Where model complexity concentrates</span></div>
+
+                <section class="arch-section"><div class="arch-section-head"><span>Hotspots &amp; Model Shape</span><span class="arch-section-hint">Explore the evidence behind the summary</span></div>
                     <div class="arch-insights">
                         <div><strong>Structural hubs</strong><p>{architectureHubsText}</p></div>
                         <div><strong>Isolated objects</strong><p>{architectureIslandsText}</p></div>
                         <div><strong>Relationship cycles</strong><p>{architectureCyclesText}</p></div>
                     </div>
-                    <div class="arch-ranked-grid"><div><h4>Most connected</h4><template for:each={architectureMostConnected} for:item="n"><div class="arch-rank-row" key={n.name}><span>{n.name}</span><strong>{n.degree} rel.</strong></div></template></div><div><h4>Largest definitions</h4><template for:each={architectureLargestObjects} for:item="n"><div class="arch-rank-row" key={n.name}><span>{n.name}</span><strong>{n.fieldCount} fields</strong></div></template></div></div>
+                    <div class="arch-ranked-grid"><div><h4>Most connected</h4><template for:each={architectureMostConnected} for:item="n"><div class="arch-rank-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><strong>{n.degree} rel.</strong></div></template></div><div><h4>Largest definitions</h4><template for:each={architectureLargestObjects} for:item="n"><div class="arch-rank-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><strong>{n.fieldCount} fields</strong></div></template></div></div>
                 </section>
                 <section class="arch-section">
                     <div class="arch-section-head"><span>Architecture Domains</span><span class="arch-section-hint">Architect-defined business boundaries</span></div>
