@@ -21,7 +21,7 @@ import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataControl
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
-import { exportSvgAsPng, exportArchitectureReportAsPng } from 'c/diagramExportUtils';
+import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
 
@@ -1124,7 +1124,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         });
         const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])), edges=[];
         (a.relationships||[]).forEach((rel,i)=>{const s=pos.get(rel.childEntity.toLowerCase()),t=pos.get(rel.parentEntity.toLowerCase());if(!s||!t||s===t)return;const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;
-            edges.push({key:i+'-'+s.name+'-'+t.name,style:'left:'+s.x+'px;top:'+s.y+'px;width:'+len+'px;transform:rotate('+angle+'deg)',kind:rel.kind||'relationship',title:s.name+' → '+t.name});
+            edges.push({key:i+'-'+s.name+'-'+t.name,child:s.name,parent:t.name,style:'left:'+s.x+'px;top:'+s.y+'px;width:'+len+'px;transform:rotate('+angle+'deg)',kind:rel.kind||'relationship',title:s.name+' → '+t.name});
         });
         return {nodes,edges,canvasStyle:'width:'+width+'px;height:'+height+'px'};
     }
@@ -1205,9 +1205,27 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if(largest&&largest.fieldCount>=25) advice.push({key:'breadth',kind:'CONSIDER',title:'Review the breadth of '+largest.name,evidence:largest.fieldCount+' fields are represented on this object in the current diagram.',reason:'Field breadth is not a defect, but large definitions can accumulate multiple responsibilities over time.',next:'Check whether the field groups still represent a cohesive object responsibility.'});
         return advice.slice(0,6);
     }
-    handlePrintArchitectureReport() {
-        try { document.body.classList.add('architecture-printing'); window.print(); setTimeout(()=>document.body.classList.remove('architecture-printing'),500); }
-        catch(e) { this.architectureError='Print preview could not be opened. '+(e?.message||'Use the browser print command to save the report as PDF.'); }
+    async handlePrintArchitectureReport() {
+        try {
+            const a=this.architectureAnalysis, map=this.architectureInsightMap, deep=this.architectureDeepIntelligence;
+            if(!a) return;
+            const report={
+                fileName:this.fileName||'Current ER model',summary:this.architectureExecutiveSummary,signals:this.architectureSummary,
+                reviewLead:this.architectureReviewLead,findings:this.architectureFindings,advice:this.architectureAdvice,metrics:this.architectureTopologySummary,
+                domains:this.architectureDomains,relationships:a.relationships||[],
+                map:{nodes:map.nodes,edges:map.edges,width:parseInt((map.canvasStyle.match(/width:(\\d+)/)||[])[1]||1100,10),height:parseInt((map.canvasStyle.match(/height:(\\d+)/)||[])[1]||700,10)},
+                gravity:(deep.gravity||[]).map(x=>({...x,pdfText:x.name+': '+x.degree+' relationships, '+x.fieldCount+' fields, '+x.reachPct+'% structural reach.'})),
+                bridges:(deep.bridges||[]).map(x=>({...x,pdfText:x.name+': '+x.detail})),
+                corridors:(deep.corridors||[]).map(x=>({...x,pdfText:x.hops+' hops: '+x.path})),
+                asymmetry:(deep.asymmetry||[]).map(x=>({...x,pdfText:x.name+': '+x.direction+' concentration, '+x.ratio+'.'})),
+                clusters:(deep.clusters||[]).map(x=>({...x,pdfText:x.objectCount+' objects: '+x.detail})),
+                boundaryLeakage:(deep.boundaryLeakage||[]).map(x=>({...x,pdfText:x.name+': '+x.crossDomainRelationships+' cross domain relationships, '+x.crossPct+'% boundary share.'}))
+            };
+            const base64=await exportArchitectureReportAsPdf(report), anchor=document.createElement('a');
+            anchor.href='data:application/pdf;base64,'+base64;
+            anchor.download=(this.fileName||'architecture').replace(/[^a-z0-9._-]+/gi,'-')+'-architecture-intelligence.pdf';
+            anchor.style.display='none';document.body.appendChild(anchor);anchor.click();document.body.removeChild(anchor);
+        } catch(e) { this.architectureError='PDF export failed. '+(e?.message||'Unable to generate the architecture report.'); }
     }
     handleArchitectureFindingInspect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
     get architectureConnectivityLabel() { const a=this.architectureAnalysis; return !a?'':a.componentCount===1?'Fully connected':a.componentCount+' components'; }
@@ -2283,11 +2301,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return s || 'Sheet';
     }
 
-    // Single-object export respects whatever sort is currently applied to
-    // the table (that's the point of asking for it); bulk Export All has no
-    // per-object sort selection to respect, so it stays in natural order.
+    // Single-object export mirrors the visible field table: current search, dropdown filter and sort.\n    // Bulk Export All remains a complete dictionary export in natural order.
     getDictionaryRowForExport() {
-        return { ...this.dictionaryRow, fields: this.getSortedDictionaryFields() };
+        return { ...this.dictionaryRow, fields: this.dictionaryFilteredSortedFields };
     }
 
     handleExportDictionaryCsv() {
