@@ -14,6 +14,14 @@ This is part of the culture we want at **Crius Consulting**: build deeply, share
 
 Our engineering principle remains simple: **transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and useful contribution rather than technology built only to be talked about.**
 
+## Deploy Phase 2 to Salesforce
+
+You can deploy the current Phase 2 branch directly to a Salesforce org using the link below:
+
+[Deploy Phase 2 to Salesforce](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=phase-2-data-architecture-intelligence&continue)
+
+> **Note:** Phase 2 is active development. For the stable Phase 1 release, use the `main` branch.
+
 ## Contents
 
 - [Installing](#installing)
