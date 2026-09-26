@@ -10,6 +10,11 @@ with access.
 [docs/ER-Modeller-Studio-Feature-List.pdf](docs/ER-Modeller-Studio-Feature-List.pdf)
 for a plain-language feature overview with no code or setup steps.
 
+📋 **Release notes:** See [Version 1 / Phase 1 Release Notes](docs/RELEASE_NOTES_V1.md)
+for the stable capability baseline. This document will be maintained as the
+product evolves so each delivered phase and version has a clear record of
+what was included.
+
 ## Contents
 
 - [Installing](#installing)
@@ -26,6 +31,7 @@ for a plain-language feature overview with no code or setup steps.
 - [Setting it up in the org](#setting-it-up-in-the-org)
 - [Quick start](#quick-start)
 - [Testing](#testing)
+- [Version 1 / Phase 1 Release Notes](docs/RELEASE_NOTES_V1.md)
 - [Security overview](docs/SECURITY.md)
 - [Author](#author)
 - [License](#license)
