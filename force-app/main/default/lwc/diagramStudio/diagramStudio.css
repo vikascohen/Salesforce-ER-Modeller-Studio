@@ -1056,3 +1056,12 @@
 .arch-inline-link{border:0;background:transparent;color:var(--accent);font-size:10px;font-weight:750;padding:8px 0 0;cursor:pointer}.arch-inline-link:hover{text-decoration:underline}
 .arch-density-note{padding:8px 11px;border-top:1px solid var(--surface-border);font-size:9.5px;line-height:1.4;color:var(--surface-text-muted)}
 @media(max-width:900px){.arch-brief-signals{grid-template-columns:1fr 1fr}.arch-findings{grid-template-columns:1fr}.arch-review-card{grid-template-columns:34px 1fr}.arch-review-card>.arch-action-btn{grid-column:2;justify-self:start}}
+
+/* Architecture Intelligence is a dedicated full-screen workspace. */
+.arch-panel{position:fixed!important;z-index:1000!important;inset:0!important;top:0!important;right:0!important;width:100vw!important;height:100vh!important;max-height:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0 28px 32px!important;overflow:auto!important}
+.arch-header{padding:18px 0 14px!important;margin-bottom:16px!important}
+.arch-title{font-size:22px!important}
+.arch-subtitle{font-size:12px!important}
+.arch-export-btn{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+.arch-export-btn:hover{filter:brightness(1.08)}
+@media(max-width:700px){.arch-panel{padding:0 14px 24px!important}.arch-header{flex-direction:column}.arch-header-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}}
