@@ -4,16 +4,31 @@
  * No security/permission analysis belongs here; that remains a Warden Studio concern.
  */
 export function analyseArchitecture(model) {
-    const entities = model?.entities || [];
-    const relationships = model?.relationships || [];
+    if (!model || !Array.isArray(model.entities) || !Array.isArray(model.relationships)) {
+        throw new Error('Architecture analysis requires a parsed ER model with entities and relationships.');
+    }
+    const entities = model.entities;
+    const relationships = model.relationships;
+    entities.forEach((e,index)=>{
+        if(!e || typeof e.name!=='string' || !e.name.trim()) throw new Error('Invalid entity at position '+(index+1)+': a non-empty name is required.');
+        if(e.fields!=null && !Array.isArray(e.fields)) throw new Error('Invalid fields for '+e.name+': expected a field list.');
+    });
+    relationships.forEach((r,index)=>{
+        if(!r || typeof r.childEntity!=='string' || typeof r.parentEntity!=='string') throw new Error('Invalid relationship at position '+(index+1)+'.');
+    });
     const names = entities.map(e => e.name);
     const byKey = new Map(names.map(n => [n.toLowerCase(), n]));
     const incoming = new Map(names.map(n => [n.toLowerCase(), 0]));
     const outgoing = new Map(names.map(n => [n.toLowerCase(), 0]));
     const adjacency = new Map(names.map(n => [n.toLowerCase(), new Set()]));
 
-    relationships.forEach(r => {
+    const ignoredRelationships=[];
+    relationships.forEach((r,index) => {
         const c=r.childEntity.toLowerCase(), p=r.parentEntity.toLowerCase();
+        if(!adjacency.has(c) || !adjacency.has(p)){
+            ignoredRelationships.push({index:index+1,childEntity:r.childEntity,parentEntity:r.parentEntity,reason:'Relationship endpoint is not present in the current model.'});
+            return;
+        }
         outgoing.set(c,(outgoing.get(c)||0)+1);
         incoming.set(p,(incoming.get(p)||0)+1);
         if(adjacency.has(c)) adjacency.get(c).add(p);
@@ -49,7 +64,8 @@ export function analyseArchitecture(model) {
         averageFieldsPerObject:Number(avgFields.toFixed(1)),
         mostConnected:nodes.slice(0,5),
         largestObjects:[...nodes].sort((a,b)=>b.fieldCount-a.fieldCount || a.name.localeCompare(b.name)).slice(0,5),
-        observations: buildObservations(nodes, relationships, components, cycles, maxDepth, avgDegree)
+        ignoredRelationships,
+        observations: buildObservations(nodes, relationships, components, cycles, maxDepth, avgDegree, ignoredRelationships)
     };
 }
 function connectedComponents(names,adj){const seen=new Set(),out=[]; for(const n of names){const k=n.toLowerCase();if(seen.has(k))continue;const stack=[k],c=[];seen.add(k);while(stack.length){const x=stack.pop();c.push(x);for(const y of adj.get(x)||[]){if(!seen.has(y)){seen.add(y);stack.push(y);}}}out.push(c);}return out;}
@@ -72,11 +88,12 @@ function approximateGraphDepth(names,adj){
 }
 function findCycles(names,adj,byKey){const found=new Set(),cycles=[]; const MAX_CYCLES=25, MAX_DEPTH=7;const canonical=p=>{const core=p.slice(0,-1);const rots=[];for(let i=0;i<core.length;i++)rots.push(core.slice(i).concat(core.slice(0,i)).join('|'));const rev=[...core].reverse();for(let i=0;i<rev.length;i++)rots.push(rev.slice(i).concat(rev.slice(0,i)).join('|'));return rots.sort()[0];};const dfs=(start,x,path,seen)=>{if(cycles.length>=MAX_CYCLES)return;for(const y of adj.get(x)||[]){if(y===start&&path.length>=3){const p=path.concat(start),key=canonical(p);if(!found.has(key)){found.add(key);cycles.push(p.map(k=>byKey.get(k)||k));}}else if(!seen.has(y)&&path.length<MAX_DEPTH){const s=new Set(seen);s.add(y);dfs(start,y,path.concat(y),s);}}};for(const n of names){if(cycles.length>=MAX_CYCLES)break;const k=n.toLowerCase();dfs(k,k,[k],new Set([k]));}return cycles;}
 
-function buildObservations(nodes,relationships,components,cycles,maxDepth,avgDegree){
+function buildObservations(nodes,relationships,components,cycles,maxDepth,avgDegree,ignoredRelationships){
     const out=[];
     const islands=nodes.filter(n=>n.degree===0);
     const high=nodes.filter(n=>n.degree>=Math.max(4,Math.ceil(avgDegree*2)));
     const large=nodes.filter(n=>n.fieldCount>=50);
+    if(ignoredRelationships.length) out.push({title:'Relationships skipped',detail:ignoredRelationships.length+' relationship'+(ignoredRelationships.length===1?' was':'s were')+' excluded because an endpoint is not present in the current model.',kind:'Data quality'});
     if(high.length) out.push({title:'High-coupling objects',detail:high.slice(0,5).map(n=>n.name+' ('+n.degree+' relationships)').join(', '),kind:'Topology'});
     if(islands.length) out.push({title:'Isolated model areas',detail:islands.slice(0,8).map(n=>n.name).join(', '),kind:'Topology'});
     if(components.length>1) out.push({title:'Disconnected components',detail:components.length+' separate relationship components exist in the current diagram.',kind:'Structure'});
