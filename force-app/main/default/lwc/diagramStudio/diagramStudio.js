@@ -23,7 +23,7 @@ import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng, exportArchitectureReportAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
-import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains } from 'c/architectureIntelligence';
+import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -1151,9 +1151,25 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if(a.parallelRelationshipCount>0) findings.push({key:'parallel',kind:'RELATIONSHIPS',title:'Repeated object-pair relationships',evidence:a.parallelRelationshipCount+' additional relationship'+(a.parallelRelationshipCount===1?' exists':'s exist')+' between already-connected object pairs.',impact:'Multiple relationships between the same objects can be valid, but they increase semantic coupling beyond simple graph connectivity.',action:'Review the relationship fields and confirm each represents a distinct business meaning.',objectName:'',hasObject:false});
         return findings.slice(0,6);
     }
+    get architectureDeepIntelligence(){ return deriveArchitectureIntelligence(this.architectureAnalysis,this.architectureDomains); }
+    get architectureGravity(){ return this.architectureDeepIntelligence.gravity||[]; }
+    get architectureBridges(){ return this.architectureDeepIntelligence.bridges||[]; }
+    get architectureCorridors(){ return this.architectureDeepIntelligence.corridors||[]; }
+    get architectureAsymmetry(){ return this.architectureDeepIntelligence.asymmetry||[]; }
+    get architectureComplexityClusters(){ return this.architectureDeepIntelligence.clusters||[]; }
+    get architectureBoundaryLeakage(){ return this.architectureDeepIntelligence.boundaryLeakage||[]; }
+    get architectureHasGravity(){ return this.architectureGravity.length>0; }
+    get architectureHasBridges(){ return this.architectureBridges.length>0; }
+    get architectureHasCorridors(){ return this.architectureCorridors.length>0; }
+    get architectureHasAsymmetry(){ return this.architectureAsymmetry.length>0; }
+    get architectureHasComplexityClusters(){ return this.architectureComplexityClusters.length>0; }
+    get architectureHasBoundaryLeakage(){ return this.architectureBoundaryLeakage.length>0; }
     get architectureAdvice() {
         const a=this.architectureAnalysis; if(!a) return [];
-        const advice=[], lead=a.mostConnected?.[0], largest=a.largestObjects?.[0];
+        const advice=[], lead=a.mostConnected?.[0], largest=a.largestObjects?.[0], deep=this.architectureDeepIntelligence;
+        if(deep.gravity?.length){const g=deep.gravity[0];advice.push({key:'gravity',kind:'INSIGHT',title:g.name+' acts as a structural gravity centre',evidence:g.degree+' relationships, '+g.fieldCount+' fields and '+g.reachPct+'% of other modelled objects structurally reachable.',reason:'Multiple independent signals converge on the same object rather than it ranking highly on only one measure.',next:'Confirm whether this concentration reflects an intentional central business responsibility or accumulated responsibilities.'});}
+        if(deep.bridges?.length){const b=deep.bridges[0];advice.push({key:'bridge',kind:'INSIGHT',title:b.name+' is a structural bridge',evidence:b.detail,reason:'Bridge objects connect areas that otherwise do not remain mutually reachable when that node is excluded from traversal.',next:'Treat structural changes around this object as a cross-area review point and inspect both sides of the bridge.'});}
+        if(deep.boundaryLeakage?.length){const d=deep.boundaryLeakage[0];advice.push({key:'boundary',kind:'DOMAIN',title:d.name+' has visible cross-domain coupling',evidence:d.crossDomainRelationships+' cross-domain relationships, '+d.crossPct+'% of relationships touching the domain boundary.',reason:'Architect-defined boundaries are most useful when their coupling is explicit and intentional.',next:'Review the cross-domain relationships and confirm each represents an intentional business dependency.'});}
         if(lead&&lead.degree) advice.push({key:'hub',kind:'REVIEW',title:'Review '+lead.name+' as a change concentration point',evidence:lead.degree+' relationships, '+lead.incoming+' incoming and '+lead.outgoing+' outgoing.',reason:'It has the widest direct structural connectivity in the current model.',next:'Start impact discussions here when a change touches this area, then inspect its blast radius.'});
         if(a.cycles?.length) advice.push({key:'cycles',kind:'VALIDATE',title:'Validate the detected relationship cycles',evidence:a.cycles.length+' bounded structural cycle'+(a.cycles.length===1?' is':'s are')+' present.',reason:'Cycles may be intentional, but they make dependency reasoning less linear.',next:'Review each reported cycle path and confirm that the relationships represent intentional business structure.'});
         else advice.push({key:'cycles-clear',kind:'GOOD SIGNAL',title:'No structural cycles detected',evidence:'The bounded cycle analysis found no relationship cycles.',reason:'Relationship paths are easier to reason about when circular structures are absent.',next:'No cycle-specific investigation is suggested for the current model.'});
