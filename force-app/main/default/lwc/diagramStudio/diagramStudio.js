@@ -21,7 +21,7 @@ import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataControl
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
-import { exportSvgAsPng } from 'c/diagramExportUtils';
+import { exportSvgAsPng, exportArchitectureReportAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains } from 'c/architectureIntelligence';
 
@@ -850,6 +850,43 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (this.architectureOpen) this.refreshArchitectureAnalysis();
     }
     handleCloseArchitecture()  { this.architectureOpen = false; this.architectureSelectedObject=''; }
+    async handleExportArchitectureImage() {
+        const a=this.architectureAnalysis; if(!a) return;
+        try {
+            const base64=await exportArchitectureReportAsPng({
+                fileName:this.fileName,
+                summary:this.architectureExecutiveSummary,
+                reviewLead:this.architectureReviewLead,
+                findings:this.architectureFindings,
+                nodes:this.architectureNodes,
+                domains:this.architectureDomains,
+                signals:[
+                    {label:'Connectivity',value:this.architectureConnectivityLabel},
+                    {label:'Maximum reach',value:a.maxRelationshipDepth+' hops'},
+                    {label:'Cycles',value:this.architectureCycleLabel},
+                    {label:'Isolated objects',value:this.architectureIslandLabel},
+                    {label:'Junctions',value:this.architectureJunctionLabel}
+                ],
+                relationshipMix:[
+                    {label:'Lookup',value:a.lookupCount},
+                    {label:'Master-Detail',value:a.masterDetailCount},
+                    {label:'Polymorphic',value:a.polymorphicCount}
+                ],
+                metrics:[
+                    {label:'Objects',value:a.entityCount},{label:'Fields',value:a.fieldCount},{label:'Relationships',value:a.relationshipCount},
+                    {label:'Unique object pairs',value:a.uniqueRelationshipPairs},{label:'Unique-pair density',value:a.relationshipDensity},{label:'Average degree',value:a.averageDegree},
+                    {label:'Components',value:a.componentCount},{label:'Maximum depth',value:a.maxRelationshipDepth},{label:'Parallel relationships',value:a.parallelRelationshipCount}
+                ]
+            });
+            const safeName=(this.fileName||'architecture').replace(/[^a-z0-9_-]+/gi,'_');
+            const anchor=document.createElement('a');
+            anchor.href='data:image/png;base64,'+base64;
+            anchor.download=safeName+'_Architecture_Intelligence.png';
+            anchor.click();
+        } catch(e) {
+            this.architectureError='Architecture report export failed. '+(e?.message||'Unknown export error.');
+        }
+    }
     handleArchitectureObjectSelect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
     handleArchitectureDrillClose() { this.architectureSelectedObject=''; }
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
