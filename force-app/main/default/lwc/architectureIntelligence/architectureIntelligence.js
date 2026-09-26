@@ -51,8 +51,17 @@ export function analyseArchitecture(model) {
     const cycles = findCycles(names, adjacency, byKey);
     const components = connectedComponents(names, adjacency);
     const maxDepth = approximateGraphDepth(names, adjacency);
-    const avgDegree = entities.length ? (relationships.length * 2) / entities.length : 0;
-    const density = entities.length > 1 ? (relationships.length * 2) / (entities.length * (entities.length - 1)) : 0;
+    const avgDegree = entities.length ? (validRelationshipCount(relationships, adjacency) * 2) / entities.length : 0;
+    // Density is based on unique connected object pairs, so parallel Salesforce
+    // relationships between the same two objects cannot push graph density above 1.
+    const uniquePairs = new Set();
+    relationships.forEach(r => {
+        const child = r.childEntity.toLowerCase();
+        const parent = r.parentEntity.toLowerCase();
+        if (!adjacency.has(child) || !adjacency.has(parent) || child === parent) return;
+        uniquePairs.add([child, parent].sort().join('|'));
+    });
+    const density = entities.length > 1 ? (uniquePairs.size * 2) / (entities.length * (entities.length - 1)) : 0;
     const avgFields = entities.length ? entities.reduce((sum,e)=>sum+(e.fields||[]).length,0)/entities.length : 0;
     const hubs = nodes.filter(n=>n.degree>=Math.max(3, Math.ceil(relationships.length/Math.max(1,entities.length))));
     const islands = nodes.filter(n=>n.degree===0);
@@ -69,6 +78,8 @@ export function analyseArchitecture(model) {
         customObjectCount:entities.filter(e=>/__c$/i.test(e.name)).length,
         nodes, hubs, islands, cycles, componentCount:components.length, maxRelationshipDepth:maxDepth,
         averageDegree:Number(avgDegree.toFixed(2)), relationshipDensity:Number(density.toFixed(3)),
+        uniqueRelationshipPairs:uniquePairs.size,
+        parallelRelationshipCount:Math.max(0, validRelationships.length-uniquePairs.size),
         averageFieldsPerObject:Number(avgFields.toFixed(1)),
         mostConnected:nodes.slice(0,5),
         largestObjects:[...nodes].sort((a,b)=>b.fieldCount-a.fieldCount || a.name.localeCompare(b.name)).slice(0,5),
@@ -84,6 +95,14 @@ export function analyseArchitecture(model) {
     });
     return analysis;
 }
+function validRelationshipCount(relationships, adjacency) {
+    let count = 0;
+    relationships.forEach(r => {
+        if (adjacency.has(r.childEntity.toLowerCase()) && adjacency.has(r.parentEntity.toLowerCase())) count++;
+    });
+    return count;
+}
+
 function connectedComponents(names, adjacency) {
     const seen = new Set();
     const components = [];
