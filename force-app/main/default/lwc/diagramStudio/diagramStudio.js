@@ -828,11 +828,28 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
     handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
     handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
-    handleMenuArchitecture()   { this.openMenu = null; this.architectureOpen = !this.architectureOpen; }
+    handleMenuArchitecture()   {
+        this.openMenu = null;
+        this.architectureOpen = !this.architectureOpen;
+        if (this.architectureOpen) this.refreshArchitectureAnalysis();
+    }
     handleCloseArchitecture()  { this.architectureOpen = false; }
+    refreshArchitectureAnalysis() {
+        const source=this.sourceText || '';
+        if(!source.trim()){ this._architectureSource=''; this._architectureAnalysis=null; return; }
+        if(this._architectureSource===source && this._architectureAnalysis) return;
+        try {
+            this._architectureAnalysis=analyseArchitecture(parseEr(source));
+            this._architectureSource=source;
+        } catch (_) {
+            this._architectureAnalysis=null;
+            this._architectureSource=source;
+        }
+    }
     get architectureAnalysis() {
-        if (!this.sourceText || !this.sourceText.trim()) return null;
-        try { return analyseArchitecture(parseEr(this.sourceText)); } catch (_) { return null; }
+        if(!this.architectureOpen) return this._architectureAnalysis || null;
+        this.refreshArchitectureAnalysis();
+        return this._architectureAnalysis;
     }
     get architectureHasModel() { return !!this.architectureAnalysis; }
     get architectureSummary() {
