@@ -1122,6 +1122,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get architectureInsightMapNodes(){ return this.architectureInsightMap.nodes; }
     get architectureInsightMapEdges(){ return this.architectureInsightMap.edges; }
+    get architectureInsightMapCanvasStyle(){ return this.architectureInsightMap.canvasStyle; }
     get architectureTopologySummary() {
         const a=this.architectureAnalysis; if(!a) return [];
         return [
