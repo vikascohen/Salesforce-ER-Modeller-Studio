@@ -23,7 +23,7 @@ import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
-import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects } from 'c/architectureIntelligence';
+import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains } from 'c/architectureIntelligence';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -90,6 +90,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track architectureSelectedObject = '';
     @track architecturePathSource = '';
     @track architecturePathTarget = '';
+    @track architectureDomainAssignments = {};
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -868,6 +869,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureBlastLevels() { return this.architectureBlastRadius?.levels||[]; }
     get architectureJunctions() { return detectJunctionObjects(this.architectureAnalysis).slice(0,12); }
     get architectureHasJunctions() { return this.architectureJunctions.length>0; }
+    handleArchitectureDomainChange(event) { const name=event.currentTarget.dataset.name,value=event.target.value||''; this.architectureDomainAssignments={...this.architectureDomainAssignments,[name]:value}; }
+    get architectureDomainRows() { return this.architectureNodes.map(n=>({name:n.name,domain:this.architectureDomainAssignments[n.name]||''})); }
+    get architectureDomainAnalysis() { return analyseDomains(this.architectureAnalysis,this.architectureDomainAssignments); }
+    get architectureDomains() { return this.architectureDomainAnalysis.domains; }
+    get architectureDomainCouplings() { return this.architectureDomainAnalysis.couplings; }
+    get architectureHasDomains() { return this.architectureDomains.length>0; }
+    get architectureHasDomainCouplings() { return this.architectureDomainCouplings.length>0; }
+    get architectureUnassignedText() { const u=this.architectureDomainAnalysis.unassigned; return u.length ? u.length+' unassigned: '+u.join(', ') : 'All objects in the current model have a domain assignment.'; }
     refreshArchitectureAnalysis(force=false) {
         const source=this.sourceText || '';
         this.architectureError='';
