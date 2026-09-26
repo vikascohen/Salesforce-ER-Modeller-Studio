@@ -550,6 +550,30 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const token=event.currentTarget.dataset.token||'';
         this.dictionaryArchaeologistOpen=false; this.dictionaryFieldFilter='all'; this.dictionaryFieldSearch=token;
     }
+    get dictionaryIntelligenceHeadline(){
+        const fs=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), custom=fs.filter(f=>f.isCustom).length, rel=fs.filter(f=>f.isRelationship).length;
+        const derived=fs.filter(f=>String(f.dataType||'').startsWith('Formula')||f.isRollupSummary).length;
+        return (this.dictionaryRow?.apiName||'This object')+' contains '+fs.length+' business fields, including '+custom+' custom fields, '+rel+' relationships and '+derived+' derived fields.';
+    }
+    get dictionaryFieldTypeLandscape(){
+        const map=new Map();
+        this.dictionaryRawFields.filter(f=>!f.isPrimaryKey).forEach(f=>{const t=f.friendlyType||f.dataType||'Other';map.set(t,(map.get(t)||0)+1);});
+        const rows=[...map.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,10), max=Math.max(1,...rows.map(x=>x[1]));
+        return rows.map(([label,count])=>({key:label,label,count,width:'width:'+Math.max(4,Math.round(count/max*100))+'%'}));
+    }
+    get dictionaryComposition(){
+        const fs=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), custom=fs.filter(f=>f.isCustom).length, standard=fs.length-custom;
+        return [{key:'custom',label:'Custom',count:custom,width:'width:'+(fs.length?Math.round(custom/fs.length*100):0)+'%'},{key:'standard',label:'Standard',count:standard,width:'width:'+(fs.length?Math.round(standard/fs.length*100):0)+'%'}];
+    }
+    get dictionaryDocumentationLandscape(){
+        const custom=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey&&f.isCustom), documented=custom.filter(f=>(f.description||'').trim()).length, missing=custom.length-documented;
+        return [{key:'documented',label:'Documented custom fields',count:documented,width:'width:'+(custom.length?Math.round(documented/custom.length*100):0)+'%'},{key:'missing',label:'Missing description',count:missing,width:'width:'+(custom.length?Math.round(missing/custom.length*100):0)+'%'}];
+    }
+    get dictionaryRelationshipMap(){
+        const rel=this.dictionaryRelationshipConcentration, total=rel.length, radius=38;
+        return rel.slice(0,8).map((x,i)=>{const a=(Math.PI*2*i/Math.max(total,1))-Math.PI/2;return {...x,x:50+Math.cos(a)*radius,y:50+Math.sin(a)*radius};});
+    }
+    get dictionaryHasRelationshipMap(){ return this.dictionaryRelationshipMap.length>0; }
     get dictionaryRawFields() { return (this.dictionaryRow&&this.dictionaryRow.fields)||[]; }
     get dictionaryObjectSummary() {
         const fields=this.dictionaryRawFields, nonPk=fields.filter(f=>!f.isPrimaryKey);
