@@ -1,0 +1,49 @@
+/**
+ * Phase 2 — Data Architecture Intelligence.
+ * Pure graph analysis over the ER model produced by erDiagramLogic.parseEr().
+ * No security/permission analysis belongs here; that remains a Warden Studio concern.
+ */
+export function analyseArchitecture(model) {
+    const entities = model?.entities || [];
+    const relationships = model?.relationships || [];
+    const names = entities.map(e => e.name);
+    const byKey = new Map(names.map(n => [n.toLowerCase(), n]));
+    const incoming = new Map(names.map(n => [n.toLowerCase(), 0]));
+    const outgoing = new Map(names.map(n => [n.toLowerCase(), 0]));
+    const adjacency = new Map(names.map(n => [n.toLowerCase(), new Set()]));
+
+    relationships.forEach(r => {
+        const c=r.childEntity.toLowerCase(), p=r.parentEntity.toLowerCase();
+        outgoing.set(c,(outgoing.get(c)||0)+1);
+        incoming.set(p,(incoming.get(p)||0)+1);
+        if(adjacency.has(c)) adjacency.get(c).add(p);
+        if(adjacency.has(p)) adjacency.get(p).add(c);
+    });
+
+    const nodes = entities.map(e => {
+        const k=e.name.toLowerCase(), inc=incoming.get(k)||0, out=outgoing.get(k)||0;
+        return { name:e.name, fieldCount:(e.fields||[]).length, incoming:inc, outgoing:out, degree:inc+out,
+            relationshipFieldCount:(e.fields||[]).filter(f=>f.isRelationship).length,
+            requiredFieldCount:(e.fields||[]).filter(f=>f.isRequired).length,
+            rollupFieldCount:(e.fields||[]).filter(f=>f.isRollupSummary).length };
+    }).sort((a,b)=>b.degree-a.degree || b.fieldCount-a.fieldCount || a.name.localeCompare(b.name));
+
+    const cycles = findCycles(names, adjacency, byKey);
+    const components = connectedComponents(names, adjacency);
+    const maxDepth = longestSimplePath(names, adjacency);
+    const hubs = nodes.filter(n=>n.degree>=Math.max(3, Math.ceil(relationships.length/Math.max(1,entities.length))));
+    const islands = nodes.filter(n=>n.degree===0);
+
+    return {
+        entityCount:entities.length, fieldCount:entities.reduce((s,e)=>s+(e.fields||[]).length,0),
+        relationshipCount:relationships.length,
+        lookupCount:relationships.filter(r=>r.kind==='lookup').length,
+        masterDetailCount:relationships.filter(r=>r.kind==='master').length,
+        polymorphicCount:relationships.filter(r=>r.kind==='poly').length,
+        customObjectCount:entities.filter(e=>/__c$/i.test(e.name)).length,
+        nodes, hubs, islands, cycles, componentCount:components.length, maxRelationshipDepth:maxDepth
+    };
+}
+function connectedComponents(names,adj){const seen=new Set(),out=[]; for(const n of names){const k=n.toLowerCase();if(seen.has(k))continue;const stack=[k],c=[];seen.add(k);while(stack.length){const x=stack.pop();c.push(x);for(const y of adj.get(x)||[]){if(!seen.has(y)){seen.add(y);stack.push(y);}}}out.push(c);}return out;}
+function longestSimplePath(names,adj){let best=0;const dfs=(x,seen)=>{best=Math.max(best,seen.size-1);for(const y of adj.get(x)||[]){if(!seen.has(y)){const n=new Set(seen);n.add(y);dfs(y,n);}}};for(const n of names){const k=n.toLowerCase();dfs(k,new Set([k]));}return best;}
+function findCycles(names,adj,byKey){const found=new Set(),cycles=[];const canonical=p=>{const core=p.slice(0,-1);const rots=[];for(let i=0;i<core.length;i++)rots.push(core.slice(i).concat(core.slice(0,i)).join('|'));const rev=[...core].reverse();for(let i=0;i<rev.length;i++)rots.push(rev.slice(i).concat(rev.slice(0,i)).join('|'));return rots.sort()[0];};const dfs=(start,x,path,seen)=>{for(const y of adj.get(x)||[]){if(y===start&&path.length>=3){const p=path.concat(start),key=canonical(p);if(!found.has(key)){found.add(key);cycles.push(p.map(k=>byKey.get(k)||k));}}else if(!seen.has(y)&&path.length<8){const s=new Set(seen);s.add(y);dfs(start,y,path.concat(y),s);}}};for(const n of names){const k=n.toLowerCase();dfs(k,k,[k],new Set([k]));}return cycles.slice(0,25);}
