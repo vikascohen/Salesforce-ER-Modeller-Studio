@@ -1350,3 +1350,12 @@
  .arch-map-section{break-before:page;break-after:page}
  .arch-deep-intelligence,.arch-advice-section{break-before:page}
 }
+
+/* User controlled Architecture Intelligence readability */
+.arch-panel{--arch-font-scale:1}
+.arch-panel .arch-title{font-size:calc(18px * var(--arch-font-scale))!important}.arch-panel .arch-subtitle{font-size:calc(10px * var(--arch-font-scale))!important}
+.arch-panel .arch-section,.arch-panel .arch-brief,.arch-panel .arch-summary-card,.arch-panel .arch-finding,.arch-panel .arch-advice-card,.arch-panel .arch-metric,.arch-panel .arch-topology-row,.arch-panel .arch-deep-card,.arch-panel .arch-map-explainer{font-size:calc(10px * var(--arch-font-scale))!important}
+.arch-panel .arch-section-head,.arch-panel .arch-section-head span:first-child{font-size:calc(11px * var(--arch-font-scale))!important}
+.arch-panel .arch-deep-title strong,.arch-panel .arch-map-node strong{font-size:calc(10px * var(--arch-font-scale))!important}.arch-panel .arch-deep-title span,.arch-panel .arch-map-node span,.arch-panel .arch-map-node small{font-size:calc(8px * var(--arch-font-scale))!important}
+.arch-font-controls{display:flex;align-items:center;border:1px solid var(--surface-border-strong);border-radius:6px;overflow:hidden;background:var(--surface-bg)}
+.arch-font-btn,.arch-font-value{border:0;border-right:1px solid var(--surface-border);background:transparent;color:var(--surface-text-strong);height:30px;min-width:34px;padding:0 8px;font-size:11px;font-weight:700;cursor:pointer}.arch-font-value{min-width:48px;font-size:9px}.arch-font-btn:last-child{border-right:0}.arch-font-btn:disabled{opacity:.35;cursor:default}.arch-font-btn:not(:disabled):hover,.arch-font-value:hover{background:var(--surface-bg-alt)}
