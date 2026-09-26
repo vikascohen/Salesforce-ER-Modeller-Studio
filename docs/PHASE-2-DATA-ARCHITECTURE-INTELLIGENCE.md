@@ -1,5 +1,7 @@
 # Phase 2 — Data Architecture Intelligence
 
+**Author:** Vikas Cohen
+
 Phase 2 extends ER Modeller Studio from visual modelling into **data-architecture intelligence** while keeping the product deliberately focused.
 
 ## Product boundary
