@@ -53,6 +53,9 @@ The current Phase 2 workspace includes:
 - **Bounded structural-cycle detection** — detects relationship loops while deliberately bounding search depth and result count to protect interactive performance.
 - **Most-connected objects** — ranks the most structurally connected objects in the current model.
 - **Largest object definitions** — surfaces objects with the largest field definitions.
+- **Relationship Path Finder** — choose any two objects and calculate the minimum-hop structural route between them using breadth-first search.
+- **Blast Radius** — select an object and inspect the objects structurally reachable within one, two and three relationship hops.
+- **Junction Intelligence** — identifies multi-parent junction candidates and distinguishes strong candidates backed by two or more Master-Detail relationships.
 - **Object-level architecture table** — fields, relationship fields, incoming relationships, outgoing relationships, total degree, required fields and roll-up summaries for every object.
 - **Architecture observations** — evidence-based observations for high coupling, isolated model areas, disconnected components, cycles, deep relationship reach, large definitions and skipped/incomplete relationship data.
 - **No synthetic health score** — Phase 2 deliberately exposes the evidence behind the architecture instead of producing an unexplained “73/100” style score.
