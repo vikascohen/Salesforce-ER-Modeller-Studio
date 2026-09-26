@@ -23,6 +23,7 @@ import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
+import { analyseArchitecture } from 'c/architectureIntelligence';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -812,6 +813,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
+    get architectureMenuText(){ return this.architectureOpen ? 'Architecture Intelligence \u2713' : 'Architecture Intelligence'; }
 
     // Each wraps an existing, already-tested handler — closes the dropdown
     // first, then delegates, so none of the underlying action logic changes.
@@ -825,6 +827,25 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
     handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
     handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
+    handleMenuArchitecture()   { this.openMenu = null; this.architectureOpen = !this.architectureOpen; }
+    handleCloseArchitecture()  { this.architectureOpen = false; }
+    get architectureAnalysis() {
+        if (!this.sourceText || !this.sourceText.trim()) return null;
+        try { return analyseArchitecture(parseEr(this.sourceText)); } catch (_) { return null; }
+    }
+    get architectureHasModel() { return !!this.architectureAnalysis; }
+    get architectureSummary() {
+        const a=this.architectureAnalysis; if(!a) return [];
+        return [
+            {label:'Objects',value:a.entityCount},{label:'Fields',value:a.fieldCount},{label:'Relationships',value:a.relationshipCount},
+            {label:'Lookup',value:a.lookupCount},{label:'Master-Detail',value:a.masterDetailCount},{label:'Polymorphic',value:a.polymorphicCount},
+            {label:'Custom Objects',value:a.customObjectCount},{label:'Components',value:a.componentCount},{label:'Max Depth',value:a.maxRelationshipDepth}
+        ];
+    }
+    get architectureNodes() { return this.architectureAnalysis?.nodes || []; }
+    get architectureHubsText() { const a=this.architectureAnalysis; return a?.hubs?.length ? a.hubs.map(x=>x.name+' ('+x.degree+')').join(', ') : 'No structural hubs detected in this diagram.'; }
+    get architectureIslandsText() { const a=this.architectureAnalysis; return a?.islands?.length ? a.islands.map(x=>x.name).join(', ') : 'No isolated objects.'; }
+    get architectureCyclesText() { const a=this.architectureAnalysis; return a?.cycles?.length ? a.cycles.map(c=>c.join(' → ')).join(' | ') : 'No relationship cycles detected.'; }
 
     // ────────────────────────────────────────────────────────
     //  Toolbar / file actions
