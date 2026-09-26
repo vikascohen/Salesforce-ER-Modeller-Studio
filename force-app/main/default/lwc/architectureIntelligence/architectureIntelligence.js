@@ -70,60 +70,256 @@ export function analyseArchitecture(model) {
         observations: buildObservations(nodes, relationships, components, cycles, maxDepth, avgDegree, ignoredRelationships)
     };
 }
-function connectedComponents(names,adj){const seen=new Set(),out=[]; for(const n of names){const k=n.toLowerCase();if(seen.has(k))continue;const stack=[k],c=[];seen.add(k);while(stack.length){const x=stack.pop();c.push(x);for(const y of adj.get(x)||[]){if(!seen.has(y)){seen.add(y);stack.push(y);}}}out.push(c);}return out;}
+function connectedComponents(names, adjacency) {
+    const seen = new Set();
+    const components = [];
+
+    for (const name of names) {
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+
+        const stack = [key];
+        const component = [];
+        seen.add(key);
+
+        while (stack.length) {
+            const current = stack.pop();
+            component.push(current);
+
+            for (const neighbor of adjacency.get(current) || []) {
+                if (!seen.has(neighbor)) {
+                    seen.add(neighbor);
+                    stack.push(neighbor);
+                }
+            }
+        }
+        components.push(component);
+    }
+    return components;
+}
+
 // Exact longest-simple-path search is exponential on cyclic graphs. For an interactive
 // architect tool we use bounded BFS eccentricity instead: O(V*(V+E)), predictable even
 // for large org diagrams, and still a useful measure of relationship reach/depth.
-function approximateGraphDepth(names,adj){
-    let best=0;
-    for(const n of names){
-        const start=n.toLowerCase(),dist=new Map([[start,0]]),queue=[start];
-        for(let i=0;i<queue.length;i++){
-            const x=queue[i],d=dist.get(x);
-            if(d>best) best=d;
-            for(const y of adj.get(x)||[]){
-                if(!dist.has(y)){dist.set(y,d+1);queue.push(y);}
+function approximateGraphDepth(names, adjacency) {
+    let best = 0;
+    for (const name of names) {
+        const start = name.toLowerCase();
+        const distances = new Map([[start, 0]]);
+        const queue = [start];
+
+        for (let i = 0; i < queue.length; i++) {
+            const current = queue[i];
+            const distance = distances.get(current);
+            if (distance > best) best = distance;
+
+            for (const neighbor of adjacency.get(current) || []) {
+                if (!distances.has(neighbor)) {
+                    distances.set(neighbor, distance + 1);
+                    queue.push(neighbor);
+                }
             }
         }
     }
     return best;
 }
-function findCycles(names,adj,byKey){const found=new Set(),cycles=[]; const MAX_CYCLES=25, MAX_DEPTH=7;const canonical=p=>{const core=p.slice(0,-1);const rots=[];for(let i=0;i<core.length;i++)rots.push(core.slice(i).concat(core.slice(0,i)).join('|'));const rev=[...core].reverse();for(let i=0;i<rev.length;i++)rots.push(rev.slice(i).concat(rev.slice(0,i)).join('|'));return rots.sort()[0];};const dfs=(start,x,path,seen)=>{if(cycles.length>=MAX_CYCLES)return;for(const y of adj.get(x)||[]){if(y===start&&path.length>=3){const p=path.concat(start),key=canonical(p);if(!found.has(key)){found.add(key);cycles.push(p.map(k=>byKey.get(k)||k));}}else if(!seen.has(y)&&path.length<MAX_DEPTH){const s=new Set(seen);s.add(y);dfs(start,y,path.concat(y),s);}}};for(const n of names){if(cycles.length>=MAX_CYCLES)break;const k=n.toLowerCase();dfs(k,k,[k],new Set([k]));}return cycles;}
 
-function buildObservations(nodes,relationships,components,cycles,maxDepth,avgDegree,ignoredRelationships){
-    const out=[];
-    const islands=nodes.filter(n=>n.degree===0);
-    const high=nodes.filter(n=>n.degree>=Math.max(4,Math.ceil(avgDegree*2)));
-    const large=nodes.filter(n=>n.fieldCount>=50);
-    if(ignoredRelationships.length) out.push({title:'Relationships skipped',detail:ignoredRelationships.length+' relationship'+(ignoredRelationships.length===1?' was':'s were')+' excluded because an endpoint is not present in the current model.',kind:'Data quality'});
-    if(high.length) out.push({title:'High-coupling objects',detail:high.slice(0,5).map(n=>n.name+' ('+n.degree+' relationships)').join(', '),kind:'Topology'});
-    if(islands.length) out.push({title:'Isolated model areas',detail:islands.slice(0,8).map(n=>n.name).join(', '),kind:'Topology'});
-    if(components.length>1) out.push({title:'Disconnected components',detail:components.length+' separate relationship components exist in the current diagram.',kind:'Structure'});
-    if(cycles.length) out.push({title:'Relationship cycles',detail:cycles.length+' cycle'+(cycles.length===1?'':'s')+' detected. Review these as intentional topology, not automatically as defects.',kind:'Topology'});
-    if(maxDepth>=5) out.push({title:'Deep relationship paths',detail:'The longest simple relationship path spans '+maxDepth+' hops.',kind:'Complexity'});
-    if(large.length) out.push({title:'Large object definitions',detail:large.slice(0,5).map(n=>n.name+' ('+n.fieldCount+' fields)').join(', '),kind:'Model size'});
-    if(!out.length&&relationships.length) out.push({title:'Balanced current model',detail:'No notable topology observations were triggered by the current diagram thresholds.',kind:'Structure'});
-    return out;
+function findCycles(names, adjacency, byKey) {
+    const found = new Set();
+    const cycles = [];
+    const MAX_CYCLES = 25;
+    const MAX_DEPTH = 7;
+
+    const canonical = path => {
+        const core = path.slice(0, -1);
+        const rotations = [];
+
+        for (let i = 0; i < core.length; i++) {
+            rotations.push(core.slice(i).concat(core.slice(0, i)).join('|'));
+        }
+
+        const reversed = [...core].reverse();
+        for (let i = 0; i < reversed.length; i++) {
+            rotations.push(reversed.slice(i).concat(reversed.slice(0, i)).join('|'));
+        }
+        return rotations.sort()[0];
+    };
+
+    const dfs = (start, current, path, seen) => {
+        if (cycles.length >= MAX_CYCLES) return;
+
+        for (const neighbor of adjacency.get(current) || []) {
+            if (neighbor === start && path.length >= 3) {
+                const cyclePath = path.concat(start);
+                const key = canonical(cyclePath);
+                if (!found.has(key)) {
+                    found.add(key);
+                    cycles.push(cyclePath.map(item => byKey.get(item) || item));
+                }
+            } else if (!seen.has(neighbor) && path.length < MAX_DEPTH) {
+                const nextSeen = new Set(seen);
+                nextSeen.add(neighbor);
+                dfs(start, neighbor, path.concat(neighbor), nextSeen);
+            }
+        }
+    };
+
+    for (const name of names) {
+        if (cycles.length >= MAX_CYCLES) break;
+        const key = name.toLowerCase();
+        dfs(key, key, [key], new Set([key]));
+    }
+    return cycles;
+}
+
+function buildObservations(nodes, relationships, components, cycles, maxDepth, avgDegree, ignoredRelationships) {
+    const observations = [];
+    const islands = nodes.filter(node => node.degree === 0);
+    const highCoupling = nodes.filter(node => node.degree >= Math.max(4, Math.ceil(avgDegree * 2)));
+    const largeObjects = nodes.filter(node => node.fieldCount >= 50);
+
+    if (ignoredRelationships.length) {
+        observations.push({
+            title: 'Relationships skipped',
+            detail: ignoredRelationships.length + ' relationship' +
+                (ignoredRelationships.length === 1 ? ' was' : 's were') +
+                ' excluded because an endpoint is not present in the current model.',
+            kind: 'Data quality'
+        });
+    }
+    if (highCoupling.length) {
+        observations.push({
+            title: 'High-coupling objects',
+            detail: highCoupling.slice(0, 5).map(node => node.name + ' (' + node.degree + ' relationships)').join(', '),
+            kind: 'Topology'
+        });
+    }
+    if (islands.length) {
+        observations.push({
+            title: 'Isolated model areas',
+            detail: islands.slice(0, 8).map(node => node.name).join(', '),
+            kind: 'Topology'
+        });
+    }
+    if (components.length > 1) {
+        observations.push({
+            title: 'Disconnected components',
+            detail: components.length + ' separate relationship components exist in the current diagram.',
+            kind: 'Structure'
+        });
+    }
+    if (cycles.length) {
+        observations.push({
+            title: 'Relationship cycles',
+            detail: cycles.length + ' cycle' + (cycles.length === 1 ? '' : 's') +
+                ' detected. Review these as intentional topology, not automatically as defects.',
+            kind: 'Topology'
+        });
+    }
+    if (maxDepth >= 5) {
+        observations.push({
+            title: 'Deep relationship paths',
+            detail: 'The longest simple relationship path spans ' + maxDepth + ' hops.',
+            kind: 'Complexity'
+        });
+    }
+    if (largeObjects.length) {
+        observations.push({
+            title: 'Large object definitions',
+            detail: largeObjects.slice(0, 5).map(node => node.name + ' (' + node.fieldCount + ' fields)').join(', '),
+            kind: 'Model size'
+        });
+    }
+    if (!observations.length && relationships.length) {
+        observations.push({
+            title: 'Balanced current model',
+            detail: 'No notable topology observations were triggered by the current diagram thresholds.',
+            kind: 'Structure'
+        });
+    }
+    return observations;
 }
 
 export function analyseObject(analysis, objectName) {
-    if(!analysis || !objectName) return null;
-    const key=objectName.toLowerCase();
-    const node=(analysis.nodes||[]).find(n=>n.name.toLowerCase()===key);
-    if(!node) return null;
-    const rels=analysis.relationships||[];
-    const parents=[],children=[],neighbors=new Set();
-    rels.forEach(r=>{
-        const c=r.childEntity.toLowerCase(),p=r.parentEntity.toLowerCase();
-        if(c===key){parents.push({name:r.parentEntity,field:r.childField||'',kind:r.kind||'relationship'});neighbors.add(r.parentEntity);}
-        if(p===key){children.push({name:r.childEntity,field:r.childField||'',kind:r.kind||'relationship'});neighbors.add(r.childEntity);}
+    if (!analysis || !objectName) return null;
+
+    const key = objectName.toLowerCase();
+    const nodes = analysis.nodes || [];
+    const node = nodes.find(item => item.name.toLowerCase() === key);
+    if (!node) return null;
+
+    const relationships = analysis.relationships || [];
+    const parents = [];
+    const children = [];
+    const neighbors = new Set();
+
+    relationships.forEach(relationship => {
+        const child = relationship.childEntity.toLowerCase();
+        const parent = relationship.parentEntity.toLowerCase();
+
+        if (child === key) {
+            parents.push({
+                name: relationship.parentEntity,
+                field: relationship.childField || '',
+                kind: relationship.kind || 'relationship'
+            });
+            neighbors.add(relationship.parentEntity);
+        }
+        if (parent === key) {
+            children.push({
+                name: relationship.childEntity,
+                field: relationship.childField || '',
+                kind: relationship.kind || 'relationship'
+            });
+            neighbors.add(relationship.childEntity);
+        }
     });
-    const { adj } = graphIndex(analysis);
-    const levels=[];let frontier=new Set([key]),seen=new Set([key]);
-    for(let depth=1;depth<=3;depth++){const next=new Set();frontier.forEach(x=>(adj.get(x)||[]).forEach(y=>{if(!seen.has(y)){seen.add(y);next.add(y);}}));levels.push({depth,count:next.size,names:[...next].map(k=>(analysis.nodes||[]).find(n=>n.name.toLowerCase()===k)?.name||k)});frontier=next;}
-    const objectCycles=(analysis.cycles||[]).filter(c=>c.some(n=>n.toLowerCase()===key));
-    let role='Connected object'; if(node.degree===0)role='Isolated object'; else if((analysis.hubs||[]).some(h=>h.name.toLowerCase()===key))role='Structural hub'; else if(node.incoming>node.outgoing*2)role='Relationship target'; else if(node.outgoing>node.incoming*2)role='Relationship source';
-    return {...node,role,parents,children,neighbors:[...neighbors].sort(),reach1:levels[0],reach2:levels[1],reach3:levels[2],reachableWithin3:[...seen].filter(k=>k!==key).length,cycles:objectCycles};
+
+    const { names, adj } = graphIndex(analysis);
+    const levels = [];
+    let frontier = new Set([key]);
+    const seen = new Set([key]);
+
+    for (let depth = 1; depth <= 3; depth++) {
+        const next = new Set();
+        frontier.forEach(current => {
+            (adj.get(current) || []).forEach(neighbor => {
+                if (!seen.has(neighbor)) {
+                    seen.add(neighbor);
+                    next.add(neighbor);
+                }
+            });
+        });
+        levels.push({
+            depth,
+            count: next.size,
+            names: [...next].map(item => names.get(item) || item)
+        });
+        frontier = next;
+    }
+
+    const objectCycles = (analysis.cycles || []).filter(cycle =>
+        cycle.some(name => name.toLowerCase() === key)
+    );
+
+    let role = 'Connected object';
+    if (node.degree === 0) role = 'Isolated object';
+    else if ((analysis.hubs || []).some(hub => hub.name.toLowerCase() === key)) role = 'Structural hub';
+    else if (node.incoming > node.outgoing * 2) role = 'Relationship target';
+    else if (node.outgoing > node.incoming * 2) role = 'Relationship source';
+
+    return {
+        ...node,
+        role,
+        parents,
+        children,
+        neighbors: [...neighbors].sort(),
+        reach1: levels[0],
+        reach2: levels[1],
+        reach3: levels[2],
+        reachableWithin3: [...seen].filter(item => item !== key).length,
+        cycles: objectCycles
+    };
 }
 
 function graphIndex(analysis) {
@@ -143,34 +339,198 @@ function graphIndex(analysis) {
 
     return { names, adj };
 }
-export function findArchitecturePath(analysis,source,target){
-    if(!analysis||!source||!target)return null;const {names,adj}=graphIndex(analysis),s=source.toLowerCase(),t=target.toLowerCase();
-    if(!adj.has(s)||!adj.has(t))return {found:false,path:[],hops:0};
-    const q=[s],prev=new Map([[s,null]]);
-    for(let i=0;i<q.length;i++){const x=q[i];if(x===t)break;for(const y of adj.get(x)||[]){if(!prev.has(y)){prev.set(y,x);q.push(y);}}}
-    if(!prev.has(t))return {found:false,path:[],hops:0};
-    const keys=[];for(let x=t;x!=null;x=prev.get(x))keys.push(x);keys.reverse();
-    return {found:true,path:keys.map(k=>names.get(k)||k),hops:Math.max(0,keys.length-1)};
-}
-export function analyseBlastRadius(analysis,objectName,maxDepth=3){
-    if(!analysis||!objectName)return null;const {names,adj}=graphIndex(analysis),start=objectName.toLowerCase();
-    if(!adj.has(start))return null;const depthLimit=Math.max(1,Math.min(5,maxDepth)),seen=new Map([[start,0]]),q=[start];
-    for(let i=0;i<q.length;i++){const x=q[i],d=seen.get(x);if(d>=depthLimit)continue;for(const y of adj.get(x)||[]){if(!seen.has(y)){seen.set(y,d+1);q.push(y);}}}
-    const levels=[];for(let d=1;d<=depthLimit;d++){const objects=[...seen].filter(([,v])=>v===d).map(([k])=>names.get(k)||k).sort();levels.push({depth:d,count:objects.length,objects});}
-    return {source:names.get(start)||objectName,maxDepth:depthLimit,total:[...seen].filter(([k])=>k!==start).length,levels};
-}
-export function detectJunctionObjects(analysis){
-    if(!analysis)return[];const rels=analysis.relationships||[];
-    return (analysis.nodes||[]).map(n=>{const outbound=rels.filter(r=>r.childEntity.toLowerCase()===n.name.toLowerCase());const targets=[...new Set(outbound.map(r=>r.parentEntity.toLowerCase()))];const masters=outbound.filter(r=>r.kind==='master').length;return {name:n.name,outboundRelationships:outbound.length,distinctTargets:targets.length,masterDetailRelationships:masters,confidence:masters>=2?'Strong':targets.length>=2?'Candidate':'None'};}).filter(x=>x.distinctTargets>=2).sort((a,b)=>b.masterDetailRelationships-a.masterDetailRelationships||b.distinctTargets-a.distinctTargets||a.name.localeCompare(b.name));
+
+export function findArchitecturePath(analysis, source, target) {
+    if (!analysis || !source || !target) return null;
+
+    const { names, adj } = graphIndex(analysis);
+    const sourceKey = source.toLowerCase();
+    const targetKey = target.toLowerCase();
+
+    if (!adj.has(sourceKey) || !adj.has(targetKey)) {
+        return { found: false, path: [], hops: 0 };
+    }
+
+    const queue = [sourceKey];
+    const previous = new Map([[sourceKey, null]]);
+
+    for (let i = 0; i < queue.length; i++) {
+        const current = queue[i];
+        if (current === targetKey) break;
+
+        for (const neighbor of adj.get(current) || []) {
+            if (!previous.has(neighbor)) {
+                previous.set(neighbor, current);
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    if (!previous.has(targetKey)) {
+        return { found: false, path: [], hops: 0 };
+    }
+
+    const pathKeys = [];
+    for (let current = targetKey; current != null; current = previous.get(current)) {
+        pathKeys.push(current);
+    }
+    pathKeys.reverse();
+
+    return {
+        found: true,
+        path: pathKeys.map(key => names.get(key) || key),
+        hops: Math.max(0, pathKeys.length - 1)
+    };
 }
 
-export function analyseDomains(analysis, assignments={}) {
-    if(!analysis) return {domains:[],couplings:[],unassigned:[]};
-    const domainOf=new Map(),display=new Map();
-    (analysis.nodes||[]).forEach(n=>{const raw=assignments[n.name]||assignments[n.name.toLowerCase()]||'';const d=String(raw).trim();if(d){domainOf.set(n.name.toLowerCase(),d.toLowerCase());display.set(d.toLowerCase(),d);}});
-    const stats=new Map([...display].map(([k,v])=>[k,{name:v,objectCount:0,fieldCount:0,internalRelationships:0,crossDomainRelationships:0}]));
-    (analysis.nodes||[]).forEach(n=>{const d=domainOf.get(n.name.toLowerCase());if(d){const x=stats.get(d);x.objectCount++;x.fieldCount+=n.fieldCount||0;}});
-    const pairs=new Map();
-    (analysis.relationships||[]).forEach(r=>{const a=domainOf.get(r.childEntity.toLowerCase()),b=domainOf.get(r.parentEntity.toLowerCase());if(!a||!b)return;if(a===b){stats.get(a).internalRelationships++;return;}stats.get(a).crossDomainRelationships++;stats.get(b).crossDomainRelationships++;const keys=[a,b].sort(),key=keys.join('|');if(!pairs.has(key))pairs.set(key,{domainA:display.get(keys[0]),domainB:display.get(keys[1]),relationshipCount:0});pairs.get(key).relationshipCount++;});
-    return {domains:[...stats.values()].sort((a,b)=>b.crossDomainRelationships-a.crossDomainRelationships||b.objectCount-a.objectCount||a.name.localeCompare(b.name)),couplings:[...pairs.values()].sort((a,b)=>b.relationshipCount-a.relationshipCount||a.domainA.localeCompare(b.domainA)),unassigned:(analysis.nodes||[]).filter(n=>!domainOf.has(n.name.toLowerCase())).map(n=>n.name).sort()};
+export function analyseBlastRadius(analysis, objectName, maxDepth = 3) {
+    if (!analysis || !objectName) return null;
+
+    const { names, adj } = graphIndex(analysis);
+    const start = objectName.toLowerCase();
+    if (!adj.has(start)) return null;
+
+    const depthLimit = Math.max(1, Math.min(5, maxDepth));
+    const seen = new Map([[start, 0]]);
+    const queue = [start];
+
+    for (let i = 0; i < queue.length; i++) {
+        const current = queue[i];
+        const depth = seen.get(current);
+        if (depth >= depthLimit) continue;
+
+        for (const neighbor of adj.get(current) || []) {
+            if (!seen.has(neighbor)) {
+                seen.set(neighbor, depth + 1);
+                queue.push(neighbor);
+            }
+        }
+    }
+
+    const levels = [];
+    for (let depth = 1; depth <= depthLimit; depth++) {
+        const objects = [...seen]
+            .filter(([, value]) => value === depth)
+            .map(([key]) => names.get(key) || key)
+            .sort();
+        levels.push({ depth, count: objects.length, objects });
+    }
+
+    return {
+        source: names.get(start) || objectName,
+        maxDepth: depthLimit,
+        total: [...seen].filter(([key]) => key !== start).length,
+        levels
+    };
+}
+
+export function detectJunctionObjects(analysis) {
+    if (!analysis) return [];
+
+    const relationships = analysis.relationships || [];
+    return (analysis.nodes || [])
+        .map(node => {
+            const nodeKey = node.name.toLowerCase();
+            const outbound = relationships.filter(
+                relationship => relationship.childEntity.toLowerCase() === nodeKey
+            );
+            const targets = [...new Set(outbound.map(
+                relationship => relationship.parentEntity.toLowerCase()
+            ))];
+            const masters = outbound.filter(relationship => relationship.kind === 'master').length;
+
+            return {
+                name: node.name,
+                outboundRelationships: outbound.length,
+                distinctTargets: targets.length,
+                masterDetailRelationships: masters,
+                confidence: masters >= 2 ? 'Strong' : targets.length >= 2 ? 'Candidate' : 'None'
+            };
+        })
+        .filter(item => item.distinctTargets >= 2)
+        .sort((a, b) =>
+            b.masterDetailRelationships - a.masterDetailRelationships ||
+            b.distinctTargets - a.distinctTargets ||
+            a.name.localeCompare(b.name)
+        );
+}
+
+export function analyseDomains(analysis, assignments = {}) {
+    if (!analysis) return { domains: [], couplings: [], unassigned: [] };
+
+    const domainOf = new Map();
+    const display = new Map();
+
+    (analysis.nodes || []).forEach(node => {
+        const raw = assignments[node.name] || assignments[node.name.toLowerCase()] || '';
+        const domain = String(raw).trim();
+        if (domain) {
+            domainOf.set(node.name.toLowerCase(), domain.toLowerCase());
+            display.set(domain.toLowerCase(), domain);
+        }
+    });
+
+    const stats = new Map(
+        [...display].map(([key, name]) => [
+            key,
+            {
+                name,
+                objectCount: 0,
+                fieldCount: 0,
+                internalRelationships: 0,
+                crossDomainRelationships: 0
+            }
+        ])
+    );
+
+    (analysis.nodes || []).forEach(node => {
+        const domain = domainOf.get(node.name.toLowerCase());
+        if (domain) {
+            const stat = stats.get(domain);
+            stat.objectCount++;
+            stat.fieldCount += node.fieldCount || 0;
+        }
+    });
+
+    const pairs = new Map();
+    (analysis.relationships || []).forEach(relationship => {
+        const childDomain = domainOf.get(relationship.childEntity.toLowerCase());
+        const parentDomain = domainOf.get(relationship.parentEntity.toLowerCase());
+        if (!childDomain || !parentDomain) return;
+
+        if (childDomain === parentDomain) {
+            stats.get(childDomain).internalRelationships++;
+            return;
+        }
+
+        stats.get(childDomain).crossDomainRelationships++;
+        stats.get(parentDomain).crossDomainRelationships++;
+
+        const keys = [childDomain, parentDomain].sort();
+        const pairKey = keys.join('|');
+        if (!pairs.has(pairKey)) {
+            pairs.set(pairKey, {
+                domainA: display.get(keys[0]),
+                domainB: display.get(keys[1]),
+                relationshipCount: 0
+            });
+        }
+        pairs.get(pairKey).relationshipCount++;
+    });
+
+    return {
+        domains: [...stats.values()].sort((a, b) =>
+            b.crossDomainRelationships - a.crossDomainRelationships ||
+            b.objectCount - a.objectCount ||
+            a.name.localeCompare(b.name)
+        ),
+        couplings: [...pairs.values()].sort((a, b) =>
+            b.relationshipCount - a.relationshipCount ||
+            a.domainA.localeCompare(b.domainA)
+        ),
+        unassigned: (analysis.nodes || [])
+            .filter(node => !domainOf.has(node.name.toLowerCase()))
+            .map(node => node.name)
+            .sort()
+    };
 }
