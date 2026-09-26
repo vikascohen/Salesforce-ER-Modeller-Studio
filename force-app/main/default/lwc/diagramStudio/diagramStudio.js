@@ -1151,6 +1151,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if(a.parallelRelationshipCount>0) findings.push({key:'parallel',kind:'RELATIONSHIPS',title:'Repeated object-pair relationships',evidence:a.parallelRelationshipCount+' additional relationship'+(a.parallelRelationshipCount===1?' exists':'s exist')+' between already-connected object pairs.',impact:'Multiple relationships between the same objects can be valid, but they increase semantic coupling beyond simple graph connectivity.',action:'Review the relationship fields and confirm each represents a distinct business meaning.',objectName:'',hasObject:false});
         return findings.slice(0,6);
     }
+    get architectureAdvice() {
+        const a=this.architectureAnalysis; if(!a) return [];
+        const advice=[], lead=a.mostConnected?.[0], largest=a.largestObjects?.[0];
+        if(lead&&lead.degree) advice.push({key:'hub',kind:'REVIEW',title:'Review '+lead.name+' as a change concentration point',evidence:lead.degree+' relationships, '+lead.incoming+' incoming and '+lead.outgoing+' outgoing.',reason:'It has the widest direct structural connectivity in the current model.',next:'Start impact discussions here when a change touches this area, then inspect its blast radius.'});
+        if(a.cycles?.length) advice.push({key:'cycles',kind:'VALIDATE',title:'Validate the detected relationship cycles',evidence:a.cycles.length+' bounded structural cycle'+(a.cycles.length===1?' is':'s are')+' present.',reason:'Cycles may be intentional, but they make dependency reasoning less linear.',next:'Review each reported cycle path and confirm that the relationships represent intentional business structure.'});
+        else advice.push({key:'cycles-clear',kind:'GOOD SIGNAL',title:'No structural cycles detected',evidence:'The bounded cycle analysis found no relationship cycles.',reason:'Relationship paths are easier to reason about when circular structures are absent.',next:'No cycle-specific investigation is suggested for the current model.'});
+        if(a.componentCount>1) advice.push({key:'components',kind:'VALIDATE',title:'Confirm disconnected model areas are intentional',evidence:a.componentCount+' connected components were detected.',reason:'Disconnected areas can represent valid boundaries or an incomplete diagram.',next:'Check whether each component is intentionally independent or whether relationships are missing from the model.'});
+        else advice.push({key:'connected',kind:'GOOD SIGNAL',title:'The current model forms one connected structure',evidence:'All '+a.entityCount+' modelled objects belong to one connected component.',reason:'No structural islands are hidden behind disconnected components.',next:'Use Path Finder when you need evidence for how two specific objects connect.'});
+        if(a.parallelRelationshipCount>0) advice.push({key:'parallel',kind:'CONSIDER',title:'Review repeated relationships between object pairs',evidence:a.parallelRelationshipCount+' additional relationship'+(a.parallelRelationshipCount===1?' exists':'s exist')+' between already connected object pairs.',reason:'Repeated links can be valid but may encode different business meanings that deserve explicit documentation.',next:'Confirm each repeated relationship has a distinct and understandable purpose.'});
+        if(largest&&largest.fieldCount>=25) advice.push({key:'breadth',kind:'CONSIDER',title:'Review the breadth of '+largest.name,evidence:largest.fieldCount+' fields are represented on this object in the current diagram.',reason:'Field breadth is not a defect, but large definitions can accumulate multiple responsibilities over time.',next:'Check whether the field groups still represent a cohesive object responsibility.'});
+        return advice.slice(0,6);
+    }
+    handlePrintArchitectureReport() {
+        try { window.print(); }
+        catch(e) { this.architectureError='Print preview could not be opened. '+(e?.message||'Use the browser print command to save the report as PDF.'); }
+    }
     handleArchitectureFindingInspect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
     get architectureConnectivityLabel() { const a=this.architectureAnalysis; return !a?'':a.componentCount===1?'Fully connected':a.componentCount+' components'; }
     get architectureCycleLabel() { const a=this.architectureAnalysis; return !a?'':a.cycles.length ? a.cycles.length+' detected' : 'None detected'; }
