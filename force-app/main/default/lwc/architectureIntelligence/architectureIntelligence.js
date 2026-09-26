@@ -64,6 +64,7 @@ export function analyseArchitecture(model) {
         averageFieldsPerObject:Number(avgFields.toFixed(1)),
         mostConnected:nodes.slice(0,5),
         largestObjects:[...nodes].sort((a,b)=>b.fieldCount-a.fieldCount || a.name.localeCompare(b.name)).slice(0,5),
+        relationships: relationships.filter(r=>adjacency.has(r.childEntity.toLowerCase())&&adjacency.has(r.parentEntity.toLowerCase())),
         ignoredRelationships,
         observations: buildObservations(nodes, relationships, components, cycles, maxDepth, avgDegree, ignoredRelationships)
     };
@@ -102,4 +103,25 @@ function buildObservations(nodes,relationships,components,cycles,maxDepth,avgDeg
     if(large.length) out.push({title:'Large object definitions',detail:large.slice(0,5).map(n=>n.name+' ('+n.fieldCount+' fields)').join(', '),kind:'Model size'});
     if(!out.length&&relationships.length) out.push({title:'Balanced current model',detail:'No notable topology observations were triggered by the current diagram thresholds.',kind:'Structure'});
     return out;
+}
+
+export function analyseObject(analysis, objectName) {
+    if(!analysis || !objectName) return null;
+    const key=objectName.toLowerCase();
+    const node=(analysis.nodes||[]).find(n=>n.name.toLowerCase()===key);
+    if(!node) return null;
+    const rels=analysis.relationships||[];
+    const parents=[],children=[],neighbors=new Set();
+    rels.forEach(r=>{
+        const c=r.childEntity.toLowerCase(),p=r.parentEntity.toLowerCase();
+        if(c===key){parents.push({name:r.parentEntity,field:r.childField||'',kind:r.kind||'relationship'});neighbors.add(r.parentEntity);}
+        if(p===key){children.push({name:r.childEntity,field:r.childField||'',kind:r.kind||'relationship'});neighbors.add(r.childEntity);}
+    });
+    const adj=new Map((analysis.nodes||[]).map(n=>[n.name.toLowerCase(),new Set()]));
+    rels.forEach(r=>{const c=r.childEntity.toLowerCase(),p=r.parentEntity.toLowerCase();if(adj.has(c)&&adj.has(p)){adj.get(c).add(p);adj.get(p).add(c);}});
+    const levels=[];let frontier=new Set([key]),seen=new Set([key]);
+    for(let depth=1;depth<=3;depth++){const next=new Set();frontier.forEach(x=>(adj.get(x)||[]).forEach(y=>{if(!seen.has(y)){seen.add(y);next.add(y);}}));levels.push({depth,count:next.size,names:[...next].map(k=>(analysis.nodes||[]).find(n=>n.name.toLowerCase()===k)?.name||k)});frontier=next;}
+    const objectCycles=(analysis.cycles||[]).filter(c=>c.some(n=>n.toLowerCase()===key));
+    let role='Connected object'; if(node.degree===0)role='Isolated object'; else if((analysis.hubs||[]).some(h=>h.name.toLowerCase()===key))role='Structural hub'; else if(node.incoming>node.outgoing*2)role='Relationship target'; else if(node.outgoing>node.incoming*2)role='Relationship source';
+    return {...node,role,parents,children,neighbors:[...neighbors].sort(),reach1:levels[0],reach2:levels[1],reach3:levels[2],reachableWithin3:[...seen].filter(k=>k!==key).length,cycles:objectCycles};
 }
