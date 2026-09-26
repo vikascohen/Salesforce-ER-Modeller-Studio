@@ -1123,3 +1123,15 @@
     min-width:760px;
   }
 }
+
+/* Phase 2 Data Dictionary layout: fields first, supporting insight below. */
+.dict-fields-primary{display:flex;flex-direction:column;min-height:320px;height:58vh;resize:vertical;overflow:auto;border-bottom:2px solid var(--surface-border-strong);background:var(--surface-bg)}
+.dict-primary-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;border-bottom:1px solid var(--surface-border);position:sticky;top:0;z-index:3;background:var(--surface-bg)}
+.dict-primary-title>div{display:flex;flex-direction:column;gap:2px}.dict-primary-title strong{font-size:13px;color:var(--surface-text-strong)}.dict-primary-title>span{font-size:9.5px;color:var(--surface-text-muted)}
+.dict-fields-primary .dict-table-wrap{flex:1;min-height:180px;overflow:auto}
+.dict-intel-actions{display:flex;align-items:center;gap:6px}
+.dict-intelligence{resize:vertical;overflow:auto;min-height:54px;max-height:70vh}
+.dict-intelligence-collapsed{height:58px;min-height:58px;overflow:hidden;padding-bottom:6px}
+.dict-intelligence-collapsed .dict-intelligence-body{display:none}
+.dict-intelligence-expanded{height:360px}
+.dict-intelligence-body{min-width:0}
