@@ -729,14 +729,7 @@
                                 <button class="dsl-head-btn" disabled={dictionaryExportBusy} onclick={handleExportDictionaryXlsx}>Export Excel</button>
                             </div>
                         </div>
-                        <div class="dict-intelligence">
-                            <div class="dict-intel-head"><div><span class="dict-intel-kicker">OBJECT INTELLIGENCE</span><strong>Understand the object before scanning its fields</strong></div><button class="dsl-head-btn" onclick={handleDictionaryViewArchitecture}>View Architecture Context</button></div>
-                            <div class="dict-summary-grid"><template for:each={dictionaryObjectSummary} for:item="m"><div class="dict-summary-card" key={m.label}><strong>{m.value}</strong><span>{m.label}</span></div></template></div>
-                            <div class="dict-findings"><template for:each={dictionaryMetadataFindings} for:item="f"><article class="dict-finding" key={f.key}><span class="arch-tag">{f.kind}</span><div><strong>{f.title}</strong><p>{f.detail}</p></div></article></template></div>
-                            <template if:true={dictionaryHasUsageSummary}><div class="dict-usage-summary"><div class="dict-mini-title">Field population profile</div><div class="dict-summary-grid"><template for:each={dictionaryUsageSummary} for:item="u"><div class="dict-summary-card" key={u.label}><strong>{u.value}</strong><span>{u.label}</span></div></template></div></div></template>
-                            <template if:true={dictionaryHasRelationships}><div class="dict-rel-summary"><div class="dict-mini-title">Relationship context</div><div class="dict-rel-grid"><template for:each={dictionaryRelationshipRows} for:item="rel"><div class="dict-rel-card" key={rel.key}><strong>{rel.field}</strong><span>{rel.type}</span><p>Target: {rel.target}</p></div></template></div></div></template>
-                        </div>
-                        <div class="dict-field-tools">
+                        <section class="dict-fields-primary"><div class="dict-primary-title"><div><span class="dict-intel-kicker">ALL FIELDS</span><strong>Field Dictionary</strong></div><span>{dictionaryVisibleFieldCount} of {dictionaryFieldCount} fields</span></div><div class="dict-field-tools">
                             <input class="dict-search-input dict-field-search" type="text" placeholder="Search fields, labels, descriptions, types or relationship targets..." value={dictionaryFieldSearch} oninput={handleDictionaryFieldSearch}/>
                             <select class="arch-select dict-field-filter" value={dictionaryFieldFilter} onchange={handleDictionaryFieldFilter}><template for:each={dictionaryFilterOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select>
                             <span class="dict-visible-count">{dictionaryVisibleFieldCount} fields shown</span>
@@ -776,7 +769,15 @@
                                     </template>
                                 </tbody>
                             </table>
+                        </div></section><div class={dictionaryIntelligenceClass}>
+                            <div class="dict-intel-head"><div><span class="dict-intel-kicker">OBJECT INTELLIGENCE</span><strong>Supporting architecture insight</strong></div><div class="dict-intel-actions"><button class="dsl-head-btn" onclick={handleDictionaryIntelligenceToggle}>{dictionaryIntelligenceToggleLabel}</button><button class="dsl-head-btn" onclick={handleDictionaryViewArchitecture}>View Architecture Context</button></div></div><div class="dict-intelligence-body">
+                            <div class="dict-summary-grid"><template for:each={dictionaryObjectSummary} for:item="m"><div class="dict-summary-card" key={m.label}><strong>{m.value}</strong><span>{m.label}</span></div></template></div>
+                            <div class="dict-findings"><template for:each={dictionaryMetadataFindings} for:item="f"><article class="dict-finding" key={f.key}><span class="arch-tag">{f.kind}</span><div><strong>{f.title}</strong><p>{f.detail}</p></div></article></template></div>
+                            <template if:true={dictionaryHasUsageSummary}><div class="dict-usage-summary"><div class="dict-mini-title">Field population profile</div><div class="dict-summary-grid"><template for:each={dictionaryUsageSummary} for:item="u"><div class="dict-summary-card" key={u.label}><strong>{u.value}</strong><span>{u.label}</span></div></template></div></div></template>
+                            <template if:true={dictionaryHasRelationships}><div class="dict-rel-summary"><div class="dict-mini-title">Relationship context</div><div class="dict-rel-grid"><template for:each={dictionaryRelationshipRows} for:item="rel"><div class="dict-rel-card" key={rel.key}><strong>{rel.field}</strong><span>{rel.type}</span><p>Target: {rel.target}</p></div></template></div></div></template>
+                            </div>
                         </div>
+
                         <template if:true={dictionaryHasFieldDetail}>
                             <aside class="dict-field-drill">
                                 <div class="dict-field-drill-head"><div><span class="dict-intel-kicker">FIELD PROFILE</span><strong>{dictionaryFieldDetail.apiName}</strong><p>{dictionaryFieldDetail.label}</p></div><button class="arch-inline-close" onclick={handleDictionaryFieldDrillClose}>Close</button></div>
