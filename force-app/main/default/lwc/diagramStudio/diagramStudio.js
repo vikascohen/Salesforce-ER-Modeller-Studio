@@ -86,6 +86,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // ── export modal ──
     @track exportModalOpen   = false;
     @track architectureOpen  = false;
+    @track architectureError = '';
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -834,18 +835,25 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (this.architectureOpen) this.refreshArchitectureAnalysis();
     }
     handleCloseArchitecture()  { this.architectureOpen = false; }
-    refreshArchitectureAnalysis() {
+    refreshArchitectureAnalysis(force=false) {
         const source=this.sourceText || '';
+        this.architectureError='';
         if(!source.trim()){ this._architectureSource=''; this._architectureAnalysis=null; return; }
-        if(this._architectureSource===source && this._architectureAnalysis) return;
+        if(!force && this._architectureSource===source && this._architectureAnalysis) return;
         try {
-            this._architectureAnalysis=analyseArchitecture(parseEr(source));
+            const parsed=parseEr(source);
+            this._architectureAnalysis=analyseArchitecture(parsed);
             this._architectureSource=source;
-        } catch (_) {
+        } catch (e) {
             this._architectureAnalysis=null;
             this._architectureSource=source;
+            const message=e && e.message ? e.message : 'Unknown analysis error.';
+            this.architectureError='Architecture Intelligence could not analyse this diagram. '+message;
         }
     }
+    handleRetryArchitecture() { this._architectureSource=''; this.refreshArchitectureAnalysis(true); }
+    get architectureHasError() { return !!this.architectureError; }
+    get architectureShowEmpty() { return !this.architectureHasModel && !this.architectureHasError; }
     get architectureAnalysis() {
         if(!this.architectureOpen) return this._architectureAnalysis || null;
         this.refreshArchitectureAnalysis();
