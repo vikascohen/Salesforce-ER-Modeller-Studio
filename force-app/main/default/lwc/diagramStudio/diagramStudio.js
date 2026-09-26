@@ -196,6 +196,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryFieldSearch = '';
     @track dictionaryFieldFilter = 'all';
     @track dictionarySelectedField = '';
+    @track dictionaryIntelligenceExpanded = false;
     @track dictionarySelectedObject = null;
     @track dictionaryRow        = null;  // ObjectWrap for the selected object
     @track dictionaryLoading    = false;
@@ -497,6 +498,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionarySort = { column, direction };
     }
 
+    get dictionaryIntelligenceClass(){ return this.dictionaryIntelligenceExpanded ? 'dict-intelligence dict-intelligence-expanded' : 'dict-intelligence dict-intelligence-collapsed'; }
+    get dictionaryIntelligenceToggleLabel(){ return this.dictionaryIntelligenceExpanded ? 'Minimise Intelligence' : 'Expand Intelligence'; }
+    handleDictionaryIntelligenceToggle(){ this.dictionaryIntelligenceExpanded=!this.dictionaryIntelligenceExpanded; }
     get dictionaryRawFields() { return (this.dictionaryRow&&this.dictionaryRow.fields)||[]; }
     get dictionaryObjectSummary() {
         const fields=this.dictionaryRawFields, nonPk=fields.filter(f=>!f.isPrimaryKey);
