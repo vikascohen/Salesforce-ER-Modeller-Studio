@@ -576,6 +576,12 @@
                 <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Structural evidence from the ER model currently on the canvas.</div></div>
                 <div class="arch-header-actions"><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
             </div>
+            <template if:true={architectureHasError}>
+                <div class="arch-error" role="alert">
+                    <div><strong>Analysis unavailable</strong><p>{architectureError}</p><span>Your diagram has not been changed. Fix the DSL/model issue and retry.</span></div>
+                    <button class="arch-action-btn" onclick={handleRetryArchitecture}>Retry Analysis</button>
+                </div>
+            </template>
             <template if:true={architectureHasModel}>
                 <section class="arch-section"><div class="arch-section-head"><span>Model Overview</span><span class="arch-section-hint">Current diagram</span></div>
                     <div class="arch-summary"><template for:each={architectureSummary} for:item="m"><div class="arch-metric" key={m.label}><span class="arch-metric-value">{m.value}</span><span class="arch-metric-label">{m.label}</span></div></template></div>
@@ -599,7 +605,7 @@
                 </section>
                 <div class="arch-boundary"><strong>Scope:</strong> data-model architecture only. Permissions, CRUD/FLS, vulnerability and security-posture analysis remain outside ER Modeller Studio.</div>
             </template>
-            <template if:false={architectureHasModel}><div class="arch-empty">Add or import objects to the diagram to analyse its architecture.</div></template>
+            <template if:true={architectureShowEmpty}><div class="arch-empty">Add or import objects to the diagram to analyse its architecture.</div></template>
         </div>
     </template>
 
