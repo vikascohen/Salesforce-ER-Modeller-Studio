@@ -45,6 +45,79 @@ for a plain-language feature overview with no code or setup steps.
 - [License](#license)
 - [Contributing](#contributing)
 
+## Phase 2 — what has been added
+
+Phase 2 turns ER Modeller Studio from a visual ER modelling tool into a **data-architecture intelligence workspace** while retaining the Phase 1 modelling, DSL, metadata, Data Dictionary, export and workspace capabilities underneath it.
+
+### Data Architecture Intelligence
+
+Open **View → Architecture Intelligence** to analyse the ER model currently on the canvas. Analysis is performed locally over the parsed model and does not require an additional server round-trip.
+
+The current Phase 2 workspace includes:
+
+- **Model overview metrics** — object, field and relationship totals; Lookup, Master-Detail and polymorphic relationship counts; custom-object count; connected-component count; and maximum relationship depth.
+- **Complexity and topology metrics** — average relationships per object, relationship density, average fields per object, disconnected components, graph depth and detected structural cycles.
+- **Structural hotspot detection** — identifies highly connected objects using incoming, outgoing and total relationship degree rather than an opaque architecture score.
+- **Isolated-object detection** — surfaces objects with no relationships in the current model.
+- **Connected-component analysis** — identifies separate islands of architecture inside the diagram.
+- **Bounded structural-cycle detection** — detects relationship loops while deliberately bounding search depth and result count to protect interactive performance.
+- **Most-connected objects** — ranks the most structurally connected objects in the current model.
+- **Largest object definitions** — surfaces objects with the largest field definitions.
+- **Object-level architecture table** — fields, relationship fields, incoming relationships, outgoing relationships, total degree, required fields and roll-up summaries for every object.
+- **Architecture observations** — evidence-based observations for high coupling, isolated model areas, disconnected components, cycles, deep relationship reach, large definitions and skipped/incomplete relationship data.
+- **No synthetic health score** — Phase 2 deliberately exposes the evidence behind the architecture instead of producing an unexplained “73/100” style score.
+
+### Interactive Object Architecture Drill-Down
+
+Object names in the Architecture Intelligence table are interactive. Selecting an object opens a deeper structural view without adding another top-level toolbar or requiring another Apex call.
+
+For the selected object Phase 2 currently shows:
+
+- its inferred **structural role**, such as structural hub, relationship source, relationship target, connected object or isolated object;
+- field count, incoming relationships, outgoing relationships and total relationship degree;
+- **parent / target objects** and the relationship field connecting to them;
+- **child / dependant objects** and their relationship fields;
+- direct neighbours in the model;
+- objects reachable at **1 hop, 2 hops and 3 hops**;
+- total bounded three-hop reach; and
+- detected structural cycles involving that particular object.
+
+The drill-down is calculated lazily when an object is selected rather than precomputing detailed reachability for every object during normal rendering.
+
+### Phase 2 reliability and performance hardening
+
+Phase 2 also hardens existing Studio behaviour rather than only adding visible features:
+
+- **Out-of-order file-load protection** — rapidly selecting diagram A and then diagram B cannot allow a slower response for A to overwrite the newer B selection.
+- **Heatmap stale-response protection** — a record-count response is discarded when the model has changed while the request was running.
+- **Sharing View stale-response protection** — sharing information is not applied to a different model after an asynchronous request completes.
+- **Data Dictionary request protection** — object-description and field-usage responses are guarded when the user changes or clears the selected object while work is in flight.
+- **Lifecycle cleanup** — delayed render, sharing, heatmap, hover and relationship-scan timers are cleared when the component disconnects, and in-flight request generations are invalidated.
+- **Architecture-analysis caching** — unchanged DSL is not repeatedly reparsed and reanalysed simply because reactive UI getters rerender.
+- **Predictable graph-depth analysis** — graph depth uses breadth-first traversal rather than an exponential longest-simple-path search.
+- **Bounded cycle analysis** — cycle discovery has explicit depth and result limits to prevent pathological graphs from locking the interactive UI.
+- **Defensive model validation** — malformed architecture-analysis input produces an explicit error rather than silently corrupting results.
+- **Graceful incomplete relationships** — relationships whose endpoints are absent from the current model are skipped, recorded and surfaced as a data-quality observation rather than crashing the analysis.
+- **Recoverable Architecture Intelligence errors** — the panel distinguishes an empty diagram from an analysis failure, preserves the diagram, explains the failure and provides **Retry Analysis**.
+
+### Phase 2 scope
+
+ER Modeller Studio Phase 2 is intentionally about **data architecture intelligence**: objects, fields, relationships, topology, graph structure, reachability, model complexity and architectural evidence.
+
+It does **not** attempt to become a Salesforce security scanner. CRUD/FLS exposure, permission-set risk, vulnerabilities, code-security analysis and security posture belong to **Warden Studio**. Keeping that boundary explicit allows the two Crius Consulting tools to complement rather than duplicate each other.
+
+### Phase 2 testing status
+
+Phase 2 includes additional Jest coverage for the graph-analysis engine, bounded large cyclic graphs, malformed input, incomplete relationship endpoints, object drill-down/reachability and out-of-order file loading.
+
+> **Development status:** the tests are present in the Phase 2 branch, but this README does not claim they have passed in a Salesforce/Jest execution environment until that suite is actually run. Phase 2 should therefore be treated as development code pending validation.
+
+For implementation details and engineering constraints, see [docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md](docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md).
+
+## Phase 1 foundation retained in Phase 2
+
+Everything documented later in this README under modelling, org-aware views, Data Dictionary, export, workspace and appearance is the **Phase 1 foundation inherited by Phase 2** unless specifically noted otherwise. Those capabilities have not been rebranded as new Phase 2 features.
+
 ## Installing
 
 > **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `phase-2-data-architecture-intelligence` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
