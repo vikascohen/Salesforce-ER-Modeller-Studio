@@ -1105,6 +1105,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         ];
     }
     get architectureNodes() { return this.architectureAnalysis?.nodes || []; }
+    get architectureInsightMap() {
+        const a=this.architectureAnalysis; if(!a) return {nodes:[],edges:[]};
+        const source=(a.nodes||[]).slice(0,18), count=source.length, cx=50, cy=50, rx=40, ry=36;
+        const gravity=new Set(this.architectureGravity.map(x=>x.name)), bridges=new Set(this.architectureBridges.map(x=>x.name));
+        const nodes=source.map((n,i)=>{const angle=(Math.PI*2*i/Math.max(1,count))-Math.PI/2,x=cx+Math.cos(angle)*rx,y=cy+Math.sin(angle)*ry;
+            return {...n,x,y,style:'left:'+x+'%;top:'+y+'%',role:gravity.has(n.name)?'Gravity centre':bridges.has(n.name)?'Bridge object':n.degree===0?'Isolated object':'Model object',className:'arch-map-node '+(gravity.has(n.name)?'arch-map-gravity':bridges.has(n.name)?'arch-map-bridge':n.degree===0?'arch-map-island':'')};
+        });
+        const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])), edges=[];
+        (a.relationships||[]).forEach((rel,i)=>{const s=pos.get(rel.childEntity.toLowerCase()),t=pos.get(rel.parentEntity.toLowerCase());if(!s||!t||s===t)return;const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;edges.push({key:i+'-'+s.name+'-'+t.name,style:'left:'+s.x+'%;top:'+s.y+'%;width:'+len+'%;transform:rotate('+angle+'deg)',kind:rel.kind||'relationship'});});
+        return {nodes,edges};
+    }
+    get architectureInsightMapNodes(){ return this.architectureInsightMap.nodes; }
+    get architectureInsightMapEdges(){ return this.architectureInsightMap.edges; }
     get architectureTopologySummary() {
         const a=this.architectureAnalysis; if(!a) return [];
         return [
@@ -1112,7 +1125,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             {label:'Unique-pair density',value:a.relationshipDensity},
             {label:'Avg. fields / object',value:a.averageFieldsPerObject},
             {label:'Disconnected components',value:a.componentCount},
-            {label:'Longest path (hops)',value:a.maxRelationshipDepth},
+            {label:'Maximum relationship reach',value:a.maxRelationshipDepth+' hops'},
             {label:'Detected cycles',value:a.cycles.length}
         ];
     }
