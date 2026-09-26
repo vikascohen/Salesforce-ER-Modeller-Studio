@@ -1253,3 +1253,35 @@
 .dict-intelligence-workspace-body{padding:22px 28px 36px;min-width:760px}
 .dict-intelligence-workspace-body>.dict-findings{margin-top:14px}
 .dict-intelligence-workspace-body>.dict-usage-summary,.dict-intelligence-workspace-body>.dict-rel-summary{margin-top:16px}
+
+/* Data Dictionary after Object Intelligence moved to its own workspace:
+   let the field dictionary consume all remaining screen height. */
+.dict-detail-pane{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.dict-detail-head{flex:0 0 auto!important}
+.dict-fields-primary{
+  flex:1 1 auto!important;
+  height:auto!important;
+  max-height:none!important;
+  min-height:0!important;
+  resize:none!important;
+  overflow:hidden!important;
+  border-bottom:0!important;
+}
+.dict-fields-primary .dict-primary-title,
+.dict-fields-primary .dict-field-tools{flex:0 0 auto}
+.dict-fields-primary .dict-table-wrap{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  overflow-y:scroll!important;
+  overflow-x:auto!important;
+  scrollbar-gutter:stable;
+}
+.dict-fields-primary .dict-table-wrap::-webkit-scrollbar{width:14px;height:14px}
+.dict-fields-primary .dict-table-wrap::-webkit-scrollbar-track{background:var(--surface-bg-alt)}
+.dict-fields-primary .dict-table-wrap::-webkit-scrollbar-thumb{background:var(--accent);border:3px solid var(--surface-bg-alt);border-radius:8px}
