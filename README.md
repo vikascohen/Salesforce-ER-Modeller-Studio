@@ -1,5 +1,15 @@
 # Salesforce ER Modeller Studio — Phase 2: Data Architecture Intelligence
 
+## Built by Crius Consulting architects — contributed to open source
+
+Salesforce ER Modeller Studio, including the original **Phase 1**, was built by architects at **Crius Consulting**. Phase 2 continues that work by extending the Studio from ER modelling and org-aware documentation into deeper **Data Architecture Intelligence**.
+
+This project reflects a core **Crius Consulting philosophy**: architects should not only design solutions for individual organisations; where appropriate, they should also build useful engineering tools and contribute practical capability back to the **open-source community**. We believe architecture knowledge becomes more valuable when it can be inspected, challenged, improved and reused by other practitioners.
+
+ER Modeller Studio is therefore both a working Salesforce architecture tool and a Crius Consulting open-source contribution. Phase 1 established the modelling, DSL, metadata, visualisation, data-dictionary and export foundations. Phase 2 builds on those foundations with graph-based architecture intelligence, deeper structural analysis, performance guardrails and resilient error handling.
+
+The intent is to keep the project useful to working Salesforce architects and engineers: transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and clear separation of concerns between **data architecture intelligence in ER Modeller Studio** and **security intelligence in Warden Studio**.
+
 > **Phase 2 development branch** — Data Architecture Intelligence. The preserved Phase 1 release is available on the `phase-1-stable` branch; `main` remains unchanged. Existing Salesforce deployment/install paths are retained. The GitHub deploy buttons below still target `main` intentionally until Phase 2 is promoted as a release.
 
 Phase 2 adds **View → Architecture Intelligence**, a compact graph-analysis workspace for the current model: structural hubs, isolated objects, incoming/outgoing coupling, relationship mix, connected components, relationship depth and cycle detection. These are descriptive architecture metrics, not a synthetic health score. Security posture, permissions and vulnerability analysis are explicitly outside this product and remain a Warden Studio concern. See [Phase 2 architecture notes](docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md).
