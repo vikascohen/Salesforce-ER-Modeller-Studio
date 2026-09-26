@@ -197,6 +197,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryFieldFilter = 'all';
     @track dictionarySelectedField = '';
     @track dictionaryIntelligenceExpanded = false;
+    @track dictionaryArchaeologistOpen = false;
     @track dictionarySelectedObject = null;
     @track dictionaryRow        = null;  // ObjectWrap for the selected object
     @track dictionaryLoading    = false;
@@ -501,6 +502,54 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get dictionaryIntelligenceClass(){ return this.dictionaryIntelligenceExpanded ? 'dict-intelligence dict-intelligence-expanded' : 'dict-intelligence dict-intelligence-collapsed'; }
     get dictionaryIntelligenceToggleLabel(){ return this.dictionaryIntelligenceExpanded ? 'Minimise Intelligence' : 'Expand Intelligence'; }
     handleDictionaryIntelligenceToggle(){ this.dictionaryIntelligenceExpanded=!this.dictionaryIntelligenceExpanded; }
+    get dictionaryArchaeologistClass(){ return this.dictionaryArchaeologistOpen ? 'dict-archaeologist-overlay dict-archaeologist-open' : 'dict-archaeologist-overlay'; }
+    handleOpenDictionaryArchaeologist(){ this.dictionaryArchaeologistOpen=true; }
+    handleCloseDictionaryArchaeologist(){ this.dictionaryArchaeologistOpen=false; }
+    normaliseDictionaryToken(value){
+        return String(value||'').replace(/__c$/i,'').replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[^a-zA-Z0-9]+/g,' ').toLowerCase().trim();
+    }
+    get dictionaryFieldFamilies(){
+        const stop=new Set(['id','is','has','the','a','an','of','to','for','and','or','field','value','date','number','type','name']);
+        const map=new Map();
+        this.dictionaryRawFields.filter(f=>!f.isPrimaryKey).forEach(f=>{
+            const tokens=new Set((this.normaliseDictionaryToken(f.apiName)+' '+this.normaliseDictionaryToken(f.label)).split(/\s+/).filter(t=>t.length>2&&!stop.has(t)));
+            tokens.forEach(t=>{ if(!map.has(t)) map.set(t,[]); map.get(t).push(f); });
+        });
+        return [...map.entries()].filter(([,fs])=>fs.length>=2).map(([token,fs])=>({key:token,label:token.charAt(0).toUpperCase()+token.slice(1),count:fs.length,fields:fs.map(f=>f.apiName).slice(0,6).join(', '),filter:token})).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label)).slice(0,12);
+    }
+    get dictionaryHasFieldFamilies(){ return this.dictionaryFieldFamilies.length>0; }
+    get dictionaryPossibleOverlaps(){
+        const fs=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey);
+        const groups=new Map();
+        fs.forEach(f=>{
+            const key=this.normaliseDictionaryToken(f.label||f.apiName).replace(/\s+/g,'');
+            if(key.length<4)return;
+            if(!groups.has(key))groups.set(key,[]);
+            groups.get(key).push(f);
+        });
+        return [...groups.entries()].filter(([,items])=>items.length>1).map(([key,items])=>({key,label:items[0].label||key,count:items.length,fields:items.map(f=>f.apiName).join(', ')})).slice(0,10);
+    }
+    get dictionaryHasPossibleOverlaps(){ return this.dictionaryPossibleOverlaps.length>0; }
+    get dictionaryRelationshipConcentration(){
+        const map=new Map();
+        this.dictionaryRawFields.filter(f=>f.isRelationship&&f.relatesTo).forEach(f=>{
+            String(f.relatesTo).split(',').map(x=>x.trim()).filter(Boolean).forEach(target=>map.set(target,(map.get(target)||0)+1));
+        });
+        return [...map.entries()].map(([target,count])=>({target,count,key:target})).sort((a,b)=>b.count-a.count||a.target.localeCompare(b.target)).slice(0,10);
+    }
+    get dictionaryArchaeologyFacts(){
+        const fs=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), custom=fs.filter(f=>f.isCustom), undocumented=custom.filter(f=>!(f.description||'').trim());
+        return [
+            {key:'extension',label:'Custom extension',value:fs.length?Math.round(custom.length/fs.length*100)+'%':'0%',detail:custom.length+' of '+fs.length+' business fields are custom.'},
+            {key:'documentation',label:'Custom documentation',value:custom.length?Math.round((custom.length-undocumented.length)/custom.length*100)+'%':'—',detail:undocumented.length+' custom fields have no description.'},
+            {key:'relationships',label:'Relationship footprint',value:String(fs.filter(f=>f.isRelationship).length),detail:this.dictionaryRelationshipConcentration.length+' distinct relationship targets detected.'},
+            {key:'derived',label:'Derived behaviour',value:String(fs.filter(f=>String(f.dataType||'').startsWith('Formula')||f.isRollupSummary).length),detail:'Formula and roll up summary fields identified from loaded metadata.'}
+        ];
+    }
+    handleDictionaryFamilySelect(event){
+        const token=event.currentTarget.dataset.token||'';
+        this.dictionaryArchaeologistOpen=false; this.dictionaryFieldFilter='all'; this.dictionaryFieldSearch=token;
+    }
     get dictionaryRawFields() { return (this.dictionaryRow&&this.dictionaryRow.fields)||[]; }
     get dictionaryObjectSummary() {
         const fields=this.dictionaryRawFields, nonPk=fields.filter(f=>!f.isPrimaryKey);
