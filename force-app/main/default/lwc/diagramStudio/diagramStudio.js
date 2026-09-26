@@ -844,6 +844,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         ];
     }
     get architectureNodes() { return this.architectureAnalysis?.nodes || []; }
+    get architectureTopologySummary() {
+        const a=this.architectureAnalysis; if(!a) return [];
+        return [
+            {label:'Avg. relationships / object',value:a.averageDegree},
+            {label:'Relationship density',value:a.relationshipDensity},
+            {label:'Avg. fields / object',value:a.averageFieldsPerObject},
+            {label:'Disconnected components',value:a.componentCount},
+            {label:'Longest path (hops)',value:a.maxRelationshipDepth},
+            {label:'Detected cycles',value:a.cycles.length}
+        ];
+    }
+    get architectureObservations() { return this.architectureAnalysis?.observations || []; }
+    get architectureMostConnected() { return this.architectureAnalysis?.mostConnected || []; }
+    get architectureLargestObjects() { return this.architectureAnalysis?.largestObjects || []; }
     get architectureHubsText() { const a=this.architectureAnalysis; return a?.hubs?.length ? a.hubs.map(x=>x.name+' ('+x.degree+')').join(', ') : 'No structural hubs detected in this diagram.'; }
     get architectureIslandsText() { const a=this.architectureAnalysis; return a?.islands?.length ? a.islands.map(x=>x.name).join(', ') : 'No isolated objects.'; }
     get architectureCyclesText() { const a=this.architectureAnalysis; return a?.cycles?.length ? a.cycles.map(c=>c.join(' → ')).join(' | ') : 'No relationship cycles detected.'; }
