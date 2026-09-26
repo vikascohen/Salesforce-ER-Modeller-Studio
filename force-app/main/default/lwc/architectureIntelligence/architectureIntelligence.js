@@ -125,3 +125,31 @@ export function analyseObject(analysis, objectName) {
     let role='Connected object'; if(node.degree===0)role='Isolated object'; else if((analysis.hubs||[]).some(h=>h.name.toLowerCase()===key))role='Structural hub'; else if(node.incoming>node.outgoing*2)role='Relationship target'; else if(node.outgoing>node.incoming*2)role='Relationship source';
     return {...node,role,parents,children,neighbors:[...neighbors].sort(),reach1:levels[0],reach2:levels[1],reach3:levels[2],reachableWithin3:[...seen].filter(k=>k!==key).length,cycles:objectCycles};
 }
+
+function graphIndex(analysis){
+    const nodes=analysis?.nodes||[], rels=analysis?.relationships||[];
+    const names=new Map(nodes.map(n=>[n.name.toLowerCase(),n.name]));
+    const adj=new Map(nodes.map(n=>[n.name.toLowerCase(),new Set()]));
+    rels.forEach(r=>{const c=r.childEntity.toLowerCase(),p=r.parentEntity.toLowerCase();if(adj.has(c)&&adj.has(p)){adj.get(c).add(p);adj.get(p).add(c);}});
+    return {names,adj};
+}
+export function findArchitecturePath(analysis,source,target){
+    if(!analysis||!source||!target)return null;const {names,adj}=graphIndex(analysis),s=source.toLowerCase(),t=target.toLowerCase();
+    if(!adj.has(s)||!adj.has(t))return {found:false,path:[],hops:0};
+    const q=[s],prev=new Map([[s,null]]);
+    for(let i=0;i<q.length;i++){const x=q[i];if(x===t)break;for(const y of adj.get(x)||[]){if(!prev.has(y)){prev.set(y,x);q.push(y);}}}
+    if(!prev.has(t))return {found:false,path:[],hops:0};
+    const keys=[];for(let x=t;x!=null;x=prev.get(x))keys.push(x);keys.reverse();
+    return {found:true,path:keys.map(k=>names.get(k)||k),hops:Math.max(0,keys.length-1)};
+}
+export function analyseBlastRadius(analysis,objectName,maxDepth=3){
+    if(!analysis||!objectName)return null;const {names,adj}=graphIndex(analysis),start=objectName.toLowerCase();
+    if(!adj.has(start))return null;const depthLimit=Math.max(1,Math.min(5,maxDepth)),seen=new Map([[start,0]]),q=[start];
+    for(let i=0;i<q.length;i++){const x=q[i],d=seen.get(x);if(d>=depthLimit)continue;for(const y of adj.get(x)||[]){if(!seen.has(y)){seen.set(y,d+1);q.push(y);}}}
+    const levels=[];for(let d=1;d<=depthLimit;d++){const objects=[...seen].filter(([,v])=>v===d).map(([k])=>names.get(k)||k).sort();levels.push({depth:d,count:objects.length,objects});}
+    return {source:names.get(start)||objectName,maxDepth:depthLimit,total:[...seen].filter(([k])=>k!==start).length,levels};
+}
+export function detectJunctionObjects(analysis){
+    if(!analysis)return[];const rels=analysis.relationships||[];
+    return (analysis.nodes||[]).map(n=>{const outbound=rels.filter(r=>r.childEntity.toLowerCase()===n.name.toLowerCase());const targets=[...new Set(outbound.map(r=>r.parentEntity.toLowerCase()))];const masters=outbound.filter(r=>r.kind==='master').length;return {name:n.name,outboundRelationships:outbound.length,distinctTargets:targets.length,masterDetailRelationships:masters,confidence:masters>=2?'Strong':targets.length>=2?'Candidate':'None'};}).filter(x=>x.distinctTargets>=2).sort((a,b)=>b.masterDetailRelationships-a.masterDetailRelationships||b.distinctTargets-a.distinctTargets||a.name.localeCompare(b.name));
+}
