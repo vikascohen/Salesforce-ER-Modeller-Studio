@@ -63,6 +63,127 @@ The current Phase 2 workspace includes:
 - **Architecture observations** — evidence-based observations for high coupling, isolated model areas, disconnected components, cycles, deep relationship reach, large definitions and skipped/incomplete relationship data.
 - **No synthetic health score** — Phase 2 deliberately exposes the evidence behind the architecture instead of producing an unexplained “73/100” style score.
 
+### Phase 2 architecture at a glance
+
+```mermaid
+flowchart LR
+    DSL["ER model / imported schema"] --> PARSE["Phase 1 parser"]
+    PARSE --> GRAPH["Architecture graph"]
+    GRAPH --> METRICS["Topology metrics"]
+    GRAPH --> DRILL["Object drill-down"]
+    GRAPH --> PATH["Path Finder"]
+    GRAPH --> BLAST["Blast Radius"]
+    GRAPH --> JUNCTION["Junction Intelligence"]
+    GRAPH --> DOMAIN["Architecture Domains"]
+    DOMAIN --> COUPLING["Cross-Domain Coupling"]
+```
+
+The diagrams below are conceptual examples of what each analysis feature is doing. They are intentionally not UI screenshots.
+
+### Graph topology, hubs and islands
+
+```mermaid
+flowchart LR
+    Contact --> Account
+    Case --> Account
+    Claim["Claim__c"] --> Account
+    Payment["Payment__c"] --> Claim
+    Provider["Provider__c"] --> Claim
+    Legacy["Legacy_Config__c"]
+
+    style Account stroke-width:4px
+    style Claim stroke-width:4px
+```
+
+In this example, **Account** and **Claim__c** emerge as highly connected structural objects while **Legacy_Config__c** is an island in the current model.
+
+### Relationship Path Finder
+
+```mermaid
+flowchart LR
+    Contact --> Account --> Claim["Claim__c"] --> Payment["Payment__c"]
+```
+
+A query from `Contact` to `Payment__c` returns the minimum-hop structural path **Contact → Account → Claim__c → Payment__c**.
+
+### Blast Radius
+
+```mermaid
+flowchart LR
+    Claim["Claim__c"]
+    Claim --> Account
+    Claim --> Provider["Provider__c"]
+    Claim --> Payment["Payment__c"]
+    Payment --> Line["Payment_Line__c"]
+    Provider --> Network["Provider_Network__c"]
+    Line --> Adjustment["Adjustment__c"]
+
+    subgraph H1["1 hop"]
+      Account
+      Provider
+      Payment
+    end
+    subgraph H2["2 hops"]
+      Line
+      Network
+    end
+    subgraph H3["3 hops"]
+      Adjustment
+    end
+```
+
+Blast Radius answers **what is structurally reachable from this object?** It is relationship reachability evidence, not a claim that every reachable object will break when the source changes.
+
+### Junction Intelligence
+
+```mermaid
+flowchart TB
+    Case --> Junction["CaseContact__c"]
+    Contact --> Junction
+    Junction --> Case
+    Junction --> Contact
+```
+
+An object connected to multiple parent targets is surfaced as a junction candidate. Two or more Master-Detail parent relationships provide stronger structural evidence.
+
+### Architecture Domains and Cross-Domain Coupling
+
+```mermaid
+flowchart LR
+    subgraph CLAIM["Claim domain"]
+      Claim["Claim__c"]
+      Case["Case"]
+      Note["Claim_Note__c"]
+    end
+
+    subgraph PROVIDER["Provider domain"]
+      Provider["Provider__c"]
+      Network["Provider_Network__c"]
+    end
+
+    subgraph PAYMENT["Payment domain"]
+      Payment["Payment__c"]
+      Line["Payment_Line__c"]
+    end
+
+    Case --> Claim
+    Note --> Claim
+    Claim --> Provider
+    Claim --> Payment
+    Payment --> Line
+    Provider --> Network
+    Network --> Claim
+```
+
+The architect owns the domain assignments. Phase 2 then measures **objects, fields, internal relationships and cross-domain relationships** rather than guessing business boundaries.
+
+```text
+Example coupling evidence
+
+Claim ↔ Provider    2 relationships
+Claim ↔ Payment     1 relationship
+```
+
 ### Interactive Object Architecture Drill-Down
 
 Object names in the Architecture Intelligence table are interactive. Selecting an object opens a deeper structural view without adding another top-level toolbar or requiring another Apex call.
@@ -79,6 +200,18 @@ For the selected object Phase 2 currently shows:
 - detected structural cycles involving that particular object.
 
 The drill-down is calculated lazily when an object is selected rather than precomputing detailed reachability for every object during normal rendering.
+
+```mermaid
+flowchart LR
+    ParentA["Account"] --> Selected["Claim__c"]
+    ParentB["Provider__c"] --> Selected
+    Selected --> ChildA["Payment__c"]
+    Selected --> ChildB["Claim_Note__c"]
+    ChildA --> Hop2["Payment_Line__c"]
+```
+
+The selected object becomes the centre of the architectural view: parents/targets, children/dependants, degree, cycles and bounded relationship reach are presented together.
+
 
 ### Phase 2 reliability and performance hardening
 
