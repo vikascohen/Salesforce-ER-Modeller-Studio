@@ -1221,3 +1221,35 @@
   .dict-intelligence-collapsed{height:96px!important;min-height:96px!important;max-height:96px!important}
   .dict-intel-actions{width:100%;justify-content:flex-start!important}
 }
+
+/* Object Intelligence is now a deliberate full screen workspace, launched from the dictionary header. */
+.dict-intelligence-launch{font-weight:700}
+.dict-intelligence-workspace{
+  position:fixed;
+  inset:0;
+  z-index:1100;
+  box-sizing:border-box;
+  background:var(--surface-bg);
+  color:var(--surface-text);
+  overflow-y:auto;
+  overflow-x:auto;
+  scrollbar-gutter:stable;
+}
+.dict-intelligence-workspace-head{
+  position:sticky;
+  top:0;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 28px;
+  border-bottom:1px solid var(--surface-border-strong);
+  background:var(--surface-bg);
+}
+.dict-intelligence-workspace-head>div{display:flex;flex-direction:column;gap:4px}
+.dict-intelligence-workspace-head strong{font-size:20px;color:var(--surface-text-strong)}
+.dict-intelligence-workspace-head p{margin:0;font-size:10px;color:var(--surface-text-muted)}
+.dict-intelligence-workspace-body{padding:22px 28px 36px;min-width:760px}
+.dict-intelligence-workspace-body>.dict-findings{margin-top:14px}
+.dict-intelligence-workspace-body>.dict-usage-summary,.dict-intelligence-workspace-body>.dict-rel-summary{margin-top:16px}
