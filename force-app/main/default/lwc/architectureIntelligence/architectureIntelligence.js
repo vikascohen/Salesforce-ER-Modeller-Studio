@@ -153,3 +153,14 @@ export function detectJunctionObjects(analysis){
     if(!analysis)return[];const rels=analysis.relationships||[];
     return (analysis.nodes||[]).map(n=>{const outbound=rels.filter(r=>r.childEntity.toLowerCase()===n.name.toLowerCase());const targets=[...new Set(outbound.map(r=>r.parentEntity.toLowerCase()))];const masters=outbound.filter(r=>r.kind==='master').length;return {name:n.name,outboundRelationships:outbound.length,distinctTargets:targets.length,masterDetailRelationships:masters,confidence:masters>=2?'Strong':targets.length>=2?'Candidate':'None'};}).filter(x=>x.distinctTargets>=2).sort((a,b)=>b.masterDetailRelationships-a.masterDetailRelationships||b.distinctTargets-a.distinctTargets||a.name.localeCompare(b.name));
 }
+
+export function analyseDomains(analysis, assignments={}) {
+    if(!analysis) return {domains:[],couplings:[],unassigned:[]};
+    const domainOf=new Map(),display=new Map();
+    (analysis.nodes||[]).forEach(n=>{const raw=assignments[n.name]||assignments[n.name.toLowerCase()]||'';const d=String(raw).trim();if(d){domainOf.set(n.name.toLowerCase(),d.toLowerCase());display.set(d.toLowerCase(),d);}});
+    const stats=new Map([...display].map(([k,v])=>[k,{name:v,objectCount:0,fieldCount:0,internalRelationships:0,crossDomainRelationships:0}]));
+    (analysis.nodes||[]).forEach(n=>{const d=domainOf.get(n.name.toLowerCase());if(d){const x=stats.get(d);x.objectCount++;x.fieldCount+=n.fieldCount||0;}});
+    const pairs=new Map();
+    (analysis.relationships||[]).forEach(r=>{const a=domainOf.get(r.childEntity.toLowerCase()),b=domainOf.get(r.parentEntity.toLowerCase());if(!a||!b)return;if(a===b){stats.get(a).internalRelationships++;return;}stats.get(a).crossDomainRelationships++;stats.get(b).crossDomainRelationships++;const keys=[a,b].sort(),key=keys.join('|');if(!pairs.has(key))pairs.set(key,{domainA:display.get(keys[0]),domainB:display.get(keys[1]),relationshipCount:0});pairs.get(key).relationshipCount++;});
+    return {domains:[...stats.values()].sort((a,b)=>b.crossDomainRelationships-a.crossDomainRelationships||b.objectCount-a.objectCount||a.name.localeCompare(b.name)),couplings:[...pairs.values()].sort((a,b)=>b.relationshipCount-a.relationshipCount||a.domainA.localeCompare(b.domainA)),unassigned:(analysis.nodes||[]).filter(n=>!domainOf.has(n.name.toLowerCase())).map(n=>n.name).sort()};
+}
