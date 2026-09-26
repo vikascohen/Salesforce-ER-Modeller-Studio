@@ -23,7 +23,7 @@ import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
-import { analyseArchitecture, analyseObject } from 'c/architectureIntelligence';
+import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects } from 'c/architectureIntelligence';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -88,6 +88,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track architectureOpen  = false;
     @track architectureError = '';
     @track architectureSelectedObject = '';
+    @track architecturePathSource = '';
+    @track architecturePathTarget = '';
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -855,6 +857,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureObjectChildrenText() { const d=this.architectureObjectDetail; return d?.children?.length ? d.children.map(x=>x.name+(x.field?' via '+x.field:'')).join(', ') : 'None in current model'; }
     get architectureObjectCyclesText() { const d=this.architectureObjectDetail; return d?.cycles?.length ? d.cycles.map(c=>c.join(' → ')).join(' | ') : 'No detected cycles involving this object.'; }
     get architectureObjectReach() { const d=this.architectureObjectDetail; return d ? [d.reach1,d.reach2,d.reach3] : []; }
+    handleArchitecturePathSource(event) { this.architecturePathSource=event.target.value; }
+    handleArchitecturePathTarget(event) { this.architecturePathTarget=event.target.value; }
+    get architectureObjectOptions() { return [{label:'Select object',value:''},...this.architectureNodes.map(n=>({label:n.name,value:n.name}))]; }
+    get architecturePathResult() { return this.architecturePathSource&&this.architecturePathTarget ? findArchitecturePath(this.architectureAnalysis,this.architecturePathSource,this.architecturePathTarget) : null; }
+    get architecturePathReady() { return !!this.architecturePathResult; }
+    get architecturePathFound() { return !!this.architecturePathResult?.found; }
+    get architecturePathText() { const r=this.architecturePathResult; return r?.found ? r.path.join(' → ') : 'No structural relationship path exists between the selected objects in the current model.'; }
+    get architectureBlastRadius() { return this.architectureSelectedObject ? analyseBlastRadius(this.architectureAnalysis,this.architectureSelectedObject,3) : null; }
+    get architectureBlastLevels() { return this.architectureBlastRadius?.levels||[]; }
+    get architectureJunctions() { return detectJunctionObjects(this.architectureAnalysis).slice(0,12); }
+    get architectureHasJunctions() { return this.architectureJunctions.length>0; }
     refreshArchitectureAnalysis(force=false) {
         const source=this.sourceText || '';
         this.architectureError='';
