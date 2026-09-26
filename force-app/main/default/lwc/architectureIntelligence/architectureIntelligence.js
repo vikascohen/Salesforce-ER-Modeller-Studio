@@ -252,7 +252,7 @@ function buildObservations(nodes, relationships, components, cycles, maxDepth, a
     if (maxDepth >= 5) {
         observations.push({
             title: 'Deep relationship paths',
-            detail: 'The longest simple relationship path spans ' + maxDepth + ' hops.',
+            detail: 'The bounded relationship reach spans up to ' + maxDepth + ' hops.',
             kind: 'Complexity'
         });
     }
@@ -271,6 +271,41 @@ function buildObservations(nodes, relationships, components, cycles, maxDepth, a
         });
     }
     return observations;
+}
+
+export function deriveArchitectureIntelligence(analysis, domains = []) {
+    if (!analysis || !analysis._graphIndex) return {gravity:[],bridges:[],corridors:[],asymmetry:[],clusters:[],boundaryLeakage:[]};
+    const {adj,names}=analysis._graphIndex, nodes=analysis.nodes||[];
+    const reachable=(start,blocked=null)=>{
+        const seen=new Set(); if(start===blocked)return seen; const q=[start];seen.add(start);
+        for(let i=0;i<q.length;i++) for(const n of adj.get(q[i])||[]) if(n!==blocked&&!seen.has(n)){seen.add(n);q.push(n);}
+        return seen;
+    };
+    const gravity=nodes.map(n=>{
+        const key=n.name.toLowerCase(), reach=reachable(key).size-1, reachPct=analysis.entityCount>1?Math.round(reach/(analysis.entityCount-1)*100):0;
+        return {...n,reach,reachPct,signalCount:(n.degree>=(analysis.averageDegree||0)?1:0)+(n.fieldCount>=(analysis.averageFieldsPerObject||0)?1:0)+(reachPct>=75?1:0)};
+    }).filter(n=>n.signalCount>=2&&n.degree>0).sort((a,b)=>b.signalCount-a.signalCount||b.degree-a.degree||b.reachPct-a.reachPct).slice(0,5);
+    const bridges=[];
+    if(analysis.entityCount>2) nodes.forEach(n=>{
+        const key=n.name.toLowerCase(), neighbors=[...(adj.get(key)||[])]; if(neighbors.length<2)return;
+        const seen=reachable(neighbors[0],key), separated=neighbors.filter(x=>!seen.has(x));
+        if(separated.length) bridges.push({name:n.name,degree:n.degree,separatedNeighborCount:separated.length,detail:'Removing this node from graph traversal separates at least '+(separated.length+1)+' neighbouring branches.'});
+    });
+    bridges.sort((a,b)=>b.separatedNeighborCount-a.separatedNeighborCount||b.degree-a.degree);
+    const asymmetry=nodes.filter(n=>n.degree>=3&&Math.max(n.incoming,n.outgoing)>=Math.max(3,Math.min(n.incoming,n.outgoing)*3)).map(n=>({...n,direction:n.incoming>n.outgoing?'incoming':'outgoing',ratio:Math.max(n.incoming,n.outgoing)+' : '+Math.min(n.incoming,n.outgoing)})).slice(0,6);
+    const clusters=[];
+    const threshold=Math.max(3,Math.ceil((analysis.averageDegree||0)*1.25));
+    const hot=new Set(nodes.filter(n=>n.degree>=threshold).map(n=>n.name.toLowerCase()));
+    const visited=new Set();
+    hot.forEach(start=>{if(visited.has(start))return;const q=[start],group=[];visited.add(start);for(let i=0;i<q.length;i++){const cur=q[i];group.push(names.get(cur)||cur);for(const nb of adj.get(cur)||[])if(hot.has(nb)&&!visited.has(nb)){visited.add(nb);q.push(nb);}}if(group.length>=2)clusters.push({key:group.join('|'),objects:group,objectCount:group.length,detail:group.join(', ')});});
+    const corridors=[];
+    nodes.slice(0,Math.min(8,nodes.length)).forEach(source=>nodes.slice(0,Math.min(8,nodes.length)).forEach(target=>{
+        if(source.name>=target.name)return; const path=findArchitecturePath(analysis,source.name,target.name);
+        if(path?.found&&path.path.length>=4)corridors.push({key:source.name+'|'+target.name,source:source.name,target:target.name,hops:path.path.length-1,path:path.path.join(' → ')});
+    }));
+    corridors.sort((a,b)=>b.hops-a.hops||a.key.localeCompare(b.key));
+    const boundaryLeakage=(domains||[]).filter(d=>d.name&&d.objectCount>0).map(d=>{const total=(d.internalRelationships||0)+(d.crossDomainRelationships||0);return {...d,totalRelationships:total,crossPct:total?Math.round((d.crossDomainRelationships||0)/total*100):0};}).filter(d=>d.crossDomainRelationships>0).sort((a,b)=>b.crossPct-a.crossPct||b.crossDomainRelationships-a.crossDomainRelationships);
+    return {gravity,bridges:bridges.slice(0,6),corridors:corridors.slice(0,5),asymmetry,clusters:clusters.slice(0,5),boundaryLeakage:boundaryLeakage.slice(0,6)};
 }
 
 export function analyseObject(analysis, objectName) {
