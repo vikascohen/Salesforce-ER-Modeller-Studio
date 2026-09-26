@@ -53,6 +53,9 @@ The current Phase 2 workspace includes:
 - **Bounded structural-cycle detection** — detects relationship loops while deliberately bounding search depth and result count to protect interactive performance.
 - **Most-connected objects** — ranks the most structurally connected objects in the current model.
 - **Largest object definitions** — surfaces objects with the largest field definitions.
+- **Architecture Domains** — architects can assign objects to explicit business domains and inspect object/field totals, internal relationships and cross-domain relationships without changing Salesforce metadata.
+- **Cross-Domain Coupling** — calculates and ranks relationship counts between architect-defined domains so enterprise boundary coupling is visible rather than buried in a large ER diagram.
+- **Unassigned-object visibility** — the tool reports objects without a domain rather than guessing business ownership from names.
 - **Relationship Path Finder** — choose any two objects and calculate the minimum-hop structural route between them using breadth-first search.
 - **Blast Radius** — select an object and inspect the objects structurally reachable within one, two and three relationship hops.
 - **Junction Intelligence** — identifies multi-parent junction candidates and distinguishes strong candidates backed by two or more Master-Detail relationships.
