@@ -1,4 +1,8 @@
-# Salesforce ER Modeller Studio
+# Salesforce ER Modeller Studio — Phase 2: Data Architecture Intelligence
+
+> **Phase 2 development branch** — Data Architecture Intelligence. The preserved Phase 1 release is available on the `phase-1-stable` branch; `main` remains unchanged. Existing Salesforce deployment/install paths are retained. The GitHub deploy buttons below still target `main` intentionally until Phase 2 is promoted as a release.
+
+Phase 2 adds **View → Architecture Intelligence**, a compact graph-analysis workspace for the current model: structural hubs, isolated objects, incoming/outgoing coupling, relationship mix, connected components, relationship depth and cycle detection. These are descriptive architecture metrics, not a synthetic health score. Security posture, permissions and vulnerability analysis are explicitly outside this product and remain a Warden Studio concern. See [Phase 2 architecture notes](docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md).
 
 A native Lightning Web Component app for building Entity-Relationship
 diagrams of your Salesforce data model. Diagrams are stored as records
