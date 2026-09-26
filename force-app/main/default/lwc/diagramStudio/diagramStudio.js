@@ -1104,6 +1104,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             {label:'Custom Objects',value:a.customObjectCount},{label:'Components',value:a.componentCount},{label:'Max Depth',value:a.maxRelationshipDepth}
         ];
     }
+    architectureFontScale = 1;
+    get architecturePanelStyle(){ return '--arch-font-scale:'+this.architectureFontScale; }
+    get architectureFontPercent(){ return Math.round(this.architectureFontScale*100)+'%'; }
+    get architectureCanIncreaseFont(){ return this.architectureFontScale < 1.6; }
+    get architectureCanDecreaseFont(){ return this.architectureFontScale > 0.8; }
+    handleArchitectureFontIncrease(){ this.architectureFontScale=Math.min(1.6,Math.round((this.architectureFontScale+0.1)*10)/10); }
+    handleArchitectureFontDecrease(){ this.architectureFontScale=Math.max(0.8,Math.round((this.architectureFontScale-0.1)*10)/10); }
+    handleArchitectureFontReset(){ this.architectureFontScale=1; }
     get architectureNodes() { return this.architectureAnalysis?.nodes || []; }
     get architectureInsightMap() {
         const a=this.architectureAnalysis; if(!a) return {nodes:[],edges:[],canvasStyle:''};
