@@ -1294,3 +1294,28 @@
 .dict-wow-map-card{min-height:360px}.dict-rel-map{position:relative;height:290px;min-width:400px;overflow:hidden}.dict-rel-map:before{content:'';position:absolute;left:50%;top:50%;width:72%;height:72%;transform:translate(-50%,-50%);border:1px dashed var(--surface-border-strong);border-radius:50%}
 .dict-rel-map-centre,.dict-rel-map-node{position:absolute;transform:translate(-50%,-50%);border:1px solid var(--surface-border-strong);background:var(--surface-bg);border-radius:8px;padding:8px 10px;text-align:center;z-index:2;box-shadow:0 3px 10px rgba(0,0,0,.12)}.dict-rel-map-centre{left:50%;top:50%;border-color:var(--accent);font-weight:700;color:var(--surface-text-strong);max-width:160px;overflow:hidden;text-overflow:ellipsis}.dict-rel-map-node{min-width:90px;max-width:140px}.dict-rel-map-node strong{display:block;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dict-rel-map-node span{display:block;font-size:9px;color:var(--accent);margin-top:2px}
 @media(max-width:1000px){.dict-wow-grid,.dict-wow-grid-main{grid-template-columns:1fr}.dict-rel-map{min-width:600px}}
+
+/* Architecture Advice: deterministic guidance derived from the current graph evidence. */
+.arch-advice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px}
+.arch-advice-card{border:1px solid var(--surface-border);border-radius:8px;background:var(--surface-bg-alt);padding:12px;display:flex;flex-direction:column;gap:9px}
+.arch-advice-card>div:not(.arch-finding-top)>span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--surface-text-muted);margin-bottom:3px}
+.arch-advice-card p{margin:0;font-size:10px;line-height:1.45;color:var(--surface-text)}
+.arch-advice-evidence{border-left:2px solid var(--accent);padding-left:8px}
+.arch-print-btn{border-color:var(--accent)!important}
+
+/* Print the Architecture Intelligence workspace as a clean report.
+   Browser print preview provides printer output and Save as PDF without a PDF library or server call. */
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body *{visibility:hidden!important}
+  .arch-panel,.arch-panel *{visibility:visible!important}
+  .arch-panel{position:absolute!important;inset:0!important;width:100%!important;height:auto!important;overflow:visible!important;padding:0!important;background:#fff!important;color:#111!important}
+  .arch-header{position:static!important;background:#fff!important;color:#111!important;padding:0 0 10px!important}
+  .arch-header-actions,.arch-close,.arch-action-btn,.arch-inline-link,.arch-domain-assign,.arch-path-controls{display:none!important}
+  .arch-section,.arch-brief,.arch-summary-card,.arch-finding,.arch-advice-card,.arch-metric,.arch-topology-row{break-inside:avoid;page-break-inside:avoid}
+  .arch-section{border:1px solid #bbb!important;background:#fff!important;margin:8px 0!important}
+  .arch-section-head,.arch-finding,.arch-advice-card,.arch-metric,.arch-topology-row,.arch-review-card,.arch-insights>div,.arch-ranked-grid>div,.arch-domain-card{background:#fff!important;color:#111!important}
+  .arch-panel p,.arch-panel span,.arch-panel strong,.arch-panel h4,.arch-title,.arch-subtitle{color:#111!important}
+  .arch-tag{border:1px solid #777!important;background:#fff!important;color:#111!important}
+}
+@media(max-width:900px){.arch-advice-grid{grid-template-columns:1fr}}
