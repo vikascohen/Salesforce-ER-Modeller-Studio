@@ -31,3 +31,9 @@ Later Phase 2 work can add schema snapshots/drift history, domain grouping and c
 - `main` — untouched Phase 1 production line.
 - `phase-1-stable` — preserved copy of Phase 1.
 - `phase-2-data-architecture-intelligence` — all Phase 2 development.
+
+## Performance principles
+
+Architecture Intelligence is designed for interactive use on large Salesforce models. Analysis is performed locally over the already-parsed diagram, with no additional server round-trip. Graph depth uses bounded breadth-first traversal rather than exponential longest-simple-path enumeration; cycle discovery is depth- and result-limited; and the LWC caches analysis for an unchanged DSL source so reactive getters do not repeatedly recompute the graph.
+
+The feature should continue to prefer deterministic O(V+E) / polynomial graph operations, bounded result sets and lazy/on-open computation as new intelligence capabilities are added.
