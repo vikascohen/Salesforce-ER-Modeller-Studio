@@ -723,6 +723,7 @@
                                 <span class="dict-detail-sub">{dictionaryRow.label} &middot; {dictionaryObjectTypeText} &middot; {dictionaryFieldCount} fields</span>
                             </div>
                             <div class="dict-detail-actions">
+                                <button class="dsl-head-btn dict-archaeologist-launch" onclick={handleOpenDictionaryArchaeologist}>Explore Object</button>
                                 <button class="dsl-head-btn" onclick={handleClearDictionarySelection} title="Clear this object's field list on the right — does not touch the canvas">Clear Selection</button>
                                 <button class="dsl-head-btn" disabled={dictionaryUsagePending} onclick={handleCalculateUsage}>{dictionaryCalcUsageLabel}</button>
                                 <button class="dsl-head-btn" onclick={handleExportDictionaryCsv}>Export CSV</button>
@@ -778,6 +779,17 @@
                             </div>
                         </div>
 
+                        <template if:true={dictionaryArchaeologistOpen}>
+                            <section class={dictionaryArchaeologistClass}>
+                                <div class="dict-archaeologist-head"><div><span class="dict-intel-kicker">DATA MODEL ARCHAEOLOGIST</span><strong>{dictionaryRow.apiName}</strong><p>Evidence from metadata already loaded by the Data Dictionary. No Tooling API or external API calls.</p></div><button class="modal-close" onclick={handleCloseDictionaryArchaeologist}>x</button></div>
+                                <div class="dict-archaeology-facts"><template for:each={dictionaryArchaeologyFacts} for:item="fact"><article key={fact.key}><span>{fact.label}</span><strong>{fact.value}</strong><p>{fact.detail}</p></article></template></div>
+                                <div class="dict-archaeology-section"><div class="dict-archaeology-title"><strong>Field families</strong><span>Repeated business concepts found in field names and labels. Select one to inspect those fields.</span></div><template if:true={dictionaryHasFieldFamilies}><div class="dict-family-grid"><template for:each={dictionaryFieldFamilies} for:item="family"><button key={family.key} class="dict-family-card" data-token={family.filter} onclick={handleDictionaryFamilySelect}><span>{family.label}</span><strong>{family.count} fields</strong><small>{family.fields}</small></button></template></div></template></div>
+                                <div class="dict-archaeology-columns">
+                                    <div class="dict-archaeology-section"><div class="dict-archaeology-title"><strong>Relationship concentration</strong><span>Repeated relationship references by target object.</span></div><div class="dict-landscape"><template for:each={dictionaryRelationshipConcentration} for:item="rel"><div key={rel.key} class="dict-landscape-row"><span>{rel.target}</span><strong>{rel.count}</strong></div></template></div></div>
+                                    <div class="dict-archaeology-section"><div class="dict-archaeology-title"><strong>Possible semantic overlap</strong><span>Same normalised labels or names. Evidence for review, not a duplicate claim.</span></div><template if:true={dictionaryHasPossibleOverlaps}><div class="dict-overlap-list"><template for:each={dictionaryPossibleOverlaps} for:item="item"><article key={item.key}><strong>{item.label}</strong><span>{item.count} fields</span><p>{item.fields}</p></article></template></div></template></div>
+                                </div>
+                            </section>
+                        </template>
                         <template if:true={dictionaryHasFieldDetail}>
                             <aside class="dict-field-drill">
                                 <div class="dict-field-drill-head"><div><span class="dict-intel-kicker">FIELD PROFILE</span><strong>{dictionaryFieldDetail.apiName}</strong><p>{dictionaryFieldDetail.label}</p></div><button class="arch-inline-close" onclick={handleDictionaryFieldDrillClose}>Close</button></div>
