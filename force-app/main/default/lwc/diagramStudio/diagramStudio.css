@@ -1151,3 +1151,31 @@
 .dict-archaeology-columns{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dict-landscape{display:flex;flex-direction:column;gap:5px}.dict-landscape-row{display:flex;justify-content:space-between;gap:10px;padding:7px 8px;border-bottom:1px solid var(--surface-border);font-size:10px}.dict-landscape-row strong{color:var(--surface-text-strong)}
 .dict-overlap-list{display:flex;flex-direction:column;gap:6px}.dict-overlap-list article{border-left:3px solid var(--accent);padding:7px 9px;background:var(--surface-bg)}.dict-overlap-list article strong,.dict-overlap-list article span{font-size:10px}.dict-overlap-list article span{margin-left:8px;color:var(--surface-text-muted)}.dict-overlap-list p{margin:4px 0 0;font-size:9px;color:var(--surface-text-muted);overflow-wrap:anywhere}
 @media(max-width:900px){.dict-archaeology-facts{grid-template-columns:1fr 1fr}.dict-archaeology-columns{grid-template-columns:1fr}}
+
+/* Phase 2 Architecture Intelligence: dedicated in-workspace scroll viewport.
+   Lightning can let a fixed overlay overflow through the host page, so constrain
+   the overlay and make it the explicit scroll owner. */
+.arch-panel{
+  position:fixed!important;
+  inset:0!important;
+  width:auto!important;
+  height:auto!important;
+  max-width:none!important;
+  max-height:none!important;
+  box-sizing:border-box!important;
+  overflow-y:scroll!important;
+  overflow-x:scroll!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable both-edges;
+  padding:0 28px 32px!important;
+}
+.arch-panel .arch-header{
+  position:sticky!important;
+  top:0!important;
+  z-index:20!important;
+  background:var(--surface-bg)!important;
+}
+.arch-panel::-webkit-scrollbar{width:16px!important;height:16px!important}
+.arch-panel::-webkit-scrollbar-track{background:var(--surface-bg-alt)!important}
+.arch-panel::-webkit-scrollbar-thumb{background:var(--accent)!important;border:3px solid var(--surface-bg-alt)!important;border-radius:9px!important}
+.arch-panel::-webkit-scrollbar-corner{background:var(--surface-bg-alt)!important}
