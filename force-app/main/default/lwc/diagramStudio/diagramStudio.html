@@ -620,6 +620,19 @@
                     </div>
                 </section>
 
+                <section class="arch-section arch-deep-intelligence">
+                    <div class="arch-section-head"><span>Architecture Intelligence Insights</span><span class="arch-section-hint">Correlated graph patterns, derived without AI</span></div>
+                    <div class="arch-deep-grid">
+                        <article class="arch-deep-card"><div class="arch-deep-title"><span>STRUCTURAL GRAVITY</span><strong>Where the model concentrates</strong></div><template if:true={architectureHasGravity}><template for:each={architectureGravity} for:item="n"><div class="arch-deep-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><span>{n.degree} rel. · {n.reachPct}% reach · {n.fieldCount} fields</span></div></template></template></article>
+                        <article class="arch-deep-card"><div class="arch-deep-title"><span>BRIDGE OBJECTS</span><strong>Objects joining structural areas</strong></div><template if:true={architectureHasBridges}><template for:each={architectureBridges} for:item="n"><div class="arch-deep-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><span>{n.detail}</span></div></template></template></article>
+                        <article class="arch-deep-card"><div class="arch-deep-title"><span>CHANGE CORRIDORS</span><strong>Long relationship routes worth understanding</strong></div><template if:true={architectureHasCorridors}><template for:each={architectureCorridors} for:item="n"><div class="arch-deep-row arch-corridor-row" key={n.key}><strong>{n.hops} hops</strong><span>{n.path}</span></div></template></template></article>
+                        <article class="arch-deep-card"><div class="arch-deep-title"><span>RELATIONSHIP ASYMMETRY</span><strong>Strongly directional dependency patterns</strong></div><template if:true={architectureHasAsymmetry}><template for:each={architectureAsymmetry} for:item="n"><div class="arch-deep-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><span>{n.direction} concentration · {n.ratio}</span></div></template></template></article>
+                        <article class="arch-deep-card"><div class="arch-deep-title"><span>COMPLEXITY CLUSTERS</span><strong>Connected high-connectivity objects</strong></div><template if:true={architectureHasComplexityClusters}><template for:each={architectureComplexityClusters} for:item="n"><div class="arch-deep-row" key={n.key}><strong>{n.objectCount} objects</strong><span>{n.detail}</span></div></template></template></article>
+                        <article class="arch-deep-card"><div class="arch-deep-title"><span>BOUNDARY LEAKAGE</span><strong>Cross-domain coupling from your domain assignments</strong></div><template if:true={architectureHasBoundaryLeakage}><template for:each={architectureBoundaryLeakage} for:item="n"><div class="arch-deep-row" key={n.name}><strong>{n.name}</strong><span>{n.crossDomainRelationships} cross-domain rel. · {n.crossPct}% boundary share</span></div></template></template></article>
+                    </div>
+                    <div class="arch-density-note">These are structural signals, not architecture grades. Each pattern is calculated from the current ER graph and should be interpreted in business context.</div>
+                </section>
+
                 <section class="arch-section arch-advice-section">
                     <div class="arch-section-head"><span>Architecture Advice</span><span class="arch-section-hint">Evidence led guidance, not an automated architecture verdict</span></div>
                     <div class="arch-advice-grid">
