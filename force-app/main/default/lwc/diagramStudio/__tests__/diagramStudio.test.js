@@ -24,6 +24,8 @@ jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ def
 // eslint-disable-next-line no-undef
 const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').default;
 // eslint-disable-next-line no-undef
+const getFile = require('@salesforce/apex/DiagramFileController.getFile').default;
+// eslint-disable-next-line no-undef
 const describeObjects = require('@salesforce/apex/SchemaMetadataController.describeObjects').default;
 // eslint-disable-next-line no-undef
 const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary').default;
@@ -1503,5 +1505,20 @@ describe('c-diagram-studio', () => {
             expect(finalValue).toContain('AnnualRevenue[Currency]');
             expect(finalValue).toContain('LastName__c[Text, Required]');
         });
+    });
+});
+
+describe('Phase 2 async hardening',()=> {
+    it('keeps the newest diagram when file loads resolve out of order', async()=> {
+        let resolveA, resolveB;
+        getFile.mockImplementation(({fileId})=>new Promise((resolve)=>{ if(fileId==='a01') resolveA=resolve; else resolveB=resolve; }));
+        const el=createStudio(); await flushPromises();
+        listFilesAdapter.emit([{id:'a01',name:'A',diagramType:'ER'},{id:'a02',name:'B',diagramType:'ER'}]); await flushPromises();
+        const rows=el.shadowRoot.querySelectorAll('.file-row');
+        rows[0].dispatchEvent(new CustomEvent('click',{bubbles:true})); rows[1].dispatchEvent(new CustomEvent('click',{bubbles:true}));
+        resolveB({Id:'a02',Name:'B',Source_Code__c:'entity Contact : Name'}); await flushPromises();
+        resolveA({Id:'a01',Name:'A',Source_Code__c:'entity Account : Name'}); await flushPromises();
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('B');
+        expect(el.shadowRoot.querySelector('.code-editor').value).toContain('Contact');
     });
 });
