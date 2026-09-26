@@ -1010,3 +1010,11 @@
 }
 .dict-field-row:hover td { background: var(--surface-bg-alt); }
 .dict-field-pk td:first-child { font-weight: 700; color: #d4a72c; }
+
+/* Phase 2 — Data Architecture Intelligence */
+.arch-panel{position:absolute;z-index:25;top:86px;right:18px;width:min(760px,calc(100% - 36px));max-height:calc(100% - 110px);overflow:auto;background:var(--panel-bg,#fff);color:var(--text-color,#1f2937);border:1px solid var(--border-color,#d8dde6);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.24);padding:16px}
+.arch-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.arch-kicker{font-size:10px;font-weight:700;letter-spacing:.12em;opacity:.65;margin-right:10px}.arch-title{font-size:17px;font-weight:700}
+.arch-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;margin-bottom:14px}.arch-metric{border:1px solid var(--border-color,#d8dde6);border-radius:6px;padding:9px 10px}.arch-metric-value{display:block;font-size:20px;font-weight:700}.arch-metric-label{font-size:11px;opacity:.72}
+.arch-insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:14px}.arch-insights>div{border:1px solid var(--border-color,#d8dde6);border-radius:6px;padding:10px}.arch-insights p{margin:6px 0 0;font-size:12px;line-height:1.4}
+.arch-table-wrap{overflow:auto}.arch-table{width:100%;border-collapse:collapse;font-size:12px}.arch-table th,.arch-table td{padding:7px 8px;border-bottom:1px solid var(--border-color,#e5e7eb);text-align:left}.arch-table th{font-weight:700;position:sticky;top:0;background:var(--panel-bg,#fff)}
+.arch-note,.arch-empty{font-size:12px;opacity:.72;margin:12px 0 0}.arch-empty{padding:28px;text-align:center}
