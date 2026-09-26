@@ -58,3 +58,22 @@ describe('phase 2 reusable graph indexes', () => {
         expect(junctions.find(item => item.name === 'Obj2').confidence).toBe('Strong');
     });
 });
+
+
+describe('topology metric semantics', () => {
+    it('keeps unique-pair density bounded when several relationships connect the same objects', () => {
+        const model = {
+            entities: [{ name: 'Account', fields: [] }, { name: 'Contact', fields: [] }],
+            relationships: [
+                { childEntity: 'Contact', parentEntity: 'Account', childField: 'AccountId', kind: 'lookup' },
+                { childEntity: 'Contact', parentEntity: 'Account', childField: 'BillingAccount__c', kind: 'lookup' },
+                { childEntity: 'Contact', parentEntity: 'Account', childField: 'ServiceAccount__c', kind: 'lookup' }
+            ]
+        };
+        const analysis = analyseArchitecture(model);
+        expect(analysis.relationshipDensity).toBe(1);
+        expect(analysis.uniqueRelationshipPairs).toBe(1);
+        expect(analysis.parallelRelationshipCount).toBe(2);
+        expect(analysis.averageDegree).toBe(3);
+    });
+});
