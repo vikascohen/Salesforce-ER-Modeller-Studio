@@ -574,7 +574,7 @@
         <div class="arch-panel">
             <div class="arch-header">
                 <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Structural evidence from the ER model currently on the canvas.</div></div>
-                <div class="arch-header-actions"><template if:true={architectureHasModel}><button class="arch-action-btn arch-export-btn" onclick={handleExportArchitectureImage}>Export Architecture Image</button></template><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
+                <div class="arch-header-actions"><template if:true={architectureHasModel}><button class="arch-action-btn arch-export-btn" onclick={handleExportArchitectureImage}>Export PNG Report</button><button class="arch-action-btn arch-print-btn" onclick={handlePrintArchitectureReport}>Print / Save PDF</button></template><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
             </div>
             <template if:true={architectureHasError}>
                 <div class="arch-error" role="alert">
@@ -615,6 +615,20 @@
                                 <div class="arch-finding-top"><span class="arch-tag">{f.kind}</span><strong>{f.title}</strong></div>
                                 <div class="arch-finding-grid"><div><span>Evidence</span><p>{f.evidence}</p></div><div><span>Why it matters</span><p>{f.impact}</p></div><div><span>Investigate</span><p>{f.action}</p></div></div>
                                 <template if:true={f.hasObject}><button class="arch-inline-link" data-name={f.objectName} onclick={handleArchitectureFindingInspect}>Inspect {f.objectName} →</button></template>
+                            </article>
+                        </template>
+                    </div>
+                </section>
+
+                <section class="arch-section arch-advice-section">
+                    <div class="arch-section-head"><span>Architecture Advice</span><span class="arch-section-hint">Evidence led guidance, not an automated architecture verdict</span></div>
+                    <div class="arch-advice-grid">
+                        <template for:each={architectureAdvice} for:item="item">
+                            <article class="arch-advice-card" key={item.key}>
+                                <div class="arch-finding-top"><span class="arch-tag">{item.kind}</span><strong>{item.title}</strong></div>
+                                <div class="arch-advice-evidence"><span>Evidence</span><p>{item.evidence}</p></div>
+                                <div><span>Why consider it</span><p>{item.reason}</p></div>
+                                <div><span>Suggested investigation</span><p>{item.next}</p></div>
                             </article>
                         </template>
                     </div>
