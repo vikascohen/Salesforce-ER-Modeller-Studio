@@ -915,13 +915,58 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const a=this.architectureAnalysis; if(!a) return [];
         return [
             {label:'Avg. relationships / object',value:a.averageDegree},
-            {label:'Relationship density',value:a.relationshipDensity},
+            {label:'Unique-pair density',value:a.relationshipDensity},
             {label:'Avg. fields / object',value:a.averageFieldsPerObject},
             {label:'Disconnected components',value:a.componentCount},
             {label:'Longest path (hops)',value:a.maxRelationshipDepth},
             {label:'Detected cycles',value:a.cycles.length}
         ];
     }
+    get architectureExecutiveSummary() {
+        const a=this.architectureAnalysis; if(!a) return '';
+        const lead=a.mostConnected?.[0];
+        const connectivity=a.componentCount===1 ? 'The model is fully connected' : 'The model is split across '+a.componentCount+' disconnected components';
+        const depth=a.maxRelationshipDepth<=2 ? 'shallow' : a.maxRelationshipDepth<=4 ? 'moderate' : 'deep';
+        const cycleText=a.cycles.length ? a.cycles.length+' structural cycle'+(a.cycles.length===1?' was':'s were')+' detected' : 'No structural cycles were detected';
+        const leadText=lead&&lead.degree ? lead.name+' is the most connected object with '+lead.degree+' relationship'+(lead.degree===1?'':'s')+'. ' : '';
+        return 'This diagram contains '+a.entityCount+' objects, '+a.fieldCount+' fields and '+a.relationshipCount+' relationships. '+leadText+connectivity+', with '+depth+' relationship reach of '+a.maxRelationshipDepth+' hop'+(a.maxRelationshipDepth===1?'':'s')+'. '+cycleText+'.';
+    }
+    get architectureReviewLead() {
+        const a=this.architectureAnalysis, lead=a?.mostConnected?.[0]; if(!a||!lead) return null;
+        const reach=analyseBlastRadius(a,lead.name,3);
+        return {
+            name:lead.name,
+            role:(a.hubs||[]).some(h=>h.name===lead.name)?'Structural hub':'Most connected object',
+            evidence:lead.degree+' relationships · '+lead.fieldCount+' fields · '+lead.incoming+' incoming · '+lead.outgoing+' outgoing',
+            reason:lead.degree ? 'Changes around this object may have the widest structural reach in the current model. Review its direct relationships and dependants first.' : 'The current model has no relationships, so no structural hotspot is present.',
+            reach:reach ? reach.total+' objects reachable within 3 hops' : ''
+        };
+    }
+    get architectureFindings() {
+        const a=this.architectureAnalysis; if(!a) return [];
+        const findings=[];
+        const lead=a.mostConnected?.[0];
+        if(lead&&lead.degree) findings.push({key:'connectivity',kind:'CONNECTIVITY',title:lead.name+' concentrates model connectivity',evidence:lead.degree+' relationships ('+lead.incoming+' incoming, '+lead.outgoing+' outgoing).',impact:'This makes '+lead.name+' a useful first review point because structural changes around it can touch more of the model.',action:'Inspect the object and its three-hop blast radius.',objectName:lead.name,hasObject:true});
+        if(a.largestObjects?.length){
+            const largest=a.largestObjects[0];
+            if(largest.fieldCount>=25) findings.push({key:'size',kind:'MODEL SIZE',title:'Large object definition: '+largest.name,evidence:largest.fieldCount+' fields in the current diagram.',impact:'Large definitions can increase modelling, review and maintenance effort. Field count alone is not a defect, but it is a useful complexity signal.',action:'Inspect the object definition and confirm the field breadth is intentional.',objectName:largest.name,hasObject:true});
+        }
+        if(a.componentCount>1) findings.push({key:'components',kind:'STRUCTURE',title:'Disconnected architecture areas detected',evidence:a.componentCount+' separate connected components exist.',impact:'The diagram contains structural islands. They may represent valid bounded areas or incomplete modelling.',action:'Review whether the disconnected areas are intentional.',objectName:'',hasObject:false});
+        else findings.push({key:'components',kind:'STRUCTURE',title:'One connected architecture area',evidence:'All modelled objects participate in a single connected component.',impact:'There are no disconnected model areas in the current diagram.',action:'Use Path Finder to understand how specific objects connect.',objectName:'',hasObject:false});
+        if(a.cycles.length) findings.push({key:'cycles',kind:'TOPOLOGY',title:'Relationship cycles deserve review',evidence:a.cycles.length+' bounded structural cycle'+(a.cycles.length===1?' was':'s were')+' detected.',impact:'Cycles can be intentional, but they make dependency reasoning less linear.',action:'Inspect the reported cycle paths and confirm they reflect intended modelling.',objectName:'',hasObject:false});
+        if(a.parallelRelationshipCount>0) findings.push({key:'parallel',kind:'RELATIONSHIPS',title:'Repeated object-pair relationships',evidence:a.parallelRelationshipCount+' additional relationship'+(a.parallelRelationshipCount===1?' exists':'s exist')+' between already-connected object pairs.',impact:'Multiple relationships between the same objects can be valid, but they increase semantic coupling beyond simple graph connectivity.',action:'Review the relationship fields and confirm each represents a distinct business meaning.',objectName:'',hasObject:false});
+        return findings.slice(0,6);
+    }
+    handleArchitectureFindingInspect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
+    get architectureConnectivityLabel() { const a=this.architectureAnalysis; return !a?'':a.componentCount===1?'Fully connected':a.componentCount+' components'; }
+    get architectureCycleLabel() { const a=this.architectureAnalysis; return !a?'':a.cycles.length ? a.cycles.length+' detected' : 'None detected'; }
+    get architectureIslandLabel() { const a=this.architectureAnalysis; return !a?'':a.islands.length ? a.islands.length+' isolated' : 'None'; }
+    get architectureJunctionLabel() { const j=this.architectureJunctions; const strong=j.filter(x=>x.confidence==='Strong').length; return strong ? strong+' strong candidate'+(strong===1?'':'s') : 'No strong candidates'; }
+    get architectureRelationshipSemantics() {
+        const a=this.architectureAnalysis; if(!a) return '';
+        return a.lookupCount+' lookup · '+a.masterDetailCount+' Master-Detail · '+a.polymorphicCount+' polymorphic';
+    }
+    get architectureDensityHelp() { return 'Unique object-pair density. Parallel relationships are counted separately as relationship semantics, so density remains between 0 and 1.'; }
     get architectureObservations() { return this.architectureAnalysis?.observations || []; }
     get architectureMostConnected() { return this.architectureAnalysis?.mostConnected || []; }
     get architectureLargestObjects() { return this.architectureAnalysis?.largestObjects || []; }
