@@ -47,8 +47,9 @@ for a plain-language feature overview with no code or setup steps.
 
 ## Installing
 
-**Unmanaged package** — the simplest option: no GitHub OAuth, no CLI,
-just a link and a login.
+> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `phase-2-data-architecture-intelligence` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
+
+**Phase 1 unmanaged package** — the simplest option for installing the stable Phase 1 release: no GitHub OAuth, no CLI, just a link and a login.
 
 - **Production or Developer Edition:**
   [https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
@@ -65,7 +66,9 @@ package — once installed, every component is fully yours to edit
 directly in the org, same as if you'd deployed the source yourself; see
 [docs/SECURITY.md](docs/SECURITY.md) for what data it does and doesn't touch.
 
-**Or, deploy straight from GitHub:**
+**Or, deploy the stable Phase 1 release straight from GitHub:**
+
+> The deploy buttons below intentionally target `main`, which is the Phase 1 line. They therefore **do not deploy Phase 2**. This is deliberate while Phase 2 remains under development.
 
 <a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
   <img alt="Deploy to Salesforce"
