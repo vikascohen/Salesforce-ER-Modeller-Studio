@@ -30,7 +30,7 @@ export function analyseArchitecture(model) {
 
     const cycles = findCycles(names, adjacency, byKey);
     const components = connectedComponents(names, adjacency);
-    const maxDepth = longestSimplePath(names, adjacency);
+    const maxDepth = approximateGraphDepth(names, adjacency);
     const avgDegree = entities.length ? (relationships.length * 2) / entities.length : 0;
     const density = entities.length > 1 ? (relationships.length * 2) / (entities.length * (entities.length - 1)) : 0;
     const avgFields = entities.length ? entities.reduce((sum,e)=>sum+(e.fields||[]).length,0)/entities.length : 0;
@@ -53,8 +53,24 @@ export function analyseArchitecture(model) {
     };
 }
 function connectedComponents(names,adj){const seen=new Set(),out=[]; for(const n of names){const k=n.toLowerCase();if(seen.has(k))continue;const stack=[k],c=[];seen.add(k);while(stack.length){const x=stack.pop();c.push(x);for(const y of adj.get(x)||[]){if(!seen.has(y)){seen.add(y);stack.push(y);}}}out.push(c);}return out;}
-function longestSimplePath(names,adj){let best=0;const dfs=(x,seen)=>{best=Math.max(best,seen.size-1);for(const y of adj.get(x)||[]){if(!seen.has(y)){const n=new Set(seen);n.add(y);dfs(y,n);}}};for(const n of names){const k=n.toLowerCase();dfs(k,new Set([k]));}return best;}
-function findCycles(names,adj,byKey){const found=new Set(),cycles=[];const canonical=p=>{const core=p.slice(0,-1);const rots=[];for(let i=0;i<core.length;i++)rots.push(core.slice(i).concat(core.slice(0,i)).join('|'));const rev=[...core].reverse();for(let i=0;i<rev.length;i++)rots.push(rev.slice(i).concat(rev.slice(0,i)).join('|'));return rots.sort()[0];};const dfs=(start,x,path,seen)=>{for(const y of adj.get(x)||[]){if(y===start&&path.length>=3){const p=path.concat(start),key=canonical(p);if(!found.has(key)){found.add(key);cycles.push(p.map(k=>byKey.get(k)||k));}}else if(!seen.has(y)&&path.length<8){const s=new Set(seen);s.add(y);dfs(start,y,path.concat(y),s);}}};for(const n of names){const k=n.toLowerCase();dfs(k,k,[k],new Set([k]));}return cycles.slice(0,25);}
+// Exact longest-simple-path search is exponential on cyclic graphs. For an interactive
+// architect tool we use bounded BFS eccentricity instead: O(V*(V+E)), predictable even
+// for large org diagrams, and still a useful measure of relationship reach/depth.
+function approximateGraphDepth(names,adj){
+    let best=0;
+    for(const n of names){
+        const start=n.toLowerCase(),dist=new Map([[start,0]]),queue=[start];
+        for(let i=0;i<queue.length;i++){
+            const x=queue[i],d=dist.get(x);
+            if(d>best) best=d;
+            for(const y of adj.get(x)||[]){
+                if(!dist.has(y)){dist.set(y,d+1);queue.push(y);}
+            }
+        }
+    }
+    return best;
+}
+function findCycles(names,adj,byKey){const found=new Set(),cycles=[]; const MAX_CYCLES=25, MAX_DEPTH=7;const canonical=p=>{const core=p.slice(0,-1);const rots=[];for(let i=0;i<core.length;i++)rots.push(core.slice(i).concat(core.slice(0,i)).join('|'));const rev=[...core].reverse();for(let i=0;i<rev.length;i++)rots.push(rev.slice(i).concat(rev.slice(0,i)).join('|'));return rots.sort()[0];};const dfs=(start,x,path,seen)=>{if(cycles.length>=MAX_CYCLES)return;for(const y of adj.get(x)||[]){if(y===start&&path.length>=3){const p=path.concat(start),key=canonical(p);if(!found.has(key)){found.add(key);cycles.push(p.map(k=>byKey.get(k)||k));}}else if(!seen.has(y)&&path.length<MAX_DEPTH){const s=new Set(seen);s.add(y);dfs(start,y,path.concat(y),s);}}};for(const n of names){if(cycles.length>=MAX_CYCLES)break;const k=n.toLowerCase();dfs(k,k,[k],new Set([k]));}return cycles;}
 
 function buildObservations(nodes,relationships,components,cycles,maxDepth,avgDegree){
     const out=[];
