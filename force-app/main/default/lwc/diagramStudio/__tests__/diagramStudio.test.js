@@ -1594,6 +1594,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(text).not.toContain('Employee__c.Manager__c');
         expect(text).not.toContain('Employee__c depends on Employee__c');
         expect(workspace.querySelectorAll('.arch-rel-graph-edge').length).toBe(1);
+        expect(workspace.textContent).toContain('Self relationships are intentionally omitted');
     });
 
     it('Relationship Insights reports explicit external targets and per-object dependency direction', async () => {
