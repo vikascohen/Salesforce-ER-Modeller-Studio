@@ -1359,6 +1359,33 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHasAsymmetry(){ return this.architectureAsymmetry.length>0; }
     get architectureHasComplexityClusters(){ return this.architectureComplexityClusters.length>0; }
     get architectureHasBoundaryLeakage(){ return this.architectureBoundaryLeakage.length>0; }
+    get architectureDashboardObjects(){
+        const nodes=this.architectureNodes||[], maxDegree=Math.max(1,...nodes.map(n=>n.degree||0)), maxFields=Math.max(1,...nodes.map(n=>n.fieldCount||0));
+        return [...nodes].sort((a,b)=>(b.degree||0)-(a.degree||0)||(b.fieldCount||0)-(a.fieldCount||0)).map(n=>{
+            const relationshipPct=Math.round(((n.degree||0)/maxDegree)*100), fieldPct=Math.round(((n.fieldCount||0)/maxFields)*100);
+            return {...n,relationshipPct,fieldPct,relationshipStyle:'width:'+relationshipPct+'%',fieldStyle:'width:'+fieldPct+'%'};
+        });
+    }
+    get architectureRelationshipMix(){
+        const a=this.architectureAnalysis;if(!a)return [];
+        const total=Math.max(1,a.relationshipCount||0);
+        return [
+            {key:'lookup',label:'Lookup',value:a.lookupCount||0,pct:Math.round(((a.lookupCount||0)/total)*100)},
+            {key:'master',label:'Master Detail',value:a.masterDetailCount||0,pct:Math.round(((a.masterDetailCount||0)/total)*100)},
+            {key:'poly',label:'Polymorphic',value:a.polymorphicCount||0,pct:Math.round(((a.polymorphicCount||0)/total)*100)}
+        ].map(x=>({...x,style:'width:'+x.pct+'%'}));
+    }
+    get architectureDesignerBrief(){
+        const a=this.architectureAnalysis;if(!a)return [];
+        const deep=this.architectureDeepIntelligence||{}, out=[];
+        const lead=a.mostConnected?.[0];
+        if(lead)out.push({key:'focus',label:'START HERE',title:lead.name+' carries the most structural attention',detail:lead.degree+' relationships touch this object. Use its drill down before approving changes around this area.'});
+        if(deep.bridges?.length)out.push({key:'bridge',label:'CROSS AREA DEPENDENCY',title:deep.bridges[0].name+' joins otherwise separated areas',detail:'This object is structurally important beyond its direct relationship count. Review both sides of the bridge together.'});
+        if((a.cycles||[]).length)out.push({key:'cycle',label:'REVIEW COMPLEXITY',title:a.cycles.length+' relationship cycle'+(a.cycles.length===1?'':'s')+' detected',detail:'Cycles are not automatically wrong, but they make dependency reasoning less linear. Confirm each cycle is intentional.'});
+        if((a.parallelRelationshipCount||0)>0)out.push({key:'parallel',label:'SEMANTIC COUPLING',title:a.parallelRelationshipCount+' repeated object pair relationship'+(a.parallelRelationshipCount===1?'':'s'),detail:'The same object pairs carry multiple relationship meanings. Check that each field has a distinct business purpose.'});
+        if(!out.length)out.push({key:'clear',label:'MODEL SHAPE',title:'No dominant structural review signal detected',detail:'Use object drill down and domain mapping to explore the model in business context.'});
+        return out;
+    }
     get architectureInsightGuide(){
         return [
             {key:'gravity',title:'Structural Gravity',what:'Shows objects where relationship count, field breadth and structural reach converge.',value:'Use it to identify where a seemingly local change may require the broadest architectural review.',opportunity:'A deliberate gravity centre can provide a clear business anchor and simplify discovery of related data.',challenge:'If responsibilities accumulated accidentally, the object can become a coupling and change concentration point.',action:'Review ownership, field breadth, incoming and outgoing dependencies, then use Blast Radius before significant change.'},
