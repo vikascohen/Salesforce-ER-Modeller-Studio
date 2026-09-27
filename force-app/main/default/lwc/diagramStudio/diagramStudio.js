@@ -2679,8 +2679,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (!textareaEl) { this.dslSuggestOpen = false; return; }
         const text  = textareaEl.value;
         const caret = textareaEl.selectionStart;
-        const lineStart   = text.lastIndexOf('
-', caret - 1) + 1;
+        const lineStart   = text.lastIndexOf('\n', caret - 1) + 1;
         const linePrefix  = text.substring(lineStart, caret);
 
         const ctx = this.detectDslContext(linePrefix, text, lineStart);
