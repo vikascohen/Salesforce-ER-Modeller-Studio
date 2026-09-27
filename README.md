@@ -14,13 +14,13 @@ This is part of the culture we want at **Crius Consulting**: build deeply, share
 
 Our engineering principle remains simple: **transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and useful contribution rather than technology built only to be talked about.**
 
-## Deploy Phase 2 to Salesforce
+## Deploy Phase 2 Semi Stable to Salesforce
 
-You can deploy the current Phase 2 branch directly to a Salesforce org using the link below:
+[![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=phase-2-semi-stable&continue)
 
-[Deploy Phase 2 to Salesforce](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=phase-2-data-architecture-intelligence&continue)
+Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org using the button above.
 
-> **Note:** Phase 2 is active development. For the stable Phase 1 release, use the `main` branch.
+> **Note:** This deploy button points specifically to the `phase-2-semi-stable` branch. For the stable Phase 1 release, use the `main` branch.
 
 ## Contents
 
