@@ -485,14 +485,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if(my==null)my=direct;
                 d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;midX=(sx+ex)/2;midY=my;
             }
-            const outward=(box,side,p)=>{
-                const gap=12;
-                if(side==='left')return {x:p.x-gap,y:p.y};
-                if(side==='right')return {x:p.x+gap,y:p.y};
-                if(side==='top')return {x:p.x,y:p.y-gap};
-                return {x:p.x,y:p.y+gap};
+            // Cardinality belongs just outside the card, but must not sit on top
+            // of the relationship path. Give each marker a perpendicular visual
+            // offset from its port so the 1/N circle remains completely readable.
+            const cardPoint=(side,p,index,isEnd)=>{
+                const edgeGap=13, fan=((index%3)-1)*11, sign=isEnd?-1:1;
+                if(side==='left')return {x:p.x-edgeGap,y:p.y+fan*sign};
+                if(side==='right')return {x:p.x+edgeGap,y:p.y+fan*sign};
+                if(side==='top')return {x:p.x+fan*sign,y:p.y-edgeGap};
+                return {x:p.x+fan*sign,y:p.y+edgeGap};
             };
-            const startCard=outward(child,childSide,sp),endCard=outward(parent,parentSide,ep);
+            const startCard=cardPoint(childSide,sp,idx,false),endCard=cardPoint(parentSide,ep,idx,true);
             return {...c,d,midX,midY:midY-7,cardStartX:startCard.x,cardStartY:startCard.y,cardEndX:endCard.x,cardEndY:endCard.y,strokeWidth:Math.max(2.75,Number(c.strokeWidth)||0),connOpacity:isFocusRelated?'1':'0.1'};
         });
     }
