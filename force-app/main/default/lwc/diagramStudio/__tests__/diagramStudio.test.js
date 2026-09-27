@@ -1596,6 +1596,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         await new Promise((resolve) => setTimeout(resolve, 25));
 
         const select = el.shadowRoot.querySelector('.arch-workspace-usage select');
+        const callsAfterArchitectureLoad = getSchemaReferences.mock.calls.length;
         select.value = 'Account';
         select.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
@@ -1603,7 +1604,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         const text = el.shadowRoot.querySelector('.arch-workspace-usage').textContent;
         expect(text).toContain('Account__c');
         expect(text).toContain('ContactPointAddress.ParentId → Account');
-        expect(getSchemaReferences).toHaveBeenCalledTimes(1);
+        expect(getSchemaReferences.mock.calls.length).toBe(callsAfterArchitectureLoad);
     });
 
     it('Relationship Insights omits self relationships from the visual and detailed dependency report', async () => {
