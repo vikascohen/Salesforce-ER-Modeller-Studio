@@ -671,6 +671,15 @@ public with sharing class SchemaMetadataController {
         }
         result.put('totalRecords', totalCount);
 
+        // This endpoint intentionally handles one small field batch per Apex
+        // transaction. The LWC chunks larger objects before calling us, so
+        // there is never SOQL inside an Apex loop and a large Account schema
+        // cannot exceed aggregate-expression limits in one query.
+        if (fieldApiNames != null && fieldApiNames.size() > 15) {
+            result.put('error', 'Field usage batch exceeds the supported size of 15 fields.');
+            return result;
+        }
+
         List<String> safeFields = new List<String>();
         for (String f : fieldApiNames) {
             if (isSafeIdentifier(f)) {
