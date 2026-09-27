@@ -1288,6 +1288,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureBlastRadius() { return this.architectureSelectedObject ? analyseBlastRadius(this.architectureAnalysis,this.architectureSelectedObject,3) : null; }
     get architectureBlastLevels() { return this.architectureBlastRadius?.levels||[]; }
     get architectureJunctions() { return detectJunctionObjects(this.architectureAnalysis).slice(0,12); }
+    get architectureRelationshipGraph(){
+        const a=this.architectureAnalysis;if(!a)return {nodes:[],edges:[],style:''};
+        const source=a.nodes||[],count=source.length,cols=Math.max(2,Math.ceil(Math.sqrt(Math.max(1,count)*1.5))),cellW=240,cellH=150,pad=90;
+        const nodes=[...source].sort((x,y)=>(y.degree||0)-(x.degree||0)||x.name.localeCompare(y.name)).map((n,i)=>{const x=pad+(i%cols)*cellW,y=pad+Math.floor(i/cols)*cellH;return {...n,key:'rn-'+n.name,style:'left:'+x+'px;top:'+y+'px'};});
+        const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])),edges=[];
+        (a.relationships||[]).forEach((rel,i)=>{const s=pos.get((rel.childEntity||'').toLowerCase()),t=pos.get((rel.parentEntity||'').toLowerCase());if(!s||!t||s===t)return;const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI,raw=(rel.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';edges.push({key:'re-'+i,kind,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),style:'left:'+(s.x+85)+'px;top:'+(s.y+28)+'px;width:'+len+'px;transform:rotate('+angle+'deg)',title:s.name+' → '+t.name+' · '+kind});});
+        const rows=Math.ceil(count/cols);return {nodes,edges,style:'width:'+Math.max(900,pad*2+(cols-1)*cellW)+'px;height:'+Math.max(430,pad*2+(rows-1)*cellH)+'px'};
+    }
+    get architectureRelationshipGraphNodes(){return this.architectureRelationshipGraph.nodes;}
+    get architectureRelationshipGraphEdges(){return this.architectureRelationshipGraph.edges;}
+    get architectureRelationshipGraphStyle(){return this.architectureRelationshipGraph.style;}
+    get architectureRelationshipExplanation(){
+        const a=this.architectureAnalysis;if(!a)return '';
+        return 'This view shows '+a.relationshipCount+' relationship'+(a.relationshipCount===1?'':'s')+' across '+a.entityCount+' objects. Arrows run from the child object to the referenced parent. Lookup represents a loose reference, Master Detail represents stronger parent ownership semantics, and Polymorphic means the relationship can reference more than one supported object type.';
+    }
+    get architectureJunctionExplanation(){return 'A junction candidate is an object with relationships to multiple parent targets. This can represent an intentional association or intersection pattern. It is not automatically a Salesforce junction object: inspect the relationship types and business purpose before treating it as one.';}
     get architectureHasJunctions() { return this.architectureJunctions.length>0; }
     handleArchitectureDomainChange(event) { const name=event.currentTarget.dataset.name,value=event.target.value||''; this.architectureDomainAssignments={...this.architectureDomainAssignments,[name]:value}; }
     get architectureDomainRows() { return this.architectureNodes.map(n=>({name:n.name,domain:this.architectureDomainAssignments[n.name]||''})); }
