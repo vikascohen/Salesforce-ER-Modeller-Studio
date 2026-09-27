@@ -605,6 +605,13 @@
                 </div>
             </template>
             <template if:true={architectureHasModel}>
+                <template if:true={architectureShowHome}>
+                    <section class="arch-home">
+                        <div class="arch-home-hero"><div class="arch-brief-label">ARCHITECTURE INTELLIGENCE HOME</div><h2>Choose the architecture question you want to answer</h2><p>This workspace turns the current Salesforce ER model into deterministic architecture evidence. Use it to understand complexity concentration, dependency paths, change impact and business boundaries without treating the output as an architecture score.</p><ul><li>Start with Overview for the big picture.</li><li>Use Findings for plain English Salesforce review prompts.</li><li>Use Change Impact before altering highly connected objects or relationships.</li><li>Use Domains to test business capability boundaries.</li><li>Use Evidence when you want the underlying numbers.</li></ul></div>
+                        <div class="arch-home-grid"><template for:each={architectureHomeTiles} for:item="tile"><button class="arch-home-tile" key={tile.key} data-section={tile.key} onclick={handleArchitectureSection}><span class="arch-home-question">{tile.question}</span><strong>{tile.title}</strong><p>{tile.detail}</p><span class="arch-home-action">{tile.action} →</span></button></template></div>
+                    </section>
+                </template>
+                <template if:false={architectureShowHome}><div class="arch-workspace-nav"><button class="arch-home-back" onclick={handleArchitectureHome}>← Back to Architecture Home</button></div></template>
                 <section class="arch-brief">
                     <div class="arch-brief-label">ARCHITECTURE SUMMARY</div>
                     <p class="arch-brief-text">{architectureExecutiveSummary}</p>
