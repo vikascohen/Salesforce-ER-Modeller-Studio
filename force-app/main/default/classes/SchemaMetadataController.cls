@@ -723,8 +723,16 @@ public with sharing class SchemaMetadataController {
         List<String> countableFields = new List<String>();
         for (String f : safeFields) {
             Schema.SObjectField sf = describedFields.get(f);
-            if (sf != null && countableTypes.contains(sf.getDescribe().getType())) {
-                countableFields.add(f);
+            if (sf != null) {
+                Schema.DescribeFieldResult usageField = sf.getDescribe();
+                // Dictionary metadata intentionally shows the full schema,
+                // but usage statistics read real record data in USER_MODE.
+                // A field hidden by FLS can therefore be describable yet
+                // rejected by SOQL as "Invalid field". Never place such a
+                // field in the aggregate query; it correctly renders N/A.
+                if (usageField.isAccessible() && countableTypes.contains(usageField.getType())) {
+                    countableFields.add(usageField.getName());
+                }
             }
             // Unsupported/compound/collection-like types (for example
             // Address, Location, Boolean, Text Area, Base64 and
