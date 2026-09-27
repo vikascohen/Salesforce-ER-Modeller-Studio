@@ -1318,8 +1318,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const outbound=relationships.filter(r=>r.childEntity===d.name).map((r,i)=>({key:'out-'+i,name:r.parentEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'this object depends on'}));
         let status,observation;
         if(standard){
-            status=d.degree?'Modelled usage detected':'No relationships represented';
-            observation=d.degree?'This standard Salesforce object participates in the current ER model. Review dependency impact before changing relationship design. Retirement is not assessed for standard objects.':'No structural relationships are represented for this standard object in the current ER model. This does not mean the object is unused in Salesforce.';
+            status=d.degree?'Standard object · modelled usage detected':'Standard object · no relationships represented';
+            observation=d.degree?'This is a standard Salesforce object and is not a removal candidate. It participates in the current ER model, so use this analysis only to understand relationship and change impact around it.':'This is a standard Salesforce object and is not a removal candidate. No structural relationships are represented for it in the current ER model, but that does not mean it is unused in Salesforce.';
         } else if(d.degree===0){
             status='Structurally isolated in this model';
             observation='No relationship dependency is represented for this custom object in the current ER model. This is not evidence that the object has zero records or is safe to remove. Verify records, automation, code, integrations, reports and metadata outside this diagram before any retirement decision.';
