@@ -1358,7 +1358,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const junction=(this.architectureJunctions||[]).find(x=>x.name.toLowerCase()===d.name.toLowerCase());
         const relationships=(this.architectureAnalysis?.relationships||[]).filter(r=>r.childEntity===d.name||r.parentEntity===d.name);
         const inbound=relationships.filter(r=>r.parentEntity===d.name).map((r,i)=>({key:'in-'+i,name:r.childEntity,kind:r.kind||'Lookup',field:r.childField||r.fieldName||r.field||'',direction:'depends on this object'}));
-        const outbound=relationships.filter(r=>r.childEntity===d.name).map((r,i)=>({key:'out-'+i,name:r.parentEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'this object depends on'}));
+        const outbound=relationships.filter(r=>r.childEntity===d.name).map((r,i)=>({key:'out-'+i,name:r.parentEntity,kind:r.kind||'Lookup',field:r.childField||r.fieldName||r.field||'',direction:'this object depends on'}));
         let status,observation;
         if(standard){
             status=d.degree?'Standard object · modelled usage detected':'Standard object · no relationships represented';
@@ -1410,6 +1410,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get architectureUsageOutsideOrgReferences(){return this.architectureUsageOrgReferences.filter(r=>r.outsideDiagram);}
     get architectureHasUsageOutsideOrgReferences(){return this.architectureUsageOutsideOrgReferences.length>0;}
+    get architectureUsageOrgDiagram(){
+        const selected=this.architectureSelectedObject||'';
+        const rows=this.architectureUsageOutsideOrgReferences||[];
+        const inbound=rows.filter(r=>(r.targetObject||'').toLowerCase()===selected.toLowerCase()).map((r,i)=>({...r,key:'org-in-'+i,name:r.sourceObject,field:r.fieldApiName,kind:r.relationshipType}));
+        const outbound=rows.filter(r=>(r.sourceObject||'').toLowerCase()===selected.toLowerCase()).map((r,i)=>({...r,key:'org-out-'+i,name:r.targetObject,field:r.fieldApiName,kind:r.relationshipType}));
+        return {selected,inbound,outbound,hasInbound:inbound.length>0,hasOutbound:outbound.length>0};
+    }
+
     get architectureUsageEvidenceNote(){return 'Evidence scope: the current ER model plus Salesforce schema relationship metadata loaded when Architecture Intelligence opens. This finds reference fields on objects outside the diagram, but does not infer Apex, Flow, reports, integrations, record counts or runtime usage.';}
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
