@@ -2,7 +2,7 @@
 
 **Salesforce ER Modeller Studio**  
 **Version:** 2  
-**Branch:** `phase-2-semi-stable`  
+**Branch:** `version-2-stable`  
 **Release status:** Semi-stable  
 **Author:** Vikas Cohen
 
@@ -156,7 +156,7 @@ The Phase 1 modelling foundation remains intact, including the DSL compiler and 
 
 Version 2 builds architecture intelligence on top of the parsed ER model rather than changing the purpose of the DSL compiler.
 
-No Apex production class or Apex test class was modified between `phase-1-stable` and `phase-2-semi-stable` as part of the Phase 2 work.
+No Apex production class or Apex test class was modified between `version-1-stable` and `version-2-stable` as part of the Phase 2 work.
 
 ## LWC Structure
 
