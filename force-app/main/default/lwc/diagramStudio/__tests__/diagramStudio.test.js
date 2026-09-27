@@ -1579,18 +1579,21 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(el.shadowRoot.querySelector('.arch-workspace-usage').textContent).toContain('Referenced objects outside the declared diagram');
     });
 
-    it('Relationship Insights identifies self relationships as intra-object dependencies and avoids parent-child wording', async () => {
+    it('Relationship Insights omits self relationships from the visual and detailed dependency report', async () => {
         const el = createStudio(); await flushPromises();
         await loadArchitectureModel(el, [
             'entity Employee__c : Name, Manager__c',
-            'Employee__c.Manager__c -> Employee__c'
+            'entity Team__c : Name, Lead__c',
+            'Employee__c.Manager__c -> Employee__c',
+            'Team__c.Lead__c -> Employee__c'
         ].join('\n'));
         await openArchitectureQuestion(el, 'Open Relationship Insights');
-        const text = el.shadowRoot.querySelector('.arch-workspace-relationships').textContent;
-        expect(text).toContain('Employee__c has a self relationship through Manager__c');
-        expect(text).toContain('Self relationship');
-        expect(text).toContain('intra-object dependency');
+        const workspace = el.shadowRoot.querySelector('.arch-workspace-relationships');
+        const text = workspace.textContent;
+        expect(text).toContain('Team__c.Lead__c');
+        expect(text).not.toContain('Employee__c.Manager__c');
         expect(text).not.toContain('Employee__c depends on Employee__c');
+        expect(workspace.querySelectorAll('.arch-rel-graph-edge').length).toBe(1);
     });
 
     it('Relationship Insights reports explicit external targets and per-object dependency direction', async () => {
