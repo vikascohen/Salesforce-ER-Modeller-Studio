@@ -3,7 +3,7 @@
 **Salesforce ER Modeller Studio**  
 **Version:** 2  
 **Branch:** `version-2-stable`  
-**Release status:** Semi-stable  
+**Release status:** Stable  
 **Author:** Vikas Cohen
 
 ## Overview
@@ -192,7 +192,7 @@ The automated suite currently validates areas including:
 * self-relationship omission from Relationship Insights
 * prevention of visible relationship-type text on individual graph connectors
 
-The full LWC Jest suite was executed through GitHub Actions on the Phase 2 semi-stable branch with **109 tests passing, 0 failing across 5 test suites**.
+The full LWC Jest suite was executed through GitHub Actions on the Version 2 stable release line with **112 tests passing across 5 test suites**.
 
 ## Version 2 Principle
 
