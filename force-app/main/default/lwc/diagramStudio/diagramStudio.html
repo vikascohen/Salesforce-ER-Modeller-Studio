@@ -709,18 +709,30 @@
                     </template>
                     <template if:false={architectureHasObjectDetail}><div class="arch-empty arch-empty-small">Select an object above to build its architecture map from the current ER model.</div></template>
                 </section>
-                <section class="arch-section arch-workspace arch-workspace-domains">
-                    <div class="arch-section-head"><span>Architecture Domains</span><span class="arch-section-hint">Business capability boundaries and dependency contracts</span></div>
-                    <p class="arch-domain-help">Assign business capability domains such as Sales, Customer, Fulfilment or Payment. The purpose is not merely to group objects: Domain Intelligence tests whether those boundaries are structurally cohesive and exposes the contracts between them. Assignments remain analysis-only and do not change Salesforce metadata.</p>
-                    <div class="arch-domain-assign"><template for:each={architectureDomainRows} for:item="o"><div class="arch-domain-row" key={o.name}><strong>{o.name}</strong><input class="arch-domain-input" data-name={o.name} value={o.domain} placeholder="Business capability domain" onchange={handleArchitectureDomainChange}/></div></template></div>
-                    <div class="arch-domain-coverage"><strong>Domain coverage</strong><span>{architectureDomainCoverageText}</span><span>{architectureUnassignedText}</span></div>
-                    <template if:true={architectureHasDomains}>
-                        <div class="arch-domain-result-head"><span class="arch-brief-label">DOMAIN ARCHITECTURE</span><h3>What the boundaries reveal</h3><p>{architectureDomainArchitectureSummary}</p></div>
-                        <div class="arch-domain-health-grid"><template for:each={architectureDomainHealthCards} for:item="d"><article class="arch-domain-health" key={d.key}><header><strong>{d.name}</strong><span>{d.posture}</span></header><div class="arch-domain-health-metrics"><div><b>{d.cohesionPct}%</b><span>internal cohesion</span></div><div><b>{d.boundaryPct}%</b><span>boundary dependency</span></div><div><b>{d.standardCount} / {d.customCount}</b><span>standard / custom objects</span></div></div><p>{d.review}</p><footer><span><b>Junction candidates:</b> {d.junctionText}</span><span><b>Isolated members:</b> {d.isolatedText}</span></footer></article></template></div>
-                        <div class="arch-domain-contract-head"><h3>Boundary Contracts</h3><p>Each card below represents a dependency contract between two business capabilities. This is domain-level architecture evidence, not a duplicate of Object Map or Relationship Path Finder.</p></div>
-                        <template if:true={architectureHasDomainBoundaryContracts}><div class="arch-domain-contract-grid"><template for:each={architectureDomainBoundaryContracts} for:item="x"><article class="arch-domain-contract" key={x.key}><header><strong>{x.domainA}</strong><span>↔</span><strong>{x.domainB}</strong><em>{x.count} links</em></header><div class="arch-domain-contract-semantics">{x.semantics}</div><p><b>Objects participating:</b> {x.objects}</p><p>{x.review}</p></article></template></div></template>
-                        <template if:false={architectureHasDomainBoundaryContracts}><div class="arch-empty arch-empty-small">No cross-domain dependency contract is visible. If every object is assigned to one domain, split only where genuine business capability boundaries exist; do not create artificial domains merely to produce a chart.</div></template>
+                <section class="arch-section arch-workspace arch-workspace-usage">
+                    <div class="arch-section-head"><span>Object Usage & Change Readiness</span><span class="arch-section-hint">Diagram evidence · no Tooling API or live org assumptions</span></div>
+                    <div class="arch-usage-scope"><strong>What this can prove</strong><p>It shows how an object is structurally used by the ER model you loaded and what modelled dependencies deserve review before a change. It deliberately does not invent record counts, last-used dates or dependencies that are not present in the diagram.</p></div>
+                    <div class="arch-map-picker"><select class="arch-select" onchange={handleArchitectureUsageObject}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
+                    <template if:true={architectureHasUsageDetail}>
+                        <div class="arch-usage-head"><div><span class="arch-brief-label">CHANGE READINESS</span><h3>{architectureUsageDetail.name}</h3><p>{architectureUsageDetail.type}</p></div><span class="arch-usage-status">{architectureUsageDetail.status}</span></div>
+                        <div class="arch-object-map-stats">
+                            <div><span>Modelled relationships</span><strong>{architectureUsageDetail.degree}</strong></div>
+                            <div><span>Objects depending on it</span><strong>{architectureUsageDetail.incoming}</strong></div>
+                            <div><span>Objects it depends on</span><strong>{architectureUsageDetail.outgoing}</strong></div>
+                            <div><span>Fields in model</span><strong>{architectureUsageDetail.fieldCount}</strong></div>
+                            <div><span>3 hop exposure</span><strong>{architectureUsageDetail.reach}</strong></div>
+                            <div><span>Junction signal</span><strong>{architectureUsageDetail.junctionText}</strong></div>
+                        </div>
+                        <div class="arch-usage-diagram">
+                            <div class="arch-usage-side"><h4>Objects depending on selected object</h4><template if:true={architectureUsageDetail.hasInbound}><template for:each={architectureUsageDetail.inbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasInbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
+                            <div class="arch-usage-centre"><span>SELECTED</span><strong>{architectureUsageDetail.name}</strong><small>{architectureUsageDetail.type}</small></div>
+                            <div class="arch-usage-side"><h4>Objects selected object depends on</h4><template if:true={architectureUsageDetail.hasOutbound}><template for:each={architectureUsageDetail.outbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasOutbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
+                        </div>
+                        <div class="arch-usage-assessment"><strong>Architecture assessment</strong><p>{architectureUsageDetail.observation}</p></div>
+                        <div class="arch-usage-unknown"><strong>Outside-diagram dependencies</strong><p>Unknown. The current ER model cannot prove whether other Salesforce metadata, automation, integrations or objects outside this diagram depend on {architectureUsageDetail.name}. Treat absence from this diagram as unknown, not zero.</p></div>
+                        <div class="arch-usage-evidence">{architectureUsageEvidenceNote}</div>
                     </template>
+                    <template if:false={architectureHasUsageDetail}><div class="arch-empty arch-empty-small">Select an object to inspect its modelled usage and change exposure.</div></template>
                 </section>
                 <section class="arch-section arch-workspace arch-workspace-paths">
                     <div class="arch-section-head"><span>Relationship Path Finder</span><span class="arch-section-hint">Two-object route analysis · separate from Object Map</span></div>
