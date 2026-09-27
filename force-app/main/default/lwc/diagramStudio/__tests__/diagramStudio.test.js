@@ -1544,7 +1544,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
     }
 
     async function openArchitectureQuestion(el, text) {
-        const button = Array.from(el.shadowRoot.querySelectorAll('.arch-question-card')).find((b) =>
+        const button = Array.from(el.shadowRoot.querySelectorAll('.arch-home-tile')).find((b) =>
             b.textContent.includes(text)
         );
         expect(button).toBeDefined();
