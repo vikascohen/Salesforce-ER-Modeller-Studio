@@ -3,10 +3,10 @@ name: Jest Tests
 on:
   push:
     branches:
-      - phase-2-semi-stable
+      - version-2-stable
   pull_request:
     branches:
-      - phase-2-semi-stable
+      - version-2-stable
   workflow_dispatch:
 
 permissions:
