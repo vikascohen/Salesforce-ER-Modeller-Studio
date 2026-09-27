@@ -1226,14 +1226,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleArchitectureSection(event){ this.architectureSection=event.currentTarget.dataset.section||'overview'; }
     get architectureHomeTiles(){
         return [
-            {key:'overview',title:'Architecture Overview',question:'What does this model look like at a glance?',detail:'See model shape, concentration, relationship mix and the areas that deserve attention first.',action:'Open Overview'},
-            {key:'findings',title:'Findings & Opportunities',question:'What should a Salesforce architect investigate?',detail:'Plain English findings with evidence, Salesforce meaning, opportunity, challenge and the next review action.',action:'Open Findings'},
-            {key:'map',title:'Architecture Map',question:'How are the objects structurally connected?',detail:'Explore the relationship topology visually and identify highly connected objects, bridges and structural areas.',action:'Open Map'},
-            {key:'paths',title:'Change Impact & Paths',question:'How can a change travel through this model?',detail:'Use Path Finder, change corridors, bridge analysis and blast radius to understand indirect dependency routes.',action:'Open Impact Analysis'},
-            {key:'object',title:'Object Intelligence',question:'What role does one object play in the architecture?',detail:'Drill into incoming and outgoing dependencies, fields, reach, structural role and evidence for a selected object.',action:'Open Object Intelligence'},
-            {key:'domains',title:'Domains & Boundaries',question:'Where do business capabilities meet?',detail:'Assign objects to business domains and inspect relationships that stay inside or cross capability boundaries.',action:'Open Domains'},
-            {key:'relationships',title:'Relationship Analysis',question:'Are the Salesforce relationships easy to reason about?',detail:'Review Lookup, Master Detail, polymorphic, repeated object pairs, directionality and junction candidates.',action:'Open Relationships'},
-            {key:'metrics',title:'Metrics & Evidence',question:'What raw evidence supports the insights?',detail:'Inspect object level metrics, relationship counts and deterministic technical evidence without interpretation hiding the numbers.',action:'Open Evidence'}
+            {key:'overview',title:'Architecture Overview',question:'What does this model look like at a glance?',detail:'See model shape, relationship mix and the areas that deserve attention first.',action:'Open Overview'},
+            {key:'map',title:'Architecture Map',question:'How are the objects structurally connected?',detail:'Explore the relationship topology visually and identify highly connected objects and structural areas.',action:'Open Map'},
+            {key:'paths',title:'Change Impact & Paths',question:'How can a change travel through this model?',detail:'Trace shortest paths and review blast radius before changing connected objects.',action:'Open Impact Analysis'},
+            {key:'object',title:'Object Intelligence',question:'What role does one object play?',detail:'Drill into dependencies, fields, reach and structural role for a selected object.',action:'Open Object Intelligence'},
+            {key:'domains',title:'Domains & Boundaries',question:'Where do business capabilities meet?',detail:'Group objects by business capability and inspect cross domain dependencies.',action:'Open Domains'},
+            {key:'relationships',title:'Relationship Insights',question:'What relationship design deserves review?',detail:'See relationship patterns, why they matter and what an architect may want to inspect or improve.',action:'Open Relationship Insights'}
         ];
     }
     handleArchitectureHome(){this.architectureSection='home';this.architectureSelectedObject='';}
