@@ -68,6 +68,26 @@
         </div>
     </template>
 
+    <!-- MIMIC NEW ER -->
+    <template if:true={mimicOpen}>
+        <div class="mimic-page">
+            <header class="mimic-head"><div><span>POINT AND CLICK MODELLER</span><h1>Mimic New ER</h1><p>Design a hypothetical Salesforce data model without creating metadata in the org. Generate converts this form into the existing ER DSL and opens it on the normal canvas.</p></div><button class="mimic-close" onclick={handleCloseMimic}>Back to Diagram</button></header>
+            <main class="mimic-body">
+                <section class="mimic-model-name"><label>Model name</label><input value={mimicModelName} oninput={handleMimicModelName} placeholder="Mimicked Model"/></section>
+                <div class="mimic-section-title"><div><h2>Objects and fields</h2><p>Add the objects you want to model, then describe their fields.</p></div><button onclick={handleMimicAddObject}>+ Add Object</button></div>
+                <template for:each={mimicObjects} for:item="obj">
+                    <article class="mimic-object" key={obj.id}><div class="mimic-object-head"><input data-id={obj.id} value={obj.name} oninput={handleMimicObjectName} placeholder="Object API name, e.g. Subscription__c"/><button data-id={obj.id} onclick={handleMimicRemoveObject}>Remove object</button></div>
+                    <div class="mimic-field-labels"><span>Field name</span><span>Salesforce field type</span><span></span></div>
+                    <template for:each={obj.fields} for:item="field"><div class="mimic-field" key={field.id}><input data-object={obj.id} data-field={field.id} value={field.name} oninput={handleMimicFieldName} placeholder="Field API name"/><select data-object={obj.id} data-field={field.id} value={field.type} onchange={handleMimicFieldType}><template for:each={mimicFieldTypeOptions} for:item="type"><option key={type} value={type}>{type}</option></template></select><button data-object={obj.id} data-field={field.id} onclick={handleMimicRemoveField}>×</button></div></template>
+                    <button class="mimic-add-field" data-id={obj.id} onclick={handleMimicAddField}>+ Add Field</button></article>
+                </template>
+                <div class="mimic-section-title mimic-rel-title"><div><h2>Relationships</h2><p>Connect a field on one mimicked object to another object. This only writes the relationship into the existing DSL.</p></div><button onclick={handleMimicAddRelationship}>+ Add Relationship</button></div>
+                <template for:each={mimicRelationships} for:item="rel"><div class="mimic-rel" key={rel.id}><select data-id={rel.id} data-key="from" value={rel.from} onchange={handleMimicRelChange}><option value="">Source object</option><template for:each={mimicObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select><input data-id={rel.id} data-key="field" value={rel.field} oninput={handleMimicRelChange} placeholder="Relationship field, e.g. AccountId"/><select data-id={rel.id} data-key="type" value={rel.type} onchange={handleMimicRelChange}><option value="Lookup">Lookup</option><option value="Master Detail">Master Detail</option><option value="Polymorphic">Polymorphic</option></select><span>→</span><select data-id={rel.id} data-key="to" value={rel.to} onchange={handleMimicRelChange}><option value="">Target object</option><template for:each={mimicObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select><button data-id={rel.id} onclick={handleMimicRemoveRelationship}>×</button></div></template>
+            </main>
+            <footer class="mimic-footer"><div><strong>No Salesforce metadata is created.</strong><span>Generate uses the ER Modeller Studio DSL and existing parser/compiler.</span></div><button class="mimic-generate" onclick={handleGenerateMimic}>Generate Model</button></footer>
+        </div>
+    </template>
+
     <!-- EXPORT MODAL -->
     <template if:true={exportModalOpen}>
         <div class="modal-backdrop" onclick={handleCloseExport}>
@@ -209,7 +229,7 @@
             <button class={diagramMenuClass} data-menu="diagram" onclick={handleToggleMenu}>Diagram <span class="dd-menu-caret">&#9662;</span></button>
             <template if:true={diagramMenuOpen}>
                 <div class="dd-menu-dropdown" onclick={stopProp}>
-                    <div class="dd-menu-item" onclick={handleMenuAutoLayout}>Auto Layout</div>
+                    <div class="dd-menu-item" onclick={handleMenuMimic}>Mimic New ER</div><div class="dd-menu-divider"></div><div class="dd-menu-item" onclick={handleMenuAutoLayout}>Auto Layout</div>
                     <div class="dd-menu-item" onclick={handleMenuCompareOrg}>Compare with Org</div>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item dd-menu-item-danger" onclick={handleMenuClearCanvas}>Clear Canvas</div>
