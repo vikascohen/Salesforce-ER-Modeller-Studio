@@ -43,211 +43,95 @@ Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org u
 - [License](#license)
 - [Contributing](#contributing)
 
-## Phase 2 — what has been added
+## Phase 2 — Data Architecture Intelligence
 
-Phase 2 turns ER Modeller Studio from a visual ER modelling tool into a **data-architecture intelligence workspace** while retaining the Phase 1 modelling, DSL, metadata, Data Dictionary, export and workspace capabilities underneath it.
+Phase 2 keeps the Phase 1 modelling engine intact and adds an architect-facing analysis layer over the ER model currently open on the canvas. It does not generate an opaque architecture score or pretend that a diagram contains runtime facts it cannot know. Instead, it turns relationships already represented in the model into readable structural evidence.
 
-### Data Architecture Intelligence
+Open **View → Architecture Intelligence** to analyse the current file. The header identifies the file being analysed, and **Clear / Refresh** resets Architecture Intelligence and rebuilds the analysis from the current ER source.
 
-Open **View → Architecture Intelligence** to analyse the ER model currently on the canvas. Analysis is performed locally over the parsed model and does not require an additional server round-trip.
+### Architecture Overview
 
-The current Phase 2 workspace includes:
+Architecture Overview answers: **what does this model look like structurally?**
 
-- **Model overview metrics** — object, field and relationship totals; Lookup, Master-Detail and polymorphic relationship counts; custom-object count; connected-component count; and maximum relationship depth.
-- **Complexity and topology metrics** — average relationships per object, relationship density, average fields per object, disconnected components, graph depth and detected structural cycles.
-- **Structural hotspot detection** — identifies highly connected objects using incoming, outgoing and total relationship degree rather than an opaque architecture score.
-- **Isolated-object detection** — surfaces objects with no relationships in the current model.
-- **Connected-component analysis** — identifies separate islands of architecture inside the diagram.
-- **Bounded structural-cycle detection** — detects relationship loops while deliberately bounding search depth and result count to protect interactive performance.
-- **Most-connected objects** — ranks the most structurally connected objects in the current model.
-- **Largest object definitions** — surfaces objects with the largest field definitions.
-- **Architecture Domains** — architects can assign objects to explicit business domains and inspect object/field totals, internal relationships and cross-domain relationships without changing Salesforce metadata.
-- **Cross-Domain Coupling** — calculates and ranks relationship counts between architect-defined domains so enterprise boundary coupling is visible rather than buried in a large ER diagram.
-- **Unassigned-object visibility** — the tool reports objects without a domain rather than guessing business ownership from names.
-- **Relationship Path Finder** — choose any two objects and calculate the minimum-hop structural route between them using breadth-first search.
-- **Blast Radius** — select an object and inspect the objects structurally reachable within one, two and three relationship hops.
-- **Junction Intelligence** — identifies multi-parent junction candidates and distinguishes strong candidates backed by two or more Master-Detail relationships.
-- **Object-level architecture table** — fields, relationship fields, incoming relationships, outgoing relationships, total degree, required fields and roll-up summaries for every object.
-- **Architecture observations** — evidence-based observations for high coupling, isolated model areas, disconnected components, cycles, deep relationship reach, large definitions and skipped/incomplete relationship data.
-- **No synthetic health score** — Phase 2 deliberately exposes the evidence behind the architecture instead of producing an unexplained “73/100” style score.
+It combines object, field and relationship totals with graph evidence such as connected components, depth, relationship density, highly connected objects, isolated objects and bounded cycle detection. The purpose is to help an architect decide where to investigate first rather than repeat counts already visible on the canvas.
 
-### Phase 2 architecture at a glance
+Analysis is cached for unchanged DSL and expensive graph operations are deliberately bounded for interactive use.
 
-```mermaid
-flowchart LR
-    DSL["ER model / imported schema"] --> PARSE["Phase 1 parser"]
-    PARSE --> GRAPH["Architecture graph"]
-    GRAPH --> METRICS["Topology metrics"]
-    GRAPH --> DRILL["Object drill-down"]
-    GRAPH --> PATH["Path Finder"]
-    GRAPH --> BLAST["Blast Radius"]
-    GRAPH --> JUNCTION["Junction Intelligence"]
-    GRAPH --> DOMAIN["Architecture Domains"]
-    DOMAIN --> COUPLING["Cross-Domain Coupling"]
-```
+### Object Map & Impact
 
-The diagrams below are conceptual examples of what each analysis feature is doing. They are intentionally not UI screenshots.
+Object Map is the one-object architecture view. Select an object to understand its immediate architectural context without creating a second copy of the full ER canvas.
 
-### Graph topology, hubs and islands
+For the selected object it shows structural role, relationship degree, incoming and outgoing relationships, parent or target objects, child or dependant objects, direct neighbours, bounded one, two and three hop reach, cycles involving the object, and **Change Impact / Blast Radius** evidence.
 
-```mermaid
-flowchart LR
-    Contact --> Account
-    Case --> Account
-    Claim["Claim__c"] --> Account
-    Payment["Payment__c"] --> Claim
-    Provider["Provider__c"] --> Claim
-    Legacy["Legacy_Config__c"]
-
-    style Account stroke-width:4px
-    style Claim stroke-width:4px
-```
-
-In this example, **Account** and **Claim__c** emerge as highly connected structural objects while **Legacy_Config__c** is an island in the current model.
+Blast Radius is deliberately part of Object Map rather than a competing top-level feature. Reachability means an object is structurally connected within the model; it does **not** claim that every reachable object will break when a change is made.
 
 ### Relationship Path Finder
 
-```mermaid
-flowchart LR
-    Contact --> Account --> Claim["Claim__c"] --> Payment["Payment__c"]
-```
+Relationship Path Finder answers: **how are two objects connected?**
 
-A query from `Contact` to `Payment__c` returns the minimum-hop structural path **Contact → Account → Claim__c → Payment__c**.
+Choose a source and target object and Phase 2 calculates a minimum-hop structural route between them. It is an A-to-B navigation tool, not an impact assessment.
 
-### Blast Radius
+### Object Usage & Change Readiness
 
-```mermaid
-flowchart LR
-    Claim["Claim__c"]
-    Claim --> Account
-    Claim --> Provider["Provider__c"]
-    Claim --> Payment["Payment__c"]
-    Payment --> Line["Payment_Line__c"]
-    Provider --> Network["Provider_Network__c"]
-    Line --> Adjustment["Adjustment__c"]
+Object Usage & Change Readiness answers: **what does this model tell me about changing a custom object?**
 
-    subgraph H1["1 hop"]
-      Account
-      Provider
-      Payment
-    end
-    subgraph H2["2 hops"]
-      Line
-      Network
-    end
-    subgraph H3["3 hops"]
-      Adjustment
-    end
-```
+The selector deliberately contains **custom objects only**. Standard Salesforce objects can still appear as dependencies because they are part of the architecture, but Phase 2 does not present standard objects as removal candidates.
 
-Blast Radius answers **what is structurally reachable from this object?** It is relationship reachability evidence, not a claim that every reachable object will break when the source changes.
+The assessment uses only evidence represented by the current ER model, including incoming and outgoing dependencies and explicit references to objects outside the set of entities declared in the DSL. For example, a custom object may reference Account even when Account was not explicitly declared as an entity in the current file; Phase 2 surfaces that as a known external diagram reference.
+
+This feature deliberately does **not** use the Tooling API and does not invent live-org facts. It does not claim to know record counts, last usage, Apex references, Flow references, reports, integrations or dependencies absent from the ER source. An isolated custom object is therefore **not** automatically described as unused or safe to remove.
+
+### Relationship Insights
+
+Relationship Insights keeps the relationship diagram but makes it an interpretation view rather than another full ER canvas.
+
+The diagram omits **self relationships** because they do not represent a dependency between two different objects and add visual noise in this view. It uses a layered dependency layout instead of the previous degree-sorted square grid, positions objects in structural bands to reduce connector crossing, uses vertical anchors between layers and side anchors for same-row relationships, and does not print Lookup, Master Detail or Polymorphic on every connector because the relationship legend already communicates those semantics.
+
+Below the diagram, **Relationship Detail** explains represented child-to-parent dependencies and their relationship types. **Object Dependency Summary** presents, per declared object, what it depends on and what depends on it.
+
+Record and schema impact wording is deliberately conservative. Master Detail can carry strong lifecycle semantics, while a Lookup shown in the ER model does not by itself prove cascade behaviour, automation behaviour or runtime data impact. Polymorphic relationships are treated as dependencies that may target more than one represented type.
 
 ### Junction Intelligence
 
-```mermaid
-flowchart TB
-    Case --> Junction["CaseContact__c"]
-    Contact --> Junction
-    Junction --> Case
-    Junction --> Contact
-```
+Phase 2 identifies custom objects with multiple parent relationships and distinguishes stronger junction patterns where two or more different parents are connected through Master Detail relationships. This is structural evidence, not a claim about business intent. Standard Salesforce relationships are treated as platform context rather than redesign suggestions.
 
-An object connected to multiple parent targets is surfaced as a junction candidate. Two or more Master-Detail parent relationships provide stronger structural evidence.
+### Evidence boundaries
 
-### Architecture Domains and Cross-Domain Coupling
+Architecture Intelligence analyses the **current ER model**. It can state what objects and relationships are represented, what is connected, what is isolated, what paths exist, what is reachable within bounded hops and which explicitly referenced targets sit outside the declared diagram. It cannot infer unrepresented Apex, Flow, reporting, integration, security or live-record behaviour.
 
-```mermaid
+Phase 2 therefore follows a simple principle: **show what the model proves, identify what remains unknown, and avoid synthetic certainty.**
+
+### Phase 2 architecture at a glance
+
+~~~mermaid
 flowchart LR
-    subgraph CLAIM["Claim domain"]
-      Claim["Claim__c"]
-      Case["Case"]
-      Note["Claim_Note__c"]
-    end
+    DSL["Current ER source"] --> PARSER["Phase 1 DSL parser"]
+    PARSER --> GRAPH["Architecture graph"]
+    GRAPH --> OVERVIEW["Architecture Overview"]
+    GRAPH --> MAP["Object Map & Impact"]
+    GRAPH --> PATH["Relationship Path Finder"]
+    GRAPH --> USAGE["Object Usage & Change Readiness"]
+    GRAPH --> REL["Relationship Insights"]
+    GRAPH --> JUNCTION["Junction Intelligence"]
+~~~
 
-    subgraph PROVIDER["Provider domain"]
-      Provider["Provider__c"]
-      Network["Provider_Network__c"]
-    end
+### Reliability and performance hardening
 
-    subgraph PAYMENT["Payment domain"]
-      Payment["Payment__c"]
-      Line["Payment_Line__c"]
-    end
+Phase 2 also protects the existing Studio experience. It includes stale-response protection for rapid file changes and asynchronous org-aware views, lifecycle cleanup for delayed work, architecture-analysis caching, breadth-first graph traversal, bounded cycle analysis, defensive malformed-model handling, graceful treatment of incomplete relationship endpoints and recoverable Architecture Intelligence errors.
 
-    Case --> Claim
-    Note --> Claim
-    Claim --> Provider
-    Claim --> Payment
-    Payment --> Line
-    Provider --> Network
-    Network --> Claim
-```
+The Architecture Intelligence engine is shared rather than implementing separate parsers for each screen. This keeps Object Map, Path Finder, usage analysis, relationship analysis and overview metrics grounded in the same parsed model.
 
-The architect owns the domain assignments. Phase 2 then measures **objects, fields, internal relationships and cross-domain relationships** rather than guessing business boundaries.
+### Scope
 
-```text
-Example coupling evidence
+Phase 2 is intentionally about **Salesforce data architecture intelligence**: objects, fields, relationships, topology, reachability, dependency evidence and change-readiness evidence.
 
-Claim ↔ Provider    2 relationships
-Claim ↔ Payment     1 relationship
-```
+It is not a Salesforce security scanner. CRUD/FLS exposure, permission-set risk, vulnerabilities and code-security analysis belong to **Warden Studio**, keeping the two tools focused on different architecture concerns.
 
-### Interactive Object Architecture Drill-Down
+### Testing status
 
-Object names in the Architecture Intelligence table are interactive. Selecting an object opens a deeper structural view without adding another top-level toolbar or requiring another Apex call.
+Phase 2 contains Jest coverage for the graph-analysis engine and Architecture Intelligence UI regressions, including graph metrics, malformed and incomplete models, path finding, blast radius, junction detection, object drill-down, custom-only Object Usage selection, explicit external references, Clear / Refresh behaviour, and Relationship Insights self-relationship filtering.
 
-For the selected object Phase 2 currently shows:
-
-- its inferred **structural role**, such as structural hub, relationship source, relationship target, connected object or isolated object;
-- field count, incoming relationships, outgoing relationships and total relationship degree;
-- **parent / target objects** and the relationship field connecting to them;
-- **child / dependant objects** and their relationship fields;
-- direct neighbours in the model;
-- objects reachable at **1 hop, 2 hops and 3 hops**;
-- total bounded three-hop reach; and
-- detected structural cycles involving that particular object.
-
-The drill-down is calculated lazily when an object is selected rather than precomputing detailed reachability for every object during normal rendering.
-
-```mermaid
-flowchart LR
-    ParentA["Account"] --> Selected["Claim__c"]
-    ParentB["Provider__c"] --> Selected
-    Selected --> ChildA["Payment__c"]
-    Selected --> ChildB["Claim_Note__c"]
-    ChildA --> Hop2["Payment_Line__c"]
-```
-
-The selected object becomes the centre of the architectural view: parents/targets, children/dependants, degree, cycles and bounded relationship reach are presented together.
-
-
-### Phase 2 reliability and performance hardening
-
-Phase 2 also hardens existing Studio behaviour rather than only adding visible features:
-
-- **Out-of-order file-load protection** — rapidly selecting diagram A and then diagram B cannot allow a slower response for A to overwrite the newer B selection.
-- **Heatmap stale-response protection** — a record-count response is discarded when the model has changed while the request was running.
-- **Sharing View stale-response protection** — sharing information is not applied to a different model after an asynchronous request completes.
-- **Data Dictionary request protection** — object-description and field-usage responses are guarded when the user changes or clears the selected object while work is in flight.
-- **Lifecycle cleanup** — delayed render, sharing, heatmap, hover and relationship-scan timers are cleared when the component disconnects, and in-flight request generations are invalidated.
-- **Architecture-analysis caching** — unchanged DSL is not repeatedly reparsed and reanalysed simply because reactive UI getters rerender.
-- **Predictable graph-depth analysis** — graph depth uses breadth-first traversal rather than an exponential longest-simple-path search.
-- **Bounded cycle analysis** — cycle discovery has explicit depth and result limits to prevent pathological graphs from locking the interactive UI.
-- **Defensive model validation** — malformed architecture-analysis input produces an explicit error rather than silently corrupting results.
-- **Graceful incomplete relationships** — relationships whose endpoints are absent from the current model are skipped, recorded and surfaced as a data-quality observation rather than crashing the analysis.
-- **Recoverable Architecture Intelligence errors** — the panel distinguishes an empty diagram from an analysis failure, preserves the diagram, explains the failure and provides **Retry Analysis**.
-
-### Phase 2 scope
-
-ER Modeller Studio Phase 2 is intentionally about **data architecture intelligence**: objects, fields, relationships, topology, graph structure, reachability, model complexity and architectural evidence.
-
-It does **not** attempt to become a Salesforce security scanner. CRUD/FLS exposure, permission-set risk, vulnerabilities, code-security analysis and security posture belong to **Warden Studio**. Keeping that boundary explicit allows the two Crius Consulting tools to complement rather than duplicate each other.
-
-### Phase 2 testing status
-
-Phase 2 includes additional Jest coverage for the graph-analysis engine, bounded large cyclic graphs, malformed input, incomplete relationship endpoints, object drill-down/reachability and out-of-order file loading.
-
-> **Development status:** the tests are present in the Phase 2 branch, but this README does not claim they have passed in a Salesforce/Jest execution environment until that suite is actually run. Phase 2 should therefore be treated as development code pending validation.
+> **Development status:** these tests are present on the Phase 2 branch, but this README does not claim that the complete Salesforce/Jest suite has passed until it is executed in the appropriate project environment.
 
 For implementation details and engineering constraints, see [docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md](docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md).
 
@@ -257,7 +141,7 @@ Everything documented later in this README under modelling, org-aware views, Dat
 
 ## Installing
 
-> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `phase-2-data-architecture-intelligence` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
+> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `phase-2-semi-stable` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
 
 **Phase 1 unmanaged package** — the simplest option for installing the stable Phase 1 release: no GitHub OAuth, no CLI, just a link and a login.
 
