@@ -268,6 +268,33 @@ private class SchemaMetadataControllerTest {
         Assert.isNotNull(stats.get('error'), 'An unsafe object name should be rejected with an error, not executed');
     }
 
+    @isTest
+    static void testGetSchemaReferencesFindsReferencesOutsideRequestedDiagramObjects() {
+        Test.startTest();
+        List<SchemaMetadataController.SchemaReferenceWrap> refs =
+            SchemaMetadataController.getSchemaReferences(new List<String>{ 'Account' });
+        Test.stopTest();
+
+        Boolean foundContactAccount = false;
+        for (SchemaMetadataController.SchemaReferenceWrap ref : refs) {
+            if (ref.sourceObject == 'Contact' && ref.fieldApiName == 'AccountId' && ref.targetObject == 'Account') {
+                foundContactAccount = true;
+                Assert.areEqual('Lookup', ref.relationshipType);
+                break;
+            }
+        }
+        Assert.isTrue(foundContactAccount, 'Org schema scan should find Contact.AccountId -> Account even when Contact was not supplied as a diagram object.');
+    }
+
+    @isTest
+    static void testGetSchemaReferencesRejectsUnsafeOrUnknownInput() {
+        Test.startTest();
+        List<SchemaMetadataController.SchemaReferenceWrap> refs =
+            SchemaMetadataController.getSchemaReferences(new List<String>{ 'Account WHERE Id != null', null });
+        Test.stopTest();
+        Assert.areEqual(0, refs.size());
+    }
+
     // ── helper ──
 
     private static SchemaMetadataController.FieldWrap findField(
