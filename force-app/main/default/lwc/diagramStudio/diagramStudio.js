@@ -1430,8 +1430,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const field=r.fieldName||r.childField||r.field||'';
             const parentExternal=!declaredNames.has((r.parentEntity||'').toLowerCase());
             const childCustom=/__c$/i.test(r.childEntity||''),parentCustom=/__c$/i.test(r.parentEntity||'');
+            const isSelf=(r.childEntity||'').toLowerCase()===(r.parentEntity||'').toLowerCase();
             let recordImpact,changeImpact;
-            if(kind==='Master Detail'){
+            if(isSelf){
+                recordImpact='Self relationship: records of '+r.childEntity+' can reference other records of the same object. The ER model shows the recursive reference but cannot determine which records are populated, hierarchy depth, delete handling, automation or whether removing one record affects other records. Verify the field configuration and org behaviour before drawing record-level conclusions.';
+                changeImpact='Treat this as an intra-object dependency, not a dependency between two different objects. Changing or removing the relationship field can affect hierarchy or recursive business logic within '+r.childEntity+', but the ER model alone cannot determine the runtime impact.';
+            }else if(kind==='Master Detail'){
                 recordImpact='Strong lifecycle dependency. In Salesforce, deleting a master record normally deletes its detail records through cascade delete; confirm org configuration and business rules before destructive changes.';
                 changeImpact='Changing this relationship can affect ownership, sharing, required parent association, roll-up behaviour and record lifecycle. Treat both objects as one change scope.';
             }else if(kind==='Polymorphic'){
@@ -1441,7 +1445,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 recordImpact='Lookup is a reference dependency. Deleting a referenced record does not imply cascade deletion from this ER model; actual delete behaviour and automation must be verified in Salesforce.';
                 changeImpact='Changes to the parent or lookup field can affect joins, filters, automation, reporting and integrations that use the reference.';
             }
-            return {key:'rel-summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,parentExternal,parentScope:parentExternal?'Referenced outside declared diagram':'Declared in diagram',childType:childCustom?'Custom':'Standard',parentType:parentCustom?'Custom':'Standard',recordImpact,changeImpact};
+            return {key:'rel-summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,isSelf,dependencyText:isSelf?r.childEntity+' has a self relationship through '+field:r.childEntity+' depends on '+r.parentEntity,parentExternal,parentScope:parentExternal?'Referenced outside declared diagram':'Declared in diagram',childType:childCustom?'Custom':'Standard',parentType:parentCustom?'Custom':'Standard',recordImpact,changeImpact};
         });
     }
     get architectureObjectDependencySummaries(){
