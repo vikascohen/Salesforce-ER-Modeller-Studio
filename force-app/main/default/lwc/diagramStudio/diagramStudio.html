@@ -642,6 +642,8 @@
                         <div><span>Junctions</span><strong>{architectureJunctionLabel}</strong></div>
                         <div><span>Relationship mix</span><strong>{architectureRelationshipSemantics}</strong></div>
                     </div>
+                    <div class="arch-guide-intro"><strong>What this summary actually means</strong><p>The numbers above describe structure found in the current ER file. They do not score the architecture and they do not claim that a relationship automatically creates runtime impact. The evidence below explains each signal and what an architect can reasonably use it for.</p></div>
+                    <div class="arch-guide-grid"><template for:each={architectureOverviewExplanations} for:item="item"><article class="arch-guide-card" key={item.key}><h3>{item.title}</h3><div><strong>Current evidence</strong><p>{item.value}</p></div><div><strong>What it means</strong><p>{item.meaning}</p></div><div><strong>What to review</strong><p>{item.review}</p></div></article></template></div>
                 </section>
 
                 <template if:true={architectureReviewLead}>
