@@ -1208,7 +1208,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         // Mimic owns the custom suffix. Anything the user types from "__"
         // onward is discarded so Project, Project__c and Project__anything
         // all generate the same custom API name: Project__c.
-        return String(value || '').split('__')[0].replace(/[^A-Za-z0-9_]/g, '');
+        return String(value || '')
+            .split('__')[0]
+            .replace(/_c$/i, '')
+            .replace(/_+$/g, '')
+            .replace(/[^A-Za-z0-9_]/g, '');
     }
     mimicCustomApiName(value) {
         const base = this.normaliseMimicApiBase(value);
