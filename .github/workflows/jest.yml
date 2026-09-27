@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - version-2-stable
+      - main
   pull_request:
     branches:
       - version-2-stable
+      - main
   workflow_dispatch:
 
 permissions:
