@@ -435,48 +435,50 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     get connectorsView() {
         const focused=this.focusedEntity?this.focusedEntity.toLowerCase():null;
-        const boxes=new Map((this._erBoxes||[]).map(b=>[b.name,b]));
-        const allBoxes=[...boxes.values()], laneCounts={};
+        const boxes=new Map((this._erBoxes||[]).map(b=>[b.name,b])), allBoxes=[...boxes.values()];
+        const raw=this.erConnectors||[], portUsage=new Map();
+        const reservePort=(box,side,key)=>{
+            const k=box.name+'|'+side, used=portUsage.get(k)||0; portUsage.set(k,used+1);
+            const count=Math.max(1,raw.filter(r=>{
+                if(r.childEntity===r.parentEntity)return false;
+                const other=r.childEntity===box.name?boxes.get(r.parentEntity):r.parentEntity===box.name?boxes.get(r.childEntity):null;
+                if(!other)return false;
+                const bx=box.x+box.width/2,by=box.y+box.height/2,ox=other.x+other.width/2,oy=other.y+other.height/2;
+                const sd=Math.abs(ox-bx)>=Math.abs(oy-by)?(ox>=bx?'right':'left'):(oy>=by?'bottom':'top');
+                return sd===side;
+            }).length);
+            const frac=(used+1)/(count+1);
+            return side==='left'||side==='right'
+                ? {x:side==='right'?box.x+box.width:box.x,y:box.y+18+frac*Math.max(20,box.height-36)}
+                : {x:box.x+18+frac*Math.max(20,box.width-36),y:side==='bottom'?box.y+box.height:box.y};
+        };
         const clearSegment=(x1,y1,x2,y2,ignore)=>{
-            const pad=12,minX=Math.min(x1,x2),maxX=Math.max(x1,x2),minY=Math.min(y1,y2),maxY=Math.max(y1,y2);
+            const pad=18,minX=Math.min(x1,x2),maxX=Math.max(x1,x2),minY=Math.min(y1,y2),maxY=Math.max(y1,y2);
             return !allBoxes.some(b=>{
                 if(ignore.has(b.name))return false;
                 const l=b.x-pad,r=b.x+b.width+pad,t=b.y-pad,bt=b.y+b.height+pad;
-                return Math.abs(y1-y2)<1 ? y1>t&&y1<bt&&maxX>l&&minX<r : Math.abs(x1-x2)<1 ? x1>l&&x1<r&&maxY>t&&minY<bt : false;
+                return Math.abs(y1-y2)<1?y1>t&&y1<bt&&maxX>l&&minX<r:Math.abs(x1-x2)<1?x1>l&&x1<r&&maxY>t&&minY<bt:false;
             });
         };
-        return (this.erConnectors||[]).map((c,idx)=>{
+        return raw.map((c,idx)=>{
             const isFocusRelated=!focused||c.childEntity.toLowerCase()===focused||c.parentEntity.toLowerCase()===focused;
             const child=boxes.get(c.childEntity),parent=boxes.get(c.parentEntity);
             if(!child||!parent||c.childEntity===c.parentEntity)return {...c,connOpacity:isFocusRelated?'1':'0.1'};
-            const ccx=child.x+child.width/2,ccy=child.y+child.height/2,pcx=parent.x+parent.width/2,pcy=parent.y+parent.height/2;
-            const dx=pcx-ccx,dy=pcy-ccy,horizontal=Math.abs(dx)>=Math.abs(dy);
-            const pair=[c.childEntity,c.parentEntity].sort().join('|'),lane=laneCounts[pair]||0;laneCounts[pair]=lane+1;
-            const portOffset=((lane%5)-2)*11, ignore=new Set([c.childEntity,c.parentEntity]);
-            let sx,sy,ex,ey,d,midX,midY;
+            const ccx=child.x+child.width/2,ccy=child.y+child.height/2,pcx=parent.x+parent.width/2,pcy=parent.y+parent.height/2,dx=pcx-ccx,dy=pcy-ccy;
+            const horizontal=Math.abs(dx)>=Math.abs(dy), childSide=horizontal?(dx>=0?'right':'left'):(dy>=0?'bottom':'top'), parentSide=horizontal?(dx>=0?'left':'right'):(dy>=0?'top':'bottom');
+            const sp=reservePort(child,childSide,c.key+'s'),ep=reservePort(parent,parentSide,c.key+'e'),sx=sp.x,sy=sp.y,ex=ep.x,ey=ep.y,ignore=new Set([c.childEntity,c.parentEntity]);
+            let d,midX,midY;
             if(horizontal){
-                sx=dx>=0?child.x+child.width:child.x;sy=Math.max(child.y+18,Math.min(child.y+child.height-18,ccy+portOffset));
-                ex=dx>=0?parent.x:parent.x+parent.width;ey=Math.max(parent.y+18,Math.min(parent.y+parent.height-18,pcy+portOffset));
-                const direct=(sx+ex)/2, step=26, candidates=[direct];
-                for(let n=1;n<=12;n++){candidates.push(direct+n*step,direct-n*step);}
-                let mx=candidates.find(x=>clearSegment(sx,sy,x,sy,ignore)&&clearSegment(x,sy,x,ey,ignore)&&clearSegment(x,ey,ex,ey,ignore));
-                if(mx==null){
-                    // Keep fallback corridors inside the logical canvas. Never send a route off-screen.
-                    const left=24+(idx%5)*10, right=Math.max(this.svgWidth-24-(idx%5)*10,Math.max(...allBoxes.map(b=>b.x+b.width))+24);
-                    mx=dx>=0?right:left;
-                }
+                const lo=Math.min(sx,ex)+28,hi=Math.max(sx,ex)-28,direct=(sx+ex)/2,candidates=[direct];
+                for(let n=1;n<=10;n++){candidates.push(direct+n*24,direct-n*24);}
+                let mx=candidates.find(x=>x>=lo&&x<=hi&&clearSegment(sx,sy,x,sy,ignore)&&clearSegment(x,sy,x,ey,ignore)&&clearSegment(x,ey,ex,ey,ignore));
+                if(mx==null)mx=direct;
                 d='M '+sx+' '+sy+' L '+mx+' '+sy+' L '+mx+' '+ey+' L '+ex+' '+ey;midX=mx;midY=(sy+ey)/2;
             }else{
-                sx=Math.max(child.x+18,Math.min(child.x+child.width-18,ccx+portOffset));sy=dy>=0?child.y+child.height:child.y;
-                ex=Math.max(parent.x+18,Math.min(parent.x+parent.width-18,pcx+portOffset));ey=dy>=0?parent.y:parent.y+parent.height;
-                const direct=(sy+ey)/2,step=26,candidates=[direct];
-                for(let n=1;n<=12;n++){candidates.push(direct+n*step,direct-n*step);}
-                let my=candidates.find(y=>clearSegment(sx,sy,sx,y,ignore)&&clearSegment(sx,y,ex,y,ignore)&&clearSegment(ex,y,ex,ey,ignore));
-                if(my==null){
-                    // Reserve visible top/bottom gutters rather than routing outside the SVG.
-                    const top=24+(idx%5)*10, bottom=Math.max(this.svgHeight-24-(idx%5)*10,Math.max(...allBoxes.map(b=>b.y+b.height))+24);
-                    my=dy>=0?bottom:top;
-                }
+                const lo=Math.min(sy,ey)+28,hi=Math.max(sy,ey)-28,direct=(sy+ey)/2,candidates=[direct];
+                for(let n=1;n<=10;n++){candidates.push(direct+n*24,direct-n*24);}
+                let my=candidates.find(y=>y>=lo&&y<=hi&&clearSegment(sx,sy,sx,y,ignore)&&clearSegment(sx,y,ex,y,ignore)&&clearSegment(ex,y,ex,ey,ignore));
+                if(my==null)my=direct;
                 d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;midX=(sx+ex)/2;midY=my;
             }
             return {...c,d,midX,midY:midY-7,cardStartX:sx,cardStartY:sy,cardEndX:ex,cardEndY:ey,strokeWidth:Math.max(2.75,Number(c.strokeWidth)||0),connOpacity:isFocusRelated?'1':'0.1'};
