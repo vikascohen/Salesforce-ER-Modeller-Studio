@@ -1833,10 +1833,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (rm && (rm[1].toLowerCase() === name.toLowerCase() || rm[4].toLowerCase() === name.toLowerCase())) return false;
                 return true;
             });
-            const remaining  = filtered.join('\n').replace(/
-{3,}/g, '
-
-').trim();
+            const remaining  = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
             const hasEntity  = /^\s*entity\s+\w+/im.test(remaining);
             delete this.erPositions[name];
             delete this.boxHeightOverrides[name];
