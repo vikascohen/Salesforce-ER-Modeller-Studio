@@ -1627,8 +1627,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 lines.push(`${o.apiName}.${f.apiName} ${a} ${f.relatesTo}`);
             });
         });
-        return lines.join('
-');
+        return lines.join('\\n');
     }
 
     // ────────────────────────────────────────────────────────
@@ -1827,8 +1826,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.hideHoverCard(); // the box under the cursor is about to disappear
         const name = event.currentTarget.dataset.name;
         try {
-            const filtered = this.sourceText.split('
-').filter((line) => {
+            const filtered = this.sourceText.split('\\n').filter((line) => {
                 const t = line.trim();
                 if (!t || t.startsWith('#')) return true;
                 const em = t.match(/^entity\s+(\w+)/i);
@@ -1837,8 +1835,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (rm && (rm[1].toLowerCase() === name.toLowerCase() || rm[4].toLowerCase() === name.toLowerCase())) return false;
                 return true;
             });
-            const remaining  = filtered.join('
-').replace(/
+            const remaining  = filtered.join('\\n').replace(/
 {3,}/g, '
 
 ').trim();
@@ -2454,8 +2451,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleExportDictionaryCsv() {
         if (!this.dictionaryRow) return;
         const rows = this.buildDictSheetAoA(this.getDictionaryRowForExport());
-        const csv = rows.map((r) => r.map((cell) => this.csvEscape(cell)).join(',')).join('
-');
+        const csv = rows.map((r) => r.map((cell) => this.csvEscape(cell)).join(',')).join('\\n');
         this.downloadTextFile(csv, this.dictionaryRow.apiName + '-dictionary.csv', 'text/csv');
     }
 
@@ -3006,8 +3002,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appendDslLines(lines) {
         const trimmed = (this.sourceText || '').replace(/\s+$/, '');
         this.sourceText = (trimmed ? trimmed + '
-' : '') + lines.join('
-') + '
+' : '') + lines.join('\\n') + '
 ';
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
@@ -3138,8 +3133,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     addFieldToEntity(entityName, fieldName, skipRender, markerSuffix) {
         const fieldText = fieldName + (markerSuffix || '');
-        const lines = this.sourceText.split('
-');
+        const lines = this.sourceText.split('\\n');
         let found = false;
         for (let i = 0; i < lines.length; i++) {
             const m = lines[i].match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)?(.*)$/i);
@@ -3151,16 +3145,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
         }
         if (!found) lines.push(`entity ${entityName} : ${fieldText}`);
-        this.sourceText = lines.join('
-');
+        this.sourceText = lines.join('\\n');
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         if (!skipRender) this.renderDiagram();
     }
 
     removeFieldFromEntity(entityName, fieldName) {
-        const lines = this.sourceText.split('
-').map((line) => {
+        const lines = this.sourceText.split('\\n').map((line) => {
             const m = line.match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)(.*)$/i);
             if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
                 const remaining = m[4].split(',').map((f) => f.trim()).filter((f) => f && f.toLowerCase() !== fieldName.toLowerCase());
@@ -3172,8 +3164,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const rm = t.match(/^([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*(=>|~>|->)/);
             return !(rm && rm[1].toLowerCase() === entityName.toLowerCase() && rm[2].toLowerCase() === fieldName.toLowerCase());
         });
-        this.sourceText = lines.join('
-');
+        this.sourceText = lines.join('\\n');
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         this.renderDiagram();
