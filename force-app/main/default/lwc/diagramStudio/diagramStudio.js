@@ -2723,10 +2723,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const padTop  = parseFloat(cs.paddingTop)  || 0;
 
         const before = textareaEl.value.substring(0, caret);
-        const row = (before.match(/
-/g) || []).length;
-        const col = caret - before.lastIndexOf('
-') - 1;
+        const row = (before.match(/\n/g) || []).length;
+        const col = caret - before.lastIndexOf('\n') - 1;
 
         const rawX = textareaEl.offsetLeft + padLeft + col * charWidth - textareaEl.scrollLeft;
         const rawY = textareaEl.offsetTop + padTop + (row + 1) * lineHeight - textareaEl.scrollTop;
@@ -2817,8 +2815,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // only ever holds text up to the caret) and folding those
             // fields into the same exclusion set.
             const caret = lineStart + linePrefix.length;
-            const restOfLineMatch = fullText.slice(caret).match(/^[^
-]*/);
+            const restOfLineMatch = fullText.slice(caret).match(/^[^\n]*/);
             const afterCaretText = restOfLineMatch ? restOfLineMatch[0] : '';
             const afterCaretParts = splitFieldList(afterCaretText).map((s) => s.trim()).filter(Boolean);
 
@@ -2994,9 +2991,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     appendDslLines(lines) {
         const trimmed = (this.sourceText || '').replace(/\s+$/, '');
-        this.sourceText = (trimmed ? trimmed + '
-' : '') + lines.join('\n') + '
-';
+        this.sourceText = (trimmed ? trimmed + '\n' : '') + lines.join('\n') + '\n';
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         this.renderDiagram();
