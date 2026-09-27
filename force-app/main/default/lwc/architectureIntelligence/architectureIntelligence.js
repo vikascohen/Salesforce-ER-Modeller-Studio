@@ -487,31 +487,30 @@ export function analyseBlastRadius(analysis, objectName, maxDepth = 3) {
 
 export function detectJunctionObjects(analysis) {
     if (!analysis) return [];
-
     const { outboundByNode } = graphIndex(analysis);
-    return (analysis.nodes || [])
-        .map(node => {
-            const nodeKey = node.name.toLowerCase();
-            const outbound = outboundByNode.get(nodeKey) || [];
-            const targets = [...new Set(outbound.map(
-                relationship => relationship.parentEntity.toLowerCase()
-            ))];
-            const masters = outbound.filter(relationship => relationship.kind === 'master').length;
-
-            return {
-                name: node.name,
-                outboundRelationships: outbound.length,
-                distinctTargets: targets.length,
-                masterDetailRelationships: masters,
-                confidence: masters >= 2 ? 'Strong' : targets.length >= 2 ? 'Candidate' : 'None'
-            };
-        })
-        .filter(item => item.distinctTargets >= 2)
-        .sort((a, b) =>
-            b.masterDetailRelationships - a.masterDetailRelationships ||
-            b.distinctTargets - a.distinctTargets ||
-            a.name.localeCompare(b.name)
-        );
+    return (analysis.nodes || []).map(node => {
+        const outbound = outboundByNode.get(node.name.toLowerCase()) || [];
+        const customObject = /__c$/i.test(node.name);
+        const customRelationships = outbound.filter(r => /__c$/i.test(r.fieldName || ''));
+        const targets = [...new Set(customRelationships.map(r => (r.parentEntity || '').toLowerCase()).filter(Boolean))];
+        const masters = customRelationships.filter(r => r.kind === 'master').length;
+        let pattern = 'Context only';
+        if (customObject && masters >= 2 && targets.length >= 2) pattern = 'Strong junction pattern';
+        else if (customObject && targets.length >= 2) pattern = 'Possible association pattern';
+        else if (customRelationships.length) pattern = 'Custom relationship review';
+        return {
+            name: node.name,
+            isCustomObject: customObject,
+            outboundRelationships: outbound.length,
+            customRelationshipCount: customRelationships.length,
+            distinctTargets: targets.length,
+            masterDetailRelationships: masters,
+            pattern,
+            actionable: customObject && customRelationships.length > 0,
+            standardContextOnly: !customObject && customRelationships.length === 0
+        };
+    }).filter(item => item.customRelationshipCount > 0 && (item.distinctTargets >= 2 || item.masterDetailRelationships >= 2))
+      .sort((a,b) => b.masterDetailRelationships-a.masterDetailRelationships || b.distinctTargets-a.distinctTargets || a.name.localeCompare(b.name));
 }
 
 export function analyseDomains(analysis, assignments = {}) {
