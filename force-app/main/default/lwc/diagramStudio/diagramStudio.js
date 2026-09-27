@@ -1276,6 +1276,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureFontPercent(){ return Math.round(this.architectureFontScale*100)+'%'; }
     get architectureCanIncreaseFont(){ return this.architectureFontScale < 1.6; }
     get architectureCanDecreaseFont(){ return this.architectureFontScale > 0.8; }
+    get architectureCannotIncreaseFont(){ return !this.architectureCanIncreaseFont; }
+    get architectureCannotDecreaseFont(){ return !this.architectureCanDecreaseFont; }
     handleArchitectureFontIncrease(){ this.architectureFontScale=Math.min(1.6,Math.round((this.architectureFontScale+0.1)*10)/10); }
     handleArchitectureFontDecrease(){ this.architectureFontScale=Math.max(0.8,Math.round((this.architectureFontScale-0.1)*10)/10); }
     handleArchitectureFontReset(){ this.architectureFontScale=1; }
@@ -1357,6 +1359,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHasAsymmetry(){ return this.architectureAsymmetry.length>0; }
     get architectureHasComplexityClusters(){ return this.architectureComplexityClusters.length>0; }
     get architectureHasBoundaryLeakage(){ return this.architectureBoundaryLeakage.length>0; }
+    get architectureInsightGuide(){
+        return [
+            {key:'gravity',title:'Structural Gravity',what:'Shows objects where relationship count, field breadth and structural reach converge.',value:'Use it to identify where a seemingly local change may require the broadest architectural review.',opportunity:'A deliberate gravity centre can provide a clear business anchor and simplify discovery of related data.',challenge:'If responsibilities accumulated accidentally, the object can become a coupling and change concentration point.',action:'Review ownership, field breadth, incoming and outgoing dependencies, then use Blast Radius before significant change.'},
+            {key:'bridge',title:'Bridge Objects',what:'Shows objects that connect structural areas which become less connected when that object is excluded.',value:'Highlights integration and change boundaries that raw relationship counts can miss.',opportunity:'A deliberate bridge can make cross-area responsibility explicit and provide a natural contract boundary.',challenge:'Unexpected bridges can create hidden cross-area dependency and increase coordination required for change.',action:'Inspect both sides of each bridge and confirm that the cross-area dependency is intentional.'},
+            {key:'corridor',title:'Change Corridors',what:'Shows longer relationship paths between connected parts of the model.',value:'Makes indirect dependency routes visible when impact is not obvious from immediate neighbours.',opportunity:'Useful for planning regression scope, integration review and ownership discussions across several objects.',challenge:'Long corridors can make change reasoning less local and can expose chains of semantic dependency.',action:'Walk the reported path object by object and document where business responsibility changes.'},
+            {key:'asymmetry',title:'Relationship Asymmetry',what:'Compares incoming and outgoing relationship concentration for an object.',value:'Reveals whether an object is predominantly referenced by others or predominantly depends on others.',opportunity:'A clear directional pattern can help identify stable reference or aggregation roles.',challenge:'Extreme concentration may indicate dependency pressure around one object and deserves contextual review.',action:'Review the dominant direction and confirm it matches the intended ownership and lifecycle model.'},
+            {key:'cluster',title:'Complexity Clusters',what:'Finds groups of highly connected objects located together in the relationship graph.',value:'Shows where complexity is collective rather than attributable to one object alone.',opportunity:'A coherent cluster may represent a natural business capability or bounded area.',challenge:'Dense clusters can increase coordinated change and testing effort when responsibilities are poorly separated.',action:'Review the cluster as a unit and decide whether its cohesion reflects a deliberate business capability.'},
+            {key:'domain',title:'Architecture Domains',what:'Lets the architect assign business boundaries such as Customer, Claim, Provider or Payment to modelled objects.',value:'Once assigned, the tool can distinguish relationships inside a domain from relationships crossing domain boundaries.',opportunity:'Domains turn a technical object graph into a business architecture view and make intentional interfaces visible.',challenge:'High cross-domain coupling can signal unclear boundaries or legitimate dependencies that require explicit ownership.',action:'Name domains using business capabilities, assign each object, then review every cross-domain relationship for purpose and ownership.'}
+        ];
+    }
     get architectureAdvice() {
         const a=this.architectureAnalysis; if(!a) return [];
         const advice=[], lead=a.mostConnected?.[0], largest=a.largestObjects?.[0], deep=this.architectureDeepIntelligence;
