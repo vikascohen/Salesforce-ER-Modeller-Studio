@@ -1359,3 +1359,13 @@
 .arch-panel .arch-deep-title strong,.arch-panel .arch-map-node strong{font-size:calc(10px * var(--arch-font-scale))!important}.arch-panel .arch-deep-title span,.arch-panel .arch-map-node span,.arch-panel .arch-map-node small{font-size:calc(8px * var(--arch-font-scale))!important}
 .arch-font-controls{display:flex;align-items:center;border:1px solid var(--surface-border-strong);border-radius:6px;overflow:hidden;background:var(--surface-bg)}
 .arch-font-btn,.arch-font-value{border:0;border-right:1px solid var(--surface-border);background:transparent;color:var(--surface-text-strong);height:30px;min-width:34px;padding:0 8px;font-size:11px;font-weight:700;cursor:pointer}.arch-font-value{min-width:48px;font-size:9px}.arch-font-btn:last-child{border-right:0}.arch-font-btn:disabled{opacity:.35;cursor:default}.arch-font-btn:not(:disabled):hover,.arch-font-value:hover{background:var(--surface-bg-alt)}
+
+/* Phase 2 intelligent workspace presentation. No DSL/compiler behaviour lives here. */
+.dsl-panel-maximised{position:absolute!important;inset:0!important;width:100%!important;max-width:none!important;z-index:90!important;height:100%!important}
+.dsl-panel-maximised .dsl-editor-wrap{flex:1!important;min-height:0!important}.dsl-panel-maximised .code-editor{height:100%!important;min-height:0!important}
+.canvas-hidden-by-dsl{visibility:hidden!important}
+.canvas-outer-maximised{position:absolute!important;inset:0!important;z-index:80!important;width:100%!important;height:100%!important;background:var(--surface-bg,#fff)}
+.canvas-outer-maximised .canvas-wrap{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important}
+.zoom-btn-wide{width:auto!important;min-width:62px!important;padding:0 9px!important;font-size:10px!important}
+.canvas-wrap{scrollbar-gutter:stable both-edges;overscroll-behavior:contain}
+.svg-scale-wrap{transition:width .16s ease,height .16s ease}.er-svg{transition:transform .16s ease}
