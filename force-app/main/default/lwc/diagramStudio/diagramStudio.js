@@ -698,7 +698,40 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }
     handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
     handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; }
-    handleFitModel(){ const wrap=this.template.querySelector('.canvas-wrap'); if(!wrap||!this.svgWidth||!this.svgHeight)return; const pad=36, z=Math.min((wrap.clientWidth-pad)/this.svgWidth,(wrap.clientHeight-pad)/this.svgHeight,1); this.zoomLevel=Math.max(0.25,Math.round(z*20)/20); wrap.scrollLeft=0;wrap.scrollTop=0; }
+    handleFitModel(){
+        // Reflow the rendered model to the available viewport instead of shrinking a huge canvas.
+        // This changes only presentation coordinates. DSL text and compiler/parser behaviour are untouched.
+        const wrap=this.template.querySelector('.canvas-wrap');
+        if(!wrap||!this.sourceText?.trim()) return;
+        try {
+            const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[];
+            if(!entities.length) return;
+            const degree={}; entities.forEach(e=>degree[e.name]=0);
+            rels.forEach(r=>{ if(degree[r.childEntity]!=null)degree[r.childEntity]++; if(r.parentEntity!==r.childEntity&&degree[r.parentEntity]!=null)degree[r.parentEntity]++; });
+            const ordered=[...entities].sort((a,b)=>(degree[b.name]-degree[a.name])||a.name.localeCompare(b.name));
+            const vw=Math.max(700,wrap.clientWidth-70), vh=Math.max(500,wrap.clientHeight-70);
+            const cols=Math.max(2,Math.min(6,Math.ceil(Math.sqrt(ordered.length*(vw/vh)))));
+            const cardW=Math.max(180,Math.min(250,(vw-50)/cols-28));
+            const gapX=Math.max(34,(vw-cols*cardW)/(cols+1)), gapY=54;
+            const positions={}, widths={}, heights={};
+            ordered.forEach((ent,i)=>{
+                const col=i%cols,row=Math.floor(i/cols);
+                positions[ent.name]={x:Math.round(gapX+col*(cardW+gapX)),y:Math.round(40+row*(250+gapY))};
+                widths[ent.name]=Math.round(cardW);
+                // Dense overview: enough field context to recognise the object while keeping relationship routes visible.
+                const rows=Math.min(8,(ent.fields?.length||0)+1);
+                heights[ent.name]=Math.max(116,52+rows*22);
+            });
+            this.erPositions=positions; this.boxWidthOverrides=widths; this.boxHeightOverrides=heights;
+            this.zoomLevel=1; this.renderDiagram();
+            requestAnimationFrame(()=>{
+                const fit=Math.min((wrap.clientWidth-24)/this.svgWidth,(wrap.clientHeight-24)/this.svgHeight,1);
+                // Keep labels/relationships legible. If the whole model cannot fit at 65%, scrolling is preferable to microscopic cards.
+                this.zoomLevel=Math.max(0.65,Math.round(fit*20)/20);
+                wrap.scrollLeft=0; wrap.scrollTop=0;
+            });
+        } catch(e){ this.errorMessage=e?.message||'Could not fit the model.'; }
+    }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {
         return this.dslSuggestions.map((s, i) => ({
@@ -2385,9 +2418,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         // Presentation-only layout reset: the DSL source and parser/compiler are untouched.
         this.erPositions={}; this.boxHeightOverrides={}; this.boxWidthOverrides={};
         this.renderDiagram();
-        // Dense models start at a readable overview zoom; users can still zoom and drag normally.
-        const count=this._erBoxes?.length||0;
-        if(count>=36)this.zoomLevel=0.45; else if(count>=20)this.zoomLevel=0.6; else if(count>=10)this.zoomLevel=0.8; else this.zoomLevel=1;
+        // Reflow to the current viewport after rebuilding the normal model geometry.
         requestAnimationFrame(()=>this.handleFitModel());
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
