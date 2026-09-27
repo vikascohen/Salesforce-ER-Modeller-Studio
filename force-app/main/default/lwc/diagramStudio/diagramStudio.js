@@ -1275,7 +1275,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         ];
     }
     handleArchitectureHome(){this.architectureSection='home';this.architectureSelectedObject='';}
-    handleArchitectureRefresh(){this.architectureSelectedObject='';this.architecturePathSource='';this.architecturePathTarget='';this.architectureDomainAssignments={};this.architectureSection='home';this.refreshArchitectureAnalysis();}
+    handleArchitectureReset(){
+        this.architectureSelectedObject='';
+        this.architecturePathSource='';
+        this.architecturePathTarget='';
+        this.architectureDomainAssignments={};
+        this.architectureSection='home';
+        this.architectureError='';
+        this._architectureSource='';
+        this._architectureAnalysis=null;
+        this.refreshArchitectureAnalysis(true);
+    }
+    handleArchitectureRefresh(){this.handleArchitectureReset();}
     get architecturePanelClass(){return 'arch-panel arch-view-'+(this.architectureSection||'home');}
     get architectureShowHome(){return this.architectureSection==='home';}
     get architectureShowFindings(){return this.architectureSection==='findings';}
