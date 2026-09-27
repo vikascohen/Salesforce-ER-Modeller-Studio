@@ -711,12 +711,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const ordered=[...entities].sort((a,b)=>(degree[b.name]-degree[a.name])||a.name.localeCompare(b.name));
             const vw=Math.max(700,wrap.clientWidth-70), vh=Math.max(500,wrap.clientHeight-70);
             const cols=Math.max(2,Math.min(6,Math.ceil(Math.sqrt(ordered.length*(vw/vh)))));
-            const cardW=Math.max(180,Math.min(250,(vw-50)/cols-28));
-            const gapX=Math.max(34,(vw-cols*cardW)/(cols+1)), gapY=54;
+            const dense=ordered.length>=16, veryDense=ordered.length>=32;\n            const cardW=Math.max(veryDense?145:dense?160:180,Math.min(veryDense?190:dense?210:250,(vw-50)/cols-28));
+            const gapX=Math.max(veryDense?26:34,(vw-cols*cardW)/(cols+1)), gapY=veryDense?38:dense?46:54;
             const positions={}, widths={}, heights={};
             ordered.forEach((ent,i)=>{
                 const col=i%cols,row=Math.floor(i/cols);
-                positions[ent.name]={x:Math.round(gapX+col*(cardW+gapX)),y:Math.round(40+row*(250+gapY))};
+                const compactRows=veryDense?4:dense?5:8;\n                const cardH=Math.max(104,52+Math.min(compactRows,(ent.fields?.length||0)+1)*22);\n                positions[ent.name]={x:Math.round(gapX+col*(cardW+gapX)),y:Math.round(40+row*(cardH+gapY))};
                 widths[ent.name]=Math.round(cardW);
                 // Dense overview: enough field context to recognise the object while keeping relationship routes visible.
                 const rows=Math.min(8,(ent.fields?.length||0)+1);
