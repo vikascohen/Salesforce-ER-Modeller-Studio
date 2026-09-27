@@ -1521,6 +1521,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             {key:'poly',label:'Polymorphic',value:a.polymorphicCount||0,pct:Math.round(((a.polymorphicCount||0)/total)*100)}
         ].map(x=>({...x,style:'width:'+x.pct+'%'}));
     }
+    get architectureOverviewExplanations(){
+        const a=this.architectureAnalysis;if(!a)return [];
+        const lead=a.mostConnected?.[0];
+        return [
+            {key:'connectivity',title:'Connectivity',value:this.architectureConnectivityLabel,meaning:a.componentCount===1?'Every object belongs to one connected structural model. A relationship route exists between any two objects, although it may pass through intermediate objects.':'The model contains '+a.componentCount+' disconnected structural groups. Changes in one group have no relationship path to objects in another group in this ER model.',review:'Use this to understand whether the file represents one cohesive capability or several independent areas.'},
+            {key:'reach',title:'Maximum relationship reach',value:a.maxRelationshipDepth+' hops',meaning:'The longest shortest route detected between connected objects is '+a.maxRelationshipDepth+' relationship hops. This describes structural distance, not processing time or runtime dependency.',review:'A larger reach means some impacts are indirect. Use Change Impact & Paths before changing objects near the centre of the model.'},
+            {key:'centre',title:'Structural concentration',value:lead?lead.name+' · '+lead.degree+' relationships':'No dominant object',meaning:lead?lead.name+' has the highest direct relationship count in this model. That makes it a useful starting point for impact review, but does not by itself mean the design is problematic.':'No object has emerged as a structural centre.',review:'Review highly connected objects when planning schema changes because more relationship contracts meet there.'},
+            {key:'cycles',title:'Relationship cycles',value:this.architectureCycleLabel,meaning:(a.cycles||[]).length?'At least one route can return to an earlier object through relationships. Cycles can be legitimate, but dependency reasoning is less linear.':'No structural relationship cycle was detected in the current model.',review:'Where cycles exist, confirm lifecycle, automation and integration assumptions rather than treating the cycle itself as an error.'},
+            {key:'isolated',title:'Isolated objects',value:this.architectureIslandLabel,meaning:(a.isolatedObjects||[]).length?'These objects have no relationship edge to another object represented in this file.':'Every object shown participates in at least one relationship in this model.',review:'An isolated object may be intentional, omitted context, or a modelling gap. The ER structure alone cannot decide which.'},
+            {key:'mix',title:'Relationship semantics',value:this.architectureRelationshipSemantics,meaning:'Lookup represents reference dependency, Master Detail represents tighter parent lifecycle semantics, and polymorphic relationships can resolve to more than one supported target type.',review:'Use the mix to identify where ownership semantics or broader polymorphic dependencies deserve closer review.'}
+        ];
+    }
     get architectureDesignerBrief(){
         const a=this.architectureAnalysis;if(!a)return [];
         const deep=this.architectureDeepIntelligence||{}, out=[];
