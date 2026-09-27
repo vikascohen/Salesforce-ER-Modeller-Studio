@@ -1287,6 +1287,28 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureDomainAnalysis() { return analyseDomains(this.architectureAnalysis,this.architectureDomainAssignments); }
     get architectureDomains() { return this.architectureDomainAnalysis.domains; }
     get architectureDomainCouplings() { return this.architectureDomainAnalysis.couplings; }
+    get architectureDomainVisuals() {
+        const rows=this.architectureDomainRows;
+        return this.architectureDomains.map((d,i)=>({
+            ...d,key:d.name,
+            objects:rows.filter(r=>(r.domain||'').trim().toLowerCase()===d.name.toLowerCase()).map(r=>({key:d.name+'-'+r.name,name:r.name})),
+            accentClass:'arch-domain-card arch-domain-tone-'+(i%4)
+        }));
+    }
+    get architectureCrossDomainRelationships() {
+        return (this.architectureDomainAnalysis.crossRelationships||[]).map((r,i)=>{
+            const raw=(r.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            return {...r,key:'cross-'+i,kind,kindClass:'arch-domain-rel arch-domain-rel-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),
+                explanation:r.childEntity+' in '+r.childDomain+' references '+r.parentEntity+' in '+r.parentDomain+' using '+kind+(r.fieldName?' through '+r.fieldName:'')+'.'};
+        });
+    }
+    get architectureHasCrossDomainRelationships(){return this.architectureCrossDomainRelationships.length>0;}
+    get architectureDomainSummaryText(){
+        const ds=this.architectureDomains,cross=this.architectureCrossDomainRelationships;
+        if(!ds.length)return 'Assign at least one object to a domain to begin domain analysis.';
+        if(!cross.length)return ds.length+' domain'+(ds.length===1?' is':'s are')+' defined and no cross-domain relationships are currently detected among assigned objects.';
+        return ds.length+' domains are defined. '+cross.length+' relationship'+(cross.length===1?' crosses':'s cross')+' a domain boundary. These are useful review points because one business capability depends structurally on another.';
+    }
     get architectureHasDomains() { return this.architectureDomains.length>0; }
     get architectureHasDomainCouplings() { return this.architectureDomainCouplings.length>0; }
     get architectureUnassignedText() { const u=this.architectureDomainAnalysis.unassigned; return u.length ? u.length+' unassigned: '+u.join(', ') : 'All objects in the current model have a domain assignment.'; }
