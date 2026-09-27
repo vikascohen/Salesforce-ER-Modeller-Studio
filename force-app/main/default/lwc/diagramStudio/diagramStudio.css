@@ -1408,3 +1408,21 @@
 .arch-mix-chart{display:flex;flex-direction:column;gap:15px}.arch-mix-row>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:calc(11px * var(--arch-font-scale,1))}.arch-mix-row span{color:#667085}.arch-mix-track{height:10px;background:#eef2f6;border-radius:8px;overflow:hidden;margin-top:6px}.arch-mix-track i{display:block;height:100%;background:#175cd3;border-radius:8px}
 .arch-chart-help,.arch-dashboard-help{margin-top:14px;padding:12px;border-radius:9px;background:#f8fafc;color:#475467;line-height:1.5;font-size:calc(11px * var(--arch-font-scale,1))}.arch-dashboard-help{display:flex;gap:10px}.arch-dashboard-help strong{white-space:nowrap;color:#101828}
 @media(max-width:1000px){.arch-visual-grid{grid-template-columns:1fr}.arch-bar-row{grid-template-columns:120px 1fr 95px}}
+
+/* Phase 2 scalable architecture workspaces: keep large models navigable. */
+.arch-map-viewport{height:520px;min-height:360px;max-height:62vh;overflow:auto;overscroll-behavior:contain;border:1px solid #d8dee8;border-radius:10px;background:#f8fafc}
+.arch-deep-grid{grid-template-columns:repeat(2,minmax(520px,1fr));min-width:1080px}
+.arch-deep-intelligence{overflow:hidden}
+.arch-deep-intelligence .arch-deep-grid{max-height:620px;overflow:auto;padding:2px 8px 8px 2px}
+.arch-deep-card{height:280px;min-height:280px;overflow:auto}
+.arch-deep-row{min-width:470px}
+.arch-designer-brief{max-height:260px;overflow:auto}
+.arch-visual-grid{overflow:auto;max-height:650px;padding-bottom:6px}
+.arch-visual-card{min-width:420px;max-height:610px;overflow:auto}
+.arch-object-bars{min-width:520px;max-height:500px;overflow:auto;padding-right:6px}
+.arch-guide-grid{grid-template-columns:repeat(2,minmax(520px,1fr));min-width:1080px;max-height:680px;overflow:auto;padding:2px 8px 8px 2px}
+.arch-guide-card{min-height:330px;max-height:520px;overflow:auto}
+.arch-advice-grid{max-height:650px;overflow:auto;padding-right:6px}
+.arch-findings{max-height:650px;overflow:auto;padding-right:6px}
+.arch-domain-grid,.arch-domain-layout{max-height:620px;overflow:auto}
+@media(max-width:1100px){.arch-deep-grid,.arch-guide-grid{grid-template-columns:repeat(2,minmax(440px,1fr));min-width:920px}}
