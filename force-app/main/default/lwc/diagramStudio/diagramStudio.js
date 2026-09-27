@@ -1351,8 +1351,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const standard=!/__c$/i.test(d.name);
         const junction=(this.architectureJunctions||[]).find(x=>x.name.toLowerCase()===d.name.toLowerCase());
         const relationships=(this.architectureAnalysis?.relationships||[]).filter(r=>r.childEntity===d.name||r.parentEntity===d.name);
-        const inbound=relationships.filter(r=>r.parentEntity===d.name).map((r,i)=>({key:'in-'+i,name:r.childEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'depends on this object'}));
-        const outbound=relationships.filter(r=>r.childEntity===d.name).map((r,i)=>({key:'out-'+i,name:r.parentEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'this object depends on'}));
+        const groupRelationships=(rows,prefix,nameSelector,direction)=>{
+            const groups=new Map();
+            rows.forEach((r,i)=>{
+                const name=nameSelector(r);
+                const key=(name||'').toLowerCase();
+                if(!key)return;
+                if(!groups.has(key))groups.set(key,{key:prefix+'-'+key,name,relationships:[],direction});
+                groups.get(key).relationships.push({key:prefix+'-'+key+'-'+i,kind:r.kind||'Lookup',field:r.childField||r.fieldName||r.field||''});
+            });
+            return [...groups.values()].map(g=>({...g,relationshipCount:g.relationships.length,relationshipLabel:g.relationships.length===1?'1 relationship':g.relationships.length+' relationships'}));
+        };
+        const inbound=groupRelationships(relationships.filter(r=>r.parentEntity===d.name),'in',r=>r.childEntity,'depends on this object');
+        const outbound=groupRelationships(relationships.filter(r=>r.childEntity===d.name),'out',r=>r.parentEntity,'this object depends on');
         let status,observation;
         if(standard){
             status=d.degree?'Standard object · modelled usage detected':'Standard object · no relationships represented';
