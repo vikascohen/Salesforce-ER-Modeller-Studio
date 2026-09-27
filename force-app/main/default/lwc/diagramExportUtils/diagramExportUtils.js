@@ -146,58 +146,36 @@ export function exportArchitectureReportAsPng(report) {
  */
 export function exportArchitectureReportAsPdf(report) {
     if (!report) return Promise.reject(new Error('No Architecture Intelligence report is available.'));
-    const W=842,H=595,M=38, usableW=W-M*2, usableH=H-M*2;
+    const W=842,H=595,M=42,R=W-M,usableW=W-M*2;
     const esc=s=>String(s??'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[^\x20-\x7E]/g,' ');
-    const wrap=(text,max=105)=>{const words=esc(text).split(/\s+/),out=[];let line='';words.forEach(w=>{const t=line?line+' '+w:w;if(t.length>max&&line){out.push(line);line=w;}else line=t;});if(line)out.push(line);return out;};
-    const pages=[]; let ops=[], y=H-M;
-    const text=(s,x,yy,size=10,bold=false)=>ops.push('BT /F'+(bold?'2':'1')+' '+size+' Tf '+x+' '+yy+' Td ('+esc(s)+') Tj ET');
-    const line=(x1,y1,x2,y2,w=.7)=>ops.push(w+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
-    const rect=(x,yy,w,h,fill=false)=>ops.push(x+' '+yy+' '+w+' '+h+' re '+(fill?'B':'S'));
-    const newPage=()=>{if(ops.length)pages.push(ops.join('\n'));ops=[];y=H-M;};
-    const heading=(s,size=18)=>{if(y<M+45)newPage();text(s,M,y,size,true);y-=size+12;};
-    const para=(s,size=9,max=112,indent=0)=>{wrap(s,max).forEach(l=>{if(y<M+25)newPage();text(l,M+indent,y,size,false);y-=size+4;});y-=5;};
-    const item=(label,value)=>{if(y<M+35)newPage();text(label,M,y,9,true);y-=13;para(value,8.5,116,8);};
-    heading('Data Architecture Intelligence',24);text(report.fileName||'Current ER model',M,y,12,true);y-=22;para(report.summary||'',10,100);
-    (report.signals||[]).forEach(s=>item(s.label,String(s.value)));
-    if(report.reviewLead){heading('Review first',15);item(report.reviewLead.name,(report.reviewLead.reason||'')+' Evidence: '+(report.reviewLead.evidence||'')+' '+(report.reviewLead.reach||''));}
-    newPage();
-
-    // Full architecture map. Large models are tiled across PDF pages at readable scale.
-    const map=report.map||{nodes:[],edges:[],width:1100,height:700}, scale=.62, tileW=usableW/scale, tileH=(usableH-45)/scale;
-    const tilesX=Math.max(1,Math.ceil(map.width/tileW)), tilesY=Math.max(1,Math.ceil(map.height/tileH));
-    for(let ty=0;ty<tilesY;ty++) for(let tx=0;tx<tilesX;tx++){
-        text('Architecture Map '+(tilesX*tilesY>1?'('+ (ty*tilesX+tx+1)+' of '+tilesX*tilesY+')':''),M,H-M,16,true);
-        text('Relationship direction: child to parent. Arrowheads point to the parent object.',M,H-M-18,8,false);
-        const ox=tx*tileW, oy=ty*tileH, top=H-M-42;
-        const visible=n=>n.x>=ox-100&&n.x<=ox+tileW+100&&n.y>=oy-80&&n.y<=oy+tileH+80;
-        (map.edges||[]).forEach(e=>{const s=(map.nodes||[]).find(n=>n.name===e.child),t=(map.nodes||[]).find(n=>n.name===e.parent);if(!s||!t||(!visible(s)&&!visible(t)))return;
-            const x1=M+(s.x-ox)*scale,y1=top-(s.y-oy)*scale,x2=M+(t.x-ox)*scale,y2=top-(t.y-oy)*scale;line(x1,y1,x2,y2,.6);
-            const a=Math.atan2(y2-y1,x2-x1),len=7;line(x2,y2,x2-len*Math.cos(a-.45),y2-len*Math.sin(a-.45),.8);line(x2,y2,x2-len*Math.cos(a+.45),y2-len*Math.sin(a+.45),.8);
-        });
-        (map.nodes||[]).filter(visible).forEach(n=>{const x=M+(n.x-ox)*scale-45,yy=top-(n.y-oy)*scale-16;rect(x,yy,90,32);text(n.name,x+4,yy+20,7,true);text((n.role||'Model object')+' | '+n.degree+' rel.',x+4,yy+8,5.8,false);});
-        newPage();
-    }
-
-    heading('Architecture Intelligence Insights',18);
-    const groups=[['Structural Gravity',report.gravity],['Bridge Objects',report.bridges],['Change Corridors',report.corridors],['Relationship Asymmetry',report.asymmetry],['Complexity Clusters',report.clusters],['Boundary Leakage',report.boundaryLeakage]];
-    groups.forEach(([name,rows])=>{heading(name,13);if(!(rows||[]).length)para('No notable signal detected in the current model.',8.5);(rows||[]).forEach(r=>para(r.pdfText||r.detail||r.path||r.name||'',8.5,112,8));});
-    heading('Architecture Advice',18);(report.advice||[]).forEach(a=>{item(a.kind+' | '+a.title,'Evidence: '+a.evidence+' Why consider it: '+a.reason+' Suggested investigation: '+a.next);});
-    heading('Architecture Findings',18);(report.findings||[]).forEach(f=>{item(f.kind+' | '+f.title,'Evidence: '+f.evidence+' Why it matters: '+f.impact+' Investigate: '+f.action);});
-    heading('Topology and Model Evidence',18);(report.metrics||[]).forEach(m=>item(m.label,String(m.value)));
-    heading('Architecture Domains',18);(report.domains||[]).forEach(d=>item(d.name,(d.objectCount||0)+' objects. '+(d.internalRelationships||0)+' internal relationships. '+(d.crossDomainRelationships||0)+' cross domain relationships.'));
-    heading('Relationship Detail',18);(report.relationships||[]).forEach(r=>item(r.childEntity+' -> '+r.parentEntity,'Type: '+(r.kind||'relationship')+(r.fieldName?' | Field: '+r.fieldName:'')));
-    heading('Interpretation Boundary',15);para('This report describes deterministic structural evidence from the ER model. It does not score architecture quality and does not assess permissions, CRUD/FLS, vulnerabilities or security posture.',9);
-    newPage();
-
-    const objects=[];objects.push(null);const add=o=>{objects.push(o);return objects.length-1;};
-    const font1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),font2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
-    const pageIds=[],contentIds=[];
-    pages.forEach(p=>{contentIds.push(add('<< /Length '+p.length+' >>\nstream\n'+p+'\nendstream'));pageIds.push(add(''));});
-    const pagesId=add('');pageIds.forEach((id,i)=>objects[id]='<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /Font << /F1 '+font1+' 0 R /F2 '+font2+' 0 R >> >> /Contents '+contentIds[i]+' 0 R >>');
-    objects[pagesId]='<< /Type /Pages /Kids ['+pageIds.map(id=>id+' 0 R').join(' ')+'] /Count '+pageIds.length+' >>';
-    const catalog=add('<< /Type /Catalog /Pages '+pagesId+' 0 R >>');
-    let pdf='%PDF-1.4\n',offsets=[0];for(let i=1;i<objects.length;i++){offsets[i]=pdf.length;pdf+=i+' 0 obj\n'+objects[i]+'\nendobj\n';}
-    const xref=pdf.length;pdf+='xref\n0 '+objects.length+'\n0000000000 65535 f \n';for(let i=1;i<objects.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
-    pdf+='trailer\n<< /Size '+objects.length+' /Root '+catalog+' 0 R >>\nstartxref\n'+xref+'\n%%EOF';
-    return Promise.resolve(btoa(pdf));
+    const wrap=(v,max=100)=>{const words=esc(v).split(/\s+/),out=[];let line='';for(const w of words){const n=line?line+' '+w:w;if(n.length>max&&line){out.push(line);line=w;}else line=n;}if(line)out.push(line);return out;};
+    const pages=[];let ops=[],y=H-M,pageNo=0,section='';
+    const text=(s,x,yy,size=9,bold=false)=>ops.push('BT /F'+(bold?'2':'1')+' '+size+' Tf '+x+' '+yy+' Td ('+esc(s)+') Tj ET');
+    const line=(x1,y1,x2,y2,w=.6)=>ops.push(w+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S');
+    const rect=(x,yy,w,h)=>ops.push(x+' '+yy+' '+w+' '+h+' re S');
+    const footer=()=>{line(M,25,R,25,.35);text('ER Modeller Studio | Data Architecture Intelligence',M,12,6.8,false);text('Page '+pageNo,R-42,12,6.8,false);};
+    const begin=(label='')=>{if(ops.length){footer();pages.push(ops.join('\n'));}ops=[];pageNo++;y=H-M;section=label;if(pageNo>1){text('DATA ARCHITECTURE INTELLIGENCE',M,y,7,true);if(label)text(label,R-Math.min(250,label.length*4.2),y,7,false);line(M,y-9,R,y-9,.45);y-=28;}};
+    const need=h=>{if(y-h<M+30)begin(section);};
+    const title=(s,size=18)=>{need(size+24);text(s,M,y,size,true);y-=size+13;};
+    const para=(s,size=8.5,max=112,indent=0)=>{const ls=wrap(s,max);need(ls.length*(size+4)+8);for(const l of ls){text(l,M+indent,y,size,false);y-=size+4;}y-=5;};
+    const labelled=(label,value)=>{const ls=wrap(value,108);need(18+ls.length*12);text(label.toUpperCase(),M,y,7,true);y-=12;for(const l of ls){text(l,M+8,y,8.3,false);y-=12;}y-=6;};
+    const assessment=(f)=>{const rows=[['What the model shows',f.evidence],['Salesforce interpretation',f.salesforce||f.impact],['Opportunity',f.opportunity],['Challenge to review',f.challenge],['What to inspect next',f.action]].filter(x=>x[1]);let h=42;rows.forEach(x=>h+=18+wrap(x[1],103).length*11);need(Math.min(h,usableW));text((f.kind||'FINDING').toUpperCase(),M,y,7,true);y-=15;text(f.title||'',M,y,12,true);y-=17;if(f.plain)para(f.plain,8.7,108,0);rows.forEach(x=>labelled(x[0],x[1]));line(M,y+3,R,y+3,.35);y-=15;};
+    begin('Executive Brief');text('DATA ARCHITECTURE',M,y,10,true);y-=18;text('INTELLIGENCE REPORT',M,y,25,true);y-=34;text(report.fileName||'Current ER model',M,y,13,true);y-=22;para('A deterministic structural assessment of the Salesforce ER model. The report translates relationship topology into review questions, opportunities, change considerations and technical evidence.',10,92);y-=8;
+    title('Executive Architecture Brief',16);para(report.summary||'Structural evidence generated from the ER model currently on the canvas.',9.5,105);
+    const sig=report.signals||[];for(let i=0;i<sig.length;i+=3){need(58);const row=sig.slice(i,i+3);row.forEach((s,j)=>{const x=M+j*(usableW/3);rect(x,y-43,usableW/3-10,43);text(s.label,x+8,y-14,7,true);text(String(s.value),x+8,y-31,11,true);});y-=55;}
+    if(report.reviewLead){title('Where to start',14);labelled(report.reviewLead.name,(report.reviewLead.reason||'')+' '+(report.reviewLead.evidence||'')+' '+(report.reviewLead.reach||''));}
+    title('How to read this report',14);para('Start with the findings and architecture map. Use the intelligence sections to understand why an area was highlighted. Finish with domains and the technical evidence appendix when validating design decisions.',8.8,108);
+    begin('Architecture Map');
+    const map=report.map||{nodes:[],edges:[],width:1100,height:700},scale=.62,tileW=usableW/.62,tileH=(H-M*2-55)/.62,tilesX=Math.max(1,Math.ceil(map.width/tileW)),tilesY=Math.max(1,Math.ceil(map.height/tileH));
+    for(let ty=0;ty<tilesY;ty++)for(let tx=0;tx<tilesX;tx++){if(tx||ty)begin('Architecture Map');title('Architecture Map'+(tilesX*tilesY>1?' | '+(ty*tilesX+tx+1)+' of '+tilesX*tilesY:''),16);para('Relationship direction is child to parent. Arrowheads point towards the referenced parent object.',8,112);const ox=tx*tileW,oy=ty*tileH,top=y-5,visible=n=>n.x>=ox-100&&n.x<=ox+tileW+100&&n.y>=oy-80&&n.y<=oy+tileH+80;(map.edges||[]).forEach(e=>{const a=map.nodes.find(n=>n.name===e.child),b=map.nodes.find(n=>n.name===e.parent);if(!a||!b||(!visible(a)&&!visible(b)))return;const x1=M+(a.x-ox)*scale,yy1=top-(a.y-oy)*scale,x2=M+(b.x-ox)*scale,yy2=top-(b.y-oy)*scale;line(x1,yy1,x2,yy2,.6);});(map.nodes||[]).filter(visible).forEach(n=>{const x=M+(n.x-ox)*scale-45,yy=top-(n.y-oy)*scale-15;rect(x,yy,90,30);text(n.name,x+4,yy+18,6.8,true);text((n.degree||0)+' relationships',x+4,yy+7,5.7,false);});}
+    begin('Architecture Findings');title('Architecture Findings',18);para('These are review prompts, not architecture scores. Each finding explains the structural evidence in Salesforce terms and suggests what to inspect next.',8.8,108);(report.findings||[]).forEach(assessment);
+    begin('Architecture Intelligence');title('Architecture Intelligence',18);para('The following views explain concentration, bridging, dependency routes, directionality, clusters and business boundaries found in the current model.',8.8,108);
+    const groups=[['Structural Gravity',report.gravity,'Where relationship concentration, field breadth and model reach converge.'],['Bridge Objects',report.bridges,'Objects that connect structural areas and may deserve cross area impact review.'],['Change Corridors',report.corridors,'Longer relationship routes that can make apparently local changes less local.'],['Relationship Direction',report.asymmetry,'Objects with a strong incoming or outgoing dependency concentration.'],['Complexity Clusters',report.clusters,'Groups of highly connected objects that should be reviewed as a unit.'],['Boundary Leakage',report.boundaryLeakage,'Relationships crossing architect assigned business domains.']];
+    groups.forEach(([name,rows,help])=>{title(name,14);para(help,8.3,110);if(!(rows||[]).length)para('No notable signal detected in the current model.',8.2);(rows||[]).forEach(r=>labelled(r.name||r.path||'Observation',r.pdfText||r.detail||r.path||r.name||''));});
+    begin('Architecture Domains');title('Architecture Domains',18);para('Domains are architect assigned business capability boundaries. They help distinguish relationships that stay inside a capability from dependencies that cross capability ownership boundaries.',8.8,108);if(!(report.domains||[]).length)para('No domains have been assigned. Consider grouping objects by business capability, for example Customer, Commerce, Provider or Payment, then review cross domain relationships.',8.5,108);(report.domains||[]).forEach(d=>labelled(d.name,(d.objectCount||0)+' objects | '+(d.internalRelationships||0)+' internal relationships | '+(d.crossDomainRelationships||0)+' cross domain relationships.'));
+    begin('Technical Evidence');title('Technical Evidence Appendix',18);para('Raw structural evidence is kept here so the main report remains readable while architects can still validate the observations.',8.5,108);title('Model Metrics',13);(report.metrics||[]).forEach(m=>labelled(m.label,String(m.value)));title('Relationship Detail',13);(report.relationships||[]).forEach(r=>labelled(r.childEntity+' -> '+r.parentEntity,'Type: '+(r.kind||'relationship')+(r.fieldName?' | Field: '+r.fieldName:'')));
+    title('Interpretation Boundary',13);para('This report describes deterministic structural evidence from the ER model. It does not score architecture quality and does not assess permissions, CRUD/FLS, vulnerabilities or security posture. Business context remains necessary before making a design decision.',8.5,108);
+    footer();pages.push(ops.join('\n'));
+    const objects=[null],add=o=>{objects.push(o);return objects.length-1;},font1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),font2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'),pageIds=[],contentIds=[];
+    pages.forEach(p=>{contentIds.push(add('<< /Length '+p.length+' >>\nstream\n'+p+'\nendstream'));pageIds.push(add(''));});const pagesId=add('');pageIds.forEach((id,i)=>objects[id]='<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /Font << /F1 '+font1+' 0 R /F2 '+font2+' 0 R >> >> /Contents '+contentIds[i]+' 0 R >>');objects[pagesId]='<< /Type /Pages /Kids ['+pageIds.map(id=>id+' 0 R').join(' ')+'] /Count '+pageIds.length+' >>';const catalog=add('<< /Type /Catalog /Pages '+pagesId+' 0 R >>');let pdf='%PDF-1.4\n',offsets=[0];for(let i=1;i<objects.length;i++){offsets[i]=pdf.length;pdf+=i+' 0 obj\n'+objects[i]+'\nendobj\n';}const xref=pdf.length;pdf+='xref\n0 '+objects.length+'\n0000000000 65535 f \n';for(let i=1;i<objects.length;i++)pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';pdf+='trailer\n<< /Size '+objects.length+' /Root '+catalog+' 0 R >>\nstartxref\n'+xref+'\n%%EOF';return Promise.resolve(btoa(pdf));
 }
