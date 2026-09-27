@@ -15,8 +15,8 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
-import getSharingSignals  from '@salesforce/apex/SchemaMetadataController.getSharingSignals';
-import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
+import getSharingSignal   from '@salesforce/apex/SchemaMetadataController.getSharingSignal';
+import getRecordCount     from '@salesforce/apex/SchemaMetadataController.getRecordCount';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
 import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSchemaReferences';
@@ -2725,7 +2725,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try {
             const [fresh, freshSignals] = await Promise.all([
                 getSharingModels({ objectApiNames: names }),
-                getSharingSignals({ objectApiNames: names })
+                Promise.all(names.map(async (name) => ({ name, value: await getSharingSignal({ objectApiName: name }) })))
             ]);
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
@@ -2739,8 +2739,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.sharingModels = next;
 
             const nextSignals = {};
-            Object.keys(freshSignals || {}).forEach((name) => {
-                nextSignals[name.toLowerCase()] = freshSignals[name];
+            (freshSignals || []).forEach(({ name, value }) => {
+                if (value) nextSignals[name.toLowerCase()] = value;
             });
             this.sharingSignals = nextSignals;
         } catch (e) {
@@ -2791,11 +2791,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const fresh = await getRecordCounts({ objectApiNames: names });
+            const fresh = await Promise.all(names.map(async (name) => ({ name, value: await getRecordCount({ objectApiName: name }) })));
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
-            Object.keys(fresh || {}).forEach((name) => { next[name.toLowerCase()] = fresh[name]; });
+            (fresh || []).forEach(({ name, value }) => { if (value) next[name.toLowerCase()] = value; });
             this.recordCounts = next;
         } catch (e) {
             this.errorMessage = this.reduceError(e);
