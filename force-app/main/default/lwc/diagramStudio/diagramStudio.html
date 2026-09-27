@@ -723,10 +723,12 @@
                             <div><span>3 hop exposure</span><strong>{architectureUsageDetail.reach}</strong></div>
                             <div><span>Junction signal</span><strong>{architectureUsageDetail.junctionText}</strong></div>
                         </div>
-                        <div class="arch-usage-diagram">
-                            <div class="arch-usage-side"><h4>Objects depending on selected object</h4><template if:true={architectureUsageDetail.hasInbound}><template for:each={architectureUsageDetail.inbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasInbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
-                            <div class="arch-usage-centre"><span>SELECTED</span><strong>{architectureUsageDetail.name}</strong><small>{architectureUsageDetail.type}</small></div>
-                            <div class="arch-usage-side"><h4>Objects selected object depends on</h4><template if:true={architectureUsageDetail.hasOutbound}><template for:each={architectureUsageDetail.outbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasOutbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
+                        <div class="arch-usage-diagram arch-usage-diagram-simple">
+                            <div class="arch-usage-centre"><span>SELECTED OBJECT</span><strong>{architectureUsageDetail.name}</strong><small>{architectureUsageDetail.type}</small></div>
+                            <div class="arch-usage-all-dependencies">
+                                <div class="arch-usage-side"><h4>Depends on</h4><p class="arch-usage-direction-help">Objects referenced by {architectureUsageDetail.name}</p><template if:true={architectureUsageDetail.hasOutbound}><template for:each={architectureUsageDetail.outbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasOutbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
+                                <div class="arch-usage-side"><h4>Depended on by</h4><p class="arch-usage-direction-help">Objects that reference {architectureUsageDetail.name}</p><template if:true={architectureUsageDetail.hasInbound}><template for:each={architectureUsageDetail.inbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasInbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
+                            </div>
                         </div>
                         <div class="arch-usage-assessment"><strong>Architecture assessment</strong><p>{architectureUsageDetail.observation}</p></div>
                         <div class="arch-usage-unknown">
