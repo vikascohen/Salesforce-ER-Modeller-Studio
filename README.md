@@ -53,12 +53,12 @@ directly in the org, same as if you'd deployed the source yourself; see
 
 **Or, deploy straight from GitHub:**
 
-<a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
+<a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-1-stable">
   <img alt="Deploy to Salesforce"
   src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
 </a>
 &nbsp;&nbsp;
-<a href="https://githubsfdeploy-sandbox.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
+<a href="https://githubsfdeploy-sandbox.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-1-stable">
   <img alt="Deploy to Sandbox" src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
 </a>
 
