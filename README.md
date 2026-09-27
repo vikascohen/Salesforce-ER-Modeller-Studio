@@ -22,6 +22,26 @@ Deploy **Version 2 Stable** directly to a Salesforce org using the button above.
 
 > **Note:** This deploy button points specifically to the `version-2-stable` branch. For Version 1, use the `version-1-stable` branch.
 
+## Installing
+
+All package links below are **unmanaged Salesforce packages**. Once installed, the components are available in the target org as editable metadata.
+
+### Latest Release — Version 2
+
+**Version 2 Stable** includes the complete Version 1 modelling foundation plus Version 2 Data Architecture Intelligence.
+
+- **Production or Developer Edition:** [Install Version 2 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
+- **Sandbox:** [Install Version 2 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
+
+### Previous Release — Version 1
+
+Version 1 remains available for users who specifically need the previous stable release.
+
+- **Production or Developer Edition:** [Install Version 1 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+- **Sandbox:** [Install Version 1 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+
+For both releases, the package is the same for Production/Developer Edition and Sandbox; only the Salesforce login domain changes. **Admins Only** is the safest default installation option, after which access can be assigned deliberately through the provided permission set.
+
 ## Contents
 
 - [Installing](#installing)
