@@ -1544,7 +1544,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
     }
 
     async function openArchitectureQuestion(el, text) {
-        const button = Array.from(el.shadowRoot.querySelectorAll('.arch-question-card button, .arch-question-card')).find((b) =>
+        const button = Array.from(el.shadowRoot.querySelectorAll('.arch-question-card')).find((b) =>
             b.textContent.includes(text)
         );
         expect(button).toBeDefined();
@@ -1595,6 +1595,10 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(text).not.toContain('Employee__c depends on Employee__c');
         expect(workspace.querySelectorAll('.arch-rel-graph-edge').length).toBe(1);
         expect(workspace.textContent).toContain('Self relationships are intentionally omitted');
+        // Relationship semantics belong in the legend/details, not repeated as text on graph connectors.
+        Array.from(workspace.querySelectorAll('.arch-rel-graph-edge')).forEach((edge) => {
+            expect(edge.textContent.trim()).toBe('');
+        });
     });
 
     it('Relationship Insights reports explicit external targets and per-object dependency direction', async () => {
