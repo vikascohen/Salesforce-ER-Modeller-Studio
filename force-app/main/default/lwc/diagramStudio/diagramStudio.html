@@ -760,7 +760,7 @@
                                 <article class="arch-rel-detail-card" key={r.key}>
                                     <div class="arch-rel-detail-head"><strong>{r.child}.{r.field}</strong><span class="arch-tag">{r.kind}</span></div>
                                     <div class="arch-rel-route"><b>{r.child}</b><span>→</span><b>{r.parent}</b></div>
-                                    <p><b>Dependency:</b> {r.child} depends on {r.parent}. Target scope: {r.parentScope}.</p>
+                                    <p><b>Dependency:</b> {r.dependencyText}. Target scope: {r.parentScope}.</p>
                                     <p><b>Record deletion impact:</b> {r.recordImpact}</p>
                                     <p><b>Schema/change impact:</b> {r.changeImpact}</p>
                                 </article>
