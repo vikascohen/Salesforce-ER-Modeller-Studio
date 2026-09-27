@@ -2723,10 +2723,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const [fresh, freshSignals] = await Promise.all([
-                getSharingModels({ objectApiNames: names }),
-                Promise.all(names.map(async (name) => ({ name, value: await getSharingSignal({ objectApiName: name }) })))
-            ]);
+            // OWD/sharing models are cheap metadata and are needed for every
+            // box badge. Detailed Share-table signals are intentionally NOT
+            // fetched here: doing one Apex round trip per canvas object made
+            // Sharing View slow on larger diagrams. Those details are loaded
+            // lazily only when the architect hovers an object.
+            const fresh = await getSharingModels({ objectApiNames: names });
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
@@ -2738,13 +2740,38 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             });
             this.sharingModels = next;
 
-            const nextSignals = {};
-            (freshSignals || []).forEach(({ name, value }) => {
-                if (value) nextSignals[name.toLowerCase()] = value;
-            });
-            this.sharingSignals = nextSignals;
+
         } catch (e) {
             this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    async fetchSharingSignalForObject(name) {
+        const key = name.toLowerCase();
+        if (!this.sharingViewOn || this.sharingSignals[key] || this._isDisconnected) return;
+        this._sharingSignalPending = this._sharingSignalPending || {};
+        if (this._sharingSignalPending[key]) return;
+        this._sharingSignalPending[key] = true;
+        try {
+            const value = await getSharingSignal({ objectApiName: name });
+            if (!value || !this.sharingViewOn || this._isDisconnected) return;
+            this.sharingSignals = { ...this.sharingSignals, [key]: value };
+            if (this.hoverCard && this.hoverCard.name === name) {
+                this.hoverCard = {
+                    ...this.hoverCard,
+                    hasSharingSignalData: !!value.shareTableAvailable,
+                    sharingRuleText: value.hasSharingRule ? 'Yes' : 'No',
+                    apexSharingText: value.isCustomObject
+                        ? (value.hasApexSharing ? 'Yes' : 'No')
+                        : 'Not determinable on standard objects'
+                };
+            }
+        } catch (e) {
+            // The sharing model itself remains useful even when an object's
+            // Share table is unavailable/inaccessible, so do not turn a
+            // hover-only detail failure into a canvas-wide error.
+        } finally {
+            delete this._sharingSignalPending[key];
         }
     }
 
@@ -2872,6 +2899,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const recordCount = this.recordCounts[key];
         const sharing     = this.sharingModels[key];
         const signals     = this.sharingSignals[key];
+        if (this.sharingViewOn && !signals) this.fetchSharingSignalForObject(name);
 
         this.hoverCard = {
             name,
