@@ -447,10 +447,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 const sd=Math.abs(ox-bx)>=Math.abs(oy-by)?(ox>=bx?'right':'left'):(oy>=by?'bottom':'top');
                 return sd===side;
             }).length);
-            const frac=(used+1)/(count+1);
+            const edgePad=22, usable=(side==='left'||side==='right')?Math.max(24,box.height-edgePad*2):Math.max(24,box.width-edgePad*2);
+            // Keep busy sides readable: ports have a real minimum gap rather than
+            // collapsing into the same few pixels on high-degree objects.
+            const idealGap=24, span=Math.min(usable,Math.max(idealGap*(count-1),idealGap)), start=(usable-span)/2;
+            const offset=count===1?usable/2:start+(used/(count-1))*span;
             return side==='left'||side==='right'
-                ? {x:side==='right'?box.x+box.width:box.x,y:box.y+18+frac*Math.max(20,box.height-36)}
-                : {x:box.x+18+frac*Math.max(20,box.width-36),y:side==='bottom'?box.y+box.height:box.y};
+                ? {x:side==='right'?box.x+box.width:box.x,y:box.y+edgePad+offset}
+                : {x:box.x+edgePad+offset,y:side==='bottom'?box.y+box.height:box.y};
         };
         const clearSegment=(x1,y1,x2,y2,ignore)=>{
             const pad=18,minX=Math.min(x1,x2),maxX=Math.max(x1,x2),minY=Math.min(y1,y2),maxY=Math.max(y1,y2);
@@ -470,13 +474,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             let d,midX,midY;
             if(horizontal){
                 const lo=Math.min(sx,ex)+28,hi=Math.max(sx,ex)-28,direct=(sx+ex)/2,candidates=[direct];
-                for(let n=1;n<=10;n++){candidates.push(direct+n*24,direct-n*24);}
+                for(let n=1;n<=10;n++){candidates.push(direct+n*36,direct-n*36);}
                 let mx=candidates.find(x=>x>=lo&&x<=hi&&clearSegment(sx,sy,x,sy,ignore)&&clearSegment(x,sy,x,ey,ignore)&&clearSegment(x,ey,ex,ey,ignore));
                 if(mx==null)mx=direct;
                 d='M '+sx+' '+sy+' L '+mx+' '+sy+' L '+mx+' '+ey+' L '+ex+' '+ey;midX=mx;midY=(sy+ey)/2;
             }else{
                 const lo=Math.min(sy,ey)+28,hi=Math.max(sy,ey)-28,direct=(sy+ey)/2,candidates=[direct];
-                for(let n=1;n<=10;n++){candidates.push(direct+n*24,direct-n*24);}
+                for(let n=1;n<=10;n++){candidates.push(direct+n*36,direct-n*36);}
                 let my=candidates.find(y=>y>=lo&&y<=hi&&clearSegment(sx,sy,sx,y,ignore)&&clearSegment(sx,y,ex,y,ignore)&&clearSegment(ex,y,ex,ey,ignore));
                 if(my==null)my=direct;
                 d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;midX=(sx+ex)/2;midY=my;
