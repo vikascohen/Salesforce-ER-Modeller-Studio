@@ -416,6 +416,7 @@
             <div class="zoom-controls">
                 <button class="zoom-btn zoom-btn-wide" onclick={handleToggleCanvasMaximise} title="Maximise or restore canvas">{canvasMaximiseLabel}</button>
                 <button class="zoom-btn zoom-btn-wide" onclick={handleFitModel} title="Fit the complete model into the visible canvas">Fit Model</button>
+                <template lwc:if={showCanvasFitExport}><button class="zoom-btn zoom-btn-wide" onclick={handleOpenExport} title="Export the complete fitted model">Export</button></template>
                 <button class="zoom-btn" onclick={handleZoomOut} title="Zoom out">-</button>
                 <button class="zoom-btn zoom-btn-label" onclick={handleZoomReset} title="Reset zoom">{zoomPercentLabel}</button>
                 <button class="zoom-btn" onclick={handleZoomIn} title="Zoom in">+</button>
