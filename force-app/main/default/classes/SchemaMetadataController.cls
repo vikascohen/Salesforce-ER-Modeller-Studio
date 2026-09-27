@@ -564,41 +564,33 @@ public with sharing class SchemaMetadataController {
      * mechanism has fired.
      */
     @AuraEnabled(cacheable=false)
-    public static Map<String, SharingSignals> getSharingSignals(List<String> objectApiNames) {
-        Map<String, SharingSignals> result = new Map<String, SharingSignals>();
-        for (String rawName : objectApiNames) {
-            String name = rawName == null ? null : rawName.trim();
-            if (!isSafeIdentifier(name)) {
-                continue;
-            }
-            SharingSignals signals = new SharingSignals();
-            signals.isCustomObject = name.endsWith('__c');
-            signals.hasSharingRule = false;
-            signals.hasApexSharing = false;
-            try {
-                List<AggregateResult> rows = Database.query(
-                    'SELECT RowCause FROM ' + name + 'Share GROUP BY RowCause',
-                    AccessLevel.USER_MODE
-                );
-                signals.shareTableAvailable = true;
-                for (AggregateResult ar : rows) {
-                    String rowCause = String.valueOf(ar.get('RowCause'));
-                    if (rowCause == 'Rule') {
-                        signals.hasSharingRule = true;
-                    } else if (!KNOWN_STANDARD_ROW_CAUSES.contains(rowCause)) {
-                        signals.hasApexSharing = true;
-                    }
-                }
-            } catch (Exception e) {
-                // No __Share table for this object at all (Public
-                // Read/Write custom object, or an object with no sharing
-                // concept), or it's genuinely inaccessible — either way,
-                // "no sharing data available" rather than a hard failure.
-                signals.shareTableAvailable = false;
-            }
-            result.put(name, signals);
+    public static SharingSignals getSharingSignal(String objectApiName) {
+        String name = objectApiName == null ? null : objectApiName.trim();
+        if (!isSafeIdentifier(name)) {
+            return null;
         }
-        return result;
+        SharingSignals signals = new SharingSignals();
+        signals.isCustomObject = name.endsWith('__c');
+        signals.hasSharingRule = false;
+        signals.hasApexSharing = false;
+        try {
+            List<AggregateResult> rows = Database.query(
+                'SELECT RowCause FROM ' + name + 'Share GROUP BY RowCause',
+                AccessLevel.USER_MODE
+            );
+            signals.shareTableAvailable = true;
+            for (AggregateResult ar : rows) {
+                String rowCause = String.valueOf(ar.get('RowCause'));
+                if (rowCause == 'Rule') {
+                    signals.hasSharingRule = true;
+                } else if (!KNOWN_STANDARD_ROW_CAUSES.contains(rowCause)) {
+                    signals.hasApexSharing = true;
+                }
+            }
+        } catch (Exception e) {
+            signals.shareTableAvailable = false;
+        }
+        return signals;
     }
 
     /**
@@ -626,27 +618,23 @@ public with sharing class SchemaMetadataController {
     }
 
     @AuraEnabled(cacheable=false)
-    public static Map<String, RecordCountInfo> getRecordCounts(List<String> objectApiNames) {
-        Map<String, RecordCountInfo> result = new Map<String, RecordCountInfo>();
-        for (String rawName : objectApiNames) {
-            String name = rawName == null ? null : rawName.trim();
-            if (!isSafeIdentifier(name)) {
-                continue;
-            }
-            try {
-                List<AggregateResult> agg = Database.query(
-                    'SELECT COUNT(Id) cnt, MAX(LastModifiedDate) lastMod FROM ' + name,
-                    AccessLevel.USER_MODE
-                );
-                RecordCountInfo info = new RecordCountInfo();
-                info.count = (Integer) agg[0].get('cnt');
-                info.lastModifiedDate = (DateTime) agg[0].get('lastMod');
-                result.put(name, info);
-            } catch (Exception e) {
-                // Skip this one object's count, don't fail the batch.
-            }
+    public static RecordCountInfo getRecordCount(String objectApiName) {
+        String name = objectApiName == null ? null : objectApiName.trim();
+        if (!isSafeIdentifier(name)) {
+            return null;
         }
-        return result;
+        try {
+            List<AggregateResult> agg = Database.query(
+                'SELECT COUNT(Id) cnt, MAX(LastModifiedDate) lastMod FROM ' + name,
+                AccessLevel.USER_MODE
+            );
+            RecordCountInfo info = new RecordCountInfo();
+            info.count = (Integer) agg[0].get('cnt');
+            info.lastModifiedDate = (DateTime) agg[0].get('lastMod');
+            return info;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -697,32 +685,40 @@ public with sharing class SchemaMetadataController {
             return result;
         }
 
-        Integer batchSize = 15;
-        for (Integer i = 0; i < safeFields.size(); i += batchSize) {
-            Integer endIdx = Math.min(i + batchSize, safeFields.size());
-            List<String> batch = new List<String>();
-            for (Integer j = i; j < endIdx; j++) {
-                batch.add(safeFields[j]);
+        // One aggregate query only. Filter out field types that cannot be
+        // used safely in COUNT(field) rather than retrying batches with SOQL
+        // inside a loop.
+        Map<String, Schema.SObjectField> describedFields =
+            Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
+        Set<Schema.DisplayType> unsupported = new Set<Schema.DisplayType>{
+            Schema.DisplayType.BASE64
+        };
+        List<String> countableFields = new List<String>();
+        for (String f : safeFields) {
+            Schema.SObjectField sf = describedFields.get(f);
+            if (sf != null && !unsupported.contains(sf.getDescribe().getType())) {
+                countableFields.add(f);
             }
+        }
 
+        if (!countableFields.isEmpty()) {
             try {
                 List<String> selectParts = new List<String>();
-                for (String f : batch) {
+                for (String f : countableFields) {
                     selectParts.add('COUNT(' + f + ')');
                 }
                 String q = 'SELECT ' + String.join(selectParts, ', ') + ' FROM ' + objectApiName;
                 List<AggregateResult> ars = Database.query(q, AccessLevel.USER_MODE);
                 if (!ars.isEmpty()) {
                     AggregateResult ar = ars[0];
-                    for (Integer k = 0; k < batch.size(); k++) {
+                    for (Integer k = 0; k < countableFields.size(); k++) {
                         Object val = ar.get('expr' + k);
                         Integer cnt = val == null ? 0 : (Integer) val;
-                        percentages.put(batch[k], (Double) cnt / totalCount * 100.0);
+                        percentages.put(countableFields[k], (Double) cnt / totalCount * 100.0);
                     }
                 }
             } catch (Exception e) {
-                // This batch's fields fall back to "not available" (absent
-                // from the map) rather than failing every other batch.
+                result.put('error', 'Could not calculate field usage: ' + e.getMessage());
             }
         }
 
