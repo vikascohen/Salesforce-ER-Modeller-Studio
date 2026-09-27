@@ -700,13 +700,18 @@ public with sharing class SchemaMetadataController {
         Map<String, Schema.SObjectField> describedFields =
             Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
         Set<Schema.DisplayType> unsupported = new Set<Schema.DisplayType>{
-            Schema.DisplayType.BASE64
+            Schema.DisplayType.BASE64,
+            Schema.DisplayType.TEXTAREA
         };
         List<String> countableFields = new List<String>();
         for (String f : safeFields) {
             Schema.SObjectField sf = describedFields.get(f);
             if (sf != null && !unsupported.contains(sf.getDescribe().getType())) {
                 countableFields.add(f);
+            } else if (sf != null) {
+                // Long/Rich Text Area fields do not support COUNT(field).
+                // Leave them absent from percentages so the UI correctly
+                // renders N/A instead of failing the entire field batch.
             }
         }
 
