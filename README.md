@@ -141,52 +141,23 @@ Everything documented later in this README under modelling, org-aware views, Dat
 
 ## Installing
 
-> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `version-2-stable` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
+All package links below are **unmanaged Salesforce packages**. Once installed, the components are available in the target org as editable metadata.
 
-**Phase 1 unmanaged package** — the simplest option for installing the stable Phase 1 release: no GitHub OAuth, no CLI, just a link and a login.
+### Latest Release — Version 2
 
-- **Production or Developer Edition:**
-  [https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
-- **Sandbox:**
-  [https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+**Version 2 Stable** includes the complete Version 1 modelling foundation plus Version 2 Data Architecture Intelligence.
 
-Same package either way — only the domain changes
-(`login.salesforce.com` vs `test.salesforce.com`), since that's what
-tells Salesforce which kind of org you're logging into. Click the link
-for your org type, log in, choose who to install it for (Admins Only is
-the safest default — you assign the `Diagram Studio User` permission
-set to specific people afterward), and install. This is an *unmanaged*
-package — once installed, every component is fully yours to edit
-directly in the org, same as if you'd deployed the source yourself; see
-[docs/SECURITY.md](docs/SECURITY.md) for what data it does and doesn't touch.
+- **Production or Developer Edition:** [Install Version 2 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
+- **Sandbox:** [Install Version 2 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
 
-**Or, deploy Version 2 Stable straight from GitHub:**
+### Previous Release — Version 1
 
-> The deploy buttons below target `version-2-stable`, so this page always deploys the Version 2 Stable release.
+Version 1 remains available for users who specifically need the previous stable release.
 
-<a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable">
-  <img alt="Deploy to Salesforce"
-  src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
-</a>
-&nbsp;&nbsp;
-<a href="https://githubsfdeploy-sandbox.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable">
-  <img alt="Deploy to Sandbox" src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
-</a>
+- **Production or Developer Edition:** [Install Version 1 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+- **Sandbox:** [Install Version 1 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
 
-Left button logs you into Production/Developer Edition, right button lets
-you into a Sandbox, and either way you land on a page listing every
-component in this repo with checkboxes — review what's about to deploy,
-then click Deploy.
-
-This uses [githubsfdeploy](https://github.com/afawcett/githubsfdeploy), a
-well-known community tool (not an official Salesforce or Anthropic
-product) that reads a GitHub repo over OAuth and pushes it straight into
-an org via the Metadata API — no local `sf` CLI or clone required. Since
-it's a third-party OAuth flow, only use it with orgs and repos you trust;
-if you'd rather not grant OAuth access at all, use the unmanaged package
-link above, or the
-[`sf project deploy start`](#deploying-to-an-org) route below —
-same result, nothing leaves your machine.
+For both releases, the package is the same for Production/Developer Edition and Sandbox; only the Salesforce login domain changes. **Admins Only** is the safest default installation option, after which access can be assigned deliberately through the provided permission set.
 
 ## What it does
 
