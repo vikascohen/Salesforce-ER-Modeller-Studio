@@ -1327,7 +1327,24 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             status='Modelled dependencies detected';
             observation='This custom object is structurally in use in the current ER model. Changing, migrating or considering retirement requires review of the modelled dependencies below. Dependencies outside the supplied ER model remain unknown.';
         }
-        return {name:d.name,standard,custom:!standard,type:standard?'Standard Salesforce object':'Custom object',status,degree:d.degree,incoming:d.incoming,outgoing:d.outgoing,fieldCount:d.fieldCount,reach:d.reachableWithin3,junction:!!junction,junctionText:junction?junction.pattern:'No junction pattern detected',inbound,outbound,hasInbound:inbound.length>0,hasOutbound:outbound.length>0,observation};
+        // parseEr creates placeholder entities for relationship targets that are not
+        // explicitly declared in the DSL. Preserve that distinction here: a target
+        // such as Account can be modelled by a relationship while still being
+        // outside the set of entity declarations supplied by the user.
+        const declaredNames=new Set();
+        (this._architectureSource||this.sourceText||'').split(/\r?\n/).forEach(line=>{
+            const match=line.trim().match(/^entity\s+(\w+)\b/i);
+            if(match)declaredNames.add(match[1].toLowerCase());
+        });
+        const externalRefs=[...inbound,...outbound].filter(x=>!declaredNames.has((x.name||'').toLowerCase()));
+        const externalByName=new Map();
+        externalRefs.forEach(x=>{
+            const key=(x.name||'').toLowerCase();
+            if(!key)return;
+            if(!externalByName.has(key))externalByName.set(key,{...x,key:'external-'+key});
+        });
+        const outsideDiagram=[...externalByName.values()];
+        return {name:d.name,standard,custom:!standard,type:standard?'Standard Salesforce object':'Custom object',status,degree:d.degree,incoming:d.incoming,outgoing:d.outgoing,fieldCount:d.fieldCount,reach:d.reachableWithin3,junction:!!junction,junctionText:junction?junction.pattern:'No junction pattern detected',inbound,outbound,hasInbound:inbound.length>0,hasOutbound:outbound.length>0,outsideDiagram,hasOutsideDiagram:outsideDiagram.length>0,observation};
     }
     get architectureHasUsageDetail(){return !!this.architectureUsageDetail;}
     get architectureUsageDependencyNodes(){
