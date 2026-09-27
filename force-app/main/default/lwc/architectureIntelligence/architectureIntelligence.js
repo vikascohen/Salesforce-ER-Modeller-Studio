@@ -491,7 +491,7 @@ export function detectJunctionObjects(analysis) {
     return (analysis.nodes || []).map(node => {
         const outbound = outboundByNode.get(node.name.toLowerCase()) || [];
         const customObject = /__c$/i.test(node.name);
-        const customRelationships = outbound.filter(r => /__c$/i.test(r.fieldName || ''));
+        const customRelationships = outbound.filter(r => /__c$/i.test(r.childField || r.fieldName || ''));
         const targets = [...new Set(customRelationships.map(r => (r.parentEntity || '').toLowerCase()).filter(Boolean))];
         const masters = customRelationships.filter(r => r.kind === 'master').length;
         let pattern = 'Context only';
