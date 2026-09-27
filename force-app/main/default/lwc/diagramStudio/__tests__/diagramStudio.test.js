@@ -1522,3 +1522,118 @@ describe('Phase 2 async hardening',()=> {
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('Contact');
     });
 });
+
+
+describe('Phase 2 Architecture Intelligence UI regressions', () => {
+    async function loadArchitectureModel(el, source, fileName = 'Phase 2 Test Model') {
+        const nameInput = el.shadowRoot.querySelector('.diag-name-input');
+        nameInput.value = fileName;
+        nameInput.dispatchEvent(new CustomEvent('input'));
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = source;
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        el.shadowRoot.querySelector('[data-menu="view"]').click();
+        await flushPromises();
+        const architectureItem = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) =>
+            i.textContent.includes('Architecture')
+        );
+        expect(architectureItem).toBeDefined();
+        architectureItem.click();
+        await flushPromises();
+    }
+
+    async function openArchitectureQuestion(el, text) {
+        const button = Array.from(el.shadowRoot.querySelectorAll('.arch-question-card button, .arch-question-card')).find((b) =>
+            b.textContent.includes(text)
+        );
+        expect(button).toBeDefined();
+        button.click();
+        await flushPromises();
+    }
+
+    it('shows the active file name in the Architecture Intelligence header', async () => {
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, 'entity Project__c : Name', 'Project Architecture');
+        expect(el.shadowRoot.querySelector('.arch-subtitle').textContent).toContain('Project Architecture');
+    });
+
+    it('Object Usage selector contains custom objects only while standard objects remain visible as dependencies', async () => {
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, [
+            'entity Project__c : Name, Account__c',
+            'entity Resource__c : Name',
+            'Project__c.Account__c -> Account',
+            'Resource__c.Project__c -> Project__c'
+        ].join('\n'));
+        await openArchitectureQuestion(el, 'Open Object Usage');
+        const select = el.shadowRoot.querySelector('.arch-workspace-usage select');
+        const values = Array.from(select.options).map((o) => o.value);
+        expect(values).toContain('Project__c');
+        expect(values).toContain('Resource__c');
+        expect(values).not.toContain('Account');
+        select.value = 'Project__c';
+        select.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.arch-workspace-usage').textContent).toContain('Account');
+        expect(el.shadowRoot.querySelector('.arch-workspace-usage').textContent).toContain('Referenced objects outside the declared diagram');
+    });
+
+    it('Relationship Insights identifies self relationships as intra-object dependencies and avoids parent-child wording', async () => {
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, [
+            'entity Employee__c : Name, Manager__c',
+            'Employee__c.Manager__c -> Employee__c'
+        ].join('\n'));
+        await openArchitectureQuestion(el, 'Open Relationship Insights');
+        const text = el.shadowRoot.querySelector('.arch-workspace-relationships').textContent;
+        expect(text).toContain('Employee__c has a self relationship through Manager__c');
+        expect(text).toContain('Self relationship');
+        expect(text).toContain('intra-object dependency');
+        expect(text).not.toContain('Employee__c depends on Employee__c');
+    });
+
+    it('Relationship Insights reports explicit external targets and per-object dependency direction', async () => {
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, [
+            'entity Project__c : Name, Account__c',
+            'entity Task__c : Name, Project__c',
+            'Project__c.Account__c -> Account',
+            'Task__c.Project__c => Project__c'
+        ].join('\n'));
+        await openArchitectureQuestion(el, 'Open Relationship Insights');
+        const text = el.shadowRoot.querySelector('.arch-workspace-relationships').textContent;
+        expect(text).toContain('Project__c.Account__c');
+        expect(text).toContain('Referenced outside declared diagram');
+        expect(text).toContain('Explicit external targets: Account');
+        expect(text).toContain('Task__c');
+        expect(text).toContain('Master Detail');
+    });
+
+    it('Clear / Refresh returns Architecture Intelligence to home and clears an Object Usage selection', async () => {
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, 'entity Project__c : Name');
+        await openArchitectureQuestion(el, 'Open Object Usage');
+        const select = el.shadowRoot.querySelector('.arch-workspace-usage select');
+        select.value = 'Project__c';
+        select.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+        el.shadowRoot.querySelector('.arch-refresh-btn').click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.arch-home')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.arch-workspace-usage select')).toBeNull();
+    });
+
+    it('keeps Object Map off the Architecture home while Relationship Path Finder remains a separate question', async () => {
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, [
+            'entity A__c : Name',
+            'entity B__c : Name, A__c',
+            'B__c.A__c -> A__c'
+        ].join('\n'));
+        const home = el.shadowRoot.querySelector('.arch-home').textContent;
+        expect(home).not.toContain('Open Object Map');
+        expect(home).toContain('Relationship Path Finder');
+        expect(home).toContain('Open Path Finder');
+    });
+});
