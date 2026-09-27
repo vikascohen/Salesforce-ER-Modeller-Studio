@@ -1658,3 +1658,12 @@
 .arch-usage-centre{padding:24px 14px;border:3px solid #0b8ee8;border-radius:12px;text-align:center;background:rgba(11,142,232,.11)}.arch-usage-centre span,.arch-usage-centre strong,.arch-usage-centre small{display:block}.arch-usage-centre span{font-size:9px;font-weight:800;letter-spacing:.08em}.arch-usage-centre strong{margin:8px 0;font-size:17px}
 .arch-usage-assessment,.arch-usage-unknown{margin-top:13px;padding:14px 16px;border-radius:8px}.arch-usage-assessment{border-left:4px solid #0b8ee8;background:rgba(11,142,232,.06)}.arch-usage-unknown{border-left:4px solid #d99b24;background:rgba(217,155,36,.07)}.arch-usage-assessment p,.arch-usage-unknown p{margin:6px 0 0;line-height:1.55}.arch-usage-evidence{margin-top:12px;font-size:10px;opacity:.7}
 @media(max-width:900px){.arch-usage-diagram{grid-template-columns:1fr}.arch-usage-head{flex-direction:column}}
+
+/* Phase 2 relationship intelligence detail */
+.arch-rel-deep-summary,.arch-rel-object-summary{margin-top:22px}
+.arch-rel-detail-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px}
+.arch-rel-detail-card{border:1px solid rgba(127,127,127,.28);border-radius:12px;padding:14px;background:rgba(127,127,127,.045);min-width:0}
+.arch-rel-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.arch-rel-detail-head>span:not(.arch-tag){font-size:calc(12px * var(--arch-font-scale,1));opacity:.72}
+.arch-rel-route{display:flex;align-items:center;gap:9px;padding:8px 10px;margin:8px 0 10px;border-radius:8px;background:rgba(127,127,127,.08);overflow-wrap:anywhere}
+.arch-rel-detail-card p{margin:7px 0;line-height:1.55;overflow-wrap:anywhere}
