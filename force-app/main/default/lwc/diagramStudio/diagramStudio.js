@@ -1407,18 +1407,93 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureJunctions() { return detectJunctionObjects(this.architectureAnalysis).slice(0,12); }
     get architectureRelationshipGraph(){
         const a=this.architectureAnalysis;if(!a)return {nodes:[],edges:[],style:''};
-        const source=a.nodes||[],count=source.length,cols=Math.max(2,Math.ceil(Math.sqrt(Math.max(1,count)*1.5))),cellW=240,cellH=150,pad=90;
-        const nodes=[...source].sort((x,y)=>(y.degree||0)-(x.degree||0)||x.name.localeCompare(y.name)).map((n,i)=>{const x=pad+(i%cols)*cellW,y=pad+Math.floor(i/cols)*cellH;return {...n,key:'rn-'+n.name,x,y,style:'left:'+x+'px;top:'+y+'px'};});
+        // Relationship Insights intentionally omits self relationships. They add visual
+        // noise here and are not a dependency between two different objects.
+        const relationships=(a.relationships||[]).filter(r=>(r.childEntity||'').toLowerCase()!==(r.parentEntity||'').toLowerCase());
+        const source=(a.nodes||[]).filter(n=>relationships.some(r=>r.childEntity===n.name||r.parentEntity===n.name));
+        if(!source.length)return {nodes:[],edges:[],style:'width:900px;height:430px'};
+
+        // Build a deterministic layered layout. Objects referenced by many others sit
+        // higher; dependent objects sit lower. This reduces the centre-crossing caused
+        // by the old degree-sorted square grid.
+        const names=new Set(source.map(n=>n.name));
+        const incoming=new Map(),outgoing=new Map();
+        source.forEach(n=>{incoming.set(n.name,0);outgoing.set(n.name,0);});
+        relationships.forEach(r=>{if(names.has(r.childEntity)&&names.has(r.parentEntity)){outgoing.set(r.childEntity,(outgoing.get(r.childEntity)||0)+1);incoming.set(r.parentEntity,(incoming.get(r.parentEntity)||0)+1);}});
+        const rank=new Map();
+        source.forEach(n=>rank.set(n.name,0));
+        for(let pass=0;pass<source.length;pass++){
+            let changed=false;
+            relationships.forEach(r=>{
+                if(!names.has(r.childEntity)||!names.has(r.parentEntity))return;
+                const next=Math.min(source.length-1,(rank.get(r.parentEntity)||0)+1);
+                if(next>(rank.get(r.childEntity)||0)){rank.set(r.childEntity,next);changed=true;}
+            });
+            if(!changed)break;
+        }
+        // Cycles can push ranks indefinitely during relaxation; compress ranks into
+        // stable ordered bands using dependency tendency as a tie-breaker.
+        const ordered=[...source].sort((x,y)=>{
+            const rx=rank.get(x.name)||0,ry=rank.get(y.name)||0;
+            if(rx!==ry)return rx-ry;
+            const sx=(incoming.get(x.name)||0)-(outgoing.get(x.name)||0),sy=(incoming.get(y.name)||0)-(outgoing.get(y.name)||0);
+            return sy-sx||x.name.localeCompare(y.name);
+        });
+        const maxPerRow=Math.max(3,Math.ceil(Math.sqrt(source.length*1.4)));
+        const layers=[];
+        ordered.forEach(n=>{
+            const desired=Math.min(rank.get(n.name)||0,Math.max(0,Math.ceil(source.length/maxPerRow)-1));
+            while(layers.length<=desired)layers.push([]);
+            layers[desired].push(n);
+        });
+        // Avoid one overloaded band while preserving rank ordering.
+        const balanced=[];
+        layers.forEach(layer=>{
+            layer.sort((x,y)=>((incoming.get(y.name)||0)+(outgoing.get(y.name)||0))-((incoming.get(x.name)||0)+(outgoing.get(x.name)||0))||x.name.localeCompare(y.name));
+            for(let i=0;i<layer.length;i+=maxPerRow)balanced.push(layer.slice(i,i+maxPerRow));
+        });
+        const cellW=230,cellH=155,padX=80,padY=65,nodeW=170,nodeH=58;
+        const widest=Math.max(...balanced.map(x=>x.length),1);
+        const width=Math.max(900,padX*2+(widest-1)*cellW+nodeW);
+        const nodes=[];
+        balanced.forEach((layer,row)=>{
+            const rowWidth=(layer.length-1)*cellW+nodeW;
+            const startX=Math.max(padX,(width-rowWidth)/2);
+            layer.forEach((n,col)=>{
+                const x=startX+col*cellW,y=padY+row*cellH;
+                nodes.push({...n,key:'rn-'+n.name,x,y,style:'left:'+x+'px;top:'+y+'px'});
+            });
+        });
         const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])),edges=[];
-        (a.relationships||[]).forEach((rel,i)=>{const s=pos.get((rel.childEntity||'').toLowerCase()),t=pos.get((rel.parentEntity||'').toLowerCase());if(!s||!t||s===t)return;const sx=s.x+85,sy=s.y+29,tx=t.x+85,ty=t.y+29,dx=tx-sx,dy=ty-sy,len=Math.max(24,Math.sqrt(dx*dx+dy*dy)-92),angle=Math.atan2(dy,dx)*180/Math.PI,raw=(rel.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';edges.push({key:'re-'+i,kind,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),style:'left:'+sx+'px;top:'+sy+'px;width:'+len+'px;transform:rotate('+angle+'deg)',title:s.name+' → '+t.name+' · '+kind});});
-        const rows=Math.ceil(count/cols);return {nodes,edges,style:'width:'+Math.max(900,pad*2+(cols-1)*cellW)+'px;height:'+Math.max(430,pad*2+(rows-1)*cellH)+'px'};
+        relationships.forEach((rel,i)=>{
+            const child=pos.get((rel.childEntity||'').toLowerCase()),parent=pos.get((rel.parentEntity||'').toLowerCase());
+            if(!child||!parent||child===parent)return;
+            const raw=(rel.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            // Anchor vertically between layers where possible, falling back to side
+            // anchors for same-row relationships.
+            let sx,sy,tx,ty;
+            if(Math.abs(child.y-parent.y)>20){
+                const childBelow=child.y>parent.y;
+                sx=child.x+nodeW/2;sy=childBelow?child.y:child.y+nodeH;
+                tx=parent.x+nodeW/2;ty=childBelow?parent.y+nodeH:parent.y;
+            }else{
+                const childRight=child.x>parent.x;
+                sx=childRight?child.x:child.x+nodeW;sy=child.y+nodeH/2;
+                tx=childRight?parent.x+nodeW:parent.x;ty=parent.y+nodeH/2;
+            }
+            const dx=tx-sx,dy=ty-sy,len=Math.max(24,Math.sqrt(dx*dx+dy*dy)),angle=Math.atan2(dy,dx)*180/Math.PI;
+            edges.push({key:'re-'+i,kind,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),style:'left:'+sx+'px;top:'+sy+'px;width:'+len+'px;transform:rotate('+angle+'deg)',title:child.name+' → '+parent.name+' · '+kind});
+        });
+        const height=Math.max(430,padY*2+(balanced.length-1)*cellH+nodeH);
+        return {nodes,edges,style:'width:'+width+'px;height:'+height+'px'};
     }
     get architectureRelationshipGraphNodes(){return this.architectureRelationshipGraph.nodes;}
     get architectureRelationshipGraphEdges(){return this.architectureRelationshipGraph.edges;}
     get architectureRelationshipGraphStyle(){return this.architectureRelationshipGraph.style;}
     get architectureRelationshipExplanation(){
         const a=this.architectureAnalysis;if(!a)return '';
-        return 'This view shows '+a.relationshipCount+' relationship'+(a.relationshipCount===1?'':'s')+' across '+a.entityCount+' objects. Arrows run from the child object to the referenced parent. Lookup represents a loose reference, Master Detail represents stronger parent ownership semantics, and Polymorphic means the relationship can reference more than one supported object type.';
+        const visible=(a.relationships||[]).filter(r=>(r.childEntity||'').toLowerCase()!==(r.parentEntity||'').toLowerCase()).length;
+        return 'This view shows '+visible+' relationship'+(visible===1?'':'s')+' between different objects. Self relationships are intentionally omitted from Relationship Insights to keep this dependency view readable. Arrows run from the child object to the referenced parent. Lookup represents a loose reference, Master Detail represents stronger parent ownership semantics, and Polymorphic means the relationship can reference more than one supported object type.';
     }
 
     get architectureRelationshipSummaryRows(){
