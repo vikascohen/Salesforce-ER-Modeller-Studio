@@ -1268,7 +1268,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHomeTiles(){
         return [
             {key:'overview',title:'Architecture Overview',question:'What does this model look like at a glance?',detail:'See model shape, relationship mix and the areas that deserve attention first.',action:'Open Overview'},
-            {key:'paths',title:'Change Impact & Paths',question:'How can a change travel through this model?',detail:'Trace blast radius and shortest paths as a separate impact question.',action:'Open Impact Analysis'},
+            {key:'paths',title:'Relationship Path Finder',question:'How are two objects connected?',detail:'Choose two objects and trace the shortest relationship route between them. Object impact remains inside Object Map.',action:'Open Path Finder'},
             {key:'usage',title:'Object Usage & Change Readiness',question:'What does this model tell me about changing an object?',detail:'Inspect modelled usage, dependency direction and change exposure without pretending the ER file contains live org usage data.',action:'Open Object Usage'},
             {key:'relationships',title:'Relationship Insights',question:'What relationship design deserves review?',detail:'See relationship patterns, why they matter and what an architect may want to inspect or improve.',action:'Open Relationship Insights'}
         ];
