@@ -1412,10 +1412,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHasUsageOutsideOrgReferences(){return this.architectureUsageOutsideOrgReferences.length>0;}
     get architectureUsageOrgDiagram(){
         const selected=this.architectureSelectedObject||'';
+        const selectedKey=selected.toLowerCase();
         const rows=this.architectureUsageOutsideOrgReferences||[];
-        const inbound=rows.filter(r=>(r.targetObject||'').toLowerCase()===selected.toLowerCase()).map((r,i)=>({...r,key:'org-in-'+i,name:r.sourceObject,field:r.fieldApiName,kind:r.relationshipType}));
-        const outbound=rows.filter(r=>(r.sourceObject||'').toLowerCase()===selected.toLowerCase()).map((r,i)=>({...r,key:'org-out-'+i,name:r.targetObject,field:r.fieldApiName,kind:r.relationshipType}));
-        return {selected,inbound,outbound,hasInbound:inbound.length>0,hasOutbound:outbound.length>0};
+        const auditFields=new Set(['createdbyid','lastmodifiedbyid','systemmodstamp']);
+        const ownershipFields=new Set(['ownerid']);
+        const groups=new Map();
+        const add=(name,row,direction)=>{
+            const key=(name||'').toLowerCase();
+            if(!key)return;
+            if(!groups.has(key))groups.set(key,{key:'org-node-'+key,name,relationships:[],businessCount:0,ownershipCount:0,auditCount:0});
+            const g=groups.get(key);
+            const field=(row.fieldApiName||'');
+            const fieldKey=field.toLowerCase();
+            const category=auditFields.has(fieldKey)?'System audit':ownershipFields.has(fieldKey)?'Ownership':'Schema relationship';
+            g.relationships.push({key:g.key+'-'+g.relationships.length,field,kind:row.relationshipType,category,direction});
+            if(category==='System audit')g.auditCount++;else if(category==='Ownership')g.ownershipCount++;else g.businessCount++;
+        };
+        rows.forEach(row=>{
+            if((row.targetObject||'').toLowerCase()===selectedKey)add(row.sourceObject,row,'references selected object');
+            if((row.sourceObject||'').toLowerCase()===selectedKey)add(row.targetObject,row,'referenced by selected object');
+        });
+        const dependencies=[...groups.values()].map(g=>({
+            ...g,
+            relationshipCount:g.relationships.length,
+            relationshipLabel:g.relationships.length===1?'1 reference':g.relationships.length+' references'
+        })).sort((a,b)=>a.name.localeCompare(b.name));
+        return {selected,dependencies,hasDependencies:dependencies.length>0};
     }
 
     get architectureUsageEvidenceNote(){return 'Evidence scope: the current ER model plus Salesforce schema relationship metadata loaded when Architecture Intelligence opens. This finds reference fields on objects outside the diagram, but does not infer Apex, Flow, reports, integrations, record counts or runtime usage.';}
