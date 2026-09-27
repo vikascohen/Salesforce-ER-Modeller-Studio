@@ -2818,12 +2818,39 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const fresh = await Promise.all(names.map(async (name) => ({ name, value: await getRecordCount({ objectApiName: name }) })));
+            // Keep record counts for objects already fetched during this
+            // component session. Heatmap is an architectural signal, not a
+            // live reporting dashboard, so repeatedly querying unchanged
+            // canvas objects only adds latency and server load.
+            const next = { ...(this.recordCounts || {}) };
+            const pendingNames = names.filter((name) => next[name.toLowerCase()] == null);
+            const concurrency = 4;
+            let cursor = 0;
+
+            const worker = async () => {
+                while (cursor < pendingNames.length) {
+                    const name = pendingNames[cursor++];
+                    const value = await getRecordCount({ objectApiName: name });
+                    const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+                    if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
+
+                    if (value) {
+                        next[name.toLowerCase()] = value;
+                        // Progressive render: colour/badge each object as soon
+                        // as its count arrives instead of waiting for the
+                        // slowest object on the canvas.
+                        this.recordCounts = { ...next };
+                    }
+                }
+            };
+
+            await Promise.all(
+                Array.from({ length: Math.min(concurrency, pendingNames.length) }, () => worker())
+            );
+
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
-            const next = {};
-            (fresh || []).forEach(({ name, value }) => { if (value) next[name.toLowerCase()] = value; });
-            this.recordCounts = next;
+            this.recordCounts = { ...next };
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
