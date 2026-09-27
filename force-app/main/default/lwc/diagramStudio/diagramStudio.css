@@ -1689,3 +1689,14 @@
 .arch-usage-org-diagram .arch-usage-centre{position:sticky;top:22px;align-self:start}
 .arch-usage-org-diagram .arch-usage-side{min-width:280px}
 .arch-usage-node small:empty:before{content:'Field not available in model evidence';font-style:italic;opacity:.75}
+
+/* Outside-ER usage: unambiguous left-to-right selected-object -> connected-object flow. */
+.arch-usage-org-diagram.arch-usage-org-flow{grid-template-columns:280px minmax(560px,1fr);align-items:start;min-width:900px}
+.arch-usage-org-root{position:sticky!important;left:22px;top:22px;z-index:2}
+.arch-usage-org-dependencies{display:flex;flex-direction:column;gap:10px;min-width:540px}
+.arch-usage-org-dependencies>h4{margin:0}.arch-usage-org-dependencies>.arch-usage-direction-help{margin:0 0 4px}
+.arch-usage-group-node{text-align:left;padding:13px 15px}
+.arch-usage-group-node>strong,.arch-usage-group-node>span{text-align:center}
+.arch-usage-field-list{margin-top:10px;border-top:1px solid var(--surface-border,rgba(127,127,127,.25))}
+.arch-usage-field-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(130px,.7fr) minmax(230px,1.4fr);gap:12px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--surface-border,rgba(127,127,127,.18))}
+.arch-usage-field-row b{overflow-wrap:anywhere}.arch-usage-field-row span{margin:0;font-size:10px}.arch-usage-field-row small{margin:0;opacity:.72}
