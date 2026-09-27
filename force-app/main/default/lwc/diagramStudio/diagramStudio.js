@@ -171,6 +171,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // ── zoom ──
     @track zoomLevel = 1;
+    @track legendX = null;
+    @track legendY = null;
+    legendDragging = false;
+    legendDragOffsetX = 0;
+    legendDragOffsetY = 0;
+    legendPointerId = null;
+
 
     // ── sharing model view ──
     @track sharingViewOn = false;
@@ -2105,6 +2112,38 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // Keep these stubs so old html attribute references don't error
     handleBoxPointerMove() {}
     handleBoxPointerUp()   {}
+
+    get legendStyle() {
+        return this.legendX === null || this.legendY === null ? '' : 'left:'+this.legendX+'px;top:'+this.legendY+'px;right:auto;bottom:auto;';
+    }
+    handleLegendPointerDown(event) {
+        event.preventDefault(); event.stopPropagation();
+        const legend=event.currentTarget.closest('.legend-overlay');
+        const host=this.template.querySelector('.canvas-panel') || legend.parentElement;
+        if(!legend||!host)return;
+        const lr=legend.getBoundingClientRect(),hr=host.getBoundingClientRect();
+        this.legendDragging=true;this.legendPointerId=event.pointerId;
+        this.legendDragOffsetX=event.clientX-lr.left;this.legendDragOffsetY=event.clientY-lr.top;
+        if(this.legendX===null){this.legendX=lr.left-hr.left;this.legendY=lr.top-hr.top;}
+        try{event.currentTarget.setPointerCapture(event.pointerId);}catch(_){}
+    }
+    handleLegendPointerMove(event) {
+        if(!this.legendDragging||event.pointerId!==this.legendPointerId)return;
+        const legend=this.template.querySelector('.legend-overlay');
+        const host=this.template.querySelector('.canvas-panel') || legend?.parentElement;
+        if(!legend||!host)return;
+        const hr=host.getBoundingClientRect(),lr=legend.getBoundingClientRect();
+        this.legendX=Math.max(0,Math.min(hr.width-lr.width,event.clientX-hr.left-this.legendDragOffsetX));
+        this.legendY=Math.max(0,Math.min(hr.height-lr.height,event.clientY-hr.top-this.legendDragOffsetY));
+    }
+    handleLegendPointerUp(event) {
+        if(event.pointerId!==this.legendPointerId)return;
+        this.legendDragging=false;this.legendPointerId=null;
+        try{event.currentTarget.releasePointerCapture(event.pointerId);}catch(_){}
+    }
+    handleLegendReset(event) {
+        event.stopPropagation();this.legendX=null;this.legendY=null;
+    }
 
     // ────────────────────────────────────────────────────────
     //  Focus mode — click an entity to fade everything except it and
