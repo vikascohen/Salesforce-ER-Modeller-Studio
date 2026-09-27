@@ -630,13 +630,15 @@
                 </template>
 
                 <section class="arch-section">
-                    <div class="arch-section-head"><span>Architecture Findings</span><span class="arch-section-hint">Finding → evidence → why it matters → next investigation</span></div>
+                    <div class="arch-section-head"><span>Architecture Findings</span><span class="arch-section-hint">Plain English Salesforce interpretation with evidence and next actions</span></div>
                     <div class="arch-findings">
                         <template for:each={architectureFindings} for:item="f">
                             <article class="arch-finding" key={f.key}>
                                 <div class="arch-finding-top"><span class="arch-tag">{f.kind}</span><strong>{f.title}</strong></div>
-                                <div class="arch-finding-grid"><div><span>Evidence</span><p>{f.evidence}</p></div><div><span>Why it matters</span><p>{f.impact}</p></div><div><span>Investigate</span><p>{f.action}</p></div></div>
-                                <template if:true={f.hasObject}><button class="arch-inline-link" data-name={f.objectName} onclick={handleArchitectureFindingInspect}>Inspect {f.objectName} →</button></template>
+                                <p class="arch-finding-plain">{f.plain}</p>
+                                <div class="arch-finding-mini"><span>Structural signal</span><div><i style={f.signalStyle}></i></div></div>
+                                <div class="arch-finding-grid arch-finding-grid-rich"><div><span>What the model actually shows</span><p>{f.evidence}</p></div><div><span>What this means in Salesforce</span><p>{f.salesforce}</p></div><div class="arch-finding-opportunity"><span>Opportunity</span><p>{f.opportunity}</p></div><div class="arch-finding-challenge"><span>Challenge to review</span><p>{f.challenge}</p></div><div><span>What I would inspect next</span><p>{f.action}</p></div></div>
+                                <template if:true={f.hasObject}><button class="arch-inline-link" data-name={f.objectName} onclick={handleArchitectureFindingInspect}>Drill into {f.objectName} →</button></template>
                             </article>
                         </template>
                     </div>
