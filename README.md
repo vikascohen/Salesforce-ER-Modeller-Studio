@@ -20,7 +20,7 @@ Our engineering principle remains simple: **transparent architecture evidence ra
 
 Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org using the button above.
 
-> **Note:** This deploy button points specifically to the `version-2-stable` branch. For the stable Phase 1 release, use the `main` branch.
+> **Note:** This deploy button points specifically to the `version-2-stable` branch. For Version 1, use the `version-1-stable` branch.
 
 ## Contents
 
@@ -160,16 +160,16 @@ package — once installed, every component is fully yours to edit
 directly in the org, same as if you'd deployed the source yourself; see
 [docs/SECURITY.md](docs/SECURITY.md) for what data it does and doesn't touch.
 
-**Or, deploy the stable Phase 1 release straight from GitHub:**
+**Or, deploy Version 2 Stable straight from GitHub:**
 
-> The deploy buttons below intentionally target `main`, which is the Phase 1 line. They therefore **do not deploy Phase 2**. This is deliberate while Phase 2 remains under development.
+> The deploy buttons below target `version-2-stable`, so this page always deploys the Version 2 Stable release.
 
-<a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
+<a href="https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable">
   <img alt="Deploy to Salesforce"
   src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
 </a>
 &nbsp;&nbsp;
-<a href="https://githubsfdeploy-sandbox.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=main">
+<a href="https://githubsfdeploy-sandbox.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable">
   <img alt="Deploy to Sandbox" src="https://raw.githubusercontent.com/afawcett/githubsfdeploy/master/src/main/webapp/resources/img/deploy.png">
 </a>
 
