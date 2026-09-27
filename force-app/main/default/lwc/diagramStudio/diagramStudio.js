@@ -741,7 +741,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }
     get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }
     get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }
-    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }\n    get canvasHasModel(){ return (this._erBoxes||[]).length>0; }
+    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }
+    get canvasHasModel(){ return (this._erBoxes||[]).length>0; }
     get canvasRelationshipSummary(){
         if(!this.canvasHasModel) return [];
         return (this.erConnectors||[]).map((r,i)=>{
@@ -1626,7 +1627,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 lines.push(`${o.apiName}.${f.apiName} ${a} ${f.relatesTo}`);
             });
         });
-        return lines.join('\n');
+        return lines.join('
+');
     }
 
     // ────────────────────────────────────────────────────────
@@ -1804,7 +1806,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
             this.erPositions[name] = { x: x - 120, y: y - 18 };
             const newLines = this.buildErSource([newObject], new Set([...existingNames, name]));
-            this.sourceText = (this.sourceText.trim() ? this.sourceText.trimEnd() + '\n\n' : '') + newLines;
+            this.sourceText = (this.sourceText.trim() ? this.sourceText.trimEnd() + '
+
+' : '') + newLines;
             this.isDirty    = true;
             this._markTabDirty(this.activeTabId, true);
             this.errorMessage = '';
@@ -1823,7 +1827,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.hideHoverCard(); // the box under the cursor is about to disappear
         const name = event.currentTarget.dataset.name;
         try {
-            const filtered = this.sourceText.split('\n').filter((line) => {
+            const filtered = this.sourceText.split('
+').filter((line) => {
                 const t = line.trim();
                 if (!t || t.startsWith('#')) return true;
                 const em = t.match(/^entity\s+(\w+)/i);
@@ -1832,7 +1837,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if (rm && (rm[1].toLowerCase() === name.toLowerCase() || rm[4].toLowerCase() === name.toLowerCase())) return false;
                 return true;
             });
-            const remaining  = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+            const remaining  = filtered.join('
+').replace(/
+{3,}/g, '
+
+').trim();
             const hasEntity  = /^\s*entity\s+\w+/im.test(remaining);
             delete this.erPositions[name];
             delete this.boxHeightOverrides[name];
@@ -2415,7 +2424,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     csvEscape(val) {
         const s = val == null ? '' : String(val);
-        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        return /[",
+]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     }
 
     downloadTextFile(content, filename, mime) {
@@ -2435,7 +2445,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return s || 'Sheet';
     }
 
-    // Single-object export mirrors the visible field table: current search, dropdown filter and sort.\n    // Bulk Export All remains a complete dictionary export in natural order.
+    // Single-object export mirrors the visible field table: current search, dropdown filter and sort.
+    // Bulk Export All remains a complete dictionary export in natural order.
     getDictionaryRowForExport() {
         return { ...this.dictionaryRow, fields: this.dictionaryFilteredSortedFields };
     }
@@ -2443,7 +2454,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleExportDictionaryCsv() {
         if (!this.dictionaryRow) return;
         const rows = this.buildDictSheetAoA(this.getDictionaryRowForExport());
-        const csv = rows.map((r) => r.map((cell) => this.csvEscape(cell)).join(',')).join('\n');
+        const csv = rows.map((r) => r.map((cell) => this.csvEscape(cell)).join(',')).join('
+');
         this.downloadTextFile(csv, this.dictionaryRow.apiName + '-dictionary.csv', 'text/csv');
     }
 
@@ -2677,7 +2689,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (!textareaEl) { this.dslSuggestOpen = false; return; }
         const text  = textareaEl.value;
         const caret = textareaEl.selectionStart;
-        const lineStart   = text.lastIndexOf('\n', caret - 1) + 1;
+        const lineStart   = text.lastIndexOf('
+', caret - 1) + 1;
         const linePrefix  = text.substring(lineStart, caret);
 
         const ctx = this.detectDslContext(linePrefix, text, lineStart);
@@ -2721,8 +2734,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const padTop  = parseFloat(cs.paddingTop)  || 0;
 
         const before = textareaEl.value.substring(0, caret);
-        const row = (before.match(/\n/g) || []).length;
-        const col = caret - before.lastIndexOf('\n') - 1;
+        const row = (before.match(/
+/g) || []).length;
+        const col = caret - before.lastIndexOf('
+') - 1;
 
         const rawX = textareaEl.offsetLeft + padLeft + col * charWidth - textareaEl.scrollLeft;
         const rawY = textareaEl.offsetTop + padTop + (row + 1) * lineHeight - textareaEl.scrollTop;
@@ -2813,7 +2828,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // only ever holds text up to the caret) and folding those
             // fields into the same exclusion set.
             const caret = lineStart + linePrefix.length;
-            const restOfLineMatch = fullText.slice(caret).match(/^[^\n]*/);
+            const restOfLineMatch = fullText.slice(caret).match(/^[^
+]*/);
             const afterCaretText = restOfLineMatch ? restOfLineMatch[0] : '';
             const afterCaretParts = splitFieldList(afterCaretText).map((s) => s.trim()).filter(Boolean);
 
@@ -2989,7 +3005,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     appendDslLines(lines) {
         const trimmed = (this.sourceText || '').replace(/\s+$/, '');
-        this.sourceText = (trimmed ? trimmed + '\n' : '') + lines.join('\n') + '\n';
+        this.sourceText = (trimmed ? trimmed + '
+' : '') + lines.join('
+') + '
+';
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         this.renderDiagram();
@@ -3119,7 +3138,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     addFieldToEntity(entityName, fieldName, skipRender, markerSuffix) {
         const fieldText = fieldName + (markerSuffix || '');
-        const lines = this.sourceText.split('\n');
+        const lines = this.sourceText.split('
+');
         let found = false;
         for (let i = 0; i < lines.length; i++) {
             const m = lines[i].match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)?(.*)$/i);
@@ -3131,14 +3151,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
         }
         if (!found) lines.push(`entity ${entityName} : ${fieldText}`);
-        this.sourceText = lines.join('\n');
+        this.sourceText = lines.join('
+');
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         if (!skipRender) this.renderDiagram();
     }
 
     removeFieldFromEntity(entityName, fieldName) {
-        const lines = this.sourceText.split('\n').map((line) => {
+        const lines = this.sourceText.split('
+').map((line) => {
             const m = line.match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)(.*)$/i);
             if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
                 const remaining = m[4].split(',').map((f) => f.trim()).filter((f) => f && f.toLowerCase() !== fieldName.toLowerCase());
@@ -3150,7 +3172,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const rm = t.match(/^([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*(=>|~>|->)/);
             return !(rm && rm[1].toLowerCase() === entityName.toLowerCase() && rm[2].toLowerCase() === fieldName.toLowerCase());
         });
-        this.sourceText = lines.join('\n');
+        this.sourceText = lines.join('
+');
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
         this.renderDiagram();
