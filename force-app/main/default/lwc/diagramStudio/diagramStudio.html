@@ -723,13 +723,13 @@
                             <div><span>3 hop exposure</span><strong>{architectureUsageDetail.reach}</strong></div>
                             <div><span>Junction signal</span><strong>{architectureUsageDetail.junctionText}</strong></div>
                         </div>
-                        <div class="arch-usage-diagram arch-usage-diagram-simple">
+                        <div class="arch-usage-scroll-frame"><div class="arch-usage-diagram arch-usage-diagram-simple">
                             <div class="arch-usage-centre"><span>SELECTED OBJECT</span><strong>{architectureUsageDetail.name}</strong><small>{architectureUsageDetail.type}</small></div>
                             <div class="arch-usage-all-dependencies">
                                 <div class="arch-usage-side"><h4>Depends on</h4><p class="arch-usage-direction-help">Objects referenced by {architectureUsageDetail.name}</p><template if:true={architectureUsageDetail.hasOutbound}><template for:each={architectureUsageDetail.outbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasOutbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
                                 <div class="arch-usage-side"><h4>Depended on by</h4><p class="arch-usage-direction-help">Objects that reference {architectureUsageDetail.name}</p><template if:true={architectureUsageDetail.hasInbound}><template for:each={architectureUsageDetail.inbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasInbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
                             </div>
-                        </div>
+                        </div></div>
                         <div class="arch-usage-assessment"><strong>Architecture assessment</strong><p>{architectureUsageDetail.observation}</p></div>
                         <div class="arch-usage-unknown">
                             <strong>Referenced objects outside the declared diagram</strong>
@@ -746,7 +746,13 @@
                             <template if:true={architectureOrgReferencesLoading}><p>Loading org schema relationship index…</p></template>
                             <template if:true={architectureOrgReferencesError}><p>{architectureOrgReferencesError}</p></template>
                             <template if:true={architectureHasUsageOutsideOrgReferences}>
-                                <div class="arch-usage-external-list"><template for:each={architectureUsageOutsideOrgReferences} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.path}</strong><span>{x.relationshipType}</span><small>{x.scope}</small></div></template></div>
+                                <div class="arch-usage-scroll-frame arch-usage-org-scroll">
+                                    <div class="arch-usage-org-diagram">
+                                        <div class="arch-usage-side"><h4>Outside objects depending on it</h4><template if:true={architectureUsageOrgDiagram.hasInbound}><template for:each={architectureUsageOrgDiagram.inbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageOrgDiagram.hasInbound}><div class="arch-object-map-empty">None discovered</div></template></div>
+                                        <div class="arch-usage-centre"><span>SELECTED OBJECT</span><strong>{architectureUsageOrgDiagram.selected}</strong><small>Salesforce schema index</small></div>
+                                        <div class="arch-usage-side"><h4>Outside objects it depends on</h4><template if:true={architectureUsageOrgDiagram.hasOutbound}><template for:each={architectureUsageOrgDiagram.outbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageOrgDiagram.hasOutbound}><div class="arch-object-map-empty">None discovered</div></template></div>
+                                    </div>
+                                </div>
                             </template>
                             <template if:false={architectureHasUsageOutsideOrgReferences}><template if:false={architectureOrgReferencesLoading}><p>No additional Salesforce schema relationship references were found outside the current ER model for this object.</p></template></template>
                         </div>
