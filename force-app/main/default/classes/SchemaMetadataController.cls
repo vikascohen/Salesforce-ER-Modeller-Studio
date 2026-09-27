@@ -700,7 +700,9 @@ public with sharing class SchemaMetadataController {
         Map<String, Schema.SObjectField> describedFields =
             Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
         Set<Schema.DisplayType> unsupported = new Set<Schema.DisplayType>{
+            Schema.DisplayType.ADDRESS,
             Schema.DisplayType.BASE64,
+            Schema.DisplayType.LOCATION,
             Schema.DisplayType.TEXTAREA
         };
         List<String> countableFields = new List<String>();
