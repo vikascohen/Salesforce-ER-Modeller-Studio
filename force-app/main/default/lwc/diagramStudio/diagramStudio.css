@@ -1460,3 +1460,18 @@
 .arch-finding-grid-rich p{font-size:calc(12px * var(--arch-font-scale,1));line-height:1.6;margin:5px 0 0;color:#475467}
 .arch-finding-opportunity{border-left:3px solid #12b76a!important}.arch-finding-challenge{border-left:3px solid #f79009!important}
 @media(max-width:950px){.arch-finding-grid-rich{grid-template-columns:1fr}.arch-finding-grid-rich>div:last-child{grid-column:auto}}
+
+/* Architecture Intelligence home and theme-aware workspaces */
+.arch-home{padding:18px 0 28px}
+.arch-home-hero{padding:22px;border:1px solid currentColor;border-color:rgba(127,127,127,.28);border-radius:14px;background:rgba(127,127,127,.055);color:inherit}
+.arch-home-hero h2{margin:7px 0 10px;font-size:calc(21px * var(--arch-font-scale,1));color:inherit}.arch-home-hero p,.arch-home-hero li{font-size:calc(12px * var(--arch-font-scale,1));line-height:1.65;color:inherit;opacity:.82}.arch-home-hero ul{margin:12px 0 0;padding-left:20px}
+.arch-home-grid{display:grid;grid-template-columns:repeat(2,minmax(320px,1fr));gap:14px;margin-top:16px}
+.arch-home-tile{min-height:190px;padding:18px;text-align:left;border:1px solid rgba(127,127,127,.32);border-radius:14px;background:rgba(127,127,127,.045);color:inherit;cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
+.arch-home-tile:hover{transform:translateY(-1px);border-color:#0176d3;background:rgba(1,118,211,.08)}
+.arch-home-question{display:block;margin-bottom:8px;font-size:calc(10px * var(--arch-font-scale,1));font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#0b8ee8}
+.arch-home-tile strong{display:block;font-size:calc(17px * var(--arch-font-scale,1));color:inherit}.arch-home-tile p{min-height:58px;margin:9px 0 14px;font-size:calc(12px * var(--arch-font-scale,1));line-height:1.55;color:inherit;opacity:.76}.arch-home-action{font-size:calc(11px * var(--arch-font-scale,1));font-weight:800;color:#0b8ee8}
+.arch-workspace-nav{position:sticky;top:0;z-index:8;padding:8px 0;background:inherit}.arch-home-back{border:1px solid rgba(127,127,127,.35);border-radius:8px;padding:8px 12px;background:rgba(127,127,127,.06);color:inherit;font-weight:700;cursor:pointer}
+.arch-panel .arch-finding-plain,.arch-panel .arch-finding-grid-rich>div,.arch-panel .arch-guide-card,.arch-panel .arch-visual-card,.arch-panel .arch-designer-brief article{background:rgba(127,127,127,.055);color:inherit}
+.arch-panel .arch-finding-plain,.arch-panel .arch-finding-grid-rich p,.arch-panel .arch-guide-card p,.arch-panel .arch-chart-help,.arch-panel .arch-dashboard-help{color:inherit;opacity:.82}
+.arch-panel .arch-finding-grid-rich>div,.arch-panel .arch-guide-card,.arch-panel .arch-visual-card{border-color:rgba(127,127,127,.28)}
+@media(max-width:900px){.arch-home-grid{grid-template-columns:1fr}}
