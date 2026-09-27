@@ -1324,7 +1324,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architecturePathFound() { return !!this.architecturePathResult?.found; }
     get architecturePathText() { const r=this.architecturePathResult; return r?.found ? r.path.join(' → ') : 'No structural relationship path exists between the selected objects in the current model.'; }
     get architectureBlastRadius() { return this.architectureSelectedObject ? analyseBlastRadius(this.architectureAnalysis,this.architectureSelectedObject,3) : null; }
-    get architectureBlastLevels() { return this.architectureBlastRadius?.levels||[]; }
+    get architectureBlastLevels() { return (this.architectureBlastRadius?.levels||[]).map(level=>({...level,key:'impact-'+level.depth,objectText:level.objects.length?level.objects.join(', '):'No additional objects at this distance',meaning:level.depth===1?'Direct dependencies. These objects have an immediate structural relationship with the selected object and are the first regression and design review scope.':level.depth===2?'Secondary dependencies. These are not directly related to the selected object, but a change can reach them through one intermediate object.':'Wider model reach. These objects sit further away and are useful for understanding broader regression, integration and ownership scope.'})); }
+    get architectureHasImpactSelection(){return !!this.architectureSelectedObject;}
+    get architectureImpactSummary(){
+        const b=this.architectureBlastRadius;if(!b)return '';
+        return b.source+' can reach '+b.total+' other object'+(b.total===1?'':'s')+' within '+b.maxDepth+' relationship hops. This is structural impact evidence, not a claim that every reachable object will functionally break. Use the direct level as the immediate review scope, then widen testing and ownership review where the relationship semantics justify it.';
+    }
     get architectureJunctions() { return detectJunctionObjects(this.architectureAnalysis).slice(0,12); }
     get architectureRelationshipGraph(){
         const a=this.architectureAnalysis;if(!a)return {nodes:[],edges:[],style:''};
