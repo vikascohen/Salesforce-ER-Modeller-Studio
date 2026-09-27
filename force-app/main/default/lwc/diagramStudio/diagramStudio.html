@@ -710,8 +710,8 @@
                     <template if:false={architectureHasObjectDetail}><div class="arch-empty arch-empty-small">Select an object above to build its architecture map from the current ER model.</div></template>
                 </section>
                 <section class="arch-section arch-workspace arch-workspace-usage">
-                    <div class="arch-section-head"><span>Object Usage & Change Readiness</span><span class="arch-section-hint">Diagram evidence · no Tooling API or live org assumptions</span></div>
-                    <div class="arch-usage-scope"><strong>What this can prove</strong><p>It shows how an object is structurally used by the ER model you loaded and what modelled dependencies deserve review before a change. It deliberately does not invent record counts, last-used dates or dependencies that are not present in the diagram.</p></div>
+                    <div class="arch-section-head"><span>Object Usage & Change Readiness</span><span class="arch-section-hint">Diagram + cached Salesforce schema evidence · no Tooling API</span></div>
+                    <div class="arch-usage-scope"><strong>What this can prove</strong><p>It combines relationships in the ER model with Salesforce schema reference fields discovered across the org. The org schema scan is loaded once when Architecture Intelligence opens and cached for the active diagram, so selecting different objects does not repeatedly scan Salesforce metadata.</p></div>
                     <div class="arch-map-picker"><select class="arch-select" onchange={handleArchitectureUsageObject}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
                     <template if:true={architectureHasUsageDetail}>
                         <div class="arch-usage-head"><div><span class="arch-brief-label">CHANGE READINESS</span><h3>{architectureUsageDetail.name}</h3><p>{architectureUsageDetail.type}</p></div><span class="arch-usage-status">{architectureUsageDetail.status}</span></div>
@@ -723,13 +723,13 @@
                             <div><span>3 hop exposure</span><strong>{architectureUsageDetail.reach}</strong></div>
                             <div><span>Junction signal</span><strong>{architectureUsageDetail.junctionText}</strong></div>
                         </div>
-                        <div class="arch-usage-diagram arch-usage-diagram-simple">
+                        <div class="arch-usage-scroll-frame"><div class="arch-usage-diagram arch-usage-diagram-simple">
                             <div class="arch-usage-centre"><span>SELECTED OBJECT</span><strong>{architectureUsageDetail.name}</strong><small>{architectureUsageDetail.type}</small></div>
                             <div class="arch-usage-all-dependencies">
                                 <div class="arch-usage-side"><h4>Depends on</h4><p class="arch-usage-direction-help">Objects referenced by {architectureUsageDetail.name}</p><template if:true={architectureUsageDetail.hasOutbound}><template for:each={architectureUsageDetail.outbound} for:item="x"><div class="arch-usage-node arch-usage-group-node" key={x.key}><strong>{x.name}</strong><span>{x.relationshipLabel}</span><div class="arch-usage-field-list"><template for:each={x.relationships} for:item="r"><div class="arch-usage-field-row" key={r.key}><b>{r.field}</b><span>{r.kind}</span></div></template></div></div></template></template><template if:false={architectureUsageDetail.hasOutbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
                                 <div class="arch-usage-side"><h4>Depended on by</h4><p class="arch-usage-direction-help">Objects that reference {architectureUsageDetail.name}</p><template if:true={architectureUsageDetail.hasInbound}><template for:each={architectureUsageDetail.inbound} for:item="x"><div class="arch-usage-node arch-usage-group-node" key={x.key}><strong>{x.name}</strong><span>{x.relationshipLabel}</span><div class="arch-usage-field-list"><template for:each={x.relationships} for:item="r"><div class="arch-usage-field-row" key={r.key}><b>{r.field}</b><span>{r.kind}</span></div></template></div></div></template></template><template if:false={architectureUsageDetail.hasInbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
                             </div>
-                        </div>
+                        </div></div>
                         <div class="arch-usage-assessment"><strong>Architecture assessment</strong><p>{architectureUsageDetail.observation}</p></div>
                         <div class="arch-usage-unknown">
                             <strong>Referenced objects outside the declared diagram</strong>
@@ -739,6 +739,33 @@
                             </template>
                             <template if:false={architectureUsageDetail.hasOutsideDiagram}><p>None explicitly referenced by this object's modelled relationships.</p></template>
                             <p>Other Salesforce metadata, automation, Apex, reports and integrations remain unknown because Architecture Intelligence does not query the org.</p>
+                        </div>
+                        <div class="arch-usage-unknown">
+                            <strong>Org schema references beyond this ER diagram</strong>
+                            <p>Reference fields discovered in Salesforce schema metadata where either end of the relationship is outside the current ER model. Each row shows the exact referencing field.</p>
+                            <template if:true={architectureOrgReferencesLoading}><p>Loading org schema relationship index…</p></template>
+                            <template if:true={architectureOrgReferencesError}><p>{architectureOrgReferencesError}</p></template>
+                            <template if:true={architectureHasUsageOutsideOrgReferences}>
+                                <div class="arch-usage-scroll-frame arch-usage-org-scroll">
+                                    <div class="arch-usage-org-diagram arch-usage-org-flow">
+                                        <div class="arch-usage-centre arch-usage-org-root"><span>SELECTED OBJECT</span><strong>{architectureUsageOrgDiagram.selected}</strong><small>Salesforce schema index</small></div>
+                                        <div class="arch-usage-org-dependencies">
+                                            <h4>Connected objects outside this ER</h4>
+                                            <p class="arch-usage-direction-help">Each object appears once. All reference fields between it and {architectureUsageOrgDiagram.selected} are grouped inside the same box.</p>
+                                            <template if:true={architectureUsageOrgDiagram.hasDependencies}>
+                                                <template for:each={architectureUsageOrgDiagram.dependencies} for:item="x">
+                                                    <div class="arch-usage-node arch-usage-group-node" key={x.key}>
+                                                        <strong>{x.name}</strong><span>{x.relationshipLabel}</span>
+                                                        <div class="arch-usage-field-list"><template for:each={x.relationships} for:item="r"><div class="arch-usage-field-row" key={r.key}><b>{r.field}</b><span>{r.kind}</span><small>{r.category} · {r.direction}</small></div></template></div>
+                                                    </div>
+                                                </template>
+                                            </template>
+                                            <template if:false={architectureUsageOrgDiagram.hasDependencies}><div class="arch-object-map-empty">No outside schema references discovered</div></template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template if:false={architectureHasUsageOutsideOrgReferences}><template if:false={architectureOrgReferencesLoading}><p>No additional Salesforce schema relationship references were found outside the current ER model for this object.</p></template></template>
                         </div>
                         <div class="arch-usage-evidence">{architectureUsageEvidenceNote}</div>
                     </template>
