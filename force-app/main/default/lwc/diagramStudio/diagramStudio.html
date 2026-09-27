@@ -614,7 +614,7 @@
     <template if:true={architectureOpen}>
         <div class={architecturePanelClass} style={architecturePanelStyle}>
             <div class="arch-header">
-                <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Structural evidence from the ER model currently on the canvas.</div></div>
+                <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Analysing file: <strong>{fileName}</strong> · Structural evidence from the ER model currently on the canvas.</div></div>
                 <div class="arch-header-actions"><button class="arch-action-btn arch-refresh-btn" onclick={handleArchitectureReset}>Clear / Refresh</button><div class="arch-font-controls" title="Adjust Architecture Intelligence text size"><button class="arch-font-btn" onclick={handleArchitectureFontDecrease} disabled={architectureCannotDecreaseFont}>A−</button><button class="arch-font-value" onclick={handleArchitectureFontReset} title="Reset text size">{architectureFontPercent}</button><button class="arch-font-btn" onclick={handleArchitectureFontIncrease} disabled={architectureCannotIncreaseFont}>A+</button></div><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
             </div>
             <template if:true={architectureHasError}>
