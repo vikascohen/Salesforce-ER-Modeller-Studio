@@ -14,8 +14,8 @@ jest.mock('@salesforce/apex/DiagramFileController.renameFile', () => ({ default:
 jest.mock('@salesforce/apex/DiagramFileController.saveDiagramAsFile', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjects', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getSharingModels', () => ({ default: jest.fn() }), { virtual: true });
-jest.mock('@salesforce/apex/SchemaMetadataController.getSharingSignals', () => ({ default: jest.fn() }), { virtual: true });
-jest.mock('@salesforce/apex/SchemaMetadataController.getRecordCounts', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/SchemaMetadataController.getSharingSignal', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/SchemaMetadataController.getRecordCount', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getSchemaReferences', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
@@ -33,11 +33,11 @@ const describeObjectsForDictionary = require('@salesforce/apex/SchemaMetadataCon
 // eslint-disable-next-line no-undef
 const getTheme = require('@salesforce/apex/DiagramPreferenceController.getTheme').default;
 // eslint-disable-next-line no-undef
-const getRecordCounts = require('@salesforce/apex/SchemaMetadataController.getRecordCounts').default;
+const getRecordCount = require('@salesforce/apex/SchemaMetadataController.getRecordCount').default;
 // eslint-disable-next-line no-undef
 const getSharingModels = require('@salesforce/apex/SchemaMetadataController.getSharingModels').default;
 // eslint-disable-next-line no-undef
-const getSharingSignals = require('@salesforce/apex/SchemaMetadataController.getSharingSignals').default;
+const getSharingSignal = require('@salesforce/apex/SchemaMetadataController.getSharingSignal').default;
 // eslint-disable-next-line no-undef
 const getSchemaReferences = require('@salesforce/apex/SchemaMetadataController.getSchemaReferences').default;
 
@@ -106,7 +106,7 @@ describe('c-diagram-studio', () => {
     });
 
     it('hover card shows field count always, and real data only for toggles that are on', async () => {
-        getRecordCounts.mockResolvedValue({ Account: { count: 42, lastModifiedDate: new Date().toISOString() } });
+        getRecordCount.mockResolvedValue({ count: 42, lastModifiedDate: new Date().toISOString() });
 
         const el = createStudio();
         await flushPromises();
@@ -166,10 +166,11 @@ describe('c-diagram-studio', () => {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
 
-        getRecordCounts.mockResolvedValue({
-            Account: { count: 500, lastModifiedDate: twoYearsAgo.toISOString() },
-            Contact: { count: 500, lastModifiedDate: yesterday.toISOString() }
-        });
+        getRecordCount.mockImplementation(({ objectApiName }) => Promise.resolve(
+            objectApiName === 'Account'
+                ? { count: 500, lastModifiedDate: twoYearsAgo.toISOString() }
+                : { count: 500, lastModifiedDate: yesterday.toISOString() }
+        ));
 
         const el = createStudio();
         await flushPromises();
@@ -222,9 +223,7 @@ describe('c-diagram-studio', () => {
         // incomplete, so it must say "not determinable" instead — this
         // test asserts on that exact wording, not just "something shows".
         getSharingModels.mockResolvedValue({ Account: { internalModel: 'Private', externalModel: null } });
-        getSharingSignals.mockResolvedValue({
-            Account: { shareTableAvailable: true, isCustomObject: false, hasSharingRule: true, hasApexSharing: false }
-        });
+        getSharingSignal.mockResolvedValue({ shareTableAvailable: true, isCustomObject: false, hasSharingRule: true, hasApexSharing: false });
 
         const el = createStudio();
         await flushPromises();
@@ -251,9 +250,7 @@ describe('c-diagram-studio', () => {
 
     it('NEW FEATURE: Apex Sharing shows a real Yes/No on a custom object, since it is reliably detectable there', async () => {
         getSharingModels.mockResolvedValue({ Diagram_File__c: { internalModel: 'Private', externalModel: null } });
-        getSharingSignals.mockResolvedValue({
-            Diagram_File__c: { shareTableAvailable: true, isCustomObject: true, hasSharingRule: false, hasApexSharing: true }
-        });
+        getSharingSignal.mockResolvedValue({ shareTableAvailable: true, isCustomObject: true, hasSharingRule: false, hasApexSharing: true });
 
         const el = createStudio();
         await flushPromises();
@@ -279,9 +276,7 @@ describe('c-diagram-studio', () => {
 
     it('NEW FEATURE: an object with no __Share table at all shows a clear "no sharing data" message, not a misleading No', async () => {
         getSharingModels.mockResolvedValue({ Account: { internalModel: 'ReadWrite', externalModel: null } });
-        getSharingSignals.mockResolvedValue({
-            Account: { shareTableAvailable: false, isCustomObject: false, hasSharingRule: false, hasApexSharing: false }
-        });
+        getSharingSignal.mockResolvedValue({ shareTableAvailable: false, isCustomObject: false, hasSharingRule: false, hasApexSharing: false });
 
         const el = createStudio();
         await flushPromises();
