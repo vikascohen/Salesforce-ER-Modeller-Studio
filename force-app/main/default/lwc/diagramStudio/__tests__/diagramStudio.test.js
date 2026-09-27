@@ -1593,7 +1593,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
             'Project__c.Account__c -> Account'
         ].join('\n'));
         await openArchitectureQuestion(el, 'Open Object Usage');
-        await flushPromises();
+        await new Promise((resolve) => setTimeout(resolve, 25));
 
         const select = el.shadowRoot.querySelector('.arch-workspace-usage select');
         select.value = 'Account';
