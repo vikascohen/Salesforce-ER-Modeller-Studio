@@ -206,7 +206,7 @@ The existing Apex production and test classes remain the Version 1 Salesforce fo
 
 ## Author
 
-Vikas Cohen — Passionate transhumanist and a programmer when get extremely bored.
+Crius Consulting Architects
 
 ## License
 
