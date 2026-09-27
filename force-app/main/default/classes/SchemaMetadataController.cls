@@ -702,6 +702,7 @@ public with sharing class SchemaMetadataController {
         Set<Schema.DisplayType> unsupported = new Set<Schema.DisplayType>{
             Schema.DisplayType.ADDRESS,
             Schema.DisplayType.BASE64,
+            Schema.DisplayType.BOOLEAN,
             Schema.DisplayType.LOCATION,
             Schema.DisplayType.TEXTAREA
         };
