@@ -752,6 +752,34 @@
                     <div class="arch-rel-explain"><h3>How to read this view</h3><p>{architectureRelationshipExplanation}</p><div class="arch-rel-type-guide"><div><strong>Lookup</strong><span>A reference from one object to another. Review it when understanding dependency, reporting joins and change impact.</span></div><div><strong>Master Detail</strong><span>A stronger parent child relationship. The parent participates in ownership semantics and can influence lifecycle behaviour.</span></div><div><strong>Polymorphic</strong><span>A relationship whose target can vary across supported object types. Treat it as a broader dependency when reasoning about the model.</span></div></div></div>
                     <div class="arch-rel-graph-scroll"><div class="arch-rel-graph" style={architectureRelationshipGraphStyle}><template for:each={architectureRelationshipGraphEdges} for:item="e"><div key={e.key} class={e.className} style={e.style} title={e.title}><span>{e.kind}</span></div></template><template for:each={architectureRelationshipGraphNodes} for:item="n"><button key={n.key} class="arch-rel-graph-node" style={n.style} data-name={n.name} onclick={handleArchitectureObjectSelect}><strong>{n.name}</strong><small>{n.degree} relationships</small></button></template></div></div>
                     <div class="arch-rel-legend"><span class="arch-rel-lookup">Lookup</span><span class="arch-rel-master">Master Detail</span><span class="arch-rel-poly">Polymorphic</span></div>
+                    <div class="arch-rel-deep-summary">
+                        <div class="arch-section-head"><span>Relationship Detail</span><span class="arch-section-hint">Every relationship represented by the current ER file</span></div>
+                        <p class="arch-domain-help">This section explains dependency direction and the architectural consequences of changing or deleting records. Record deletion behaviour is described conservatively from relationship semantics only; Flow, Apex, triggers, validation, integrations and live data are not inferred.</p>
+                        <div class="arch-rel-detail-list">
+                            <template for:each={architectureRelationshipSummaryRows} for:item="r">
+                                <article class="arch-rel-detail-card" key={r.key}>
+                                    <div class="arch-rel-detail-head"><strong>{r.child}.{r.field}</strong><span class="arch-tag">{r.kind}</span></div>
+                                    <div class="arch-rel-route"><b>{r.child}</b><span>→</span><b>{r.parent}</b></div>
+                                    <p><b>Dependency:</b> {r.child} depends on {r.parent}. Target scope: {r.parentScope}.</p>
+                                    <p><b>Record deletion impact:</b> {r.recordImpact}</p>
+                                    <p><b>Schema/change impact:</b> {r.changeImpact}</p>
+                                </article>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="arch-rel-object-summary">
+                        <div class="arch-section-head"><span>Object Dependency Summary</span><span class="arch-section-hint">Current diagram dependency inventory by object</span></div>
+                        <div class="arch-rel-detail-list">
+                            <template for:each={architectureObjectDependencySummaries} for:item="o">
+                                <article class="arch-rel-detail-card" key={o.key}>
+                                    <div class="arch-rel-detail-head"><strong>{o.name}</strong><span>{o.outgoingCount} outbound · {o.incomingCount} inbound</span></div>
+                                    <p><b>Depends on:</b> {o.dependsOn}</p>
+                                    <p><b>Depended on by:</b> {o.dependedOnBy}</p>
+                                    <p><b>Explicit external targets:</b> {o.externalText}</p>
+                                </article>
+                            </template>
+                        </div>
+                    </div>
                     <div class="arch-junction-explain"><h3>Junction Intelligence</h3><p>{architectureJunctionExplanation}</p></div>
                     <template if:true={architectureHasJunctions}><div class="arch-junction-grid"><template for:each={architectureJunctionInsights} for:item="j"><div class="arch-junction-card arch-junction-insight" key={j.name}><div><strong>{j.name}</strong><span class="arch-tag">{j.reviewLabel}</span></div><p class="arch-junction-evidence"><b>Evidence:</b> {j.distinctTargets} parent targets · {j.outboundRelationships} outbound relationships · {j.masterDetailRelationships} Master Detail</p><p><b>What it means:</b> {j.meaning}</p><p class="arch-junction-suggestion"><b>Architect review:</b> {j.suggestion}</p></div></template></div></template>
                     <template if:false={architectureHasJunctions}><div class="arch-empty arch-empty-small">No multi-parent junction candidates detected in the current model.</div></template>
