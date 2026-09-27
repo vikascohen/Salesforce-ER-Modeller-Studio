@@ -706,31 +706,43 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try {
             const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[];
             if(!entities.length) return;
-            const degree={}; entities.forEach(e=>degree[e.name]=0);
-            rels.forEach(r=>{ if(degree[r.childEntity]!=null)degree[r.childEntity]++; if(r.parentEntity!==r.childEntity&&degree[r.parentEntity]!=null)degree[r.parentEntity]++; });
+            const degree={};
+            entities.forEach(e=>degree[e.name]=0);
+            rels.forEach(r=>{
+                if(degree[r.childEntity]!=null) degree[r.childEntity]++;
+                if(r.parentEntity!==r.childEntity&&degree[r.parentEntity]!=null) degree[r.parentEntity]++;
+            });
             const ordered=[...entities].sort((a,b)=>(degree[b.name]-degree[a.name])||a.name.localeCompare(b.name));
             const vw=Math.max(700,wrap.clientWidth-70), vh=Math.max(500,wrap.clientHeight-70);
             const cols=Math.max(2,Math.min(6,Math.ceil(Math.sqrt(ordered.length*(vw/vh)))));
-            const dense=ordered.length>=16, veryDense=ordered.length>=32;\n            const cardW=Math.max(veryDense?145:dense?160:180,Math.min(veryDense?190:dense?210:250,(vw-50)/cols-28));
+            const dense=ordered.length>=16, veryDense=ordered.length>=32;
+            const cardW=Math.max(veryDense?145:dense?160:180,Math.min(veryDense?190:dense?210:250,(vw-50)/cols-28));
             const gapX=Math.max(veryDense?26:34,(vw-cols*cardW)/(cols+1)), gapY=veryDense?38:dense?46:54;
             const positions={}, widths={}, heights={};
             ordered.forEach((ent,i)=>{
                 const col=i%cols,row=Math.floor(i/cols);
-                const compactRows=veryDense?4:dense?5:8;\n                const cardH=Math.max(104,52+Math.min(compactRows,(ent.fields?.length||0)+1)*22);\n                positions[ent.name]={x:Math.round(gapX+col*(cardW+gapX)),y:Math.round(40+row*(cardH+gapY))};
+                const compactRows=veryDense?4:dense?5:8;
+                const cardH=Math.max(104,52+Math.min(compactRows,(ent.fields?.length||0)+1)*22);
+                positions[ent.name]={x:Math.round(gapX+col*(cardW+gapX)),y:Math.round(40+row*(cardH+gapY))};
                 widths[ent.name]=Math.round(cardW);
-                // Dense overview: enough field context to recognise the object while keeping relationship routes visible.
-                const rows=Math.min(8,(ent.fields?.length||0)+1);
-                heights[ent.name]=Math.max(116,52+rows*22);
+                // All fields remain in the model. Compact height only limits visible rows until the card is stretched.
+                heights[ent.name]=cardH;
             });
-            this.erPositions=positions; this.boxWidthOverrides=widths; this.boxHeightOverrides=heights;
-            this.zoomLevel=1; this.renderDiagram();
+            this.erPositions=positions;
+            this.boxWidthOverrides=widths;
+            this.boxHeightOverrides=heights;
+            this.zoomLevel=1;
+            this.renderDiagram();
             requestAnimationFrame(()=>{
                 const fit=Math.min((wrap.clientWidth-24)/this.svgWidth,(wrap.clientHeight-24)/this.svgHeight,1);
-                // Keep labels/relationships legible. If the whole model cannot fit at 65%, scrolling is preferable to microscopic cards.
+                // Prefer scrolling over making object names and relationship lines microscopic.
                 this.zoomLevel=Math.max(0.65,Math.round(fit*20)/20);
-                wrap.scrollLeft=0; wrap.scrollTop=0;
+                wrap.scrollLeft=0;
+                wrap.scrollTop=0;
             });
-        } catch(e){ this.errorMessage=e?.message||'Could not fit the model.'; }
+        } catch(e) {
+            this.errorMessage=e?.message||'Could not fit the model.';
+        }
     }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {
