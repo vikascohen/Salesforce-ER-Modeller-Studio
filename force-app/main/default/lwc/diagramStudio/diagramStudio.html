@@ -71,7 +71,7 @@
     <!-- MIMIC NEW ER -->
     <template if:true={mimicOpen}>
         <div class="mimic-page">
-            <header class="mimic-head"><div><span>POINT AND CLICK MODELLER</span><h1>Mimic New ER</h1><p>Design a hypothetical Salesforce data model without creating metadata in the org. Generate converts this form into the existing ER DSL and opens it on the normal canvas.</p></div><button class="mimic-close" onclick={handleCloseMimic}>Back to Diagram</button></header>
+            <header class="mimic-head"><div><span>POINT AND CLICK MODELLER</span><h1>Mimic New ER</h1><p>Design a hypothetical Salesforce data model without creating metadata in the org. Generate converts this form into the existing ER DSL and opens it on the normal canvas.</p><div class="mimic-custom-disclaimer"><strong>Custom objects only</strong><span>Mimic New ER is intended for modelling hypothetical Salesforce custom objects and their relationships. It does not create or modify standard Salesforce objects or any metadata in your org.</span></div></div><button class="mimic-close" onclick={handleCloseMimic}>Back to Diagram</button></header>
             <main class="mimic-body">
                 <section class="mimic-model-name"><label>Model name</label><input value={mimicModelName} oninput={handleMimicModelName} placeholder="Mimicked Model"/></section>
                 <div class="mimic-section-title"><div><h2>Objects and fields</h2><p>Add the objects you want to model, then describe their fields.</p></div><button onclick={handleMimicAddObject}>+ Add Object</button></div>
