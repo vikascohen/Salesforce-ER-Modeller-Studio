@@ -14,11 +14,11 @@ This is part of the culture we want at **Crius Consulting**: build deeply, share
 
 Our engineering principle remains simple: **transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and useful contribution rather than technology built only to be talked about.**
 
-## Deploy Phase 2 Semi Stable to Salesforce
+## Deploy Version 2 Stable to Salesforce
 
 [![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable&continue)
 
-Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org using the button above.
+Deploy **Version 2 Stable** directly to a Salesforce org using the button above.
 
 > **Note:** This deploy button points specifically to the `version-2-stable` branch. For Version 1, use the `version-1-stable` branch.
 
@@ -141,9 +141,9 @@ Everything documented later in this README under modelling, org-aware views, Dat
 
 ## Installing
 
-> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `version-2-stable` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
+> **Version 1:** the unmanaged package below installs the stable Version 1 release. **Version 2:** an unmanaged package is coming; until then, Version 2 Stable can be deployed directly from its GitHub branch.
 
-**Phase 1 unmanaged package** — the simplest option for installing the stable Phase 1 release: no GitHub OAuth, no CLI, just a link and a login.
+**Version 1 Stable — unmanaged package** — the simplest option for installing Version 1: no GitHub OAuth, no CLI, just a link and a login.
 
 - **Production or Developer Edition:**
   [https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
@@ -160,7 +160,7 @@ package — once installed, every component is fully yours to edit
 directly in the org, same as if you'd deployed the source yourself; see
 [docs/SECURITY.md](docs/SECURITY.md) for what data it does and doesn't touch.
 
-**Or, deploy Version 2 Stable straight from GitHub:**
+**Version 2 Stable — unmanaged package coming soon**\n\nUntil the Version 2 unmanaged package is published, deploy Version 2 Stable straight from GitHub:
 
 > The deploy buttons below target `version-2-stable`, so this page always deploys the Version 2 Stable release.
 
