@@ -18,6 +18,7 @@ jest.mock('@salesforce/apex/SchemaMetadataController.getSharingSignals', () => (
 jest.mock('@salesforce/apex/SchemaMetadataController.getRecordCounts', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/SchemaMetadataController.getSchemaReferences', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.getTheme', () => ({ default: jest.fn(() => Promise.resolve(null)) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ default: jest.fn() }), { virtual: true });
 
@@ -37,6 +38,8 @@ const getRecordCounts = require('@salesforce/apex/SchemaMetadataController.getRe
 const getSharingModels = require('@salesforce/apex/SchemaMetadataController.getSharingModels').default;
 // eslint-disable-next-line no-undef
 const getSharingSignals = require('@salesforce/apex/SchemaMetadataController.getSharingSignals').default;
+// eslint-disable-next-line no-undef
+const getSchemaReferences = require('@salesforce/apex/SchemaMetadataController.getSchemaReferences').default;
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -1577,6 +1580,30 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         await flushPromises();
         expect(el.shadowRoot.querySelector('.arch-workspace-usage').textContent).toContain('Account');
         expect(el.shadowRoot.querySelector('.arch-workspace-usage').textContent).toContain('Referenced objects outside the declared diagram');
+    });
+
+    it('Object Usage shows exact relationship fields and cached org-schema references beyond the ER diagram', async () => {
+        getSchemaReferences.mockResolvedValueOnce([
+            { sourceObject:'ContactPointAddress', fieldApiName:'ParentId', targetObject:'Account', relationshipType:'Polymorphic Lookup' }
+        ]);
+        const el = createStudio(); await flushPromises();
+        await loadArchitectureModel(el, [
+            'entity Account : Name',
+            'entity Project__c : Name, Account__c',
+            'Project__c.Account__c -> Account'
+        ].join('\n'));
+        await openArchitectureQuestion(el, 'Open Object Usage');
+        await flushPromises();
+
+        const select = el.shadowRoot.querySelector('.arch-workspace-usage select');
+        select.value = 'Account';
+        select.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        const text = el.shadowRoot.querySelector('.arch-workspace-usage').textContent;
+        expect(text).toContain('Account__c');
+        expect(text).toContain('ContactPointAddress.ParentId → Account');
+        expect(getSchemaReferences).toHaveBeenCalledTimes(1);
     });
 
     it('Relationship Insights omits self relationships from the visual and detailed dependency report', async () => {
