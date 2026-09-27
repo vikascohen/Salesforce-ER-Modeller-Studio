@@ -1269,7 +1269,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return [
             {key:'overview',title:'Architecture Overview',question:'What does this model look like at a glance?',detail:'See model shape, relationship mix and the areas that deserve attention first.',action:'Open Overview'},
             {key:'paths',title:'Change Impact & Paths',question:'How can a change travel through this model?',detail:'Trace blast radius and shortest paths as a separate impact question.',action:'Open Impact Analysis'},
-            {key:'domains',title:'Domains & Boundaries',question:'Where do business capabilities meet?',detail:'Group objects by business capability and inspect cross domain dependencies.',action:'Open Domains'},
+            {key:'usage',title:'Object Usage & Change Readiness',question:'What does this model tell me about changing an object?',detail:'Inspect modelled usage, dependency direction and change exposure without pretending the ER file contains live org usage data.',action:'Open Object Usage'},
             {key:'relationships',title:'Relationship Insights',question:'What relationship design deserves review?',detail:'See relationship patterns, why they matter and what an architect may want to inspect or improve.',action:'Open Relationship Insights'}
         ];
     }
@@ -1294,6 +1294,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureShowMap(){return this.architectureSection==='map';}
     get architectureShowPaths(){return this.architectureSection==='paths';}
     get architectureShowDomains(){return this.architectureSection==='domains';}
+    get architectureShowUsage(){return this.architectureSection==='usage';}
     get architectureShowMetrics(){return this.architectureSection==='metrics';}
     get architectureShowObject(){return this.architectureSection==='object';}
     get architecturePathVisual(){
@@ -1307,6 +1308,33 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             return {key:name+'-'+i,name,step:i+1,hasArrow:true,next,kind,edgeClass:'arch-path-edge arch-path-edge-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),fieldName:rel?.fieldName||rel?.field||''};
         });
     }
+    handleArchitectureUsageObject(event){this.architectureSelectedObject=event.target.value||'';this.architectureSection='usage';}
+    get architectureUsageDetail(){
+        const d=this.architectureObjectDetail;if(!d)return null;
+        const standard=!/__c$/i.test(d.name);
+        const junction=(this.architectureJunctions||[]).find(x=>x.name.toLowerCase()===d.name.toLowerCase());
+        const relationships=(this.architectureAnalysis?.relationships||[]).filter(r=>r.childEntity===d.name||r.parentEntity===d.name);
+        const inbound=relationships.filter(r=>r.parentEntity===d.name).map((r,i)=>({key:'in-'+i,name:r.childEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'depends on this object'}));
+        const outbound=relationships.filter(r=>r.childEntity===d.name).map((r,i)=>({key:'out-'+i,name:r.parentEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'this object depends on'}));
+        let status,observation;
+        if(standard){
+            status=d.degree?'Modelled usage detected':'No relationships represented';
+            observation=d.degree?'This standard Salesforce object participates in the current ER model. Review dependency impact before changing relationship design. Retirement is not assessed for standard objects.':'No structural relationships are represented for this standard object in the current ER model. This does not mean the object is unused in Salesforce.';
+        } else if(d.degree===0){
+            status='Structurally isolated in this model';
+            observation='No relationship dependency is represented for this custom object in the current ER model. This is not evidence that the object has zero records or is safe to remove. Verify records, automation, code, integrations, reports and metadata outside this diagram before any retirement decision.';
+        } else {
+            status='Modelled dependencies detected';
+            observation='This custom object is structurally in use in the current ER model. Changing, migrating or considering retirement requires review of the modelled dependencies below. Dependencies outside the supplied ER model remain unknown.';
+        }
+        return {name:d.name,standard,custom:!standard,type:standard?'Standard Salesforce object':'Custom object',status,degree:d.degree,incoming:d.incoming,outgoing:d.outgoing,fieldCount:d.fieldCount,reach:d.reachableWithin3,junction:!!junction,junctionText:junction?junction.pattern:'No junction pattern detected',inbound,outbound,hasInbound:inbound.length>0,hasOutbound:outbound.length>0,observation};
+    }
+    get architectureHasUsageDetail(){return !!this.architectureUsageDetail;}
+    get architectureUsageDependencyNodes(){
+        const u=this.architectureUsageDetail;if(!u)return [];
+        return [...u.inbound.map(x=>({...x,side:'Inbound'})),...u.outbound.map(x=>({...x,side:'Outbound'}))];
+    }
+    get architectureUsageEvidenceNote(){return 'Evidence scope: current ER model only. Live record count, last record update, Apex, Flow, reports, integrations and dependencies outside this diagram are not inferred because this workspace does not query the org.';}
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
     get architectureObjectGraphNodes(){
