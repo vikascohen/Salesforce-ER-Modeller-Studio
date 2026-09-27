@@ -485,7 +485,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 if(my==null)my=direct;
                 d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;midX=(sx+ex)/2;midY=my;
             }
-            return {...c,d,midX,midY:midY-7,cardStartX:sx,cardStartY:sy,cardEndX:ex,cardEndY:ey,strokeWidth:Math.max(2.75,Number(c.strokeWidth)||0),connOpacity:isFocusRelated?'1':'0.1'};
+            const outward=(box,side,p)=>{
+                const gap=12;
+                if(side==='left')return {x:p.x-gap,y:p.y};
+                if(side==='right')return {x:p.x+gap,y:p.y};
+                if(side==='top')return {x:p.x,y:p.y-gap};
+                return {x:p.x,y:p.y+gap};
+            };
+            const startCard=outward(child,childSide,sp),endCard=outward(parent,parentSide,ep);
+            return {...c,d,midX,midY:midY-7,cardStartX:startCard.x,cardStartY:startCard.y,cardEndX:endCard.x,cardEndY:endCard.y,strokeWidth:Math.max(2.75,Number(c.strokeWidth)||0),connOpacity:isFocusRelated?'1':'0.1'};
         });
     }
 
