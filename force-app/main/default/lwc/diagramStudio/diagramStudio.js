@@ -19,6 +19,7 @@ import getSharingSignals  from '@salesforce/apex/SchemaMetadataController.getSha
 import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
+import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSchemaReferences';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
@@ -98,6 +99,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track architecturePathTarget = '';
     @track architectureDomainAssignments = {};
     @track architectureSection = 'home';
+    @track architectureOrgReferences = [];
+    @track architectureOrgReferencesLoading = false;
+    @track architectureOrgReferencesError = '';
+    _architectureOrgReferenceKey = '';
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -1246,7 +1251,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuArchitecture()   {
         this.openMenu = null;
         this.architectureOpen = !this.architectureOpen;
-        if (this.architectureOpen) this.refreshArchitectureAnalysis();
+        if (this.architectureOpen) { this.refreshArchitectureAnalysis(); this.loadArchitectureOrgReferences(); }
     }
     handleCloseArchitecture()  { this.architectureOpen = false; this.architectureSelectedObject=''; }
     async handleExportArchitectureImage() {
@@ -1321,6 +1326,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._architectureSource='';
         this._architectureAnalysis=null;
         this.refreshArchitectureAnalysis(true);
+        this.loadArchitectureOrgReferences();
     }
     handleArchitectureRefresh(){this.handleArchitectureReset();}
     get architecturePanelClass(){return 'arch-panel arch-view-'+(this.architectureSection||'home');}
@@ -1351,7 +1357,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const standard=!/__c$/i.test(d.name);
         const junction=(this.architectureJunctions||[]).find(x=>x.name.toLowerCase()===d.name.toLowerCase());
         const relationships=(this.architectureAnalysis?.relationships||[]).filter(r=>r.childEntity===d.name||r.parentEntity===d.name);
-        const inbound=relationships.filter(r=>r.parentEntity===d.name).map((r,i)=>({key:'in-'+i,name:r.childEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'depends on this object'}));
+        const inbound=relationships.filter(r=>r.parentEntity===d.name).map((r,i)=>({key:'in-'+i,name:r.childEntity,kind:r.kind||'Lookup',field:r.childField||r.fieldName||r.field||'',direction:'depends on this object'}));
         const outbound=relationships.filter(r=>r.childEntity===d.name).map((r,i)=>({key:'out-'+i,name:r.parentEntity,kind:r.kind||'Lookup',field:r.fieldName||r.field||'',direction:'this object depends on'}));
         let status,observation;
         if(standard){
@@ -1388,7 +1394,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const u=this.architectureUsageDetail;if(!u)return [];
         return [...u.inbound.map(x=>({...x,side:'Inbound'})),...u.outbound.map(x=>({...x,side:'Outbound'}))];
     }
-    get architectureUsageEvidenceNote(){return 'Evidence scope: current ER model only. Live record count, last record update, Apex, Flow, reports, integrations and dependencies outside this diagram are not inferred because this workspace does not query the org.';}
+    get architectureUsageOrgReferences(){
+        const selected=(this.architectureSelectedObject||'').toLowerCase();
+        if(!selected)return [];
+        const diagramNames=new Set((this.architectureNodes||[]).map(n=>(n.name||'').toLowerCase()));
+        return (this.architectureOrgReferences||[])
+            .filter(r=>(r.sourceObject||'').toLowerCase()===selected||(r.targetObject||'').toLowerCase()===selected)
+            .map((r,i)=>{
+                const sourceInside=diagramNames.has((r.sourceObject||'').toLowerCase());
+                const targetInside=diagramNames.has((r.targetObject||'').toLowerCase());
+                return {...r,key:'org-ref-'+i,sourceInside,targetInside,outsideDiagram:!sourceInside||!targetInside,
+                    path:(r.sourceObject||'')+'.'+(r.fieldApiName||'')+' → '+(r.targetObject||''),
+                    scope:(!sourceInside||!targetInside)?'Outside current ER':'Also represented in current ER'};
+            });
+    }
+    get architectureUsageOutsideOrgReferences(){return this.architectureUsageOrgReferences.filter(r=>r.outsideDiagram);}
+    get architectureHasUsageOutsideOrgReferences(){return this.architectureUsageOutsideOrgReferences.length>0;}
+    get architectureUsageEvidenceNote(){return 'Evidence scope: the current ER model plus Salesforce schema relationship metadata loaded when Architecture Intelligence opens. This finds reference fields on objects outside the diagram, but does not infer Apex, Flow, reports, integrations, record counts or runtime usage.';}
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
     get architectureObjectGraphNodes(){
@@ -1656,6 +1678,27 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHasDomains() { return this.architectureDomains.length>0; }
     get architectureHasDomainCouplings() { return this.architectureDomainCouplings.length>0; }
     get architectureUnassignedText() { const u=this.architectureDomainAnalysis.unassigned; return u.length ? u.length+' unassigned: '+u.join(', ') : 'All objects in the current model have a domain assignment.'; }
+    async loadArchitectureOrgReferences(force=false) {
+        const names=(this.architectureNodes||[]).map(n=>n.name).filter(Boolean).sort();
+        if(!names.length){this.architectureOrgReferences=[];this._architectureOrgReferenceKey='';return;}
+        const key=names.map(n=>n.toLowerCase()).join('|');
+        if(!force && this._architectureOrgReferenceKey===key && this.architectureOrgReferences.length)return;
+        this.architectureOrgReferencesLoading=true;
+        this.architectureOrgReferencesError='';
+        try {
+            const rows=await getSchemaReferences({diagramObjectApiNames:names});
+            // Ignore a stale response if the user changed diagrams while the describe scan was running.
+            const currentKey=(this.architectureNodes||[]).map(n=>n.name).filter(Boolean).sort().map(n=>n.toLowerCase()).join('|');
+            if(currentKey!==key)return;
+            this.architectureOrgReferences=Array.isArray(rows)?rows:[];
+            this._architectureOrgReferenceKey=key;
+        } catch(e) {
+            this.architectureOrgReferences=[];
+            this.architectureOrgReferencesError='Org schema references could not be loaded. Diagram-only analysis remains available.';
+        } finally {
+            this.architectureOrgReferencesLoading=false;
+        }
+    }
     refreshArchitectureAnalysis(force=false) {
         const source=this.sourceText || '';
         this.architectureError='';
