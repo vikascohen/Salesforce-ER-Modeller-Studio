@@ -1405,6 +1405,55 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if(!cross.length)return ds.length+' domain'+(ds.length===1?' is':'s are')+' defined and no cross-domain relationships are currently detected among assigned objects.';
         return ds.length+' domains are defined. '+cross.length+' relationship'+(cross.length===1?' crosses':'s cross')+' a domain boundary. These are useful review points because one business capability depends structurally on another.';
     }
+    get architectureDomainHealthCards() {
+        const domains=this.architectureDomains||[], rows=this.architectureDomainRows||[], analysis=this.architectureAnalysis;
+        if(!domains.length||!analysis)return [];
+        const assigned=new Set(rows.filter(r=>(r.domain||'').trim()).map(r=>r.name.toLowerCase()));
+        return domains.map(d=>{
+            const members=rows.filter(r=>(r.domain||'').trim().toLowerCase()===d.name.toLowerCase()).map(r=>r.name);
+            const memberSet=new Set(members.map(x=>x.toLowerCase()));
+            const memberNodes=(analysis.nodes||[]).filter(n=>memberSet.has(n.name.toLowerCase()));
+            const customCount=memberNodes.filter(n=>/__c$/i.test(n.name)).length;
+            const standardCount=memberNodes.length-customCount;
+            const totalLinks=(d.internalRelationships||0)+(d.crossDomainRelationships||0);
+            const boundaryPct=totalLinks?Math.round((d.crossDomainRelationships||0)*100/totalLinks):0;
+            const cohesionPct=totalLinks?100-boundaryPct:100;
+            const isolated=memberNodes.filter(n=>(n.degree||0)===0).map(n=>n.name);
+            const junctions=(this.architectureJunctions||[]).filter(x=>memberSet.has(x.name.toLowerCase())).map(x=>x.name);
+            let posture='Self contained';
+            if(boundaryPct>=50)posture='Boundary heavy';
+            else if(boundaryPct>=25)posture='Externally coupled';
+            else if(d.crossDomainRelationships>0)posture='Mostly cohesive';
+            const review=d.crossDomainRelationships===0
+                ? (domains.length===1?'Only one domain is defined, so boundary quality cannot yet be evaluated. Split objects into meaningful business capabilities if the model genuinely contains more than one.':'No relationship crosses this domain boundary in the current model.')
+                : boundaryPct>=50?'A large share of this domain’s relationships cross its boundary. Confirm the grouping represents a real business capability rather than a convenient label.'
+                : 'Most relationships remain inside the domain. Review the boundary contracts below to confirm the external dependencies are intentional.';
+            return {key:'health-'+d.name,name:d.name,posture,cohesionPct,boundaryPct,customCount,standardCount,junctionCount:junctions.length,junctionText:junctions.length?junctions.join(', '):'None detected',isolatedCount:isolated.length,isolatedText:isolated.length?isolated.join(', '):'None',review};
+        });
+    }
+    get architectureDomainBoundaryContracts() {
+        const cross=this.architectureCrossDomainRelationships||[];
+        const grouped=new Map();
+        cross.forEach(r=>{
+            const key=[r.childDomain,r.parentDomain].sort().join('|');
+            if(!grouped.has(key))grouped.set(key,{key:'contract-'+key,domainA:[r.childDomain,r.parentDomain].sort()[0],domainB:[r.childDomain,r.parentDomain].sort()[1],relationships:[],lookup:0,master:0,poly:0});
+            const g=grouped.get(key);g.relationships.push(r);
+            if(r.kind==='Master Detail')g.master++;else if(r.kind==='Polymorphic')g.poly++;else g.lookup++;
+        });
+        return [...grouped.values()].map(g=>({...g,count:g.relationships.length,objects:[...new Set(g.relationships.flatMap(r=>[r.childEntity,r.parentEntity]))].join(', '),semantics:[g.lookup?g.lookup+' Lookup':'',g.master?g.master+' Master Detail':'',g.poly?g.poly+' Polymorphic':''].filter(Boolean).join(' · '),review:g.master?'Master Detail crosses this business boundary. Confirm lifecycle ownership across domains is intentional.':g.poly?'A polymorphic relationship crosses this boundary. Confirm the supported targets and ownership contract are explicit.':'Lookup references cross this boundary. Treat these as explicit dependency contracts between the two capabilities.'}));
+    }
+    get architectureHasDomainBoundaryContracts(){return this.architectureDomainBoundaryContracts.length>0;}
+    get architectureDomainCoverage() {
+        const total=(this.architectureNodes||[]).length, unassigned=(this.architectureDomainAnalysis.unassigned||[]).length, assigned=total-unassigned;
+        return {total,assigned,unassigned,pct:total?Math.round(assigned*100/total):0};
+    }
+    get architectureDomainCoverageText(){const c=this.architectureDomainCoverage;return c.assigned+' of '+c.total+' objects assigned ('+c.pct+'%).';}
+    get architectureDomainArchitectureSummary(){
+        const domains=this.architectureDomains||[], contracts=this.architectureDomainBoundaryContracts||[], coverage=this.architectureDomainCoverage;
+        if(!domains.length)return 'No architecture domains are defined yet.';
+        if(domains.length===1)return 'The current grouping contains one domain only. This is useful as a membership label, but it cannot reveal business boundary quality until at least two meaningful capabilities are defined.';
+        return domains.length+' business domains cover '+coverage.assigned+' modelled objects. '+contracts.length+' domain-to-domain boundary contract'+(contracts.length===1?' is':'s are')+' visible in the current ER structure.';
+    }
     get architectureHasDomains() { return this.architectureDomains.length>0; }
     get architectureHasDomainCouplings() { return this.architectureDomainCouplings.length>0; }
     get architectureUnassignedText() { const u=this.architectureDomainAnalysis.unassigned; return u.length ? u.length+' unassigned: '+u.join(', ') : 'All objects in the current model have a domain assignment.'; }
