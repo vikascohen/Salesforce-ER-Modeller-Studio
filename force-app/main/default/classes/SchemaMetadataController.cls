@@ -70,10 +70,9 @@ public with sharing class SchemaMetadataController {
     }
 
     /**
-     * Scans the org's describe metadata once and returns relationship fields
-     * connected to the supplied diagram objects, including relationships on
-     * objects that are not present in the ER file. No records or Tooling API
-     * are queried. The LWC caches this result for the active diagram.
+     * Scans org describe metadata and returns relationship fields connected
+     * to objects represented in the active diagram. No records or Tooling API
+     * are queried. The LWC caches the result for the active diagram.
      */
     @AuraEnabled(cacheable=true)
     public static List<SchemaReferenceWrap> getSchemaReferences(List<String> diagramObjectApiNames) {
@@ -82,7 +81,50 @@ public with sharing class SchemaMetadataController {
 
         Set<String> wanted = new Set<String>();
         for (String name : diagramObjectApiNames) {
-            if (name != null && Pattern.matches('^[A-Za-z][A-Za-z0-9_]*
+            if (name != null && Pattern.matches('^[A-Za-z][A-Za-z0-9_]*$', name.trim())) {
+                wanted.add(name.trim().toLowerCase());
+            }
+        }
+        if (wanted.isEmpty()) return result;
+
+        Map<String, Schema.SObjectType> gd = Schema.getGlobalDescribe();
+        List<String> objectKeys = new List<String>(gd.keySet());
+        objectKeys.sort();
+
+        for (String objectKey : objectKeys) {
+            Schema.DescribeSObjectResult od = gd.get(objectKey).getDescribe();
+            if (!od.isQueryable()) continue;
+            Boolean sourceWanted = wanted.contains(od.getName().toLowerCase());
+
+            Map<String, Schema.SObjectField> fieldMap = od.fields.getMap();
+            List<String> fieldKeys = new List<String>(fieldMap.keySet());
+            fieldKeys.sort();
+            for (String fieldKey : fieldKeys) {
+                Schema.DescribeFieldResult fd = fieldMap.get(fieldKey).getDescribe();
+                if (fd.getType() != Schema.DisplayType.REFERENCE) continue;
+                List<Schema.SObjectType> refs = fd.getReferenceTo();
+                if (refs.isEmpty()) continue;
+
+                Boolean polymorphic = fd.isNamePointing() || refs.size() > 1;
+                String relationshipType = polymorphic
+                    ? 'Polymorphic Lookup'
+                    : ((fd.getRelationshipOrder() != null || fd.isCascadeDelete()) ? 'Master-Detail' : 'Lookup');
+
+                for (Schema.SObjectType refType : refs) {
+                    String targetName = refType.getDescribe().getName();
+                    if (!sourceWanted && !wanted.contains(targetName.toLowerCase())) continue;
+                    SchemaReferenceWrap row = new SchemaReferenceWrap();
+                    row.sourceObject = od.getName();
+                    row.fieldApiName = fd.getName();
+                    row.targetObject = targetName;
+                    row.relationshipType = relationshipType;
+                    result.add(row);
+                }
+            }
+        }
+        return result;
+    }
+
     /**
      * Same as describeObjects, but also prepends a synthetic "Id" row
      * (isPrimaryKey = true) to each object's field list — used by the Data
