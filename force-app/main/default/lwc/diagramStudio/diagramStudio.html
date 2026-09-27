@@ -593,7 +593,7 @@
 
     <!-- PHASE 2: DATA ARCHITECTURE INTELLIGENCE -->
     <template if:true={architectureOpen}>
-        <div class="arch-panel" style={architecturePanelStyle}>
+        <div class={architecturePanelClass} style={architecturePanelStyle}>
             <div class="arch-header">
                 <div><div class="arch-kicker">PHASE 2 · DATA MODEL ANALYSIS</div><div class="arch-title">Data Architecture Intelligence</div><div class="arch-subtitle">Structural evidence from the ER model currently on the canvas.</div></div>
                 <div class="arch-header-actions"><div class="arch-font-controls" title="Adjust Architecture Intelligence text size"><button class="arch-font-btn" onclick={handleArchitectureFontDecrease} disabled={architectureCannotDecreaseFont}>A−</button><button class="arch-font-value" onclick={handleArchitectureFontReset} title="Reset text size">{architectureFontPercent}</button><button class="arch-font-btn" onclick={handleArchitectureFontIncrease} disabled={architectureCannotIncreaseFont}>A+</button></div><template if:true={architectureHasModel}><button class="arch-action-btn arch-print-btn" onclick={handlePrintArchitectureReport}>Export PDF</button></template><button class="arch-action-btn" onclick={handleCloseArchitecture}>Back to Diagram</button><button class="modal-close arch-close" onclick={handleCloseArchitecture}>x</button></div>
@@ -612,7 +612,7 @@
                     </section>
                 </template>
                 <template if:false={architectureShowHome}><div class="arch-workspace-nav"><button class="arch-home-back" onclick={handleArchitectureHome}>← Back to Architecture Home</button></div></template>
-                <section class="arch-brief">
+                <section class="arch-brief arch-workspace arch-workspace-overview">
                     <div class="arch-brief-label">ARCHITECTURE SUMMARY</div>
                     <p class="arch-brief-text">{architectureExecutiveSummary}</p>
                     <div class="arch-brief-signals">
@@ -626,7 +626,7 @@
                 </section>
 
                 <template if:true={architectureReviewLead}>
-                    <section class="arch-section arch-review-first">
+                    <section class="arch-section arch-review-first arch-workspace arch-workspace-overview">
                         <div class="arch-section-head"><span>Where Should I Look First?</span><span class="arch-section-hint">Evidence-led starting point</span></div>
                         <div class="arch-review-card">
                             <div class="arch-review-rank">1</div>
@@ -651,7 +651,7 @@
                     </div>
                 </section>
 
-                <section class="arch-section arch-map-section"><div class="arch-section-head"><span>Architecture Map</span><span class="arch-section-hint">Start here: see the structure before reading the intelligence</span></div><div class="arch-map-explainer"><strong>How to read this</strong><span>Scroll horizontally or vertically to explore the complete model. Lines run from child to parent and arrowheads show relationship direction. Highlighted objects are structurally important. Click an object to inspect it.</span></div><div class="arch-map-viewport"><div class="arch-insight-map" style={architectureInsightMapCanvasStyle}><template for:each={architectureInsightMapEdges} for:item="edge"><i class={edge.kindClass} key={edge.key} style={edge.style} title={edge.title}><b></b></i></template><template for:each={architectureInsightMapNodes} for:item="node"><button key={node.name} class={node.className} style={node.style} data-name={node.name} onclick={handleArchitectureObjectSelect}><strong>{node.name}</strong><span>{node.role}</span><small>{node.degree} relationships · {node.fieldCount} fields</small></button></template></div></div><div class="arch-map-legend arch-map-rel-legend"><span class="arch-map-key arch-map-key-master">Master Detail</span><span class="arch-map-key arch-map-key-lookup">Lookup</span><span class="arch-map-key arch-map-key-poly">Polymorphic</span><span>Arrow points to referenced parent</span></div></section><section class="arch-section arch-designer-dashboard">
+                <section class="arch-section arch-map-section arch-workspace arch-workspace-map"><div class="arch-section-head"><span>Architecture Map</span><span class="arch-section-hint">Start here: see the structure before reading the intelligence</span></div><div class="arch-map-explainer"><strong>How to read this</strong><span>Scroll horizontally or vertically to explore the complete model. Lines run from child to parent and arrowheads show relationship direction. Highlighted objects are structurally important. Click an object to inspect it.</span></div><div class="arch-map-viewport"><div class="arch-insight-map" style={architectureInsightMapCanvasStyle}><template for:each={architectureInsightMapEdges} for:item="edge"><i class={edge.kindClass} key={edge.key} style={edge.style} title={edge.title}><b></b></i></template><template for:each={architectureInsightMapNodes} for:item="node"><button key={node.name} class={node.className} style={node.style} data-name={node.name} onclick={handleArchitectureObjectSelect}><strong>{node.name}</strong><span>{node.role}</span><small>{node.degree} relationships · {node.fieldCount} fields</small></button></template></div></div><div class="arch-map-legend arch-map-rel-legend"><span class="arch-map-key arch-map-key-master">Master Detail</span><span class="arch-map-key arch-map-key-lookup">Lookup</span><span class="arch-map-key arch-map-key-poly">Polymorphic</span><span>Arrow points to referenced parent</span></div></section><section class="arch-section arch-designer-dashboard arch-workspace arch-workspace-overview">
 <div class="arch-section-head"><span>Designer Architecture Dashboard</span><span class="arch-section-hint">See concentration, coupling and review areas before drilling into metrics</span></div>
 <div class="arch-designer-brief"><template for:each={architectureDesignerBrief} for:item="x"><article key={x.key}><span>{x.label}</span><strong>{x.title}</strong><p>{x.detail}</p></article></template></div>
 <div class="arch-visual-grid">
@@ -659,12 +659,12 @@
 <article class="arch-visual-card"><div class="arch-visual-head"><strong>Relationship Composition</strong><span>How objects are structurally connected</span></div><div class="arch-mix-chart"><template for:each={architectureRelationshipMix} for:item="m"><div class="arch-mix-row" key={m.key}><div><strong>{m.label}</strong><span>{m.value} relationships · {m.pct}%</span></div><div class="arch-mix-track"><i style={m.style}></i></div></div></template></div><div class="arch-chart-help">Lookup shows reference dependency. Master Detail represents tighter lifecycle ownership. Polymorphic relationships can point to more than one parent type and deserve contextual review.</div></article>
 </div><div class="arch-dashboard-help"><strong>How to use this dashboard</strong><span>Start with the highlighted review areas, compare object concentration, then click any object to open its detailed structural evidence. Use Domains below when you want to overlay business capability boundaries on the technical model.</span></div>
 </section>
-<section class="arch-section arch-guide-section">
+<section class="arch-section arch-guide-section arch-workspace arch-workspace-overview">
                     <div class="arch-section-head"><span>How to Read Architecture Intelligence</span><span class="arch-section-hint">What each signal means and what to do with it</span></div>
                     <p class="arch-guide-intro">These signals are deterministic observations from the current ER model. They are not architecture scores. Use them as evidence for review, then apply business context before making a design decision.</p>
                     <div class="arch-guide-grid"><template for:each={architectureInsightGuide} for:item="g"><article class="arch-guide-card" key={g.key}><h3>{g.title}</h3><div><strong>What it shows</strong><p>{g.what}</p></div><div><strong>Why it is valuable</strong><p>{g.value}</p></div><div><strong>Opportunity</strong><p>{g.opportunity}</p></div><div><strong>Challenge to review</strong><p>{g.challenge}</p></div><div><strong>What to do next</strong><p>{g.action}</p></div></article></template></div>
                 </section>
-                <section class="arch-section arch-deep-intelligence">
+                <section class="arch-section arch-deep-intelligence arch-workspace arch-workspace-findings">
                     <div class="arch-section-head"><span>Architecture Intelligence Insights</span><span class="arch-section-hint">Correlated graph patterns, derived without AI</span></div>
                     <div class="arch-deep-grid">
                         <article class="arch-deep-card"><div class="arch-deep-title"><span>STRUCTURAL GRAVITY</span><strong>Where the model concentrates</strong></div><template if:true={architectureHasGravity}><template for:each={architectureGravity} for:item="n"><div class="arch-deep-row" key={n.name}><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button><span>{n.degree} rel. · {n.reachPct}% reach · {n.fieldCount} fields</span></div></template></template></article>
@@ -677,7 +677,7 @@
                     <div class="arch-density-note">These are structural signals, not architecture grades. Each pattern is calculated from the current ER graph and should be interpreted in business context.</div>
                 </section>
 
-                <section class="arch-section arch-advice-section">
+                <section class="arch-section arch-advice-section arch-workspace arch-workspace-findings">
                     <div class="arch-section-head"><span>Architecture Advice</span><span class="arch-section-hint">Evidence led guidance, not an automated architecture verdict</span></div>
                     <div class="arch-advice-grid">
                         <template for:each={architectureAdvice} for:item="item">
@@ -698,7 +698,7 @@
                     <div class="arch-density-note">{architectureDensityHelp}</div>
                 </section>
 
-                <section class="arch-section"><div class="arch-section-head"><span>Hotspots &amp; Model Shape</span><span class="arch-section-hint">Explore the evidence behind the summary</span></div>
+                <section class="arch-section arch-workspace arch-workspace-metrics"><div class="arch-section-head"><span>Hotspots &amp; Model Shape</span><span class="arch-section-hint">Explore the evidence behind the summary</span></div>
                     <div class="arch-insights">
                         <div><strong>Structural hubs</strong><p>{architectureHubsText}</p></div>
                         <div><strong>Isolated objects</strong><p>{architectureIslandsText}</p></div>
@@ -724,11 +724,11 @@
                     <template if:true={architectureHasJunctions}><div class="arch-junction-grid"><template for:each={architectureJunctions} for:item="j"><div class="arch-junction-card" key={j.name}><div><strong>{j.name}</strong><span class="arch-tag">{j.confidence}</span></div><p>{j.distinctTargets} parent targets · {j.outboundRelationships} outbound relationships · {j.masterDetailRelationships} Master-Detail</p></div></template></div></template>
                     <template if:false={architectureHasJunctions}><div class="arch-empty arch-empty-small">No multi-parent junction candidates detected in the current model.</div></template>
                 </section>
-                <section class="arch-section"><div class="arch-section-head"><span>Object-Level Metrics</span><span class="arch-section-hint">Sorted by relationship degree</span></div>
+                <section class="arch-section arch-workspace arch-workspace-metrics arch-workspace-object"><div class="arch-section-head"><span>Object-Level Metrics</span><span class="arch-section-hint">Sorted by relationship degree</span></div>
                     <div class="arch-table-wrap"><table class="arch-table"><thead><tr><th>Object</th><th>Fields</th><th>Rel. Fields</th><th>Incoming</th><th>Outgoing</th><th>Total Degree</th><th>Required</th><th>Rollups</th></tr></thead><tbody><template for:each={architectureNodes} for:item="n"><tr key={n.name}><td class="arch-object-name"><button class="arch-object-link" data-name={n.name} onclick={handleArchitectureObjectSelect}>{n.name}</button></td><td>{n.fieldCount}</td><td>{n.relationshipFieldCount}</td><td>{n.incoming}</td><td>{n.outgoing}</td><td><strong>{n.degree}</strong></td><td>{n.requiredFieldCount}</td><td>{n.rollupFieldCount}</td></tr></template></tbody></table></div>
                 </section>
                 <template if:true={architectureHasObjectDetail}>
-                    <section class="arch-section arch-drill arch-object-drill">
+                    <section class="arch-section arch-drill arch-object-drill arch-workspace arch-workspace-object">
                         <div class="arch-section-head"><span>Object Drill-Down · {architectureObjectDetail.name}</span><button class="arch-inline-close" onclick={handleArchitectureDrillClose}>Clear selection</button></div>
                         <div class="arch-drill-hero"><div><span class="arch-tag">Structural role</span><strong>{architectureObjectDetail.role}</strong></div><div><span>Fields</span><strong>{architectureObjectDetail.fieldCount}</strong></div><div><span>Incoming</span><strong>{architectureObjectDetail.incoming}</strong></div><div><span>Outgoing</span><strong>{architectureObjectDetail.outgoing}</strong></div><div><span>Total degree</span><strong>{architectureObjectDetail.degree}</strong></div><div><span>Reach ≤3 hops</span><strong>{architectureObjectDetail.reachableWithin3}</strong></div></div>
                         <div class="arch-object-insight-intro"><strong>What this object is doing in the model</strong><p>{architectureObjectInsightText}</p></div>
