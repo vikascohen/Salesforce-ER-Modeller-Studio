@@ -77,6 +77,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // ── import panel ──
     @track mimicOpen = false;
+    @track currentModelIsMimic = false;
     @track mimicModelName = 'Mimicked Model';
     @track mimicObjects = [];
     @track mimicRelationships = [];
@@ -1197,7 +1198,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         for(const o of objs){for(const f of o.fields){if(['Lookup','Master Detail','Polymorphic'].includes(f.type)&&(!f.target||!byId.get(f.target))){this.errorMessage='Choose a target object for relationship field '+(f.name||'(unnamed)')+' on '+o.name+'.';return;}}}
         objs.forEach(o=>{const fs=o.fields.filter(f=>!f.locked&&f.name.trim()&&!['Lookup','Master Detail','Polymorphic'].includes(f.type)).map(f=>f.name.trim()+(f.type&&f.type!=='Text'?' ['+f.type+']':''));lines.push('entity '+o.name.trim()+(fs.length?' : '+fs.join(', '):''));});
         objs.forEach(o=>o.fields.filter(f=>!f.locked&&f.name.trim()&&['Lookup','Master Detail','Polymorphic'].includes(f.type)).forEach(f=>{const target=byId.get(f.target),op=f.type==='Master Detail'?'=>':f.type==='Polymorphic'?'~>':'->';lines.push(o.name.trim()+'.'+f.name.trim()+' '+op+' '+target.name.trim());}));
-        this.openNewUnsaved();this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.errorMessage='';this.renderDiagram();
+        this.openNewUnsaved();this.currentModelIsMimic=true;this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.errorMessage='';this.renderDiagram();
     }
 
     handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
@@ -2321,6 +2322,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleToggleSharingView() {
         this.sharingViewOn = !this.sharingViewOn;
+        if (this.sharingViewOn && this.currentModelIsMimic) {
+            this.sharingModels = {}; this.sharingSignals = {};
+            this.errorMessage = 'Sharing View is not available for a Mimic New ER model because its custom objects do not exist in this Salesforce org.';
+            return;
+        }
         if (this.sharingViewOn) this.scheduleSharingFetch();
     }
 
@@ -2330,7 +2336,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async fetchSharingModels() {
-        if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
+        if (this.currentModelIsMimic || !this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._sharingRequestToken;
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
@@ -2384,6 +2390,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleToggleHeatmap() {
         this.heatmapOn = !this.heatmapOn;
+        if (this.heatmapOn && this.currentModelIsMimic) {
+            this.recordCounts = {};
+            this.errorMessage = 'Heatmap is not available for a Mimic New ER model because its custom objects do not exist in this Salesforce org and therefore have no record data.';
+            return;
+        }
         if (this.heatmapOn) this.scheduleHeatmapFetch();
     }
 
@@ -2393,7 +2404,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async fetchRecordCounts() {
-        if (!this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
+        if (this.currentModelIsMimic || !this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._heatmapRequestToken;
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
