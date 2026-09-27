@@ -1420,6 +1420,43 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const a=this.architectureAnalysis;if(!a)return '';
         return 'This view shows '+a.relationshipCount+' relationship'+(a.relationshipCount===1?'':'s')+' across '+a.entityCount+' objects. Arrows run from the child object to the referenced parent. Lookup represents a loose reference, Master Detail represents stronger parent ownership semantics, and Polymorphic means the relationship can reference more than one supported object type.';
     }
+
+    get architectureRelationshipSummaryRows(){
+        const a=this.architectureAnalysis;if(!a)return [];
+        const declaredNames=new Set();
+        (this._architectureSource||this.sourceText||'').split(/\r?\n/).forEach(line=>{const m=line.trim().match(/^entity\s+(\w+)\b/i);if(m)declaredNames.add(m[1].toLowerCase());});
+        return (a.relationships||[]).map((r,i)=>{
+            const raw=(r.kind||'lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            const field=r.fieldName||r.childField||r.field||'';
+            const parentExternal=!declaredNames.has((r.parentEntity||'').toLowerCase());
+            const childCustom=/__c$/i.test(r.childEntity||''),parentCustom=/__c$/i.test(r.parentEntity||'');
+            let recordImpact,changeImpact;
+            if(kind==='Master Detail'){
+                recordImpact='Strong lifecycle dependency. In Salesforce, deleting a master record normally deletes its detail records through cascade delete; confirm org configuration and business rules before destructive changes.';
+                changeImpact='Changing this relationship can affect ownership, sharing, required parent association, roll-up behaviour and record lifecycle. Treat both objects as one change scope.';
+            }else if(kind==='Polymorphic'){
+                recordImpact='The child field can reference more than one supported target type. Removing one target record affects only references to that target; the ER model does not prove runtime automation or data behaviour.';
+                changeImpact='Review every represented target for this polymorphic field because code, automation and reporting may branch by target type.';
+            }else{
+                recordImpact='Lookup is a reference dependency. Deleting a referenced record does not imply cascade deletion from this ER model; actual delete behaviour and automation must be verified in Salesforce.';
+                changeImpact='Changes to the parent or lookup field can affect joins, filters, automation, reporting and integrations that use the reference.';
+            }
+            return {key:'rel-summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,parentExternal,parentScope:parentExternal?'Referenced outside declared diagram':'Declared in diagram',childType:childCustom?'Custom':'Standard',parentType:parentCustom?'Custom':'Standard',recordImpact,changeImpact};
+        });
+    }
+    get architectureObjectDependencySummaries(){
+        const a=this.architectureAnalysis;if(!a)return [];
+        const declaredNames=new Set();
+        (this._architectureSource||this.sourceText||'').split(/\r?\n/).forEach(line=>{const m=line.trim().match(/^entity\s+(\w+)\b/i);if(m)declaredNames.add(m[1].toLowerCase());});
+        return (a.nodes||[]).filter(n=>declaredNames.has((n.name||'').toLowerCase())).map(n=>{
+            const outgoing=(a.relationships||[]).filter(r=>r.childEntity===n.name);
+            const incoming=(a.relationships||[]).filter(r=>r.parentEntity===n.name);
+            const fmt=r=>(r.parentEntity||'')+' via '+(r.fieldName||r.childField||r.field||'relationship')+' ('+((r.kind||'lookup').toLowerCase().includes('master')?'Master Detail':(r.kind||'lookup').toLowerCase().includes('poly')?'Polymorphic':'Lookup')+')';
+            const depBy= r=>(r.childEntity||'')+' via '+(r.fieldName||r.childField||r.field||'relationship')+' ('+((r.kind||'lookup').toLowerCase().includes('master')?'Master Detail':(r.kind||'lookup').toLowerCase().includes('poly')?'Polymorphic':'Lookup')+')';
+            const external=outgoing.filter(r=>!declaredNames.has((r.parentEntity||'').toLowerCase())).map(r=>r.parentEntity);
+            return {key:'obj-dep-'+n.name,name:n.name,outgoingCount:outgoing.length,incomingCount:incoming.length,dependsOn:outgoing.length?outgoing.map(fmt).join(' · '):'No outbound dependencies represented',dependedOnBy:incoming.length?incoming.map(depBy).join(' · '):'No inbound dependencies represented',externalText:external.length?[...new Set(external)].join(', '):'None explicitly referenced',isStandard:!/__c$/i.test(n.name)};
+        });
+    }
     get architectureJunctionExplanation(){return 'Junction Intelligence reviews customer controlled relationship metadata only. Salesforce standard relationships are treated as platform context and are not redesign suggestions. A custom object with two Master Detail relationships to different parents is shown as a strong structural junction pattern, not as a guaranteed business conclusion.';}
     get architectureJunctionInsights(){return this.architectureJunctions.map(j=>({...j,reviewLabel:j.pattern,meaning:j.pattern==='Strong junction pattern'?'This custom object has at least two custom Master Detail relationships to different parent objects. That is structurally consistent with the classic Salesforce junction pattern, but business intent still needs confirmation.':'This custom object has multiple customer controlled parent relationships. It may represent an association pattern, but the metadata alone is not enough to call it a junction object.',suggestion:j.pattern==='Strong junction pattern'?'Confirm that the object exists to associate the parent records and that Master Detail ownership, sharing and delete behaviour are intentional.':'Review the custom relationships and confirm they represent one coherent association responsibility. No redesign is implied merely because multiple parents exist.'}));}
     get architectureHasJunctions() { return this.architectureJunctions.length>0; }
