@@ -19,6 +19,7 @@ import getSharingSignals  from '@salesforce/apex/SchemaMetadataController.getSha
 import getRecordCounts    from '@salesforce/apex/SchemaMetadataController.getRecordCounts';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
 import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFieldUsageStats';
+import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSchemaReferences';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
@@ -98,6 +99,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track architecturePathTarget = '';
     @track architectureDomainAssignments = {};
     @track architectureSection = 'home';
+    @track architectureOrgReferences = [];
+    @track architectureOrgReferencesLoading = false;
+    @track architectureOrgReferencesError = '';
+    _architectureOrgReferenceKey = '';
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -1246,7 +1251,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuArchitecture()   {
         this.openMenu = null;
         this.architectureOpen = !this.architectureOpen;
-        if (this.architectureOpen) this.refreshArchitectureAnalysis();
+        if (this.architectureOpen) { this.refreshArchitectureAnalysis(); this.loadArchitectureOrgReferences(); }
     }
     handleCloseArchitecture()  { this.architectureOpen = false; this.architectureSelectedObject=''; }
     async handleExportArchitectureImage() {
@@ -1321,6 +1326,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._architectureSource='';
         this._architectureAnalysis=null;
         this.refreshArchitectureAnalysis(true);
+        this.loadArchitectureOrgReferences();
     }
     handleArchitectureRefresh(){this.handleArchitectureReset();}
     get architecturePanelClass(){return 'arch-panel arch-view-'+(this.architectureSection||'home');}
@@ -1399,7 +1405,53 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const u=this.architectureUsageDetail;if(!u)return [];
         return [...u.inbound.map(x=>({...x,side:'Inbound'})),...u.outbound.map(x=>({...x,side:'Outbound'}))];
     }
-    get architectureUsageEvidenceNote(){return 'Evidence scope: current ER model only. Live record count, last record update, Apex, Flow, reports, integrations and dependencies outside this diagram are not inferred because this workspace does not query the org.';}
+    get architectureUsageOrgReferences(){
+        const selected=(this.architectureSelectedObject||'').toLowerCase();
+        if(!selected)return [];
+        const diagramNames=new Set((this.architectureNodes||[]).map(n=>(n.name||'').toLowerCase()));
+        return (this.architectureOrgReferences||[])
+            .filter(r=>(r.sourceObject||'').toLowerCase()===selected||(r.targetObject||'').toLowerCase()===selected)
+            .map((r,i)=>{
+                const sourceInside=diagramNames.has((r.sourceObject||'').toLowerCase());
+                const targetInside=diagramNames.has((r.targetObject||'').toLowerCase());
+                return {...r,key:'org-ref-'+i,sourceInside,targetInside,outsideDiagram:!sourceInside||!targetInside,
+                    path:(r.sourceObject||'')+'.'+(r.fieldApiName||'')+' → '+(r.targetObject||''),
+                    scope:(!sourceInside||!targetInside)?'Outside current ER':'Also represented in current ER'};
+            });
+    }
+    get architectureUsageOutsideOrgReferences(){return this.architectureUsageOrgReferences.filter(r=>r.outsideDiagram);}
+    get architectureHasUsageOutsideOrgReferences(){return this.architectureUsageOutsideOrgReferences.length>0;}
+    get architectureUsageOrgDiagram(){
+        const selected=this.architectureSelectedObject||'';
+        const selectedKey=selected.toLowerCase();
+        const rows=this.architectureUsageOutsideOrgReferences||[];
+        const auditFields=new Set(['createdbyid','lastmodifiedbyid','systemmodstamp']);
+        const ownershipFields=new Set(['ownerid']);
+        const groups=new Map();
+        const add=(name,row,direction)=>{
+            const key=(name||'').toLowerCase();
+            if(!key)return;
+            if(!groups.has(key))groups.set(key,{key:'org-node-'+key,name,relationships:[],businessCount:0,ownershipCount:0,auditCount:0});
+            const g=groups.get(key);
+            const field=(row.fieldApiName||'');
+            const fieldKey=field.toLowerCase();
+            const category=auditFields.has(fieldKey)?'System audit':ownershipFields.has(fieldKey)?'Ownership':'Schema relationship';
+            g.relationships.push({key:g.key+'-'+g.relationships.length,field,kind:row.relationshipType,category,direction});
+            if(category==='System audit')g.auditCount++;else if(category==='Ownership')g.ownershipCount++;else g.businessCount++;
+        };
+        rows.forEach(row=>{
+            if((row.targetObject||'').toLowerCase()===selectedKey)add(row.sourceObject,row,'references selected object');
+            if((row.sourceObject||'').toLowerCase()===selectedKey)add(row.targetObject,row,'referenced by selected object');
+        });
+        const dependencies=[...groups.values()].map(g=>({
+            ...g,
+            relationshipCount:g.relationships.length,
+            relationshipLabel:g.relationships.length===1?'1 reference':g.relationships.length+' references'
+        })).sort((a,b)=>a.name.localeCompare(b.name));
+        return {selected,dependencies,hasDependencies:dependencies.length>0};
+    }
+
+    get architectureUsageEvidenceNote(){return 'Evidence scope: the current ER model plus Salesforce schema relationship metadata loaded when Architecture Intelligence opens. This finds reference fields on objects outside the diagram, but does not infer Apex, Flow, reports, integrations, record counts or runtime usage.';}
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
     get architectureObjectGraphNodes(){
@@ -1667,6 +1719,27 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHasDomains() { return this.architectureDomains.length>0; }
     get architectureHasDomainCouplings() { return this.architectureDomainCouplings.length>0; }
     get architectureUnassignedText() { const u=this.architectureDomainAnalysis.unassigned; return u.length ? u.length+' unassigned: '+u.join(', ') : 'All objects in the current model have a domain assignment.'; }
+    async loadArchitectureOrgReferences(force=false) {
+        const names=(this.architectureNodes||[]).map(n=>n.name).filter(Boolean).sort();
+        if(!names.length){this.architectureOrgReferences=[];this._architectureOrgReferenceKey='';return;}
+        const key=names.map(n=>n.toLowerCase()).join('|');
+        if(!force && this._architectureOrgReferenceKey===key && this.architectureOrgReferences.length)return;
+        this.architectureOrgReferencesLoading=true;
+        this.architectureOrgReferencesError='';
+        try {
+            const rows=await getSchemaReferences({diagramObjectApiNames:names});
+            // Ignore a stale response if the user changed diagrams while the describe scan was running.
+            const currentKey=(this.architectureNodes||[]).map(n=>n.name).filter(Boolean).sort().map(n=>n.toLowerCase()).join('|');
+            if(currentKey!==key)return;
+            this.architectureOrgReferences=Array.isArray(rows)?rows:[];
+            this._architectureOrgReferenceKey=key;
+        } catch(e) {
+            this.architectureOrgReferences=[];
+            this.architectureOrgReferencesError='Org schema references could not be loaded. Diagram-only analysis remains available.';
+        } finally {
+            this.architectureOrgReferencesLoading=false;
+        }
+    }
     refreshArchitectureAnalysis(force=false) {
         const source=this.sourceText || '';
         this.architectureError='';
