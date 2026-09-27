@@ -710,8 +710,8 @@
                     <template if:false={architectureHasObjectDetail}><div class="arch-empty arch-empty-small">Select an object above to build its architecture map from the current ER model.</div></template>
                 </section>
                 <section class="arch-section arch-workspace arch-workspace-usage">
-                    <div class="arch-section-head"><span>Object Usage & Change Readiness</span><span class="arch-section-hint">Diagram evidence · no Tooling API or live org assumptions</span></div>
-                    <div class="arch-usage-scope"><strong>What this can prove</strong><p>It shows how an object is structurally used by the ER model you loaded and what modelled dependencies deserve review before a change. It deliberately does not invent record counts, last-used dates or dependencies that are not present in the diagram.</p></div>
+                    <div class="arch-section-head"><span>Object Usage & Change Readiness</span><span class="arch-section-hint">Diagram + cached Salesforce schema evidence · no Tooling API</span></div>
+                    <div class="arch-usage-scope"><strong>What this can prove</strong><p>It combines relationships in the ER model with Salesforce schema reference fields discovered across the org. The org schema scan is loaded once when Architecture Intelligence opens and cached for the active diagram, so selecting different objects does not repeatedly scan Salesforce metadata.</p></div>
                     <div class="arch-map-picker"><select class="arch-select" onchange={handleArchitectureUsageObject}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
                     <template if:true={architectureHasUsageDetail}>
                         <div class="arch-usage-head"><div><span class="arch-brief-label">CHANGE READINESS</span><h3>{architectureUsageDetail.name}</h3><p>{architectureUsageDetail.type}</p></div><span class="arch-usage-status">{architectureUsageDetail.status}</span></div>
@@ -739,6 +739,16 @@
                             </template>
                             <template if:false={architectureUsageDetail.hasOutsideDiagram}><p>None explicitly referenced by this object's modelled relationships.</p></template>
                             <p>Other Salesforce metadata, automation, Apex, reports and integrations remain unknown because Architecture Intelligence does not query the org.</p>
+                        </div>
+                        <div class="arch-usage-unknown">
+                            <strong>Org schema references beyond this ER diagram</strong>
+                            <p>Reference fields discovered in Salesforce schema metadata where either end of the relationship is outside the current ER model. Each row shows the exact referencing field.</p>
+                            <template if:true={architectureOrgReferencesLoading}><p>Loading org schema relationship index…</p></template>
+                            <template if:true={architectureOrgReferencesError}><p>{architectureOrgReferencesError}</p></template>
+                            <template if:true={architectureHasUsageOutsideOrgReferences}>
+                                <div class="arch-usage-external-list"><template for:each={architectureUsageOutsideOrgReferences} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.path}</strong><span>{x.relationshipType}</span><small>{x.scope}</small></div></template></div>
+                            </template>
+                            <template if:false={architectureHasUsageOutsideOrgReferences}><template if:false={architectureOrgReferencesLoading}><p>No additional Salesforce schema relationship references were found outside the current ER model for this object.</p></template></template>
                         </div>
                         <div class="arch-usage-evidence">{architectureUsageEvidenceNote}</div>
                     </template>
