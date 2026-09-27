@@ -91,6 +91,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track architecturePathSource = '';
     @track architecturePathTarget = '';
     @track architectureDomainAssignments = {};
+    @track architectureSection = 'overview';
     @track exportPageSize    = 'PNG';
     @track exportSaveToFiles = false;
     @track exportBusy        = false;
@@ -1211,8 +1212,28 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.architectureError='Architecture report export failed. '+(e?.message||'Unknown export error.');
         }
     }
-    handleArchitectureObjectSelect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
-    handleArchitectureDrillClose() { this.architectureSelectedObject=''; }
+    handleArchitectureObjectSelect(event) {
+        this.architectureSelectedObject=event.currentTarget.dataset.name || '';
+        this.architectureSection='object';
+        requestAnimationFrame(()=>this.template.querySelector('.arch-object-drill')?.scrollIntoView({behavior:'smooth',block:'start'}));
+    }
+    handleArchitectureFindingInspect(event) {
+        this.architectureSelectedObject=event.currentTarget.dataset.name || '';
+        this.architectureSection='object';
+        requestAnimationFrame(()=>this.template.querySelector('.arch-object-drill')?.scrollIntoView({behavior:'smooth',block:'start'}));
+    }
+    handleArchitectureDrillClose() { this.architectureSelectedObject=''; this.architectureSection='overview'; }
+    handleArchitectureSection(event){ this.architectureSection=event.currentTarget.dataset.section||'overview'; }
+    get architectureShowOverview(){return this.architectureSection==='overview';}
+    get architectureShowMap(){return this.architectureSection==='map';}
+    get architectureShowPaths(){return this.architectureSection==='paths';}
+    get architectureShowDomains(){return this.architectureSection==='domains';}
+    get architectureShowMetrics(){return this.architectureSection==='metrics';}
+    get architectureShowObject(){return this.architectureSection==='object';}
+    get architecturePathVisual(){
+        const r=this.architecturePathResult;if(!r?.found)return [];
+        return r.path.map((name,i)=>({key:name+'-'+i,name,step:i+1,hasArrow:i<r.path.length-1}));
+    }
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
     get architectureObjectParentsText() { const d=this.architectureObjectDetail; return d?.parents?.length ? d.parents.map(x=>x.name+(x.field?' via '+x.field:'')).join(', ') : 'None in current model'; }
@@ -1431,7 +1452,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             anchor.style.display='none';document.body.appendChild(anchor);anchor.click();document.body.removeChild(anchor);
         } catch(e) { this.architectureError='PDF export failed. '+(e?.message||'Unable to generate the architecture report.'); }
     }
-    handleArchitectureFindingInspect(event) { this.architectureSelectedObject=event.currentTarget.dataset.name || ''; }
     get architectureConnectivityLabel() { const a=this.architectureAnalysis; return !a?'':a.componentCount===1?'Fully connected':a.componentCount+' components'; }
     get architectureCycleLabel() { const a=this.architectureAnalysis; return !a?'':a.cycles.length ? a.cycles.length+' detected' : 'None detected'; }
     get architectureIslandLabel() { const a=this.architectureAnalysis; return !a?'':a.islands.length ? a.islands.length+' isolated' : 'None'; }
