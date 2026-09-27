@@ -1375,6 +1375,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleArchitecturePathSource(event) { this.architecturePathSource=event.target.value; }
     handleArchitecturePathTarget(event) { this.architecturePathTarget=event.target.value; }
     get architectureObjectOptions() { return [{label:'Select object',value:''},...this.architectureNodes.map(n=>({label:n.name,value:n.name}))]; }
+    get architectureCustomObjectOptions() { return [{label:'Select custom object',value:''},...this.architectureNodes.filter(n=>/__c$/i.test(n.name)).map(n=>({label:n.name,value:n.name}))]; }
     get architectureObjectMapSummary() {
         const d=this.architectureObjectDetail;if(!d)return '';
         return d.name+' is classified as '+d.role.toLowerCase()+'. It has '+d.incoming+' incoming and '+d.outgoing+' outgoing relationships, '+d.fieldCount+' fields, and '+d.reachableWithin3+' other objects reachable within three relationship hops.';
