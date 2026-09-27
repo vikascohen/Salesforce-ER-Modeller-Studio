@@ -434,10 +434,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     get connectorsView() {
-        const focused = this.focusedEntity ? this.focusedEntity.toLowerCase() : null;
-        return (this.erConnectors || []).map((c) => {
-            const isFocusRelated = !focused || c.childEntity.toLowerCase() === focused || c.parentEntity.toLowerCase() === focused;
-            return { ...c, connOpacity: isFocusRelated ? '1' : '0.1' };
+        const focused=this.focusedEntity?this.focusedEntity.toLowerCase():null;
+        const boxes=new Map((this._erBoxes||[]).map(b=>[b.name,b]));
+        const laneCounts={};
+        return (this.erConnectors||[]).map((c)=>{
+            const isFocusRelated=!focused||c.childEntity.toLowerCase()===focused||c.parentEntity.toLowerCase()===focused;
+            const child=boxes.get(c.childEntity), parent=boxes.get(c.parentEntity);
+            if(!child||!parent||child===parent) return {...c,connOpacity:isFocusRelated?'1':'0.1'};
+            const ccx=child.x+child.width/2, ccy=child.y+child.height/2, pcx=parent.x+parent.width/2, pcy=parent.y+parent.height/2;
+            const dx=pcx-ccx, dy=pcy-ccy, horizontal=Math.abs(dx)>=Math.abs(dy);
+            const pair=[c.childEntity,c.parentEntity].sort().join('|'), lane=laneCounts[pair]||0; laneCounts[pair]=lane+1;
+            const offset=(lane%2===0?1:-1)*Math.ceil(lane/2)*14;
+            let sx,sy,ex,ey,d,midX,midY;
+            if(horizontal){
+                sx=dx>=0?child.x+child.width:child.x; sy=ccy+offset;
+                ex=dx>=0?parent.x:parent.x+parent.width; ey=pcy+offset;
+                const mx=(sx+ex)/2+offset;
+                d='M '+sx+' '+sy+' L '+mx+' '+sy+' L '+mx+' '+ey+' L '+ex+' '+ey;
+                midX=mx;midY=(sy+ey)/2;
+            } else {
+                sx=ccx+offset; sy=dy>=0?child.y+child.height:child.y;
+                ex=pcx+offset; ey=dy>=0?parent.y:parent.y+parent.height;
+                const my=(sy+ey)/2+offset;
+                d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;
+                midX=(sx+ex)/2;midY=my;
+            }
+            return {...c,d,midX,midY:midY-7,cardStartX:sx,cardStartY:sy,cardEndX:ex,cardEndY:ey,connOpacity:isFocusRelated?'1':'0.1'};
         });
     }
 
