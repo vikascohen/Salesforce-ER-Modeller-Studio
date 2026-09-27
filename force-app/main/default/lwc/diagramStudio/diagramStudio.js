@@ -1204,23 +1204,33 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get mimicFieldTypeOptions(){return ['Text','Text Area','Long Text Area','Number','Currency','Percent','Checkbox','Date','DateTime','Email','Phone','URL','Picklist','Multi Select Picklist','Auto Number','Formula','Lookup','Master Detail','Polymorphic'];}
     handleMimicModelName(e){this.mimicModelName=e.target.value;}
+    normaliseMimicApiBase(value) {
+        // Mimic owns the custom suffix. Anything the user types from "__"
+        // onward is discarded so Project, Project__c and Project__anything
+        // all generate the same custom API name: Project__c.
+        return String(value || '').split('__')[0].replace(/[^A-Za-z0-9_]/g, '');
+    }
+    mimicCustomApiName(value) {
+        const base = this.normaliseMimicApiBase(value);
+        return base ? base + '__c' : '';
+    }
     mimicAddObject(){const id='mo'+(++this.mimicSeq);this.mimicObjects=[...this.mimicObjects,{id,name:'',fields:[{id:id+'id',name:'Id',type:'Id',locked:true,target:''},{id:id+'f1',name:'Name',type:'Text',locked:false,target:''}]}];}
     handleMimicAddObject(){this.mimicAddObject();}
-    handleMimicObjectName(e){const id=e.currentTarget.dataset.id;this.mimicObjects=this.mimicObjects.map(o=>o.id===id?{...o,name:e.target.value}:o);}
+    handleMimicObjectName(e){const id=e.currentTarget.dataset.id,name=this.normaliseMimicApiBase(e.target.value);e.target.value=name;this.mimicObjects=this.mimicObjects.map(o=>o.id===id?{...o,name}:o);}
     handleMimicRemoveObject(e){const id=e.currentTarget.dataset.id;this.mimicObjects=this.mimicObjects.filter(o=>o.id!==id).map(o=>({...o,fields:o.fields.map(f=>f.target===id?{...f,target:'',type:'Text'}:f)}));}
     handleMimicAddField(e){const id=e.currentTarget.dataset.id;this.mimicObjects=this.mimicObjects.map(o=>o.id===id?{...o,fields:[...o.fields,{id:id+'f'+(++this.mimicSeq),name:'',type:'Text',locked:false,target:''}]}:o);}
-    handleMimicFieldName(e){const oid=e.currentTarget.dataset.object,fid=e.currentTarget.dataset.field;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.map(f=>f.id===fid&&!f.locked?{...f,name:e.target.value}:f)}:o);}
+    handleMimicFieldName(e){const oid=e.currentTarget.dataset.object,fid=e.currentTarget.dataset.field,name=this.normaliseMimicApiBase(e.target.value);e.target.value=name;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.map(f=>f.id===fid&&!f.locked?{...f,name}:f)}:o);}
     handleMimicFieldType(e){const oid=e.currentTarget.dataset.object,fid=e.currentTarget.dataset.field,type=e.target.value,rel=['Lookup','Master Detail','Polymorphic'].includes(type),targets=this.mimicObjects.filter(o=>o.id!==oid);if(rel&&!targets.length){this.errorMessage='Add another object before creating a '+type+' relationship field.';e.target.value='Text';return;}this.errorMessage='';this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.map(f=>f.id===fid?{...f,type,target:rel?(f.target||targets[0].id):''}:f)}:o);}
     handleMimicFieldTarget(e){const oid=e.currentTarget.dataset.object,fid=e.currentTarget.dataset.field;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.map(f=>f.id===fid?{...f,target:e.target.value}:f)}:o);}
     handleMimicRemoveField(e){const oid=e.currentTarget.dataset.object,fid=e.currentTarget.dataset.field;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.filter(f=>f.id!==fid||f.locked)}:o);}
-    get mimicObjectsView(){return this.mimicObjects.map(o=>({...o,fields:o.fields.map(f=>({...f,isRelationship:['Lookup','Master Detail','Polymorphic'].includes(f.type),targetOptions:this.mimicObjects.filter(t=>t.id!==o.id).map(t=>({label:(t.name||'Unnamed object')+' · Id',value:t.id}))}))}));}
+    get mimicObjectsView(){return this.mimicObjects.map(o=>({...o,fields:o.fields.map(f=>({...f,isRelationship:['Lookup','Master Detail','Polymorphic'].includes(f.type),targetOptions:this.mimicObjects.filter(t=>t.id!==o.id).map(t=>({label:(this.mimicCustomApiName(t.name)||'Unnamed object')+' · Id',value:t.id}))}))}));}
     handleGenerateMimic(){
-        const objs=this.mimicObjects.filter(o=>o.name.trim());if(!objs.length){this.errorMessage='Mimic New ER needs at least one named object.';return;}
-        const names=new Set(objs.map(o=>o.name.trim().toLowerCase()));if(names.size!==objs.length){this.errorMessage='Object names in Mimic New ER must be unique.';return;}
+        const objs=this.mimicObjects.filter(o=>this.normaliseMimicApiBase(o.name));if(!objs.length){this.errorMessage='Mimic New ER needs at least one named object.';return;}
+        const names=new Set(objs.map(o=>this.mimicCustomApiName(o.name).toLowerCase()));if(names.size!==objs.length){this.errorMessage='Object names in Mimic New ER must be unique.';return;}
         const byId=new Map(objs.map(o=>[o.id,o])),lines=[];
-        for(const o of objs){for(const f of o.fields){if(['Lookup','Master Detail','Polymorphic'].includes(f.type)&&(!f.target||!byId.get(f.target))){this.errorMessage='Choose a target object for relationship field '+(f.name||'(unnamed)')+' on '+o.name+'.';return;}}}
-        objs.forEach(o=>{const fs=o.fields.filter(f=>!f.locked&&f.name.trim()&&!['Lookup','Master Detail','Polymorphic'].includes(f.type)).map(f=>f.name.trim()+(f.type&&f.type!=='Text'?' ['+f.type+']':''));lines.push('entity '+o.name.trim()+(fs.length?' : '+fs.join(', '):''));});
-        objs.forEach(o=>o.fields.filter(f=>!f.locked&&f.name.trim()&&['Lookup','Master Detail','Polymorphic'].includes(f.type)).forEach(f=>{const target=byId.get(f.target),op=f.type==='Master Detail'?'=>':f.type==='Polymorphic'?'~>':'->';lines.push(o.name.trim()+'.'+f.name.trim()+' '+op+' '+target.name.trim());}));
+        for(const o of objs){for(const f of o.fields){if(['Lookup','Master Detail','Polymorphic'].includes(f.type)&&(!f.target||!byId.get(f.target))){this.errorMessage='Choose a target object for relationship field '+(this.mimicCustomApiName(f.name)||'(unnamed)')+' on '+this.mimicCustomApiName(o.name)+'.';return;}}}
+        objs.forEach(o=>{const fs=o.fields.filter(f=>!f.locked&&this.normaliseMimicApiBase(f.name)&&!['Lookup','Master Detail','Polymorphic'].includes(f.type)).map(f=>this.mimicCustomApiName(f.name)+(f.type&&f.type!=='Text'?' ['+f.type+']':''));lines.push('entity '+this.mimicCustomApiName(o.name)+(fs.length?' : '+fs.join(', '):''));});
+        objs.forEach(o=>o.fields.filter(f=>!f.locked&&this.normaliseMimicApiBase(f.name)&&['Lookup','Master Detail','Polymorphic'].includes(f.type)).forEach(f=>{const target=byId.get(f.target),op=f.type==='Master Detail'?'=>':f.type==='Polymorphic'?'~>':'->';lines.push(this.mimicCustomApiName(o.name)+'.'+this.mimicCustomApiName(f.name)+' '+op+' '+this.mimicCustomApiName(target.name));}));
         this.openNewUnsaved();this.currentModelIsMimic=true;this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.resetMimicDraft();this.renderDiagram();
     }
 
