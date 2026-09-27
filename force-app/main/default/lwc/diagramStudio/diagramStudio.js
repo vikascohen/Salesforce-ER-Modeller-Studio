@@ -733,16 +733,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // Phase 2 workspace presentation only. These controls never alter DSL text or compiler behaviour.
     @track dslMaximised = false;
     @track canvasMaximised = false;
+    @track canvasFitActive = false;
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open'+(this.dslMaximised?' dsl-panel-maximised':'') : 'dsl-panel dsl-panel-closed'; }
     get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }
     get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }
     get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }
-    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }
+    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }\n    get showCanvasFitExport(){ return this.canvasFitActive && this.canvasMaximised; }
     handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
-    handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; }
+    handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; else this.canvasFitActive=false; }
     handleFitModel(){
+        this.canvasFitActive=true;
         // Relationship-aware presentation layout only. DSL/parser/compiler remain untouched.
         const wrap=this.template.querySelector('.canvas-wrap');
         if(!wrap||!this.sourceText?.trim()) return;
