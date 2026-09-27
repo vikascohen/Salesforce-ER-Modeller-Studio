@@ -1185,8 +1185,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuImport()         { this.openMenu = null; this.handleToggleImport(); }
     handleMenuExport()         { this.openMenu = null; this.handleOpenExport(); }
     handleMenuAutoLayout()     { this.openMenu = null; this.handleAutoLayout(); }
-    handleMenuMimic() { this.openMenu=null; this.mimicOpen=true; if(!this.mimicObjects.length)this.mimicAddObject(); }
-    handleCloseMimic() { this.mimicOpen=false; }
+    resetMimicDraft() {
+        this.mimicModelName = 'Mimicked Model';
+        this.mimicObjects = [];
+        this.mimicRelationships = [];
+        this.mimicSeq = 0;
+        this.errorMessage = '';
+    }
+    handleMenuMimic() {
+        this.openMenu = null;
+        this.resetMimicDraft();
+        this.mimicAddObject();
+        this.mimicOpen = true;
+    }
+    handleCloseMimic() {
+        this.mimicOpen = false;
+        this.resetMimicDraft();
+    }
     get mimicFieldTypeOptions(){return ['Text','Text Area','Long Text Area','Number','Currency','Percent','Checkbox','Date','DateTime','Email','Phone','URL','Picklist','Multi Select Picklist','Auto Number','Formula','Lookup','Master Detail','Polymorphic'];}
     handleMimicModelName(e){this.mimicModelName=e.target.value;}
     mimicAddObject(){const id='mo'+(++this.mimicSeq);this.mimicObjects=[...this.mimicObjects,{id,name:'',fields:[{id:id+'id',name:'Id',type:'Id',locked:true,target:''},{id:id+'f1',name:'Name',type:'Text',locked:false,target:''}]}];}
@@ -1206,7 +1221,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         for(const o of objs){for(const f of o.fields){if(['Lookup','Master Detail','Polymorphic'].includes(f.type)&&(!f.target||!byId.get(f.target))){this.errorMessage='Choose a target object for relationship field '+(f.name||'(unnamed)')+' on '+o.name+'.';return;}}}
         objs.forEach(o=>{const fs=o.fields.filter(f=>!f.locked&&f.name.trim()&&!['Lookup','Master Detail','Polymorphic'].includes(f.type)).map(f=>f.name.trim()+(f.type&&f.type!=='Text'?' ['+f.type+']':''));lines.push('entity '+o.name.trim()+(fs.length?' : '+fs.join(', '):''));});
         objs.forEach(o=>o.fields.filter(f=>!f.locked&&f.name.trim()&&['Lookup','Master Detail','Polymorphic'].includes(f.type)).forEach(f=>{const target=byId.get(f.target),op=f.type==='Master Detail'?'=>':f.type==='Polymorphic'?'~>':'->';lines.push(o.name.trim()+'.'+f.name.trim()+' '+op+' '+target.name.trim());}));
-        this.openNewUnsaved();this.currentModelIsMimic=true;this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.errorMessage='';this.renderDiagram();
+        this.openNewUnsaved();this.currentModelIsMimic=true;this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.resetMimicDraft();this.renderDiagram();
     }
 
     handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
