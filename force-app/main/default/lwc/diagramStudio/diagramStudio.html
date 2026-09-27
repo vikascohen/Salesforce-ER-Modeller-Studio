@@ -417,6 +417,7 @@
                 <button class="zoom-btn zoom-btn-wide" onclick={handleToggleCanvasMaximise} title="Maximise or restore canvas">{canvasMaximiseLabel}</button>
                 <button class="zoom-btn zoom-btn-wide" onclick={handleFitModel} title="Fit the complete model into the visible canvas">Fit Model</button>
                 <template lwc:if={showCanvasFitExport}><button class="zoom-btn zoom-btn-wide" onclick={handleOpenExport} title="Export the complete fitted model">Export</button></template>
+                <template if:true={canvasHasModel}><button class="zoom-btn zoom-btn-wide" onclick={handleToggleCanvasSummary}>{canvasSummaryToggleLabel}</button></template>
                 <button class="zoom-btn" onclick={handleZoomOut} title="Zoom out">-</button>
                 <button class="zoom-btn zoom-btn-label" onclick={handleZoomReset} title="Reset zoom">{zoomPercentLabel}</button>
                 <button class="zoom-btn" onclick={handleZoomIn} title="Zoom in">+</button>
@@ -569,14 +570,12 @@
                 </svg>
               </div>
             </div>
-            <template if:true={canvasHasModel}>
+            <template if:true={canvasSummaryVisible}>
                 <section class="canvas-summary">
                     <div class="canvas-summary-head">
                         <div><strong>Model Relationship Summary</strong><span>Live explanation of the relationships currently on this canvas.</span></div>
-                        <button class="zoom-btn zoom-btn-wide" onclick={handleToggleCanvasSummary}>{canvasSummaryToggleLabel}</button>
                     </div>
-                    <template if:true={canvasSummaryVisible}>
-                        <div class="canvas-summary-scroll">
+                    <div class="canvas-summary-scroll">
                             <template for:each={canvasRelationshipSummary} for:item="item">
                                 <div class="canvas-summary-row" key={item.key}>
                                     <span class="canvas-summary-kind">{item.kind}</span>
@@ -585,8 +584,7 @@
                                     <span class="canvas-summary-sentence">{item.sentence}</span>
                                 </div>
                             </template>
-                        </div>
-                    </template>
+                    </div>
                 </section>
             </template>
         </div>
