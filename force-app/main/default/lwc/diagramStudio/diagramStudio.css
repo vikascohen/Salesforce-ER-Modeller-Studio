@@ -1502,6 +1502,7 @@
 .arch-panel.arch-view-map .arch-workspace-map,
 .arch-panel.arch-view-paths .arch-workspace-paths,
 .arch-panel.arch-view-domains .arch-workspace-domains,
+.arch-panel.arch-view-usage .arch-workspace-usage,
 .arch-panel.arch-view-relationships .arch-workspace-relationships,
 .arch-panel.arch-view-metrics .arch-workspace-metrics,
 .arch-panel.arch-view-object .arch-workspace-object{display:block!important}
@@ -1511,6 +1512,7 @@
 .arch-panel.arch-view-map .arch-map-section{height:calc(100vh - 225px);overflow:auto}
 .arch-panel.arch-view-paths .arch-workspace-paths,
 .arch-panel.arch-view-domains .arch-workspace-domains,
+.arch-panel.arch-view-usage .arch-workspace-usage,
 .arch-panel.arch-view-relationships .arch-workspace-relationships,
 .arch-panel.arch-view-metrics .arch-workspace-metrics,
 .arch-panel.arch-view-object .arch-workspace-object{overflow:auto}
@@ -1648,7 +1650,7 @@
 @media(max-width:900px){.arch-domain-health-grid,.arch-domain-contract-grid{grid-template-columns:1fr}}
 
 /* Object Usage & Change Readiness — ER-model evidence only */
-.arch-panel .arch-workspace-usage{display:none}.arch-panel.arch-view-usage .arch-workspace{display:none}.arch-panel.arch-view-usage .arch-workspace-usage{display:block}
+.arch-panel .arch-workspace-usage{display:none}.arch-panel.arch-view-usage .arch-workspace{display:none}.arch-panel.arch-view-usage .arch-workspace-usage{display:block!important}
 .arch-usage-scope{margin:8px 0 14px;padding:13px 15px;border-left:4px solid #0b8ee8;border-radius:8px;background:rgba(11,142,232,.07)}.arch-usage-scope p{margin:5px 0 0;line-height:1.5}
 .arch-usage-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin:15px 0}.arch-usage-head h3{margin:4px 0}.arch-usage-head p{margin:0;opacity:.72}.arch-usage-status{padding:7px 10px;border:1px solid var(--surface-border-strong,rgba(127,127,127,.35));border-radius:999px;font-size:10px;font-weight:800}
 .arch-usage-diagram{display:grid;grid-template-columns:minmax(260px,1fr) minmax(220px,.7fr) minmax(260px,1fr);gap:26px;align-items:center;padding:22px;border:1px solid var(--surface-border,rgba(127,127,127,.3));border-radius:11px;background:rgba(127,127,127,.025)}
