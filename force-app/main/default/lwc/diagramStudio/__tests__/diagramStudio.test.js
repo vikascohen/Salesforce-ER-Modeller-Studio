@@ -1603,7 +1603,9 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
 
         const text = el.shadowRoot.querySelector('.arch-workspace-usage').textContent;
         expect(text).toContain('Account__c');
-        expect(text).toContain('ContactPointAddress.ParentId → Account');
+        expect(text).toContain('ContactPointAddress');
+        expect(text).toContain('ParentId');
+        expect(text).toContain('Polymorphic Lookup');
         expect(getSchemaReferences.mock.calls.length).toBe(callsAfterArchitectureLoad);
     });
 
