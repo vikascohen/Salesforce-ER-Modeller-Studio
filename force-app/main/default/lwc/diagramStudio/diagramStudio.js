@@ -1250,14 +1250,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
     handleArchitectureObjectSelect(event) {
-        this.architectureSelectedObject=event.currentTarget.dataset.name || '';
-        this.architectureSection='object';
-        requestAnimationFrame(()=>this.template.querySelector('.arch-object-drill')?.scrollIntoView({behavior:'smooth',block:'start'}));
+        const name=event.currentTarget.dataset.name || '';
+        this.architectureSelectedObject=name;
+        this.architecturePathFrom=name;
+        this.architecturePathTo='';
+        this.architectureSection='paths';
     }
     handleArchitectureFindingInspect(event) {
-        this.architectureSelectedObject=event.currentTarget.dataset.name || '';
-        this.architectureSection='object';
-        requestAnimationFrame(()=>this.template.querySelector('.arch-object-drill')?.scrollIntoView({behavior:'smooth',block:'start'}));
+        const name=event.currentTarget.dataset.name || '';
+        this.architectureSelectedObject=name;
+        this.architecturePathFrom=name;
+        this.architecturePathTo='';
+        this.architectureSection='paths';
     }
     handleArchitectureDrillClose() { this.architectureSelectedObject=''; this.architectureSection='overview'; }
     handleArchitectureSection(event){ this.architectureSection=event.currentTarget.dataset.section||'overview'; }
