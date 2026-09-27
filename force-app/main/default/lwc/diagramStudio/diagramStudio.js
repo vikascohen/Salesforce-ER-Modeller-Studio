@@ -1196,7 +1196,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const objs=this.mimicObjects.filter(o=>o.name.trim());if(!objs.length){this.errorMessage='Mimic New ER needs at least one named object.';return;}
         const names=new Set(objs.map(o=>o.name.trim().toLowerCase()));if(names.size!==objs.length){this.errorMessage='Object names in Mimic New ER must be unique.';return;}
         const byId=new Map(objs.map(o=>[o.id,o]));const lines=[];
-        objs.forEach(o=>{const fs=o.fields.filter(f=>f.name.trim()).map(f=>f.name.trim());lines.push('entity '+o.name.trim()+(fs.length?' : '+fs.join(', '):''));});
+        objs.forEach(o=>{const fs=o.fields.filter(f=>f.name.trim()).map(f=>f.name.trim()+(f.type&&f.type!=='Text'?' ['+f.type+']':''));lines.push('entity '+o.name.trim()+(fs.length?' : '+fs.join(', '):''));});
         this.mimicRelationships.forEach(rel=>{const from=byId.get(rel.from),to=byId.get(rel.to);if(!from||!to||!rel.field.trim())return;const op=rel.type==='Master Detail'?'=>':rel.type==='Polymorphic'?'~>':'->';lines.push(from.name.trim()+'.'+rel.field.trim()+' '+op+' '+to.name.trim());});
         this.openNewUnsaved();this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.renderDiagram();
     }
