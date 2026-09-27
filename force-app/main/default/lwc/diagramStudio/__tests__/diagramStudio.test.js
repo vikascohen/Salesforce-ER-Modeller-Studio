@@ -1679,6 +1679,38 @@ describe('Mimic New ER session state', () => {
         expect(editor.value).not.toContain('Project__wrong');
     });
 
+    it('normalises accidental _c suffixes before generating custom API names', async () => {
+        const el = createElement('c-diagram-studio', { is: DiagramStudio });
+        document.body.appendChild(el);
+        await flushPromises();
+
+        const diagramMenu = Array.from(el.shadowRoot.querySelectorAll('button')).find((b) => b.textContent.includes('Diagram'));
+        diagramMenu.click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((item) => item.textContent.includes('Mimic New ER')).click();
+        await flushPromises();
+
+        const objectName = el.shadowRoot.querySelector('.mimic-object-head input');
+        objectName.value = 'Project_C';
+        objectName.dispatchEvent(new CustomEvent('input'));
+        const fieldName = Array.from(el.shadowRoot.querySelectorAll('.mimic-field input')).find((input) => !input.disabled);
+        fieldName.value = 'Status_c';
+        fieldName.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        expect(objectName.value).toBe('Project');
+        expect(fieldName.value).toBe('Status');
+
+        el.shadowRoot.querySelector('.mimic-generate').click();
+        await flushPromises();
+
+        const editor = el.shadowRoot.querySelector('textarea');
+        expect(editor.value).toContain('entity Project__c');
+        expect(editor.value).toContain('Status__c');
+        expect(editor.value).not.toContain('Project_C__c');
+        expect(editor.value).not.toContain('Status_c__c');
+    });
+
     it('starts with a clean draft each time Mimic New ER is opened', async () => {
         const el = createElement('c-diagram-studio', { is: DiagramStudio });
         document.body.appendChild(el);
