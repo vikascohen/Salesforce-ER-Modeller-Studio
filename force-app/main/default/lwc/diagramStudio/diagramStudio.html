@@ -626,11 +626,11 @@
             <template if:true={architectureHasModel}>
                 <template if:true={architectureShowHome}>
                     <section class="arch-home">
-                        <div class="arch-home-hero"><div class="arch-brief-label">ARCHITECTURE INTELLIGENCE HOME</div><h2>Choose the architecture question you want to answer</h2><p>This workspace turns the current Salesforce ER model into focused architecture evidence. Start with Overview, then open only the question you need: topology, change impact, object role, business boundaries or relationship design.</p></div>
+                        <div class="arch-home-hero"><div class="arch-brief-label">ARCHITECTURE INTELLIGENCE HOME</div><h2>Choose the architecture question you want to answer</h2><p>This workspace turns the current Salesforce ER model into focused architecture evidence. Start with Overview, then open the question you need: change impact, business boundaries or relationship design.</p></div>
                         <div class="arch-home-grid"><template for:each={architectureHomeTiles} for:item="tile"><button class="arch-home-tile" key={tile.key} data-section={tile.key} onclick={handleArchitectureSection}><span class="arch-home-question">{tile.question}</span><strong>{tile.title}</strong><p>{tile.detail}</p><span class="arch-home-action">{tile.action} →</span></button></template></div>
                     </section>
                 </template>
-                <template if:false={architectureShowHome}><div class="arch-workspace-nav"><button class="arch-home-back" onclick={handleArchitectureHome}>← Back to Architecture Home</button></div></template>
+                <template if:false={architectureShowHome}><div class="arch-workspace-nav"><button class="arch-home-back" onclick={handleArchitectureHome}>← Back to Architecture Home</button><button class="arch-home-back arch-refresh-btn" onclick={handleArchitectureRefresh}>Refresh Analysis</button></div></template>
                 <section class="arch-brief arch-workspace arch-workspace-overview">
                     <div class="arch-brief-label">ARCHITECTURE SUMMARY</div>
                     <p class="arch-brief-text">{architectureExecutiveSummary}</p>
@@ -657,7 +657,7 @@
 
                 
 
-                <section class="arch-section arch-map-section arch-workspace arch-workspace-map"><div class="arch-section-head"><span>Architecture Map</span><span class="arch-section-hint">Start here: see the structure before reading the intelligence</span></div><div class="arch-map-explainer"><strong>How to read this</strong><span>Scroll horizontally or vertically to explore the complete model. Lines run from child to parent and arrowheads show relationship direction. Highlighted objects are structurally important. Click an object to inspect it.</span></div><div class="arch-map-viewport"><div class="arch-insight-map" style={architectureInsightMapCanvasStyle}><template for:each={architectureInsightMapEdges} for:item="edge"><i class={edge.kindClass} key={edge.key} style={edge.style} title={edge.title}><b></b></i></template><template for:each={architectureInsightMapNodes} for:item="node"><button key={node.name} class={node.className} style={node.style} data-name={node.name} onclick={handleArchitectureObjectSelect}><strong>{node.name}</strong><span>{node.role}</span><small>{node.degree} relationships · {node.fieldCount} fields</small></button></template></div></div><div class="arch-map-legend arch-map-rel-legend"><span class="arch-map-key arch-map-key-master">Master Detail</span><span class="arch-map-key arch-map-key-lookup">Lookup</span><span class="arch-map-key arch-map-key-poly">Polymorphic</span><span>Arrow points to referenced parent</span></div></section><section class="arch-section arch-designer-dashboard arch-workspace arch-workspace-overview">
+                <section class="arch-section arch-designer-dashboard arch-workspace arch-workspace-overview">
 <div class="arch-section-head"><span>Designer Architecture Dashboard</span><span class="arch-section-hint">See concentration, coupling and review areas before drilling into metrics</span></div>
 <div class="arch-designer-brief"><template for:each={architectureDesignerBrief} for:item="x"><article key={x.key}><span>{x.label}</span><strong>{x.title}</strong><p>{x.detail}</p></article></template></div>
 <div class="arch-visual-grid">
@@ -701,22 +701,7 @@
                     <template if:false={architectureHasJunctions}><div class="arch-empty arch-empty-small">No multi-parent junction candidates detected in the current model.</div></template>
                 </section>
                 
-                <template if:true={architectureHasObjectDetail}>
-                    <section class="arch-section arch-drill arch-object-drill arch-workspace arch-workspace-object">
-                        <div class="arch-section-head"><span>Object Drill-Down · {architectureObjectDetail.name}</span><button class="arch-inline-close" onclick={handleArchitectureDrillClose}>Clear selection</button></div>
-                        <div class="arch-drill-hero"><div><span class="arch-tag">Structural role</span><strong>{architectureObjectDetail.role}</strong></div><div><span>Fields</span><strong>{architectureObjectDetail.fieldCount}</strong></div><div><span>Incoming</span><strong>{architectureObjectDetail.incoming}</strong></div><div><span>Outgoing</span><strong>{architectureObjectDetail.outgoing}</strong></div><div><span>Total degree</span><strong>{architectureObjectDetail.degree}</strong></div><div><span>Reach ≤3 hops</span><strong>{architectureObjectDetail.reachableWithin3}</strong></div></div>
-                        <div class="arch-object-insight-intro"><strong>What this object is doing in the model</strong><p>{architectureObjectInsightText}</p></div>
-                        <div class="arch-object-graph">
-                            <div class="arch-object-graph-column"><span class="arch-object-graph-label">Children / objects depending on this object</span><template for:each={architectureObjectChildGraphNodes} for:item="n"><button key={n.key} class="arch-object-graph-node arch-object-graph-child" data-name={n.name} onclick={handleArchitectureObjectSelect}><strong>{n.name}</strong><small>{n.role}</small></button></template></div>
-                            <div class="arch-object-graph-flow"><span>→</span></div>
-                            <div class="arch-object-graph-focus"><span>SELECTED OBJECT</span><strong>{architectureObjectDetail.name}</strong><small>{architectureObjectDetail.role}</small><div>{architectureObjectDetail.incoming} incoming · {architectureObjectDetail.outgoing} outgoing</div></div>
-                            <div class="arch-object-graph-flow"><span>→</span></div>
-                            <div class="arch-object-graph-column"><span class="arch-object-graph-label">Parents / objects this object references</span><template for:each={architectureObjectParentGraphNodes} for:item="n"><button key={n.key} class="arch-object-graph-node arch-object-graph-parent" data-name={n.name} onclick={handleArchitectureObjectSelect}><strong>{n.name}</strong><small>{n.role}</small></button></template></div>
-                        </div>
-                        <div class="arch-drill-grid"><div><h4>Parents / targets</h4><p>{architectureObjectParentsText}</p></div><div><h4>Children / dependants</h4><p>{architectureObjectChildrenText}</p></div><div><h4>Cycles involving object</h4><p>{architectureObjectCyclesText}</p></div></div>
-                        <template if:true={architectureBlastRadius}><div class="arch-blast-head"><strong>Blast Radius</strong><span>{architectureBlastRadius.total} objects reachable within 3 hops</span></div><div class="arch-reach"><template for:each={architectureBlastLevels} for:item="r"><div class="arch-reach-card" key={r.depth}><span>{r.depth} hop impact</span><strong>{r.count} objects</strong><p>{r.objects}</p></div></template></div></template><div class="arch-reach"><template for:each={architectureObjectReach} for:item="r"><div class="arch-reach-card" key={r.depth}><span>{r.depth} hop</span><strong>{r.count} objects</strong><p>{r.names}</p></div></template></div>
-                    </section>
-                </template>
+
                 <div class="arch-boundary"><strong>Scope:</strong> data-model architecture only. Permissions, CRUD/FLS, vulnerability and security-posture analysis remain outside ER Modeller Studio.</div>
             </template>
             <template if:true={architectureShowEmpty}><div class="arch-empty">Add or import objects to the diagram to analyse its architecture.</div></template>
