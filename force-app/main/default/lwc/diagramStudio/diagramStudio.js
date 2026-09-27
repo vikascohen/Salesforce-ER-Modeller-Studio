@@ -3009,9 +3009,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionaryUsagePending = true;
         try {
             const fieldNames = this.dictionaryRow.fields.filter((f) => !f.isPrimaryKey).map((f) => f.apiName);
-            const stats = await getFieldUsageStats({ objectApiName: objectName, fieldApiNames: fieldNames });
+            const batchSize = 15;
+            const batches = [];
+            for (let i = 0; i < fieldNames.length; i += batchSize) batches.push(fieldNames.slice(i, i + batchSize));
+
+            // Each batch is a separate Apex transaction. That keeps SOQL out
+            // of Apex loops while avoiding Salesforce's aggregate-expression
+            // limits on wide standard objects such as Account.
+            const responses = await Promise.all(
+                batches.map((fieldApiNames) => getFieldUsageStats({ objectApiName: objectName, fieldApiNames }))
+            );
             if (myToken !== this._dictionaryRequestToken || !this.dictionaryRow || this.dictionaryRow.apiName !== objectName || this._isDisconnected) return;
-            const pct = (stats && stats.percentages) || {};
+            const pct = {};
+            let usageError = null;
+            (responses || []).forEach((stats) => {
+                Object.assign(pct, (stats && stats.percentages) || {});
+                if (!usageError && stats && stats.error) usageError = stats.error;
+            });
             this.dictionaryRow = {
                 ...this.dictionaryRow,
                 fields: this.dictionaryRow.fields.map((f) => ({
@@ -3020,7 +3034,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 }))
             };
             this.dictionaryUsageComputed = true;
-            if (stats && stats.error) this.errorMessage = stats.error;
+            if (usageError) this.errorMessage = usageError;
         } catch (e) {
             if (myToken === this._dictionaryRequestToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
         } finally {
