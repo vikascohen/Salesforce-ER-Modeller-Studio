@@ -461,7 +461,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 for(let n=1;n<=12;n++){candidates.push(direct+n*step,direct-n*step);}
                 let mx=candidates.find(x=>clearSegment(sx,sy,x,sy,ignore)&&clearSegment(x,sy,x,ey,ignore)&&clearSegment(x,ey,ex,ey,ignore));
                 if(mx==null){
-                    const right=Math.max(...allBoxes.map(b=>b.x+b.width))+40+idx*8,left=Math.min(...allBoxes.map(b=>b.x))-40-idx*8;
+                    // Keep fallback corridors inside the logical canvas. Never send a route off-screen.
+                    const left=24+(idx%5)*10, right=Math.max(this.svgWidth-24-(idx%5)*10,Math.max(...allBoxes.map(b=>b.x+b.width))+24);
                     mx=dx>=0?right:left;
                 }
                 d='M '+sx+' '+sy+' L '+mx+' '+sy+' L '+mx+' '+ey+' L '+ex+' '+ey;midX=mx;midY=(sy+ey)/2;
@@ -472,7 +473,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 for(let n=1;n<=12;n++){candidates.push(direct+n*step,direct-n*step);}
                 let my=candidates.find(y=>clearSegment(sx,sy,sx,y,ignore)&&clearSegment(sx,y,ex,y,ignore)&&clearSegment(ex,y,ex,ey,ignore));
                 if(my==null){
-                    const bottom=Math.max(...allBoxes.map(b=>b.y+b.height))+40+idx*8,top=Math.min(...allBoxes.map(b=>b.y))-40-idx*8;
+                    // Reserve visible top/bottom gutters rather than routing outside the SVG.
+                    const top=24+(idx%5)*10, bottom=Math.max(this.svgHeight-24-(idx%5)*10,Math.max(...allBoxes.map(b=>b.y+b.height))+24);
                     my=dy>=0?bottom:top;
                 }
                 d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;midX=(sx+ex)/2;midY=my;
