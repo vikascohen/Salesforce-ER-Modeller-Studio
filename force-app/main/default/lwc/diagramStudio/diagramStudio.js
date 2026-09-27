@@ -43,9 +43,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 function injectDefs(defsEl) {
     if (!defsEl || defsEl.childElementCount > 0) return;
     [
-        { id: 'er-arrow',        w: 16, h: 14, rx: 12, ry: 5, d: 'M1,1 L12,5 L1,9 Z',        fill: 'context-stroke', stroke: 'context-stroke' },
-        { id: 'er-diamond',      w: 18, h: 14, rx: 15, ry: 5, d: 'M1,5 L8,1 L15,5 L8,9 Z', fill: 'context-stroke', stroke: null },
-        { id: 'er-diamond-open', w: 18, h: 14, rx: 15, ry: 5, d: 'M1,5 L8,1 L15,5 L8,9 Z', fill: 'none',          stroke: 'context-stroke' }
+        { id: 'er-arrow',        w: 10, h: 10, rx: 8, ry: 3, d: 'M1,1 L8,3 L1,5 Z',           fill: 'context-stroke', stroke: 'context-stroke' },
+        { id: 'er-diamond',      w: 12, h: 10, rx: 10, ry: 3, d: 'M1,3 L5,1 L10,3 L5,5 Z',   fill: 'context-stroke', stroke: null },
+        { id: 'er-diamond-open', w: 12, h: 10, rx: 10, ry: 3, d: 'M1,3 L5,1 L10,3 L5,5 Z',   fill: 'none',          stroke: 'context-stroke' }
     ].forEach(({ id, w, h, rx, ry, d, fill, stroke }) => {
         const m = document.createElementNS(SVG_NS, 'marker');
         m.setAttribute('id', id); m.setAttribute('markerWidth', w); m.setAttribute('markerHeight', h);
