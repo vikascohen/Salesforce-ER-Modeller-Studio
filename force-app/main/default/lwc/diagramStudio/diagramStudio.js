@@ -734,13 +734,26 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dslMaximised = false;
     @track canvasMaximised = false;
     @track canvasFitActive = false;
+    @track canvasSummaryVisible = true;
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open'+(this.dslMaximised?' dsl-panel-maximised':'') : 'dsl-panel dsl-panel-closed'; }
     get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }
     get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }
     get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }
-    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }\n    get showCanvasFitExport(){ return this.canvasFitActive && this.canvasMaximised; }
+    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }\n    get canvasHasModel(){ return (this._erBoxes||[]).length>0; }
+    get canvasRelationshipSummary(){
+        if(!this.canvasHasModel) return [];
+        return (this.erConnectors||[]).map((r,i)=>{
+            const kind=r.markerEnd?.includes('diamond-open')?'Polymorphic':r.markerEnd?.includes('diamond')?'Master Detail':'Lookup';
+            const field=r.label||'relationship field';
+            return {key:r.key||'summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,
+                sentence:r.childEntity+' is related to '+r.parentEntity+' via '+field+' using '+kind+'.'};
+        });
+    }
+    get canvasSummaryToggleLabel(){ return this.canvasSummaryVisible?'Hide Summary':'Show Summary'; }
+    handleToggleCanvasSummary(){ this.canvasSummaryVisible=!this.canvasSummaryVisible; }
+    get showCanvasFitExport(){ return this.canvasFitActive && this.canvasMaximised; }
     handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
     handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; else this.canvasFitActive=false; }
     handleFitModel(){
@@ -844,6 +857,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dismissedSuggestionKeys = new Set();
         this.focusedEntity = null;
         this.resetEmptyCanvas();
+        this.canvasSummaryVisible = true;
         this.svgWidth  = 1600;
         this.svgHeight = 900;
         this.isDirty   = true;
