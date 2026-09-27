@@ -6,7 +6,7 @@ Phase 2 extends ER Modeller Studio from visual modelling into **data-architectur
 
 ## Product boundary
 
-ER Modeller Studio analyses the structure of a Salesforce data model: objects, fields, relationships, graph topology, coupling and model evolution. It does **not** evaluate CRUD/FLS, permission sets, vulnerabilities, code security or security posture. Those concerns belong to Warden Studio.
+ER Modeller Studio analyses the structure of a Salesforce data model: objects, fields, relationships, graph topology, coupling and model evolution. Security posture analysis is outside the scope of this product.
 
 ## First Phase 2 capability
 
@@ -30,9 +30,9 @@ Later Phase 2 work can add schema snapshots/drift history, domain grouping and c
 
 ## Branching
 
-- `main` — untouched Phase 1 production line.
-- `version-1-stable` — preserved copy of Phase 1.
-- `version-2-stable` — all Phase 2 development.
+- `main` — current Version 2 stable release line.
+- `version-1-stable` — preserved Version 1 stable release.
+- `version-2-stable` — preserved Version 2 stable release.
 
 ## Performance principles
 
