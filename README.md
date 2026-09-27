@@ -16,11 +16,11 @@ Our engineering principle remains simple: **transparent architecture evidence ra
 
 ## Deploy Phase 2 Semi Stable to Salesforce
 
-[![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=phase-2-semi-stable&continue)
+[![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable&continue)
 
 Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org using the button above.
 
-> **Note:** This deploy button points specifically to the `phase-2-semi-stable` branch. For the stable Phase 1 release, use the `main` branch.
+> **Note:** This deploy button points specifically to the `version-2-stable` branch. For the stable Phase 1 release, use the `main` branch.
 
 ## Contents
 
@@ -141,7 +141,7 @@ Everything documented later in this README under modelling, org-aware views, Dat
 
 ## Installing
 
-> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `phase-2-semi-stable` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
+> **Important — the unmanaged package is Phase 1 only.** The unmanaged package links below install the stable **Phase 1** version of ER Modeller Studio. They do **not** contain Phase 2 Data Architecture Intelligence or any other changes developed on the `version-2-stable` branch. Phase 2 is currently a development branch and has not yet been promoted into the unmanaged package.
 
 **Phase 1 unmanaged package** — the simplest option for installing the stable Phase 1 release: no GitHub OAuth, no CLI, just a link and a login.
 
