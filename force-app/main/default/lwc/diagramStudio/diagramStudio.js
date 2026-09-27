@@ -2723,10 +2723,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const [fresh, freshSignals] = await Promise.all([
-                getSharingModels({ objectApiNames: names }),
-                Promise.all(names.map(async (name) => ({ name, value: await getSharingSignal({ objectApiName: name }) })))
-            ]);
+            // OWD/sharing models are cheap metadata and are needed for every
+            // box badge. Detailed Share-table signals are intentionally NOT
+            // fetched here: doing one Apex round trip per canvas object made
+            // Sharing View slow on larger diagrams. Those details are loaded
+            // lazily only when the architect hovers an object.
+            const fresh = await getSharingModels({ objectApiNames: names });
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
@@ -2738,13 +2740,38 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             });
             this.sharingModels = next;
 
-            const nextSignals = {};
-            (freshSignals || []).forEach(({ name, value }) => {
-                if (value) nextSignals[name.toLowerCase()] = value;
-            });
-            this.sharingSignals = nextSignals;
+
         } catch (e) {
             this.errorMessage = this.reduceError(e);
+        }
+    }
+
+    async fetchSharingSignalForObject(name) {
+        const key = name.toLowerCase();
+        if (!this.sharingViewOn || this.sharingSignals[key] || this._isDisconnected) return;
+        this._sharingSignalPending = this._sharingSignalPending || {};
+        if (this._sharingSignalPending[key]) return;
+        this._sharingSignalPending[key] = true;
+        try {
+            const value = await getSharingSignal({ objectApiName: name });
+            if (!value || !this.sharingViewOn || this._isDisconnected) return;
+            this.sharingSignals = { ...this.sharingSignals, [key]: value };
+            if (this.hoverCard && this.hoverCard.name === name) {
+                this.hoverCard = {
+                    ...this.hoverCard,
+                    hasSharingSignalData: !!value.shareTableAvailable,
+                    sharingRuleText: value.hasSharingRule ? 'Yes' : 'No',
+                    apexSharingText: value.isCustomObject
+                        ? (value.hasApexSharing ? 'Yes' : 'No')
+                        : 'Not determinable on standard objects'
+                };
+            }
+        } catch (e) {
+            // The sharing model itself remains useful even when an object's
+            // Share table is unavailable/inaccessible, so do not turn a
+            // hover-only detail failure into a canvas-wide error.
+        } finally {
+            delete this._sharingSignalPending[key];
         }
     }
 
@@ -2791,12 +2818,39 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
-            const fresh = await Promise.all(names.map(async (name) => ({ name, value: await getRecordCount({ objectApiName: name }) })));
+            // Keep record counts for objects already fetched during this
+            // component session. Heatmap is an architectural signal, not a
+            // live reporting dashboard, so repeatedly querying unchanged
+            // canvas objects only adds latency and server load.
+            const next = { ...(this.recordCounts || {}) };
+            const pendingNames = names.filter((name) => next[name.toLowerCase()] == null);
+            const concurrency = 4;
+            let cursor = 0;
+
+            const worker = async () => {
+                while (cursor < pendingNames.length) {
+                    const name = pendingNames[cursor++];
+                    const value = await getRecordCount({ objectApiName: name });
+                    const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+                    if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
+
+                    if (value) {
+                        next[name.toLowerCase()] = value;
+                        // Progressive render: colour/badge each object as soon
+                        // as its count arrives instead of waiting for the
+                        // slowest object on the canvas.
+                        this.recordCounts = { ...next };
+                    }
+                }
+            };
+
+            await Promise.all(
+                Array.from({ length: Math.min(concurrency, pendingNames.length) }, () => worker())
+            );
+
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
-            const next = {};
-            (fresh || []).forEach(({ name, value }) => { if (value) next[name.toLowerCase()] = value; });
-            this.recordCounts = next;
+            this.recordCounts = { ...next };
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
@@ -2872,6 +2926,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const recordCount = this.recordCounts[key];
         const sharing     = this.sharingModels[key];
         const signals     = this.sharingSignals[key];
+        if (this.sharingViewOn && !signals) this.fetchSharingSignalForObject(name);
 
         this.hoverCard = {
             name,
@@ -3009,9 +3064,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionaryUsagePending = true;
         try {
             const fieldNames = this.dictionaryRow.fields.filter((f) => !f.isPrimaryKey).map((f) => f.apiName);
-            const stats = await getFieldUsageStats({ objectApiName: objectName, fieldApiNames: fieldNames });
+            const batchSize = 15;
+            const batches = [];
+            for (let i = 0; i < fieldNames.length; i += batchSize) batches.push(fieldNames.slice(i, i + batchSize));
+
+            // Each batch is a separate Apex transaction. That keeps SOQL out
+            // of Apex loops while avoiding Salesforce's aggregate-expression
+            // limits on wide standard objects such as Account.
+            const responses = await Promise.all(
+                batches.map((fieldApiNames) => getFieldUsageStats({ objectApiName: objectName, fieldApiNames }))
+            );
             if (myToken !== this._dictionaryRequestToken || !this.dictionaryRow || this.dictionaryRow.apiName !== objectName || this._isDisconnected) return;
-            const pct = (stats && stats.percentages) || {};
+            const pct = {};
+            let usageError = null;
+            (responses || []).forEach((stats) => {
+                Object.assign(pct, (stats && stats.percentages) || {});
+                if (!usageError && stats && stats.error) usageError = stats.error;
+            });
             this.dictionaryRow = {
                 ...this.dictionaryRow,
                 fields: this.dictionaryRow.fields.map((f) => ({
@@ -3020,7 +3089,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 }))
             };
             this.dictionaryUsageComputed = true;
-            if (stats && stats.error) this.errorMessage = stats.error;
+            if (usageError) this.errorMessage = usageError;
         } catch (e) {
             if (myToken === this._dictionaryRequestToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
         } finally {
