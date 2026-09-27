@@ -1569,3 +1569,63 @@
 .theme-monokai .arch-map-node span,
 .theme-monokai .arch-map-node small,
 .theme-monokai .arch-rel-graph-node small{color:#b6b2a8!important}
+
+
+/* Architecture Intelligence dark-theme contrast.
+   These overrides keep the analysis workspace readable without changing the ER canvas. */
+.theme-dark-plus .arch-guide-intro,
+.theme-monokai .arch-guide-intro{color:var(--surface-text)!important}
+.theme-dark-plus .arch-guide-card,
+.theme-dark-plus .arch-designer-brief article,
+.theme-dark-plus .arch-visual-card,
+.theme-monokai .arch-guide-card,
+.theme-monokai .arch-designer-brief article,
+.theme-monokai .arch-visual-card{background:var(--surface-bg)!important;border-color:var(--surface-border-strong)!important;color:var(--surface-text)!important;box-shadow:none}
+.theme-dark-plus .arch-guide-card h3,
+.theme-dark-plus .arch-guide-card strong,
+.theme-dark-plus .arch-designer-brief article>strong,
+.theme-dark-plus .arch-visual-head strong,
+.theme-dark-plus .arch-bar-name,
+.theme-dark-plus .arch-mix-row strong,
+.theme-monokai .arch-guide-card h3,
+.theme-monokai .arch-guide-card strong,
+.theme-monokai .arch-designer-brief article>strong,
+.theme-monokai .arch-visual-head strong,
+.theme-monokai .arch-bar-name,
+.theme-monokai .arch-mix-row strong{color:var(--surface-text-strong)!important}
+.theme-dark-plus .arch-guide-card p,
+.theme-dark-plus .arch-designer-brief p,
+.theme-dark-plus .arch-designer-brief article>span,
+.theme-dark-plus .arch-visual-head span,
+.theme-dark-plus .arch-bar-row small,
+.theme-dark-plus .arch-bar-legend,
+.theme-dark-plus .arch-mix-row span,
+.theme-monokai .arch-guide-card p,
+.theme-monokai .arch-designer-brief p,
+.theme-monokai .arch-designer-brief article>span,
+.theme-monokai .arch-visual-head span,
+.theme-monokai .arch-bar-row small,
+.theme-monokai .arch-bar-legend,
+.theme-monokai .arch-mix-row span{color:var(--surface-text-muted)!important}
+.theme-dark-plus .arch-guide-card>div,
+.theme-monokai .arch-guide-card>div{border-top-color:var(--surface-border)!important}
+.theme-dark-plus .arch-chart-help,
+.theme-dark-plus .arch-dashboard-help,
+.theme-monokai .arch-chart-help,
+.theme-monokai .arch-dashboard-help{background:var(--surface-bg-hover)!important;color:var(--surface-text)!important;border:1px solid var(--surface-border-strong)}
+.theme-dark-plus .arch-dashboard-help strong,
+.theme-monokai .arch-dashboard-help strong{color:var(--surface-text-strong)!important}
+.theme-dark-plus .arch-bar-row:hover,
+.theme-monokai .arch-bar-row:hover{background:var(--surface-bg-hover)!important}
+.theme-dark-plus .arch-mix-track,
+.theme-monokai .arch-mix-track{background:#4b5563!important}
+.theme-dark-plus .arch-bar-rel,
+.theme-dark-plus .arch-mix-track i{background:#4da3ff!important}
+.theme-dark-plus .arch-bar-field{background:#c4cbd4!important}
+.theme-monokai .arch-bar-rel,
+.theme-monokai .arch-mix-track i{background:#ae81ff!important}
+.theme-monokai .arch-bar-field{background:#d8d4c8!important}
+.theme-dark-plus .arch-bar-legend span:before{background:#4da3ff!important}
+.theme-dark-plus .arch-bar-legend span+span:before{background:#c4cbd4!important}
+.theme-monokai .arch-bar-legend span:before{background:#ae81ff!important}
+.theme-monokai .arch-bar-legend span+span:before{background:#d8d4c8!important}
