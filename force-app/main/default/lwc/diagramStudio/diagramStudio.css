@@ -1492,3 +1492,23 @@
 .arch-map-edge-poly{color:#e84b3c!important;border-top-style:dashed!important}
 .arch-map-edge-poly b{border-left-color:transparent!important;border:1.5px solid #e84b3c!important;width:8px!important;height:8px!important;right:-2px!important;top:-5px!important;transform:rotate(45deg)!important}
 .arch-map-rel-legend{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.arch-map-key{font-weight:700}.arch-map-key:before{content:'→';margin-right:6px;font-size:16px}.arch-map-key-master{color:#7a35b4}.arch-map-key-lookup{color:#1685e5}.arch-map-key-poly{color:#e84b3c}
+
+/* Isolated Architecture Intelligence workspaces: show only the section selected on Home. */
+.arch-panel .arch-workspace{display:none!important}
+.arch-panel.arch-view-overview .arch-workspace-overview,
+.arch-panel.arch-view-findings .arch-workspace-findings,
+.arch-panel.arch-view-map .arch-workspace-map,
+.arch-panel.arch-view-paths .arch-workspace-paths,
+.arch-panel.arch-view-domains .arch-workspace-domains,
+.arch-panel.arch-view-relationships .arch-workspace-relationships,
+.arch-panel.arch-view-metrics .arch-workspace-metrics,
+.arch-panel.arch-view-object .arch-workspace-object{display:block!important}
+.arch-panel.arch-view-home .arch-boundary{display:none}
+.arch-panel:not(.arch-view-home) .arch-home{display:none!important}
+.arch-panel:not(.arch-view-home) .arch-workspace{min-height:calc(100vh - 230px)}
+.arch-panel.arch-view-map .arch-map-section{height:calc(100vh - 225px);overflow:auto}
+.arch-panel.arch-view-paths .arch-workspace-paths,
+.arch-panel.arch-view-domains .arch-workspace-domains,
+.arch-panel.arch-view-relationships .arch-workspace-relationships,
+.arch-panel.arch-view-metrics .arch-workspace-metrics,
+.arch-panel.arch-view-object .arch-workspace-object{overflow:auto}
