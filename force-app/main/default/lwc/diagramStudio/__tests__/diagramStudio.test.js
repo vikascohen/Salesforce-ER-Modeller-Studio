@@ -1558,7 +1558,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(el.shadowRoot.querySelector('.arch-subtitle').textContent).toContain('Project Architecture');
     });
 
-    it('Object Usage selector contains custom objects only while standard objects remain visible as dependencies', async () => {
+    it('Object Usage selector contains both standard and custom objects represented by the model', async () => {
         const el = createStudio(); await flushPromises();
         await loadArchitectureModel(el, [
             'entity Project__c : Name, Account__c',
@@ -1571,7 +1571,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         const values = Array.from(select.options).map((o) => o.value);
         expect(values).toContain('Project__c');
         expect(values).toContain('Resource__c');
-        expect(values).not.toContain('Account');
+        expect(values).toContain('Account');
         select.value = 'Project__c';
         select.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
