@@ -1700,3 +1700,9 @@
 .arch-usage-field-list{margin-top:10px;border-top:1px solid var(--surface-border,rgba(127,127,127,.25))}
 .arch-usage-field-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(130px,.7fr) minmax(230px,1.4fr);gap:12px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--surface-border,rgba(127,127,127,.18))}
 .arch-usage-field-row b{overflow-wrap:anywhere}.arch-usage-field-row span{margin:0;font-size:10px}.arch-usage-field-row small{margin:0;opacity:.72}
+
+/* Group repeated modelled relationships under one related-object card. */
+.arch-usage-group-node{text-align:left;padding:13px 15px}.arch-usage-group-node>strong,.arch-usage-group-node>span{text-align:center}
+.arch-usage-field-list{margin-top:10px;border-top:1px solid var(--surface-border,rgba(127,127,127,.25))}
+.arch-usage-field-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(120px,.65fr);gap:12px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--surface-border,rgba(127,127,127,.18))}
+.arch-usage-field-row b{overflow-wrap:anywhere}.arch-usage-field-row span{margin:0;font-size:10px}
