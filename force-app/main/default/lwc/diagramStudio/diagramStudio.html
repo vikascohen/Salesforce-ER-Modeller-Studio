@@ -650,7 +650,7 @@
                         <div class="arch-review-card">
                             <div class="arch-review-rank">1</div>
                             <div class="arch-review-main"><div class="arch-review-title"><strong>{architectureReviewLead.name}</strong><span class="arch-tag">{architectureReviewLead.role}</span></div><p>{architectureReviewLead.reason}</p><div class="arch-evidence">{architectureReviewLead.evidence} · {architectureReviewLead.reach}</div></div>
-                            <button class="arch-action-btn" data-name={architectureReviewLead.name} onclick={handleArchitectureFindingInspect}>Inspect Object</button>
+                            <button class="arch-action-btn" data-name={architectureReviewLead.name} onclick={handleArchitectureFindingInspect}>Object Impact</button>
                         </div>
                     </section>
                 </template>
@@ -663,7 +663,7 @@
 <div class="arch-visual-grid">
 <article class="arch-visual-card"><div class="arch-visual-head"><strong>Object Complexity Profile</strong><span>Relationship concentration versus field breadth</span></div><div class="arch-object-bars"><template for:each={architectureDashboardObjects} for:item="o"><button key={o.name} class="arch-bar-row" data-name={o.name} onclick={handleArchitectureObjectSelect}><span class="arch-bar-name">{o.name}</span><span class="arch-bar-pair"><i class="arch-bar arch-bar-rel" style={o.relationshipStyle}></i><i class="arch-bar arch-bar-field" style={o.fieldStyle}></i></span><small>{o.degree} rel. · {o.fieldCount} fields</small></button></template></div><div class="arch-bar-legend"><span>Relationship concentration</span><span>Field breadth</span></div></article>
 <article class="arch-visual-card"><div class="arch-visual-head"><strong>Relationship Composition</strong><span>How objects are structurally connected</span></div><div class="arch-mix-chart"><template for:each={architectureRelationshipMix} for:item="m"><div class="arch-mix-row" key={m.key}><div><strong>{m.label}</strong><span>{m.value} relationships · {m.pct}%</span></div><div class="arch-mix-track"><i style={m.style}></i></div></div></template></div><div class="arch-chart-help">Lookup shows reference dependency. Master Detail represents tighter lifecycle ownership. Polymorphic relationships can point to more than one parent type and deserve contextual review.</div></article>
-</div><div class="arch-dashboard-help"><strong>How to use this dashboard</strong><span>Start with the highlighted review areas, compare object concentration, then click any object to open its detailed structural evidence. Use Domains below when you want to overlay business capability boundaries on the technical model.</span></div>
+</div><div class="arch-dashboard-help"><strong>How to use this dashboard</strong><span>Start with the highlighted review areas, compare object concentration, then click any object to open its Change Impact view. Use Domains when you want to overlay business capability boundaries on the technical model.</span></div>
 </section>
 <section class="arch-section arch-guide-section arch-workspace arch-workspace-overview">
                     <div class="arch-section-head"><span>How to Read Architecture Intelligence</span><span class="arch-section-hint">What each signal means and what to do with it</span></div>
