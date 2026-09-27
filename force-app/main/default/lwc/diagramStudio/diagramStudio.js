@@ -1336,15 +1336,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureInsightMap() {
         const a=this.architectureAnalysis; if(!a) return {nodes:[],edges:[],canvasStyle:''};
         const source=a.nodes||[], count=source.length, cols=Math.max(3,Math.ceil(Math.sqrt(Math.max(1,count)*1.6))), rows=Math.ceil(count/cols);
-        const cellW=240, cellH=170, padX=130, padY=100, width=Math.max(1100,padX*2+(cols-1)*cellW), height=Math.max(700,padY*2+(rows-1)*cellH);
+        const cellW=270, cellH=190, padX=150, padY=110, width=Math.max(1200,padX*2+(cols-1)*cellW), height=Math.max(760,padY*2+(rows-1)*cellH);
         const gravity=new Set(this.architectureGravity.map(x=>x.name)), bridges=new Set(this.architectureBridges.map(x=>x.name));
         const ordered=[...source].sort((x,y)=>y.degree-x.degree||x.name.localeCompare(y.name));
         const nodes=ordered.map((n,i)=>{const col=i%cols,row=Math.floor(i/cols),x=padX+col*cellW,y=padY+row*cellH;
             return {...n,x,y,style:'left:'+x+'px;top:'+y+'px',role:gravity.has(n.name)?'Gravity centre':bridges.has(n.name)?'Bridge object':n.degree===0?'Isolated object':'Model object',className:'arch-map-node '+(gravity.has(n.name)?'arch-map-gravity':bridges.has(n.name)?'arch-map-bridge':n.degree===0?'arch-map-island':'')};
         });
-        const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])), edges=[];
-        (a.relationships||[]).forEach((rel,i)=>{const s=pos.get(rel.childEntity.toLowerCase()),t=pos.get(rel.parentEntity.toLowerCase());if(!s||!t||s===t)return;const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;
-            edges.push({key:i+'-'+s.name+'-'+t.name,child:s.name,parent:t.name,style:'left:'+s.x+'px;top:'+s.y+'px;width:'+len+'px;transform:rotate('+angle+'deg)',kind:rel.kind||'relationship',title:s.name+' → '+t.name});
+        const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])), pairSeen=new Set(), edges=[];
+        (a.relationships||[]).forEach((rel,i)=>{
+            const childKey=(rel.childEntity||'').toLowerCase(),parentKey=(rel.parentEntity||'').toLowerCase();
+            if(!childKey||!parentKey||childKey===parentKey)return;
+            const pair=[childKey,parentKey].sort().join('|');if(pairSeen.has(pair))return;pairSeen.add(pair);
+            const s=pos.get(childKey),t=pos.get(parentKey);if(!s||!t)return;
+            const dx=t.x-s.x,dy=t.y-s.y,len=Math.sqrt(dx*dx+dy*dy),angle=Math.atan2(dy,dx)*180/Math.PI;
+            const raw=(rel.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            const kindClass=kind==='Master Detail'?'arch-map-edge-master':kind==='Polymorphic'?'arch-map-edge-poly':'arch-map-edge-lookup';
+            edges.push({key:i+'-'+s.name+'-'+t.name,child:s.name,parent:t.name,style:'left:'+s.x+'px;top:'+s.y+'px;width:'+len+'px;transform:rotate('+angle+'deg)',kind,kindClass:'arch-map-edge '+kindClass,title:s.name+' → '+t.name+' · '+kind});
         });
         return {nodes,edges,canvasStyle:'width:'+width+'px;height:'+height+'px'};
     }
