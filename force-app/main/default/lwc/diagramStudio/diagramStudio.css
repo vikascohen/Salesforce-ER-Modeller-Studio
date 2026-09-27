@@ -1675,3 +1675,8 @@
 .arch-usage-all-dependencies .arch-usage-side{width:auto;min-width:0}
 .arch-usage-direction-help{margin:2px 0 10px;opacity:.7;font-size:calc(11px * var(--arch-font-scale,1))}
 @media(max-width:800px){.arch-usage-all-dependencies{grid-template-columns:1fr}}
+
+.arch-rel-compact-summary{margin:14px 0 18px;padding:14px 16px;border:1px solid rgba(127,127,127,.25);border-radius:10px;background:rgba(127,127,127,.045)}
+.arch-rel-compact-summary>div{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.arch-rel-compact-summary>div span{opacity:.68;font-size:calc(11px * var(--arch-font-scale,1))}
+.arch-rel-compact-summary p{margin:8px 0 0;line-height:1.5;opacity:.82}
