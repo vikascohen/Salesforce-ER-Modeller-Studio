@@ -734,7 +734,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dslMaximised = false;
     @track canvasMaximised = false;
     @track canvasFitActive = false;
-    @track canvasSummaryVisible = true;
+    @track canvasSummaryVisible = false;
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open'+(this.dslMaximised?' dsl-panel-maximised':'') : 'dsl-panel dsl-panel-closed'; }
@@ -858,7 +858,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dismissedSuggestionKeys = new Set();
         this.focusedEntity = null;
         this.resetEmptyCanvas();
-        this.canvasSummaryVisible = true;
+        this.canvasSummaryVisible = false;
         this.svgWidth  = 1600;
         this.svgHeight = 900;
         this.isDirty   = true;
