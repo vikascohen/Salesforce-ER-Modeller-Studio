@@ -25,6 +25,8 @@ Deploy **Version 2 Stable** directly to a Salesforce org using the button above.
 ## Contents
 
 - [Installing](#installing)
+- [Version 1 release notes](docs/RELEASE-NOTES-V1.md)
+- [Version 2 release notes](docs/RELEASE-NOTES-V2.md)
 - [What it does](#what-it-does)
   - [Modeling the diagram](#modeling-the-diagram)
   - [Org-aware views](#org-aware-views)
