@@ -310,6 +310,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             nameInput.focus();
             nameInput.select();
         }
+
+        // Native select elements can retain a user-chosen DOM value after a
+        // programmatic state reset. Keep Architecture Intelligence selectors
+        // synchronized so Clear / Refresh visibly resets the workspace too.
+        const usageSelect = this.template.querySelector('.arch-workspace-usage select');
+        if (usageSelect && usageSelect.value !== (this.architectureSelectedObject || '')) {
+            usageSelect.value = this.architectureSelectedObject || '';
+        }
     }
 
     // ────────────────────────────────────────────────────────
