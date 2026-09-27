@@ -1629,7 +1629,7 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         el.shadowRoot.querySelector('.arch-refresh-btn').click();
         await flushPromises();
         expect(el.shadowRoot.querySelector('.arch-home')).not.toBeNull();
-        expect(el.shadowRoot.querySelector('.arch-workspace-usage select')).toBeNull();
+        expect(el.shadowRoot.querySelector('.arch-workspace-usage select').value).toBe('');
     });
 
     it('keeps Object Map off the Architecture home while Relationship Path Finder remains a separate question', async () => {
