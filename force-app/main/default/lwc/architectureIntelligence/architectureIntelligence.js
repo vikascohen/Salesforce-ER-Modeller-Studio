@@ -515,7 +515,7 @@ export function detectJunctionObjects(analysis) {
 }
 
 export function analyseDomains(analysis, assignments = {}) {
-    if (!analysis) return { domains: [], couplings: [], unassigned: [] };
+    if (!analysis) return { domains: [], couplings: [], crossRelationships: [], unassigned: [] };
 
     const domainOf = new Map();
     const display = new Map();
@@ -552,6 +552,7 @@ export function analyseDomains(analysis, assignments = {}) {
     });
 
     const pairs = new Map();
+    const crossRelationships = [];
     (analysis.relationships || []).forEach(relationship => {
         const childDomain = domainOf.get(relationship.childEntity.toLowerCase());
         const parentDomain = domainOf.get(relationship.parentEntity.toLowerCase());
@@ -564,6 +565,14 @@ export function analyseDomains(analysis, assignments = {}) {
 
         stats.get(childDomain).crossDomainRelationships++;
         stats.get(parentDomain).crossDomainRelationships++;
+        crossRelationships.push({
+            childEntity: relationship.childEntity,
+            parentEntity: relationship.parentEntity,
+            childDomain: display.get(childDomain),
+            parentDomain: display.get(parentDomain),
+            kind: relationship.kind || 'Lookup',
+            fieldName: relationship.fieldName || relationship.field || ''
+        });
 
         const keys = [childDomain, parentDomain].sort();
         const pairKey = keys.join('|');
@@ -583,6 +592,7 @@ export function analyseDomains(analysis, assignments = {}) {
             b.objectCount - a.objectCount ||
             a.name.localeCompare(b.name)
         ),
+        crossRelationships: crossRelationships.sort((a,b)=>a.childDomain.localeCompare(b.childDomain)||a.parentDomain.localeCompare(b.parentDomain)||a.childEntity.localeCompare(b.childEntity)),
         couplings: [...pairs.values()].sort((a, b) =>
             b.relationshipCount - a.relationshipCount ||
             a.domainA.localeCompare(b.domainA)
