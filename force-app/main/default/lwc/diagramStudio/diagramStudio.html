@@ -424,8 +424,8 @@
             </div>
 
             <!-- Legend -->
-            <div class="legend-overlay">
-                <p class="legend-title">Relationships</p>
+            <div class="legend-overlay" style={legendStyle}>
+                <div class="legend-drag-head" onpointerdown={handleLegendPointerDown} onpointermove={handleLegendPointerMove} onpointerup={handleLegendPointerUp} onpointercancel={handleLegendPointerUp}><p class="legend-title">Relationships</p><button class="legend-reset" onclick={handleLegendReset} title="Reset legend position">Reset</button></div>
                 <div class="legend-row">
                     <svg width="52" height="14"><line x1="2" y1="7" x2="40" y2="7" stroke="#5c2d91" stroke-width="2.5"></line><polygon points="38,4 50,7 38,10" fill="#5c2d91"></polygon></svg>
                     <span>Master-Detail</span>
