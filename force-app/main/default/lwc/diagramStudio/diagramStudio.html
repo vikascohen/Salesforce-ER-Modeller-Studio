@@ -729,7 +729,15 @@
                             <div class="arch-usage-side"><h4>Objects selected object depends on</h4><template if:true={architectureUsageDetail.hasOutbound}><template for:each={architectureUsageDetail.outbound} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></template><template if:false={architectureUsageDetail.hasOutbound}><div class="arch-object-map-empty">None represented in this diagram</div></template></div>
                         </div>
                         <div class="arch-usage-assessment"><strong>Architecture assessment</strong><p>{architectureUsageDetail.observation}</p></div>
-                        <div class="arch-usage-unknown"><strong>Outside-diagram dependencies</strong><p>Unknown. The current ER model cannot prove whether other Salesforce metadata, automation, integrations or objects outside this diagram depend on {architectureUsageDetail.name}. Treat absence from this diagram as unknown, not zero.</p></div>
+                        <div class="arch-usage-unknown">
+                            <strong>Referenced objects outside the declared diagram</strong>
+                            <template if:true={architectureUsageDetail.hasOutsideDiagram}>
+                                <p>The DSL explicitly references the following relationship targets, but they are not declared as entities in this diagram:</p>
+                                <div class="arch-usage-external-list"><template for:each={architectureUsageDetail.outsideDiagram} for:item="x"><div class="arch-usage-node" key={x.key}><strong>{x.name}</strong><span>{x.kind}</span><small>{x.field}</small></div></template></div>
+                            </template>
+                            <template if:false={architectureUsageDetail.hasOutsideDiagram}><p>None explicitly referenced by this object's modelled relationships.</p></template>
+                            <p>Other Salesforce metadata, automation, Apex, reports and integrations remain unknown because Architecture Intelligence does not query the org.</p>
+                        </div>
                         <div class="arch-usage-evidence">{architectureUsageEvidenceNote}</div>
                     </template>
                     <template if:false={architectureHasUsageDetail}><div class="arch-empty arch-empty-small">Select an object to inspect its modelled usage and change exposure.</div></template>
