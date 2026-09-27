@@ -746,10 +746,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get canvasRelationshipSummary(){
         if(!this.canvasHasModel) return [];
         return (this.erConnectors||[]).map((r,i)=>{
-            const kind=r.markerEnd?.includes('diamond-open')?'Polymorphic':r.markerEnd?.includes('diamond')?'Master Detail':'Lookup';
             const field=r.label||'relationship field';
-            return {key:r.key||'summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,
-                sentence:r.childEntity+' is related to '+r.parentEntity+' via '+field+' using '+kind+'.'};
+            const isPolymorphic=r.markerEnd?.includes('diamond-open');
+            const isMasterDetail=!isPolymorphic&&r.markerEnd?.includes('diamond');
+            const isAccountSelf=r.childEntity==='Account'&&r.parentEntity==='Account';
+            let kind=isPolymorphic?'Polymorphic Lookup':isMasterDetail?'Master Detail':'Lookup';
+            let sentence=r.childEntity+' is related to '+r.parentEntity+' via '+field+' using '+kind+'.';
+            if(!isPolymorphic&&!isMasterDetail&&isAccountSelf&&field==='ParentId'){
+                kind='Hierarchical Lookup';
+                sentence='Account.ParentId links an Account to its parent Account using the standard Account hierarchy.';
+            }else if(!isPolymorphic&&!isMasterDetail&&isAccountSelf&&field==='MasterRecordId'){
+                kind='Merge Master Reference';
+                sentence='Account.MasterRecordId identifies the surviving master Account after a record merge; it is not a Master Detail relationship.';
+            }
+            return {key:r.key||'summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,sentence};
         });
     }
     get canvasSummaryToggleLabel(){ return this.canvasSummaryVisible?'Hide Summary':'Show Summary'; }
