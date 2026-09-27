@@ -37,18 +37,18 @@ describe('phase 2 reusable graph indexes', () => {
     });
 
     it('indexes outbound relationships once for junction detection on a large model', () => {
-        const entities = Array.from({ length: 600 }, (_, i) => ({ name: 'Obj' + i, fields: [] }));
+        const entities = Array.from({ length: 600 }, (_, i) => ({ name: 'Obj' + i + '__c', fields: [] }));
         const relationships = [];
         for (let i = 2; i < 600; i++) {
             relationships.push({
-                childEntity: 'Obj' + i,
-                parentEntity: 'Obj0',
+                childEntity: 'Obj' + i + '__c',
+                parentEntity: 'Obj0__c',
                 kind: i === 2 ? 'master' : 'lookup',
                 childField: 'Parent0__c'
             });
             relationships.push({
-                childEntity: 'Obj' + i,
-                parentEntity: 'Obj1',
+                childEntity: 'Obj' + i + '__c',
+                parentEntity: 'Obj1__c',
                 kind: i === 2 ? 'master' : 'lookup',
                 childField: 'Parent1__c'
             });
@@ -57,7 +57,7 @@ describe('phase 2 reusable graph indexes', () => {
         const junctions = detectJunctionObjects(analysis);
 
         expect(junctions).toHaveLength(598);
-        expect(junctions.find(item => item.name === 'Obj2').pattern).toBe('Strong junction pattern');
+        expect(junctions.find(item => item.name === 'Obj2__c').pattern).toBe('Strong junction pattern');
     });
 });
 
