@@ -741,50 +741,61 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
     handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; }
     handleFitModel(){
-        // Reflow the rendered model to the available viewport instead of shrinking a huge canvas.
-        // This changes only presentation coordinates. DSL text and compiler/parser behaviour are untouched.
+        // Relationship-aware presentation layout only. DSL/parser/compiler remain untouched.
         const wrap=this.template.querySelector('.canvas-wrap');
         if(!wrap||!this.sourceText?.trim()) return;
         try {
             const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[];
             if(!entities.length) return;
-            const degree={};
-            entities.forEach(e=>degree[e.name]=0);
+            const byName=new Map(entities.map(e=>[e.name,e])), adj=new Map(entities.map(e=>[e.name,new Set()]));
             rels.forEach(r=>{
-                if(degree[r.childEntity]!=null) degree[r.childEntity]++;
-                if(r.parentEntity!==r.childEntity&&degree[r.parentEntity]!=null) degree[r.parentEntity]++;
+                if(r.childEntity!==r.parentEntity&&adj.has(r.childEntity)&&adj.has(r.parentEntity)){
+                    adj.get(r.childEntity).add(r.parentEntity); adj.get(r.parentEntity).add(r.childEntity);
+                }
             });
-            const ordered=[...entities].sort((a,b)=>(degree[b.name]-degree[a.name])||a.name.localeCompare(b.name));
-            const vw=Math.max(700,wrap.clientWidth-70), vh=Math.max(500,wrap.clientHeight-70);
-            const cols=Math.max(2,Math.min(6,Math.ceil(Math.sqrt(ordered.length*(vw/vh)))));
-            const dense=ordered.length>=16, veryDense=ordered.length>=32;
-            const cardW=Math.max(veryDense?145:dense?160:180,Math.min(veryDense?190:dense?210:250,(vw-50)/cols-28));
-            const gapX=Math.max(veryDense?26:34,(vw-cols*cardW)/(cols+1)), gapY=veryDense?38:dense?46:54;
-            const positions={}, widths={}, heights={};
-            ordered.forEach((ent,i)=>{
-                const col=i%cols,row=Math.floor(i/cols);
-                const compactRows=veryDense?4:dense?5:8;
-                const cardH=Math.max(104,52+Math.min(compactRows,(ent.fields?.length||0)+1)*22);
-                positions[ent.name]={x:Math.round(gapX+col*(cardW+gapX)),y:Math.round(40+row*(cardH+gapY))};
-                widths[ent.name]=Math.round(cardW);
-                // All fields remain in the model. Compact height only limits visible rows until the card is stretched.
-                heights[ent.name]=cardH;
+            const degree=n=>adj.get(n)?.size||0;
+            const unplaced=new Set(entities.map(e=>e.name)), components=[];
+            while(unplaced.size){
+                const seed=[...unplaced].sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b))[0], q=[seed], comp=[];unplaced.delete(seed);
+                while(q.length){const n=q.shift();comp.push(n);[...(adj.get(n)||[])].sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b)).forEach(x=>{if(unplaced.has(x)){unplaced.delete(x);q.push(x);}});}
+                components.push(comp);
+            }
+            components.sort((a,b)=>b.length-a.length);
+            const dense=entities.length>=16, veryDense=entities.length>=32;
+            const cardW=veryDense?150:dense?170:205, visibleRows=veryDense?4:dense?5:7;
+            const positions={},widths={},heights={}; let componentTop=70, maxRight=0;
+            components.forEach(comp=>{
+                const root=[...comp].sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b))[0];
+                const levels=[[root]],seen=new Set([root]);
+                for(let li=0;li<levels.length;li++){
+                    const next=[];
+                    levels[li].forEach(n=>[...(adj.get(n)||[])].sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b)).forEach(x=>{if(comp.includes(x)&&!seen.has(x)){seen.add(x);next.push(x);}}));
+                    if(next.length)levels.push(next);
+                }
+                comp.filter(n=>!seen.has(n)).forEach(n=>levels.push([n]));
+                const maxLevel=Math.max(...levels.map(x=>x.length)), colGap=veryDense?90:120,rowGap=veryDense?90:110;
+                const usableW=Math.max(wrap.clientWidth-100,maxLevel*(cardW+colGap)+160);
+                let levelTop=componentTop;
+                levels.forEach((level,li)=>{
+                    const rowMaxH=Math.max(...level.map(n=>Math.max(108,52+Math.min(visibleRows,(byName.get(n)?.fields?.length||0)+1)*22)));
+                    const span=level.length*cardW+(level.length-1)*colGap, startX=Math.max(55,(usableW-span)/2);
+                    level.forEach((n,i)=>{
+                        const h=Math.max(108,52+Math.min(visibleRows,(byName.get(n)?.fields?.length||0)+1)*22);
+                        // Alternate neighbouring nodes around the centre to create independent routing lanes.
+                        const order=i%2===0?Math.floor(i/2):level.length-1-Math.floor(i/2);
+                        const x=startX+order*(cardW+colGap);
+                        positions[n]={x:Math.round(x),y:Math.round(levelTop)};widths[n]=cardW;heights[n]=h;maxRight=Math.max(maxRight,x+cardW);
+                    });
+                    levelTop+=rowMaxH+rowGap;
+                });
+                componentTop=levelTop+90;
             });
-            this.erPositions=positions;
-            this.boxWidthOverrides=widths;
-            this.boxHeightOverrides=heights;
-            this.zoomLevel=1;
-            this.renderDiagram();
+            this.erPositions=positions;this.boxWidthOverrides=widths;this.boxHeightOverrides=heights;this.zoomLevel=1;this.renderDiagram();
             requestAnimationFrame(()=>{
-                const fit=Math.min((wrap.clientWidth-24)/this.svgWidth,(wrap.clientHeight-24)/this.svgHeight,1);
-                // Prefer scrolling over making object names and relationship lines microscopic.
-                this.zoomLevel=Math.max(0.65,Math.round(fit*20)/20);
-                wrap.scrollLeft=0;
-                wrap.scrollTop=0;
+                const fit=Math.min((wrap.clientWidth-30)/this.svgWidth,(wrap.clientHeight-30)/this.svgHeight,1);
+                this.zoomLevel=Math.max(0.65,Math.round(fit*20)/20);wrap.scrollLeft=0;wrap.scrollTop=0;
             });
-        } catch(e) {
-            this.errorMessage=e?.message||'Could not fit the model.';
-        }
+        } catch(e){this.errorMessage=e?.message||'Could not fit the model.';}
     }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {
