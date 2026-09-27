@@ -1237,6 +1237,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         ];
     }
     handleArchitectureHome(){this.architectureSection='home';this.architectureSelectedObject='';}
+    get architecturePanelClass(){return 'arch-panel arch-view-'+(this.architectureSection||'home');}
     get architectureShowHome(){return this.architectureSection==='home';}
     get architectureShowFindings(){return this.architectureSection==='findings';}
     get architectureShowRelationships(){return this.architectureSection==='relationships';}
