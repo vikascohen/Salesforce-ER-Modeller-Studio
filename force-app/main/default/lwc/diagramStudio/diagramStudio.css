@@ -1426,3 +1426,24 @@
 .arch-findings{max-height:650px;overflow:auto;padding-right:6px}
 .arch-domain-grid,.arch-domain-layout{max-height:620px;overflow:auto}
 @media(max-width:1100px){.arch-deep-grid,.arch-guide-grid{grid-template-columns:repeat(2,minmax(440px,1fr));min-width:920px}}
+
+/* Architecture font scale applies to the complete workspace, not selected cards only. */
+.arch-panel{font-size:calc(14px * var(--arch-font-scale,1))}
+.arch-title{font-size:calc(22px * var(--arch-font-scale,1))}
+.arch-kicker{font-size:calc(10px * var(--arch-font-scale,1))}
+.arch-subtitle{font-size:calc(12px * var(--arch-font-scale,1))}
+.arch-section-head{height:auto;min-height:42px;font-size:calc(13px * var(--arch-font-scale,1));padding:9px 12px}
+.arch-section-hint{font-size:calc(11px * var(--arch-font-scale,1))}
+.arch-metric-value{font-size:calc(22px * var(--arch-font-scale,1))}
+.arch-metric-label,.arch-density-note,.arch-map-legend{font-size:calc(11px * var(--arch-font-scale,1))}
+.arch-topology-row,.arch-observation,.arch-finding-card,.arch-advice-card,.arch-domain-row,.arch-relationship-row{font-size:calc(12px * var(--arch-font-scale,1))}
+.arch-deep-title span{font-size:calc(10px * var(--arch-font-scale,1))}
+.arch-deep-title strong{font-size:calc(13px * var(--arch-font-scale,1))}
+.arch-deep-row{font-size:calc(11.5px * var(--arch-font-scale,1));line-height:1.5}
+.arch-map-explainer{font-size:calc(12px * var(--arch-font-scale,1))}
+.arch-map-node{width:calc(150px * var(--arch-font-scale,1));min-height:calc(64px * var(--arch-font-scale,1));padding:calc(8px * var(--arch-font-scale,1))}
+.arch-map-node strong{font-size:calc(12px * var(--arch-font-scale,1))}
+.arch-map-node span,.arch-map-node small{font-size:calc(10px * var(--arch-font-scale,1))}
+.arch-object-link,.arch-inline-link,.arch-action-btn,.arch-domain-input,.arch-select{font-size:calc(11px * var(--arch-font-scale,1))}
+.arch-header-actions button{font-size:calc(11px * var(--arch-font-scale,1))}
+.arch-chart-help,.arch-dashboard-help{font-size:calc(12px * var(--arch-font-scale,1))}
