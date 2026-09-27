@@ -1653,18 +1653,31 @@ describe('Mimic New ER session state', () => {
         document.body.appendChild(el);
         await flushPromises();
 
-        el.handleMenuMimic();
-        el.handleMimicModelName({ target: { value: 'Old Mimic' } });
-        const firstObject = el.mimicObjects[0];
-        el.handleMimicObjectName({ currentTarget: { dataset: { id: firstObject.id } }, target: { value: 'OldObject__c' } });
-        expect(el.mimicModelName).toBe('Old Mimic');
-        expect(el.mimicObjects[0].name).toBe('OldObject__c');
+        const diagramMenu = Array.from(el.shadowRoot.querySelectorAll('button')).find((b) => b.textContent.includes('Diagram'));
+        diagramMenu.click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((item) => item.textContent.includes('Mimic New ER')).click();
+        await flushPromises();
 
-        el.handleCloseMimic();
-        el.handleMenuMimic();
+        const modelName = el.shadowRoot.querySelector('.mimic-model-name input');
+        modelName.value = 'Old Mimic';
+        modelName.dispatchEvent(new CustomEvent('input'));
+        const objectName = el.shadowRoot.querySelector('.mimic-object-head input');
+        objectName.value = 'OldObject__c';
+        objectName.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
 
-        expect(el.mimicModelName).toBe('Mimicked Model');
-        expect(el.mimicObjects).toHaveLength(1);
-        expect(el.mimicObjects[0].name).toBe('');
+        el.shadowRoot.querySelector('.mimic-close').click();
+        await flushPromises();
+
+        const diagramMenuAgain = Array.from(el.shadowRoot.querySelectorAll('button')).find((b) => b.textContent.includes('Diagram'));
+        diagramMenuAgain.click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((item) => item.textContent.includes('Mimic New ER')).click();
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.mimic-model-name input').value).toBe('Mimicked Model');
+        expect(el.shadowRoot.querySelectorAll('.mimic-object')).toHaveLength(1);
+        expect(el.shadowRoot.querySelector('.mimic-object-head input').value).toBe('');
     });
 });
