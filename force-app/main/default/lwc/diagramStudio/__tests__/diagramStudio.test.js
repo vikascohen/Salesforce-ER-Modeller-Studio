@@ -1645,3 +1645,26 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(home).toContain('Open Path Finder');
     });
 });
+
+
+describe('Mimic New ER session state', () => {
+    it('starts with a clean draft each time Mimic New ER is opened', async () => {
+        const el = createElement('c-diagram-studio', { is: DiagramStudio });
+        document.body.appendChild(el);
+        await flushPromises();
+
+        el.handleMenuMimic();
+        el.handleMimicModelName({ target: { value: 'Old Mimic' } });
+        const firstObject = el.mimicObjects[0];
+        el.handleMimicObjectName({ currentTarget: { dataset: { id: firstObject.id } }, target: { value: 'OldObject__c' } });
+        expect(el.mimicModelName).toBe('Old Mimic');
+        expect(el.mimicObjects[0].name).toBe('OldObject__c');
+
+        el.handleCloseMimic();
+        el.handleMenuMimic();
+
+        expect(el.mimicModelName).toBe('Mimicked Model');
+        expect(el.mimicObjects).toHaveLength(1);
+        expect(el.mimicObjects[0].name).toBe('');
+    });
+});
