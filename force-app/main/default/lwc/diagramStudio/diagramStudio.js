@@ -1726,13 +1726,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const exportSvg = liveSvg.cloneNode(true);
             // Export the complete logical ER canvas, never the scroll viewport.
             // LWC may visually scale/scroll the live SVG, but export always uses its full geometry.
-            exportSvg.setAttribute('width', String(this.svgWidth));
-            exportSvg.setAttribute('height', String(this.svgHeight));
-            exportSvg.setAttribute('viewBox', '0 0 '+this.svgWidth+' '+this.svgHeight);
+            // Reserve a dedicated footer band for the export legend so it can
+            // never cover an entity card or relationship in the PNG.
+            const legendBandHeight = 126;
+            const exportWidth = this.svgWidth;
+            const exportHeight = this.svgHeight + legendBandHeight;
+            exportSvg.setAttribute('width', String(exportWidth));
+            exportSvg.setAttribute('height', String(exportHeight));
+            exportSvg.setAttribute('viewBox', '0 0 '+exportWidth+' '+exportHeight);
             exportSvg.style.transform='none';
-            exportSvg.style.width=this.svgWidth+'px';
-            exportSvg.style.height=this.svgHeight+'px';
-            exportSvg.appendChild(buildLegendGroup(this.svgWidth, this.svgHeight));
+            exportSvg.style.width=exportWidth+'px';
+            exportSvg.style.height=exportHeight+'px';
+            exportSvg.appendChild(buildLegendGroup(exportWidth, exportHeight));
 
             // Render SVG → base64 PNG (pure canvas, no download attempted here)
             const base64 = await exportSvgAsPng(exportSvg, this.exportPageSize);
