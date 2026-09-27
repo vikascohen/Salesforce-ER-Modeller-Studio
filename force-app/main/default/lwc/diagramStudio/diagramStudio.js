@@ -686,9 +686,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return active ? 'dict-th-sort dict-th-sort-active' : 'dict-th-sort';
     }
 
+    // Phase 2 workspace presentation only. These controls never alter DSL text or compiler behaviour.
+    @track dslMaximised = false;
+    @track canvasMaximised = false;
+
     // ── DSL panel ──
-    get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open' : 'dsl-panel dsl-panel-closed'; }
-    get dslPanelStyle() { return this.dslPanelOpen ? `width:${this.dslPanelWidth}px` : 'width:0px'; }
+    get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open'+(this.dslMaximised?' dsl-panel-maximised':'') : 'dsl-panel dsl-panel-closed'; }
+    get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }\n    get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }\n    get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }\n    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }\n    handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }\n    handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; }\n    handleFitModel(){ const wrap=this.template.querySelector('.canvas-wrap'); if(!wrap||!this.svgWidth||!this.svgHeight)return; const pad=36, z=Math.min((wrap.clientWidth-pad)/this.svgWidth,(wrap.clientHeight-pad)/this.svgHeight,1); this.zoomLevel=Math.max(0.25,Math.round(z*20)/20); wrap.scrollLeft=0;wrap.scrollTop=0; }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {
         return this.dslSuggestions.map((s, i) => ({
@@ -2372,10 +2376,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // ────────────────────────────────────────────────────────
 
     handleAutoLayout() {
-        this.erPositions       = {};
-        this.boxHeightOverrides = {};
-        this.boxWidthOverrides  = {};
+        // Presentation-only layout reset: the DSL source and parser/compiler are untouched.
+        this.erPositions={}; this.boxHeightOverrides={}; this.boxWidthOverrides={};
         this.renderDiagram();
+        // Dense models start at a readable overview zoom; users can still zoom and drag normally.
+        const count=this._erBoxes?.length||0;
+        if(count>=36)this.zoomLevel=0.45; else if(count>=20)this.zoomLevel=0.6; else if(count>=10)this.zoomLevel=0.8; else this.zoomLevel=1;
+        requestAnimationFrame(()=>this.handleFitModel());
         this.isDirty = true;
         this._markTabDirty(this.activeTabId, true);
     }
