@@ -76,6 +76,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track isDirty     = false;
 
     // ── import panel ──
+    @track mimicOpen = false;
+    @track mimicModelName = 'Mimicked Model';
+    @track mimicObjects = [];
+    @track mimicRelationships = [];
+    mimicSeq = 0;
     @track importObjectNames = '';
     @track importPanelOpen   = false;
 
@@ -1171,6 +1176,31 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuImport()         { this.openMenu = null; this.handleToggleImport(); }
     handleMenuExport()         { this.openMenu = null; this.handleOpenExport(); }
     handleMenuAutoLayout()     { this.openMenu = null; this.handleAutoLayout(); }
+    handleMenuMimic() { this.openMenu=null; this.mimicOpen=true; if(!this.mimicObjects.length)this.mimicAddObject(); }
+    handleCloseMimic() { this.mimicOpen=false; }
+    get mimicFieldTypeOptions(){return ['Text','Text Area','Long Text Area','Number','Currency','Percent','Checkbox','Date','DateTime','Email','Phone','URL','Picklist','Multi Select Picklist','Auto Number','Formula'];}
+    get mimicObjectOptions(){return this.mimicObjects.map(o=>({label:o.name||'Unnamed object',value:o.id}));}
+    handleMimicModelName(e){this.mimicModelName=e.target.value;}
+    mimicAddObject(){const id='mo'+(++this.mimicSeq);this.mimicObjects=[...this.mimicObjects,{id,name:'',fields:[{id:id+'f1',name:'Name',type:'Text'}]}];}
+    handleMimicAddObject(){this.mimicAddObject();}
+    handleMimicObjectName(e){const id=e.currentTarget.dataset.id;this.mimicObjects=this.mimicObjects.map(o=>o.id===id?{...o,name:e.target.value}:o);}
+    handleMimicRemoveObject(e){const id=e.currentTarget.dataset.id;this.mimicObjects=this.mimicObjects.filter(o=>o.id!==id);this.mimicRelationships=this.mimicRelationships.filter(x=>x.from!==id&&x.to!==id);}
+    handleMimicAddField(e){const id=e.currentTarget.dataset.id;this.mimicObjects=this.mimicObjects.map(o=>o.id===id?{...o,fields:[...o.fields,{id:id+'f'+(++this.mimicSeq),name:'',type:'Text'}]}:o);}
+    handleMimicFieldName(e){const oid=e.currentTarget.dataset.object, fid=e.currentTarget.dataset.field;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.map(f=>f.id===fid?{...f,name:e.target.value}:f)}:o);}
+    handleMimicFieldType(e){const oid=e.currentTarget.dataset.object, fid=e.currentTarget.dataset.field;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.map(f=>f.id===fid?{...f,type:e.target.value}:f)}:o);}
+    handleMimicRemoveField(e){const oid=e.currentTarget.dataset.object, fid=e.currentTarget.dataset.field;this.mimicObjects=this.mimicObjects.map(o=>o.id===oid?{...o,fields:o.fields.filter(f=>f.id!==fid)}:o);}
+    handleMimicAddRelationship(){this.mimicRelationships=[...this.mimicRelationships,{id:'mr'+(++this.mimicSeq),from:'',field:'',to:'',type:'Lookup'}];}
+    handleMimicRelChange(e){const id=e.currentTarget.dataset.id,k=e.currentTarget.dataset.key;this.mimicRelationships=this.mimicRelationships.map(x=>x.id===id?{...x,[k]:e.target.value}:x);}
+    handleMimicRemoveRelationship(e){const id=e.currentTarget.dataset.id;this.mimicRelationships=this.mimicRelationships.filter(x=>x.id!==id);}
+    handleGenerateMimic(){
+        const objs=this.mimicObjects.filter(o=>o.name.trim());if(!objs.length){this.errorMessage='Mimic New ER needs at least one named object.';return;}
+        const names=new Set(objs.map(o=>o.name.trim().toLowerCase()));if(names.size!==objs.length){this.errorMessage='Object names in Mimic New ER must be unique.';return;}
+        const byId=new Map(objs.map(o=>[o.id,o]));const lines=[];
+        objs.forEach(o=>{const fs=o.fields.filter(f=>f.name.trim()).map(f=>f.name.trim());lines.push('entity '+o.name.trim()+(fs.length?' : '+fs.join(', '):''));});
+        this.mimicRelationships.forEach(rel=>{const from=byId.get(rel.from),to=byId.get(rel.to);if(!from||!to||!rel.field.trim())return;const op=rel.type==='Master Detail'?'=>':rel.type==='Polymorphic'?'~>':'->';lines.push(from.name.trim()+'.'+rel.field.trim()+' '+op+' '+to.name.trim());});
+        this.openNewUnsaved();this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.renderDiagram();
+    }
+
     handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
     handleMenuClearCanvas()    { this.openMenu = null; this.handleClearCanvas(); }
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
