@@ -1264,14 +1264,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHomeTiles(){
         return [
             {key:'overview',title:'Architecture Overview',question:'What does this model look like at a glance?',detail:'See model shape, relationship mix and the areas that deserve attention first.',action:'Open Overview'},
-            {key:'map',title:'Architecture Map',question:'How are the objects structurally connected?',detail:'Explore the relationship topology visually and identify highly connected objects and structural areas.',action:'Open Map'},
             {key:'paths',title:'Change Impact & Paths',question:'How can a change travel through this model?',detail:'Trace shortest paths and review blast radius before changing connected objects.',action:'Open Impact Analysis'},
-            {key:'object',title:'Object Intelligence',question:'What role does one object play?',detail:'Drill into dependencies, fields, reach and structural role for a selected object.',action:'Open Object Intelligence'},
             {key:'domains',title:'Domains & Boundaries',question:'Where do business capabilities meet?',detail:'Group objects by business capability and inspect cross domain dependencies.',action:'Open Domains'},
             {key:'relationships',title:'Relationship Insights',question:'What relationship design deserves review?',detail:'See relationship patterns, why they matter and what an architect may want to inspect or improve.',action:'Open Relationship Insights'}
         ];
     }
     handleArchitectureHome(){this.architectureSection='home';this.architectureSelectedObject='';}
+    handleArchitectureRefresh(){this.architectureSelectedObject='';this.architecturePathFrom='';this.architecturePathTo='';this.architectureDomainAssignments={};this.architectureSection='home';this.refreshArchitectureAnalysis();}
     get architecturePanelClass(){return 'arch-panel arch-view-'+(this.architectureSection||'home');}
     get architectureShowHome(){return this.architectureSection==='home';}
     get architectureShowFindings(){return this.architectureSection==='findings';}
