@@ -155,11 +155,11 @@ private class SchemaMetadataControllerTest {
     @isTest
     static void testGetSharingSignalsRejectsAnUnsafeObjectNameRatherThanRunningIt() {
         Test.startTest();
-        Map<String, SchemaMetadataController.SharingSignals> result =
-            SchemaMetadataController.getSharingSignals(new List<String>{ 'Account; DROP', 'Account WHERE Id != null' });
+        SchemaMetadataController.SharingSignals result =
+            SchemaMetadataController.getSharingSignal('Account; DROP');
         Test.stopTest();
 
-        Assert.isTrue(result.isEmpty(), 'Malformed object names should be rejected, not executed');
+        Assert.isNull(result, 'Malformed object names should be rejected, not executed');
     }
 
     @isTest
@@ -175,11 +175,10 @@ private class SchemaMetadataControllerTest {
         // always have a Share table, unlike custom ones), and isCustomObject
         // is correctly false for a standard object's own API name.
         Test.startTest();
-        Map<String, SchemaMetadataController.SharingSignals> result =
-            SchemaMetadataController.getSharingSignals(new List<String>{ 'Account' });
+        SchemaMetadataController.SharingSignals signals =
+            SchemaMetadataController.getSharingSignal('Account');
         Test.stopTest();
 
-        SchemaMetadataController.SharingSignals signals = result.get('Account');
         Assert.isNotNull(signals);
         Assert.isTrue(signals.shareTableAvailable, 'AccountShare should always exist for a standard object');
         Assert.isFalse(signals.isCustomObject);
@@ -188,11 +187,10 @@ private class SchemaMetadataControllerTest {
     @isTest
     static void testGetSharingSignalsMarksACustomObjectAsCustom() {
         Test.startTest();
-        Map<String, SchemaMetadataController.SharingSignals> result =
-            SchemaMetadataController.getSharingSignals(new List<String>{ 'Diagram_File__c' });
+        SchemaMetadataController.SharingSignals signals =
+            SchemaMetadataController.getSharingSignal('Diagram_File__c');
         Test.stopTest();
 
-        SchemaMetadataController.SharingSignals signals = result.get('Diagram_File__c');
         Assert.isNotNull(signals);
         Assert.isTrue(signals.isCustomObject);
 
@@ -204,11 +202,11 @@ private class SchemaMetadataControllerTest {
         insert new Account(Name = 'Test Account 2');
 
         Test.startTest();
-        Map<String, SchemaMetadataController.RecordCountInfo> counts =
-            SchemaMetadataController.getRecordCounts(new List<String>{ 'Account' });
+        SchemaMetadataController.RecordCountInfo countInfo =
+            SchemaMetadataController.getRecordCount('Account');
         Test.stopTest();
 
-        Assert.areEqual(2, counts.get('Account').count, 'Should reflect the two Accounts inserted in this test');
+        Assert.areEqual(2, countInfo.count, 'Should reflect the two Accounts inserted in this test');
     }
 
  
@@ -219,12 +217,11 @@ private class SchemaMetadataControllerTest {
         // (they can't be bind variables there) — anything that isn't a
         // plain identifier must be rejected before it ever reaches a query.
         Test.startTest();
-        Map<String, SchemaMetadataController.RecordCountInfo> counts = SchemaMetadataController.getRecordCounts(
-            new List<String>{ 'Account; DELETE FROM Account', 'Account WHERE Id != null' }
-        );
+        SchemaMetadataController.RecordCountInfo countInfo =
+            SchemaMetadataController.getRecordCount('Account; DELETE FROM Account');
         Test.stopTest();
 
-        Assert.isTrue(counts.isEmpty(), 'Malformed object names should be rejected, not executed');
+        Assert.isNull(countInfo, 'Malformed object names should be rejected, not executed');
     }
 
     @isTest
