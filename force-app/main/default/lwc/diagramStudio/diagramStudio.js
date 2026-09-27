@@ -436,28 +436,46 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get connectorsView() {
         const focused=this.focusedEntity?this.focusedEntity.toLowerCase():null;
         const boxes=new Map((this._erBoxes||[]).map(b=>[b.name,b]));
-        const laneCounts={};
-        return (this.erConnectors||[]).map((c)=>{
+        const allBoxes=[...boxes.values()], laneCounts={};
+        const clearSegment=(x1,y1,x2,y2,ignore)=>{
+            const pad=12,minX=Math.min(x1,x2),maxX=Math.max(x1,x2),minY=Math.min(y1,y2),maxY=Math.max(y1,y2);
+            return !allBoxes.some(b=>{
+                if(ignore.has(b.name))return false;
+                const l=b.x-pad,r=b.x+b.width+pad,t=b.y-pad,bt=b.y+b.height+pad;
+                return Math.abs(y1-y2)<1 ? y1>t&&y1<bt&&maxX>l&&minX<r : Math.abs(x1-x2)<1 ? x1>l&&x1<r&&maxY>t&&minY<bt : false;
+            });
+        };
+        return (this.erConnectors||[]).map((c,idx)=>{
             const isFocusRelated=!focused||c.childEntity.toLowerCase()===focused||c.parentEntity.toLowerCase()===focused;
-            const child=boxes.get(c.childEntity), parent=boxes.get(c.parentEntity);
-            if(!child||!parent||child===parent) return {...c,connOpacity:isFocusRelated?'1':'0.1'};
-            const ccx=child.x+child.width/2, ccy=child.y+child.height/2, pcx=parent.x+parent.width/2, pcy=parent.y+parent.height/2;
-            const dx=pcx-ccx, dy=pcy-ccy, horizontal=Math.abs(dx)>=Math.abs(dy);
-            const pair=[c.childEntity,c.parentEntity].sort().join('|'), lane=laneCounts[pair]||0; laneCounts[pair]=lane+1;
-            const offset=(lane%2===0?1:-1)*Math.ceil(lane/2)*14;
+            const child=boxes.get(c.childEntity),parent=boxes.get(c.parentEntity);
+            if(!child||!parent||c.childEntity===c.parentEntity)return {...c,connOpacity:isFocusRelated?'1':'0.1'};
+            const ccx=child.x+child.width/2,ccy=child.y+child.height/2,pcx=parent.x+parent.width/2,pcy=parent.y+parent.height/2;
+            const dx=pcx-ccx,dy=pcy-ccy,horizontal=Math.abs(dx)>=Math.abs(dy);
+            const pair=[c.childEntity,c.parentEntity].sort().join('|'),lane=laneCounts[pair]||0;laneCounts[pair]=lane+1;
+            const portOffset=((lane%5)-2)*11, ignore=new Set([c.childEntity,c.parentEntity]);
             let sx,sy,ex,ey,d,midX,midY;
             if(horizontal){
-                sx=dx>=0?child.x+child.width:child.x; sy=ccy+offset;
-                ex=dx>=0?parent.x:parent.x+parent.width; ey=pcy+offset;
-                const mx=(sx+ex)/2+offset;
-                d='M '+sx+' '+sy+' L '+mx+' '+sy+' L '+mx+' '+ey+' L '+ex+' '+ey;
-                midX=mx;midY=(sy+ey)/2;
-            } else {
-                sx=ccx+offset; sy=dy>=0?child.y+child.height:child.y;
-                ex=pcx+offset; ey=dy>=0?parent.y:parent.y+parent.height;
-                const my=(sy+ey)/2+offset;
-                d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;
-                midX=(sx+ex)/2;midY=my;
+                sx=dx>=0?child.x+child.width:child.x;sy=Math.max(child.y+18,Math.min(child.y+child.height-18,ccy+portOffset));
+                ex=dx>=0?parent.x:parent.x+parent.width;ey=Math.max(parent.y+18,Math.min(parent.y+parent.height-18,pcy+portOffset));
+                const direct=(sx+ex)/2, step=26, candidates=[direct];
+                for(let n=1;n<=12;n++){candidates.push(direct+n*step,direct-n*step);}
+                let mx=candidates.find(x=>clearSegment(sx,sy,x,sy,ignore)&&clearSegment(x,sy,x,ey,ignore)&&clearSegment(x,ey,ex,ey,ignore));
+                if(mx==null){
+                    const right=Math.max(...allBoxes.map(b=>b.x+b.width))+40+idx*8,left=Math.min(...allBoxes.map(b=>b.x))-40-idx*8;
+                    mx=dx>=0?right:left;
+                }
+                d='M '+sx+' '+sy+' L '+mx+' '+sy+' L '+mx+' '+ey+' L '+ex+' '+ey;midX=mx;midY=(sy+ey)/2;
+            }else{
+                sx=Math.max(child.x+18,Math.min(child.x+child.width-18,ccx+portOffset));sy=dy>=0?child.y+child.height:child.y;
+                ex=Math.max(parent.x+18,Math.min(parent.x+parent.width-18,pcx+portOffset));ey=dy>=0?parent.y:parent.y+parent.height;
+                const direct=(sy+ey)/2,step=26,candidates=[direct];
+                for(let n=1;n<=12;n++){candidates.push(direct+n*step,direct-n*step);}
+                let my=candidates.find(y=>clearSegment(sx,sy,sx,y,ignore)&&clearSegment(sx,y,ex,y,ignore)&&clearSegment(ex,y,ex,ey,ignore));
+                if(my==null){
+                    const bottom=Math.max(...allBoxes.map(b=>b.y+b.height))+40+idx*8,top=Math.min(...allBoxes.map(b=>b.y))-40-idx*8;
+                    my=dy>=0?bottom:top;
+                }
+                d='M '+sx+' '+sy+' L '+sx+' '+my+' L '+ex+' '+my+' L '+ex+' '+ey;midX=(sx+ex)/2;midY=my;
             }
             return {...c,d,midX,midY:midY-7,cardStartX:sx,cardStartY:sy,cardEndX:ex,cardEndY:ey,connOpacity:isFocusRelated?'1':'0.1'};
         });
@@ -1664,6 +1682,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // Clone so the legend can be baked into the export without touching
             // the live, interactive canvas (which shows it as an HTML overlay).
             const exportSvg = liveSvg.cloneNode(true);
+            // Export the complete logical ER canvas, never the scroll viewport.
+            // LWC may visually scale/scroll the live SVG, but export always uses its full geometry.
+            exportSvg.setAttribute('width', String(this.svgWidth));
+            exportSvg.setAttribute('height', String(this.svgHeight));
+            exportSvg.setAttribute('viewBox', '0 0 '+this.svgWidth+' '+this.svgHeight);
+            exportSvg.style.transform='none';
+            exportSvg.style.width=this.svgWidth+'px';
+            exportSvg.style.height=this.svgHeight+'px';
             exportSvg.appendChild(buildLegendGroup(this.svgWidth, this.svgHeight));
 
             // Render SVG → base64 PNG (pure canvas, no download attempted here)
