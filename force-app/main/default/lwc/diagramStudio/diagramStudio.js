@@ -1252,6 +1252,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
+    get architectureObjectGraphNodes(){
+        const d=this.architectureObjectDetail;if(!d)return [];
+        const out=[{key:'focus-'+d.name,name:d.name,role:'Selected object',kind:'focus'}];
+        (d.parents||[]).forEach((x,i)=>out.push({key:'parent-'+i+'-'+x.name,name:x.name,role:(x.field?'via '+x.field:'Parent / target'),kind:'parent'}));
+        (d.children||[]).forEach((x,i)=>out.push({key:'child-'+i+'-'+x.name,name:x.name,role:(x.field?'via '+x.field:'Child / dependant'),kind:'child'}));
+        return out;
+    }
+    get architectureObjectParentGraphNodes(){return this.architectureObjectGraphNodes.filter(x=>x.kind==='parent');}
+    get architectureObjectChildGraphNodes(){return this.architectureObjectGraphNodes.filter(x=>x.kind==='child');}
+    get architectureObjectInsightText(){
+        const d=this.architectureObjectDetail;if(!d)return '';
+        const direction=d.incoming>d.outgoing?'more relationships point into it than out of it':d.outgoing>d.incoming?'it points to more objects than point into it':'incoming and outgoing relationships are balanced';
+        return d.name+' has '+d.degree+' direct relationships and '+d.reachableWithin3+' other objects reachable within three hops. '+direction+'. Use this view to understand direct dependency direction before reviewing the wider blast radius.';
+    }
     get architectureObjectParentsText() { const d=this.architectureObjectDetail; return d?.parents?.length ? d.parents.map(x=>x.name+(x.field?' via '+x.field:'')).join(', ') : 'None in current model'; }
     get architectureObjectChildrenText() { const d=this.architectureObjectDetail; return d?.children?.length ? d.children.map(x=>x.name+(x.field?' via '+x.field:'')).join(', ') : 'None in current model'; }
     get architectureObjectCyclesText() { const d=this.architectureObjectDetail; return d?.cycles?.length ? d.cycles.map(c=>c.join(' → ')).join(' | ') : 'No detected cycles involving this object.'; }
