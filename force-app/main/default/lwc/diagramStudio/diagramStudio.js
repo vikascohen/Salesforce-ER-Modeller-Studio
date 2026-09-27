@@ -692,7 +692,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open'+(this.dslMaximised?' dsl-panel-maximised':'') : 'dsl-panel dsl-panel-closed'; }
-    get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }\n    get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }\n    get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }\n    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }\n    handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }\n    handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; }\n    handleFitModel(){ const wrap=this.template.querySelector('.canvas-wrap'); if(!wrap||!this.svgWidth||!this.svgHeight)return; const pad=36, z=Math.min((wrap.clientWidth-pad)/this.svgWidth,(wrap.clientHeight-pad)/this.svgHeight,1); this.zoomLevel=Math.max(0.25,Math.round(z*20)/20); wrap.scrollLeft=0;wrap.scrollTop=0; }
+    get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }
+    get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }
+    get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }
+    get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }
+    handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
+    handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; }
+    handleFitModel(){ const wrap=this.template.querySelector('.canvas-wrap'); if(!wrap||!this.svgWidth||!this.svgHeight)return; const pad=36, z=Math.min((wrap.clientWidth-pad)/this.svgWidth,(wrap.clientHeight-pad)/this.svgHeight,1); this.zoomLevel=Math.max(0.25,Math.round(z*20)/20); wrap.scrollLeft=0;wrap.scrollTop=0; }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {
         return this.dslSuggestions.map((s, i) => ({
