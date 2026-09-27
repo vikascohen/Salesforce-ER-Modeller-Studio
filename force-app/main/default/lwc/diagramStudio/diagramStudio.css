@@ -1447,3 +1447,16 @@
 .arch-object-link,.arch-inline-link,.arch-action-btn,.arch-domain-input,.arch-select{font-size:calc(11px * var(--arch-font-scale,1))}
 .arch-header-actions button{font-size:calc(11px * var(--arch-font-scale,1))}
 .arch-chart-help,.arch-dashboard-help{font-size:calc(12px * var(--arch-font-scale,1))}
+
+.arch-finding{font-size:calc(13px * var(--arch-font-scale,1));line-height:1.55}
+.arch-finding-top strong{font-size:calc(14px * var(--arch-font-scale,1))}
+.arch-finding-plain{margin:10px 0 12px;padding:10px 12px;background:#f8fafc;border-radius:8px;color:#344054;font-size:calc(13px * var(--arch-font-scale,1));font-weight:600}
+.arch-finding-mini{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin:8px 0 14px;font-size:calc(10px * var(--arch-font-scale,1));text-transform:uppercase;letter-spacing:.04em;color:#667085}
+.arch-finding-mini>div{height:7px;background:#eef2f6;border-radius:8px;overflow:hidden}.arch-finding-mini i{display:block;height:100%;background:#175cd3;border-radius:8px}
+.arch-finding-grid-rich{grid-template-columns:repeat(2,minmax(300px,1fr));gap:10px}
+.arch-finding-grid-rich>div{padding:11px 12px;border:1px solid #e4e7ec;border-radius:8px;background:#fff}
+.arch-finding-grid-rich>div:last-child{grid-column:1/-1}
+.arch-finding-grid-rich span{font-size:calc(10px * var(--arch-font-scale,1));font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#667085}
+.arch-finding-grid-rich p{font-size:calc(12px * var(--arch-font-scale,1));line-height:1.6;margin:5px 0 0;color:#475467}
+.arch-finding-opportunity{border-left:3px solid #12b76a!important}.arch-finding-challenge{border-left:3px solid #f79009!important}
+@media(max-width:950px){.arch-finding-grid-rich{grid-template-columns:1fr}.arch-finding-grid-rich>div:last-child{grid-column:auto}}
