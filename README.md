@@ -533,7 +533,7 @@ and preference-storage paths respectively. Run them in your org:
 
 ## Author
 
-Vikas Cohen — Passionate transhumanist and a programmer when get extremely bored.
+Crius Consulting Architects
 
 ## License
 
