@@ -670,7 +670,7 @@
 <section class="arch-section arch-guide-section arch-workspace arch-workspace-overview">
                     <div class="arch-section-head"><span>How to Read Architecture Intelligence</span><span class="arch-section-hint">What each signal means and what to do with it</span></div>
                     <p class="arch-guide-intro">These signals are deterministic observations from the current ER model. They are not architecture scores. Use them as evidence for review, then apply business context before making a design decision.</p>
-                    <div class="arch-guide-grid"><template for:each={architectureInsightGuide} for:item="g"><article class="arch-guide-card" key={g.key}><h3>{g.title}</h3><div><strong>What it shows</strong><p>{g.what}</p></div><div><strong>Why it is valuable</strong><p>{g.value}</p></div><div><strong>Opportunity</strong><p>{g.opportunity}</p></div><div><strong>Challenge to review</strong><p>{g.challenge}</p></div><div><strong>What to do next</strong><p>{g.action}</p></div></article></template></div>
+                    <div class="arch-guide-grid"><template for:each={architectureInsightGuide} for:item="g"><article class="arch-guide-card" key={g.key}><h3>{g.title}</h3><div class="arch-current-finding"><strong>Current model finding</strong><p>{g.finding}</p></div><div><strong>What it shows</strong><p>{g.what}</p></div><div><strong>Why it is valuable</strong><p>{g.value}</p></div><div><strong>Opportunity</strong><p>{g.opportunity}</p></div><div><strong>Challenge to review</strong><p>{g.challenge}</p></div><div><strong>What to do next</strong><p>{g.action}</p></div></article></template></div>
                 </section>
                 
 
@@ -679,6 +679,30 @@
                 
 
                 
+                <section class="arch-section arch-workspace arch-workspace-map">
+                    <div class="arch-section-head"><span>Object Map</span><span class="arch-section-hint">Object-centric architecture analysis inside Architecture Intelligence</span></div>
+                    <p class="arch-domain-help">Select one object to understand its architectural role and immediate neighbourhood. This is intentionally different from Relationship Path Finder: Object Map explains one object's local architecture; Path Finder compares two objects.</p>
+                    <div class="arch-map-picker"><select class="arch-select" onchange={handleArchitectureMapObject}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
+                    <template if:true={architectureHasObjectDetail}>
+                        <div class="arch-domain-result-head"><span class="arch-brief-label">OBJECT ARCHITECTURE</span><h3>{architectureSelectedObject}</h3><p>{architectureObjectMapSummary}</p></div>
+                        <div class="arch-object-map-stats">
+                            <div><span>Role</span><strong>{architectureObjectDetail.role}</strong></div>
+                            <div><span>Domain</span><strong>{architectureObjectMapDomain}</strong></div>
+                            <div><span>Incoming</span><strong>{architectureObjectDetail.incoming}</strong></div>
+                            <div><span>Outgoing</span><strong>{architectureObjectDetail.outgoing}</strong></div>
+                            <div><span>Fields</span><strong>{architectureObjectDetail.fieldCount}</strong></div>
+                            <div><span>3 hop reach</span><strong>{architectureObjectDetail.reachableWithin3}</strong></div>
+                        </div>
+                        <div class="arch-object-map">
+                            <div class="arch-object-map-column"><h4>Parents / Targets</h4><template for:each={architectureObjectParentGraphNodes} for:item="n"><div class="arch-object-map-node arch-object-map-parent" key={n.key}><strong>{n.name}</strong><span>{n.role}</span></div></template><template if:false={architectureObjectParentGraphNodes.length}><div class="arch-object-map-empty">No parent relationships</div></template></div>
+                            <div class="arch-object-map-centre"><span>SELECTED OBJECT</span><strong>{architectureSelectedObject}</strong><small>{architectureObjectDetail.role}</small></div>
+                            <div class="arch-object-map-column"><h4>Children / Dependants</h4><template for:each={architectureObjectChildGraphNodes} for:item="n"><div class="arch-object-map-node arch-object-map-child" key={n.key}><strong>{n.name}</strong><span>{n.role}</span></div></template><template if:false={architectureObjectChildGraphNodes.length}><div class="arch-object-map-empty">No child relationships</div></template></div>
+                        </div>
+                        <div class="arch-object-observation"><strong>Architecture observation</strong><p>{architectureObjectMapObservation}</p></div>
+                        <div class="arch-object-reach"><h4>Structural reach</h4><template for:each={architectureObjectReach} for:item="r"><div key={r.depth}><strong>{r.depth} hop</strong><span>{r.count} objects</span><p>{r.names}</p></div></template></div>
+                    </template>
+                    <template if:false={architectureHasObjectDetail}><div class="arch-empty arch-empty-small">Select an object above to build its architecture map from the current ER model.</div></template>
+                </section>
                 <section class="arch-section arch-workspace arch-workspace-domains">
                     <div class="arch-section-head"><span>Architecture Domains</span><span class="arch-section-hint">Architect-defined business boundaries</span></div>
                     <p class="arch-domain-help">Assign a domain such as Claim, Provider, Payment or Customer to each object. Assignments are analysis-only in this development build and do not change Salesforce metadata.</p>
@@ -694,7 +718,7 @@
                         <div class="arch-domain-result-head"><span class="arch-brief-label">CHANGE IMPACT</span><h3>What could require review if {architectureSelectedObject} changes?</h3><p>{architectureImpactSummary}</p></div>
                         <div class="arch-guide-grid"><template for:each={architectureBlastLevels} for:item="level"><article class="arch-guide-card" key={level.key}><h3>{level.depth} hop impact · {level.count} objects</h3><div><strong>Objects in scope</strong><p>{level.objectText}</p></div><div><strong>How to interpret this</strong><p>{level.meaning}</p></div></article></template></div>
                     </template>
-                    <div class="arch-section-head"><span>Relationship Path Finder</span><span class="arch-section-hint">Optional: compare the selected object with another object</span></div>
+                    <div class="arch-section-head"><span>Relationship Path Finder</span><span class="arch-section-hint">Two-object route analysis · separate from Object Map</span></div>
                     <div class="arch-path-controls"><select class="arch-select" onchange={handleArchitecturePathSource}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select><span>→</span><select class="arch-select" onchange={handleArchitecturePathTarget}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
                     <template if:true={architecturePathReady}><div class="arch-path-result"><template if:true={architecturePathFound}><strong>{architecturePathResult.hops} hop shortest path</strong></template><p>{architecturePathText}</p></div><template if:true={architecturePathFound}><div class="arch-path-diagram-wrap"><div class="arch-path-diagram"><template for:each={architecturePathVisual} for:item="step"><div class="arch-path-step" key={step.key}><div class="arch-path-node"><span>OBJECT {step.step}</span><strong>{step.name}</strong></div><template if:true={step.hasArrow}><div class={step.edgeClass}><span class="arch-path-edge-label">{step.kind}</span><div class="arch-path-edge-line"></div><span class="arch-path-arrow">→</span><template if:true={step.fieldName}><small>{step.fieldName}</small></template></div></template></div></template></div></div><div class="arch-path-legend"><span class="arch-path-legend-lookup">Lookup</span><span class="arch-path-legend-master">Master Detail</span><span class="arch-path-legend-poly">Polymorphic</span></div></template></template>
                 </section>
