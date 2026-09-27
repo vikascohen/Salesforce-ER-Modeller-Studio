@@ -1805,9 +1805,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
             this.erPositions[name] = { x: x - 120, y: y - 18 };
             const newLines = this.buildErSource([newObject], new Set([...existingNames, name]));
-            this.sourceText = (this.sourceText.trim() ? this.sourceText.trimEnd() + '
-
-' : '') + newLines;
+            this.sourceText = (this.sourceText.trim() ? this.sourceText.trimEnd() + '\n\n' : '') + newLines;
             this.isDirty    = true;
             this._markTabDirty(this.activeTabId, true);
             this.errorMessage = '';
