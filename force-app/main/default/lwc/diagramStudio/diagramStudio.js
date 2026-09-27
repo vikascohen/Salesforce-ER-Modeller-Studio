@@ -1425,7 +1425,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const a=this.architectureAnalysis;if(!a)return [];
         const declaredNames=new Set();
         (this._architectureSource||this.sourceText||'').split(/\r?\n/).forEach(line=>{const m=line.trim().match(/^entity\s+(\w+)\b/i);if(m)declaredNames.add(m[1].toLowerCase());});
-        return (a.relationships||[]).map((r,i)=>{
+        return (a.relationships||[]).filter(r=>(r.childEntity||'').toLowerCase()!==(r.parentEntity||'').toLowerCase()).map((r,i)=>{
             const raw=(r.kind||'lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
             const field=r.fieldName||r.childField||r.field||'';
             const parentExternal=!declaredNames.has((r.parentEntity||'').toLowerCase());
@@ -1453,8 +1453,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const declaredNames=new Set();
         (this._architectureSource||this.sourceText||'').split(/\r?\n/).forEach(line=>{const m=line.trim().match(/^entity\s+(\w+)\b/i);if(m)declaredNames.add(m[1].toLowerCase());});
         return (a.nodes||[]).filter(n=>declaredNames.has((n.name||'').toLowerCase())).map(n=>{
-            const outgoing=(a.relationships||[]).filter(r=>r.childEntity===n.name);
-            const incoming=(a.relationships||[]).filter(r=>r.parentEntity===n.name);
+            const nonSelf=(a.relationships||[]).filter(r=>(r.childEntity||'').toLowerCase()!==(r.parentEntity||'').toLowerCase());
+            const outgoing=nonSelf.filter(r=>r.childEntity===n.name);
+            const incoming=nonSelf.filter(r=>r.parentEntity===n.name);
             const fmt=r=>(r.parentEntity||'')+' via '+(r.fieldName||r.childField||r.field||'relationship')+' ('+((r.kind||'lookup').toLowerCase().includes('master')?'Master Detail':(r.kind||'lookup').toLowerCase().includes('poly')?'Polymorphic':'Lookup')+')';
             const depBy= r=>(r.childEntity||'')+' via '+(r.fieldName||r.childField||r.field||'relationship')+' ('+((r.kind||'lookup').toLowerCase().includes('master')?'Master Detail':(r.kind||'lookup').toLowerCase().includes('poly')?'Polymorphic':'Lookup')+')';
             const external=outgoing.filter(r=>!declaredNames.has((r.parentEntity||'').toLowerCase())).map(r=>r.parentEntity);
