@@ -1249,7 +1249,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureShowObject(){return this.architectureSection==='object';}
     get architecturePathVisual(){
         const r=this.architecturePathResult;if(!r?.found)return [];
-        return r.path.map((name,i)=>({key:name+'-'+i,name,step:i+1,hasArrow:i<r.path.length-1}));
+        const relationships=this.architectureAnalysis?.relationships||[];
+        return r.path.map((name,i)=>{
+            if(i===r.path.length-1)return {key:name+'-'+i,name,step:i+1,hasArrow:false};
+            const next=r.path[i+1];
+            const rel=relationships.find(x=>(x.childEntity===name&&x.parentEntity===next)||(x.childEntity===next&&x.parentEntity===name));
+            const raw=(rel?.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            return {key:name+'-'+i,name,step:i+1,hasArrow:true,next,kind,edgeClass:'arch-path-edge arch-path-edge-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),fieldName:rel?.fieldName||rel?.field||''};
+        });
     }
     get architectureObjectDetail() { return this.architectureSelectedObject ? analyseObject(this.architectureAnalysis,this.architectureSelectedObject) : null; }
     get architectureHasObjectDetail() { return !!this.architectureObjectDetail; }
