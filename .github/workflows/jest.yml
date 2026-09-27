@@ -33,3 +33,5 @@ jobs:
 
       - name: Run all LWC Jest tests
         run: npm run test:unit -- --runInBand
+
+# manual run trigger
