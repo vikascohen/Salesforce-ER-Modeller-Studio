@@ -1483,3 +1483,12 @@
 .arch-object-graph-node{display:flex;flex-direction:column;gap:3px;padding:11px 13px;text-align:left;border:1px solid rgba(127,127,127,.35);border-radius:9px;background:rgba(127,127,127,.07);color:inherit;cursor:pointer}.arch-object-graph-node:hover{border-color:#0b8ee8;background:rgba(11,142,232,.09)}.arch-object-graph-node strong{font-size:calc(12px * var(--arch-font-scale,1))}.arch-object-graph-node small{font-size:calc(10px * var(--arch-font-scale,1));opacity:.7}
 .arch-object-graph-focus{padding:24px 15px;text-align:center;border:2px solid #0b8ee8;border-radius:14px;background:rgba(11,142,232,.1);color:inherit}.arch-object-graph-focus>span{display:block;font-size:calc(9px * var(--arch-font-scale,1));font-weight:800;letter-spacing:.07em;color:#0b8ee8}.arch-object-graph-focus>strong{display:block;margin:7px 0;font-size:calc(18px * var(--arch-font-scale,1))}.arch-object-graph-focus small{display:block;opacity:.72}.arch-object-graph-focus div{margin-top:10px;font-size:calc(10px * var(--arch-font-scale,1));font-weight:700}
 .arch-object-graph-flow{text-align:center;font-size:30px;color:#0b8ee8}
+
+/* Architecture map: primary relationship arrows only */
+.arch-map-edge{height:0!important;border-top:2px solid currentColor!important;background:none!important;transform-origin:0 50%;opacity:.8;pointer-events:none}
+.arch-map-edge b{position:absolute!important;right:-1px!important;top:-6px!important;width:0!important;height:0!important;background:none!important;border-top:5px solid transparent!important;border-bottom:5px solid transparent!important;border-left:9px solid currentColor!important}
+.arch-map-edge-lookup{color:#1685e5!important}
+.arch-map-edge-master{color:#7a35b4!important;border-top-width:3px!important}
+.arch-map-edge-poly{color:#e84b3c!important;border-top-style:dashed!important}
+.arch-map-edge-poly b{border-left-color:transparent!important;border:1.5px solid #e84b3c!important;width:8px!important;height:8px!important;right:-2px!important;top:-5px!important;transform:rotate(45deg)!important}
+.arch-map-rel-legend{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.arch-map-key{font-weight:700}.arch-map-key:before{content:'→';margin-right:6px;font-size:16px}.arch-map-key-master{color:#7a35b4}.arch-map-key-lookup{color:#1685e5}.arch-map-key-poly{color:#e84b3c}
