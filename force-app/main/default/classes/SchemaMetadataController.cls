@@ -699,23 +699,37 @@ public with sharing class SchemaMetadataController {
         // inside a loop.
         Map<String, Schema.SObjectField> describedFields =
             Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
-        Set<Schema.DisplayType> unsupported = new Set<Schema.DisplayType>{
-            Schema.DisplayType.ADDRESS,
-            Schema.DisplayType.BASE64,
-            Schema.DisplayType.BOOLEAN,
-            Schema.DisplayType.LOCATION,
-            Schema.DisplayType.TEXTAREA
+        // COUNT(field) is not supported for several Salesforce field
+        // families. Keep this allow-list deliberately conservative: an
+        // unknown/new DisplayType must render N/A rather than poison the
+        // aggregate query for every other field in the batch.
+        Set<Schema.DisplayType> countableTypes = new Set<Schema.DisplayType>{
+            Schema.DisplayType.CURRENCY,
+            Schema.DisplayType.DATE,
+            Schema.DisplayType.DATETIME,
+            Schema.DisplayType.DOUBLE,
+            Schema.DisplayType.EMAIL,
+            Schema.DisplayType.ENCRYPTEDSTRING,
+            Schema.DisplayType.ID,
+            Schema.DisplayType.INTEGER,
+            Schema.DisplayType.PERCENT,
+            Schema.DisplayType.PHONE,
+            Schema.DisplayType.PICKLIST,
+            Schema.DisplayType.REFERENCE,
+            Schema.DisplayType.STRING,
+            Schema.DisplayType.TIME,
+            Schema.DisplayType.URL
         };
         List<String> countableFields = new List<String>();
         for (String f : safeFields) {
             Schema.SObjectField sf = describedFields.get(f);
-            if (sf != null && !unsupported.contains(sf.getDescribe().getType())) {
+            if (sf != null && countableTypes.contains(sf.getDescribe().getType())) {
                 countableFields.add(f);
-            } else if (sf != null) {
-                // Long/Rich Text Area fields do not support COUNT(field).
-                // Leave them absent from percentages so the UI correctly
-                // renders N/A instead of failing the entire field batch.
             }
+            // Unsupported/compound/collection-like types (for example
+            // Address, Location, Boolean, Text Area, Base64 and
+            // Multi-Picklist) intentionally stay absent from percentages,
+            // so the UI renders N/A without failing the whole batch.
         }
 
         if (!countableFields.isEmpty()) {
