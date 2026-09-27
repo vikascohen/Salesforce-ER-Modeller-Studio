@@ -31,8 +31,8 @@ Later Phase 2 work can add schema snapshots/drift history, domain grouping and c
 ## Branching
 
 - `main` — untouched Phase 1 production line.
-- `phase-1-stable` — preserved copy of Phase 1.
-- `phase-2-data-architecture-intelligence` — all Phase 2 development.
+- `version-1-stable` — preserved copy of Phase 1.
+- `version-2-stable` — all Phase 2 development.
 
 ## Performance principles
 
