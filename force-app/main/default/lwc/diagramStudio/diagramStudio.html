@@ -712,7 +712,7 @@
                 <section class="arch-section arch-workspace arch-workspace-usage">
                     <div class="arch-section-head"><span>Object Usage & Change Readiness</span><span class="arch-section-hint">Diagram evidence · no Tooling API or live org assumptions</span></div>
                     <div class="arch-usage-scope"><strong>What this can prove</strong><p>It shows how an object is structurally used by the ER model you loaded and what modelled dependencies deserve review before a change. It deliberately does not invent record counts, last-used dates or dependencies that are not present in the diagram.</p></div>
-                    <div class="arch-map-picker"><select class="arch-select" onchange={handleArchitectureUsageObject}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
+                    <div class="arch-map-picker"><select class="arch-select" onchange={handleArchitectureUsageObject}><template for:each={architectureCustomObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
                     <template if:true={architectureHasUsageDetail}>
                         <div class="arch-usage-head"><div><span class="arch-brief-label">CHANGE READINESS</span><h3>{architectureUsageDetail.name}</h3><p>{architectureUsageDetail.type}</p></div><span class="arch-usage-status">{architectureUsageDetail.status}</span></div>
                         <div class="arch-object-map-stats">
