@@ -2416,8 +2416,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     csvEscape(val) {
         const s = val == null ? '' : String(val);
-        return /[",
-]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        return /[",\\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     }
 
     downloadTextFile(content, filename, mime) {
