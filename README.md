@@ -191,7 +191,6 @@ The Architecture Intelligence engine is shared rather than implementing separate
 
 Phase 2 is intentionally about **Salesforce data architecture intelligence**: objects, fields, relationships, topology, reachability, dependency evidence and change-readiness evidence.
 
-It is not a Salesforce security scanner. CRUD/FLS exposure, permission-set risk, vulnerabilities and code-security analysis belong to **Warden Studio**, keeping the two tools focused on different architecture concerns.
 
 ### Testing
 
