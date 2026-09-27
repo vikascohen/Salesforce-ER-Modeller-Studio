@@ -671,6 +671,15 @@ public with sharing class SchemaMetadataController {
         }
         result.put('totalRecords', totalCount);
 
+        // This endpoint intentionally handles one small field batch per Apex
+        // transaction. The LWC chunks larger objects before calling us, so
+        // there is never SOQL inside an Apex loop and a large Account schema
+        // cannot exceed aggregate-expression limits in one query.
+        if (fieldApiNames != null && fieldApiNames.size() > 15) {
+            result.put('error', 'Field usage batch exceeds the supported size of 15 fields.');
+            return result;
+        }
+
         List<String> safeFields = new List<String>();
         for (String f : fieldApiNames) {
             if (isSafeIdentifier(f)) {
@@ -690,15 +699,45 @@ public with sharing class SchemaMetadataController {
         // inside a loop.
         Map<String, Schema.SObjectField> describedFields =
             Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
-        Set<Schema.DisplayType> unsupported = new Set<Schema.DisplayType>{
-            Schema.DisplayType.BASE64
+        // COUNT(field) is not supported for several Salesforce field
+        // families. Keep this allow-list deliberately conservative: an
+        // unknown/new DisplayType must render N/A rather than poison the
+        // aggregate query for every other field in the batch.
+        Set<Schema.DisplayType> countableTypes = new Set<Schema.DisplayType>{
+            Schema.DisplayType.CURRENCY,
+            Schema.DisplayType.DATE,
+            Schema.DisplayType.DATETIME,
+            Schema.DisplayType.DOUBLE,
+            Schema.DisplayType.EMAIL,
+            Schema.DisplayType.ENCRYPTEDSTRING,
+            Schema.DisplayType.ID,
+            Schema.DisplayType.INTEGER,
+            Schema.DisplayType.PERCENT,
+            Schema.DisplayType.PHONE,
+            Schema.DisplayType.PICKLIST,
+            Schema.DisplayType.REFERENCE,
+            Schema.DisplayType.STRING,
+            Schema.DisplayType.TIME,
+            Schema.DisplayType.URL
         };
         List<String> countableFields = new List<String>();
         for (String f : safeFields) {
             Schema.SObjectField sf = describedFields.get(f);
-            if (sf != null && !unsupported.contains(sf.getDescribe().getType())) {
-                countableFields.add(f);
+            if (sf != null) {
+                Schema.DescribeFieldResult usageField = sf.getDescribe();
+                // Dictionary metadata intentionally shows the full schema,
+                // but usage statistics read real record data in USER_MODE.
+                // A field hidden by FLS can therefore be describable yet
+                // rejected by SOQL as "Invalid field". Never place such a
+                // field in the aggregate query; it correctly renders N/A.
+                if (usageField.isAccessible() && countableTypes.contains(usageField.getType())) {
+                    countableFields.add(usageField.getName());
+                }
             }
+            // Unsupported/compound/collection-like types (for example
+            // Address, Location, Boolean, Text Area, Base64 and
+            // Multi-Picklist) intentionally stay absent from percentages,
+            // so the UI renders N/A without failing the whole batch.
         }
 
         if (!countableFields.isEmpty()) {
