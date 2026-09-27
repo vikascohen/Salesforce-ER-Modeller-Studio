@@ -774,7 +774,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 kind='Merge Master Reference';
                 sentence='Account.MasterRecordId identifies the surviving master Account after a record merge; it is not a Master Detail relationship.';
             }
-            return {key:r.key||'summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,sentence};
+            const childCard=r.cardStartText||'N', parentCard=r.cardEndText||'1';
+            let cardinality=childCard+' → '+parentCard;
+            let cardinalityText='';
+            if(childCard==='N'&&parentCard==='1'){
+                cardinality='N → 1';
+                cardinalityText='Many '+r.childEntity+' records can reference one '+r.parentEntity+' record. Each '+r.childEntity+' uses '+field+' to reference its '+r.parentEntity+'.';
+            }else if(childCard==='1'&&parentCard==='N'){
+                cardinality='1 → N';
+                cardinalityText='One '+r.childEntity+' record can relate to many '+r.parentEntity+' records.';
+            }else if(childCard==='1'&&parentCard==='1'){
+                cardinality='1 → 1';
+                cardinalityText='One '+r.childEntity+' record relates to one '+r.parentEntity+' record.';
+            }else{
+                cardinalityText=childCard+' '+r.childEntity+' record(s) relate to '+parentCard+' '+r.parentEntity+' record(s).';
+            }
+            return {key:r.key||'summary-'+i,child:r.childEntity,parent:r.parentEntity,field,kind,cardinality,cardinalityText,sentence:sentence+' '+cardinalityText};
         });
     }
     get canvasSummaryToggleLabel(){ return this.canvasSummaryVisible?'Hide Summary':'Show Summary'; }
