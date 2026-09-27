@@ -1252,15 +1252,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleArchitectureObjectSelect(event) {
         const name=event.currentTarget.dataset.name || '';
         this.architectureSelectedObject=name;
-        this.architecturePathFrom=name;
-        this.architecturePathTo='';
+        this.architecturePathSource=name;
+        this.architecturePathTarget='';
         this.architectureSection='paths';
     }
     handleArchitectureFindingInspect(event) {
         const name=event.currentTarget.dataset.name || '';
         this.architectureSelectedObject=name;
-        this.architecturePathFrom=name;
-        this.architecturePathTo='';
+        this.architecturePathSource=name;
+        this.architecturePathTarget='';
         this.architectureSection='paths';
     }
     handleArchitectureDrillClose() { this.architectureSelectedObject=''; this.architectureSection='overview'; }
@@ -1274,7 +1274,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         ];
     }
     handleArchitectureHome(){this.architectureSection='home';this.architectureSelectedObject='';}
-    handleArchitectureRefresh(){this.architectureSelectedObject='';this.architecturePathFrom='';this.architecturePathTo='';this.architectureDomainAssignments={};this.architectureSection='home';this.refreshArchitectureAnalysis();}
+    handleArchitectureRefresh(){this.architectureSelectedObject='';this.architecturePathSource='';this.architecturePathTarget='';this.architectureDomainAssignments={};this.architectureSection='home';this.refreshArchitectureAnalysis();}
     get architecturePanelClass(){return 'arch-panel arch-view-'+(this.architectureSection||'home');}
     get architectureShowHome(){return this.architectureSection==='home';}
     get architectureShowFindings(){return this.architectureSection==='findings';}
