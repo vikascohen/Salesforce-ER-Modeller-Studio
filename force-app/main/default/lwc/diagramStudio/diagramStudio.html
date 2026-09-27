@@ -652,7 +652,7 @@
                         <div class="arch-review-card">
                             <div class="arch-review-rank">1</div>
                             <div class="arch-review-main"><div class="arch-review-title"><strong>{architectureReviewLead.name}</strong><span class="arch-tag">{architectureReviewLead.role}</span></div><p>{architectureReviewLead.reason}</p><div class="arch-evidence">{architectureReviewLead.evidence} · {architectureReviewLead.reach}</div></div>
-                            <button class="arch-action-btn" data-name={architectureReviewLead.name} onclick={handleArchitectureFindingInspect}>Object Impact</button>
+                            
                         </div>
                     </section>
                 </template>
@@ -699,6 +699,11 @@
                             <div class="arch-object-map-column"><h4>Children / Dependants</h4><template for:each={architectureObjectChildGraphNodes} for:item="n"><div class="arch-object-map-node arch-object-map-child" key={n.key}><strong>{n.name}</strong><span>{n.role}</span></div></template><template if:false={architectureObjectChildGraphNodes.length}><div class="arch-object-map-empty">No child relationships</div></template></div>
                         </div>
                         <div class="arch-object-observation"><strong>Architecture observation</strong><p>{architectureObjectMapObservation}</p></div>
+                        <div class="arch-object-impact-inline">
+                            <div class="arch-section-head"><span>Change Impact</span><span class="arch-section-hint">Structural blast radius for this object</span></div>
+                            <p>{architectureImpactSummary}</p>
+                            <div class="arch-guide-grid"><template for:each={architectureBlastLevels} for:item="level"><article class="arch-guide-card" key={level.key}><h3>{level.depth} hop impact · {level.count} objects</h3><div><strong>Objects in scope</strong><p>{level.objectText}</p></div><div><strong>How to interpret this</strong><p>{level.meaning}</p></div></article></template></div>
+                        </div>
                         <div class="arch-object-reach"><h4>Structural reach</h4><template for:each={architectureObjectReach} for:item="r"><div key={r.depth}><strong>{r.depth} hop</strong><span>{r.count} objects</span><p>{r.names}</p></div></template></div>
                     </template>
                     <template if:false={architectureHasObjectDetail}><div class="arch-empty arch-empty-small">Select an object above to build its architecture map from the current ER model.</div></template>
@@ -713,11 +718,6 @@
                     <template if:true={architectureHasDomainCouplings}><div class="arch-coupling-list"><h4>Cross-Domain Coupling</h4><template for:each={architectureDomainCouplings} for:item="x"><div class="arch-coupling-row" key={x.domainA}><span>{x.domainA} ↔ {x.domainB}</span><strong>{x.relationshipCount} relationships</strong></div></template></div></template>
                 </section>
                 <section class="arch-section arch-workspace arch-workspace-paths">
-                    <template if:true={architectureHasImpactSelection}>
-                        <div class="arch-section-head"><span>Object Impact · {architectureSelectedObject}</span><span class="arch-section-hint">Structural blast radius from the selected object</span></div>
-                        <div class="arch-domain-result-head"><span class="arch-brief-label">CHANGE IMPACT</span><h3>What could require review if {architectureSelectedObject} changes?</h3><p>{architectureImpactSummary}</p></div>
-                        <div class="arch-guide-grid"><template for:each={architectureBlastLevels} for:item="level"><article class="arch-guide-card" key={level.key}><h3>{level.depth} hop impact · {level.count} objects</h3><div><strong>Objects in scope</strong><p>{level.objectText}</p></div><div><strong>How to interpret this</strong><p>{level.meaning}</p></div></article></template></div>
-                    </template>
                     <div class="arch-section-head"><span>Relationship Path Finder</span><span class="arch-section-hint">Two-object route analysis · separate from Object Map</span></div>
                     <div class="arch-path-controls"><select class="arch-select" onchange={handleArchitecturePathSource}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select><span>→</span><select class="arch-select" onchange={handleArchitecturePathTarget}><template for:each={architectureObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
                     <template if:true={architecturePathReady}><div class="arch-path-result"><template if:true={architecturePathFound}><strong>{architecturePathResult.hops} hop shortest path</strong></template><p>{architecturePathText}</p></div><template if:true={architecturePathFound}><div class="arch-path-diagram-wrap"><div class="arch-path-diagram"><template for:each={architecturePathVisual} for:item="step"><div class="arch-path-step" key={step.key}><div class="arch-path-node"><span>OBJECT {step.step}</span><strong>{step.name}</strong></div><template if:true={step.hasArrow}><div class={step.edgeClass}><span class="arch-path-edge-label">{step.kind}</span><div class="arch-path-edge-line"></div><span class="arch-path-arrow">→</span><template if:true={step.fieldName}><small>{step.fieldName}</small></template></div></template></div></template></div></div><div class="arch-path-legend"><span class="arch-path-legend-lookup">Lookup</span><span class="arch-path-legend-master">Master Detail</span><span class="arch-path-legend-poly">Polymorphic</span></div></template></template>
