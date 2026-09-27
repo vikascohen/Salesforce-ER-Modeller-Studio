@@ -1639,9 +1639,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureHasError() { return !!this.architectureError; }
     get architectureShowEmpty() { return !this.architectureHasModel && !this.architectureHasError; }
     get architectureAnalysis() {
-        if(!this.architectureOpen) return this._architectureAnalysis || null;
-        this.refreshArchitectureAnalysis();
-        return this._architectureAnalysis;
+        return this._architectureAnalysis || null;
     }
     get architectureHasModel() { return !!this.architectureAnalysis; }
     get architectureSummary() {
