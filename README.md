@@ -30,7 +30,7 @@ Create and modify ER models visually or through the Studio DSL with live renderi
 Generate a Data Dictionary, inspect object and field metadata, and export architecture artefacts so knowledge is easier to share across architecture, engineering, administration and delivery teams.
 
 **Salesforce-aware analysis**  
-Complement the model with org-aware capabilities including schema import, sharing views, record-activity heatmaps and metadata inspection.
+Complement the model with org-aware capabilities including schema import, sharing-model views, record-count heatmaps and metadata inspection.
 
 ### Who is it for?
 
@@ -52,8 +52,8 @@ Version 2 combines the modelling foundation with Data Architecture Intelligence,
 - Junction Intelligence
 - Salesforce schema import and metadata-aware modelling
 - Data Dictionary and field-usage analysis
-- Sharing and org-aware views
-- Record-activity heatmaps
+- Sharing-model and org-aware views
+- Record-count heatmaps
 - Visual and DSL-based modelling
 - PNG, Mermaid and draw.io / diagrams.net export
 
@@ -109,7 +109,7 @@ For both releases, the package is the same for Production/Developer Edition and 
 - [Quick start](#quick-start)
 - [Testing](#testing)
 - [Security overview](docs/SECURITY.md)
-- [Author](#author)
+- [Contributors](#contributors)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -127,9 +127,8 @@ For both releases, the package is the same for Production/Developer Edition and 
 
 ### Salesforce-aware architecture workspace
 - Data Dictionary with object and field metadata, sorting, usage calculation and CSV/XLSX export.
-- Sharing View for internal and external sharing models.
-- Sharing Rules / Apex Sharing evidence through runtime share-table evidence without requiring the Tooling API.
-- Heatmap for represented object record activity and freshness.
+- Sharing View for internal and external object sharing-model values.
+- Record-count heatmap for represented objects.
 - Object summary hover cards combining available structural and org-aware evidence.
 
 ### Data Architecture Intelligence
