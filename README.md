@@ -1,30 +1,102 @@
-# Salesforce ER Modeller Studio — Phase 2: Data Architecture Intelligence
+# Salesforce ER Modeller Studio — Version 2 Stable
 
-## Built by Crius Consulting architects — our commitment to open source
+> **Salesforce Data Architecture Intelligence & ER Modelling**  
+> **Understand your Salesforce data architecture before you change it.**
 
-Salesforce ER Modeller Studio — from the original **Phase 1 foundation through the continuing Phase 2 work** — has been built by architects at **Crius Consulting**. We are proud to contribute it openly because we believe the Salesforce ecosystem becomes stronger when architects do more than consume community knowledge: we should also create, experiment, share and give useful engineering capability back.
+Salesforce ER Modeller Studio is an open-source, Salesforce-native workspace for **visualising, modelling and analysing complex Salesforce data architectures**.
 
-That philosophy is influenced by a tradition deeply rooted in the Salesforce ecosystem: Salesforce's **1-1-1 model** and the broader **Pledge 1%** movement encourage companies to make giving back part of how they operate. Crius Consulting brings that spirit into our engineering work through a passion for sharing knowledge, contributing time and making practical technology available to the wider community. ER Modeller Studio is one expression of that commitment.
+As Salesforce orgs grow, the data model often becomes harder to reason about. Custom objects accumulate, relationships multiply, ownership changes, implementations span multiple teams, and important architectural knowledge can end up distributed across diagrams, spreadsheets, documentation and people's heads. A schema change that looks small in isolation may sit inside a much larger network of structural dependencies.
 
-For us, open source is not simply publishing a repository. It means putting real architecture work into the hands of other architects and engineers: something they can inspect, challenge, learn from, extend and use in their own organisations. We want our contribution to be measured by whether it helps somebody solve a real problem, understand a Salesforce data model more deeply, or build something better because the foundations were shared with them.
+ER Modeller Studio is designed to make that architecture easier to see and investigate. It combines **ER modelling, Salesforce metadata, data dictionaries and architecture intelligence** in one workspace so architects and engineering teams can move from simply drawing a schema to asking useful architectural questions about it.
 
-**Phase 1** established the modelling engine, DSL/compiler foundations, Salesforce metadata integration, visualisation, Data Dictionary, export capabilities and the working Studio experience. **Phase 2** continues that contribution with Data Architecture Intelligence, graph-based structural analysis, object drill-down, topology evidence, performance safeguards and stronger resilience.
+### What problems does it solve?
 
-This is part of the culture we want at **Crius Consulting**: build deeply, share what can be shared, contribute useful technology back to the ecosystem, and keep learning from the community in return. We believe commercial consulting and meaningful open-source contribution can strengthen each other.
+**Architecture visibility**  
+Import or model Salesforce objects and relationships and turn them into an explorable architecture rather than relying only on static diagrams or tribal knowledge.
 
-Our engineering principle remains simple: **transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and useful contribution rather than technology built only to be talked about.**
+**Understanding dependencies**  
+See incoming and outgoing relationships, direct neighbours, connected areas of the model, structural paths between objects and explicit references beyond the declared diagram.
 
-## Deploy Phase 2 Semi Stable to Salesforce
+**Change investigation**  
+Explore the represented blast radius around an object and understand what is structurally connected before making schema changes. The Studio presents evidence rather than pretending that structural reach automatically means something will break.
+
+**Complex-org discovery**  
+Use topology, connectivity, depth, density, isolation, bounded cycle detection and highly connected object analysis to identify areas that deserve architectural attention.
+
+**Data model design**  
+Create and modify ER models visually or through the Studio DSL with live rendering, relationship linting, Salesforce-aware field types and point-and-click custom-object modelling.
+
+**Documentation and knowledge sharing**  
+Generate a Data Dictionary, inspect object and field metadata, and export architecture artefacts so knowledge is easier to share across architecture, engineering, administration and delivery teams.
+
+**Salesforce-aware analysis**  
+Complement the model with org-aware capabilities including schema import, sharing-model views, record-count heatmaps and metadata inspection.
+
+### Who is it for?
+
+The Studio is designed for **Enterprise Architects, Solution Architects, Salesforce Architects, Developers, Technical Leads, Administrators, Platform Teams and Consulting/Delivery Teams** working with Salesforce environments where understanding the data architecture matters.
+
+It can be particularly useful during **solution discovery, architecture reviews, legacy-org assessment, schema redesign, technical due diligence, change planning, documentation and engineering handover**.
+
+### More than an ER diagrammer
+
+Traditional ER diagrams are useful for showing entities and relationships. ER Modeller Studio extends that idea into an **interactive Salesforce architecture workspace**.
+
+Version 2 combines the modelling foundation with Data Architecture Intelligence, including:
+
+- Architecture Overview and graph-based topology analysis
+- Object Map and structural change-impact / blast-radius evidence
+- Relationship Path Finder
+- Object Usage & Change Readiness
+- Relationship Insights and dependency summaries
+- Junction Intelligence
+- Salesforce schema import and metadata-aware modelling
+- Data Dictionary and field-usage analysis
+- Sharing-model and org-aware views
+- Record-count heatmaps
+- Visual and DSL-based modelling
+- PNG, Mermaid and draw.io / diagrams.net export
+
+The goal is simple: **help teams understand the structure they have, investigate the consequences of what they intend to change, and make architecture conversations more evidence-based.**
+
+> **Evidence boundary:** Architecture Intelligence analyses relationships and information represented by the current model and the Salesforce information available to the Studio. It does not claim that an ER model alone can discover every Apex, Flow, integration, report, security configuration or runtime dependency.
+
+## Deploy Version 2 Stable to Salesforce
 
 [![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable&continue)
 
-Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org using the button above.
+Deploy **Version 2 Stable** directly to a Salesforce org using the button above.
 
 > **Note:** This deploy button points specifically to the `version-2-stable` branch. For Version 1, use the `version-1-stable` branch.
+
+## Installing
+
+All package links below are **unmanaged Salesforce packages**. Once installed, the components are available in the target org as editable metadata.
+
+### Latest Release — Version 2
+
+**Version 2 Stable** includes the complete Version 1 modelling foundation plus Version 2 Data Architecture Intelligence.
+
+- **Production or Developer Edition:** [Install Version 2 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
+- **Sandbox:** [Install Version 2 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
+
+### Previous Release — Version 1
+
+Version 1 remains available for users who specifically need the previous stable release.
+
+- **Production or Developer Edition:** [Install Version 1 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+- **Sandbox:** [Install Version 1 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
+
+For both releases, the package is the same for Production/Developer Edition and Sandbox; only the Salesforce login domain changes. **Admins Only** is the safest default installation option, after which access can be assigned deliberately through the provided permission set.
 
 ## Contents
 
 - [Installing](#installing)
+- [Version 1 release notes](docs/RELEASE-NOTES-V1.md)
+- [Version 2 release notes](docs/RELEASE-NOTES-V2.md)
+- [Data Architecture Intelligence](#data-architecture-intelligence)
+- [Product capabilities](#product-capabilities)
+  - [Version 1 vs Version 2](#version-1-vs-version-2)
 - [What it does](#what-it-does)
   - [Modeling the diagram](#modeling-the-diagram)
   - [Org-aware views](#org-aware-views)
@@ -39,13 +111,62 @@ Deploy the current **Phase 2 Semi Stable** branch directly to a Salesforce org u
 - [Quick start](#quick-start)
 - [Testing](#testing)
 - [Security overview](docs/SECURITY.md)
-- [Author](#author)
+- [Contributors](#contributors)
 - [License](#license)
 - [Contributing](#contributing)
 
-## Phase 2 — Data Architecture Intelligence
+## Product capabilities
 
-Phase 2 keeps the Phase 1 modelling engine intact and adds an architect-facing analysis layer over the ER model currently open on the canvas. It does not generate an opaque architecture score or pretend that a diagram contains runtime facts it cannot know. Instead, it turns relationships already represented in the model into readable structural evidence.
+### Version 1 vs Version 2
+
+**Version 1 Stable** is the original modelling foundation. It includes the visual ER modelling experience, DSL/compiler workflow, Salesforce schema visualisation, diagram editing, Import from Org, Data Dictionary capabilities, export options, themes and the supporting Salesforce components used by the Studio.
+
+**Version 2 Stable** is the current complete release. It includes everything in Version 1 and adds the **Data Architecture Intelligence** layer: Architecture Overview, Object Map & Impact, Relationship Path Finder, Object Usage & Change Readiness, Relationship Insights, explicit external-reference detection, junction intelligence, shared graph analysis, Clear / Refresh and active-file visibility.
+
+You do **not** need to install Version 1 before Version 2. Version 1 remains available as a preserved stable release for users who specifically need the earlier modelling-only release.
+
+For detailed release history, see [Version 1 release notes](docs/RELEASE-NOTES-V1.md) and [Version 2 release notes](docs/RELEASE-NOTES-V2.md).
+
+### Modelling and DSL
+- Live text-to-visual ER modelling with the Studio DSL and shared parser/compiler.
+- Lookup, Master Detail, polymorphic and self relationships, including multiple relationships between the same objects.
+- Mimic New ER for point-and-click creation of custom-object models. Mimic owns the Salesforce custom suffix, automatically generates `__c`, normalises accidental `_c` / `_C` / `__...` suffix input, and starts with a clean draft each time.
+- Import from Org, object palette drag-and-drop, relationship linting, schema comparison and context-aware DSL autocomplete.
+- Freeform canvas, object resizing, collapsing, focus mode, zoom and automatic layout.
+- Multi-file workspace with save, rename, duplicate and delete flows.
+
+### Salesforce-aware architecture workspace
+- Data Dictionary with object and field metadata, sorting, usage calculation and CSV/XLSX export.
+- Sharing View for internal and external object sharing-model values.
+- Record-count heatmap for represented objects.
+- Object summary hover cards combining available structural and org-aware evidence.
+
+### Data Architecture Intelligence
+- Architecture Overview with topology, connected-component, density, depth, isolation, connectivity and bounded cycle evidence.
+- Object Map & Impact with incoming/outgoing dependencies, neighbours, bounded reach and change-impact/blast-radius evidence.
+- Relationship Path Finder for minimum-hop structural routes between two objects.
+- Object Usage & Change Readiness for custom objects, including represented dependencies and explicit references outside the declared diagram.
+- Relationship Insights with a layered dependency graph, relationship detail and per-object dependency summaries. Self relationships are intentionally omitted from this interpretation view.
+- Junction Intelligence for custom objects with multiple parent relationships and stronger Master Detail junction patterns.
+- Clear / Refresh analysis and active-file visibility so architecture evidence is rebuilt from the current ER source.
+
+### Export, viewing and appearance
+- PNG export, Mermaid ER syntax and draw.io / diagrams.net export.
+- Read-only `diagramViewer` for publishing saved diagrams on Salesforce pages.
+- Dark+, Light+, Monokai and Solarized Light themes, including theme-aware Mimic New ER.
+- Per-user theme persistence.
+
+### Reliability and engineering
+- Shared graph-analysis engine rather than duplicate parsers for individual Architecture Intelligence screens.
+- Analysis caching, breadth-first traversal, bounded expensive operations, malformed-model safeguards, stale-response protection and lifecycle cleanup.
+- Automated GitHub Actions Jest CI for the Version 2 release line and `main`.
+- **112 Jest tests across 5 suites are currently passing on `main`.**
+- Version 2 makes no claim that diagram evidence proves unrepresented Apex, Flow, report, integration, security or live-record dependencies.
+
+
+## Data Architecture Intelligence
+
+The architecture layer builds on the original modelling engine and analyses the ER model currently open on the canvas. It does not generate an opaque architecture score or pretend that a diagram contains runtime facts it cannot know. Instead, it turns relationships already represented in the model into readable structural evidence.
 
 Open **View → Architecture Intelligence** to analyse the current file. The header identifies the file being analysed, and **Clear / Refresh** resets Architecture Intelligence and rebuilds the analysis from the current ER source.
 
@@ -101,7 +222,7 @@ Architecture Intelligence analyses the **current ER model**. It can state what o
 
 Phase 2 therefore follows a simple principle: **show what the model proves, identify what remains unknown, and avoid synthetic certainty.**
 
-### Phase 2 architecture at a glance
+### Architecture at a glance
 
 ~~~mermaid
 flowchart LR
@@ -126,414 +247,23 @@ The Architecture Intelligence engine is shared rather than implementing separate
 Phase 2 is intentionally about **Salesforce data architecture intelligence**: objects, fields, relationships, topology, reachability, dependency evidence and change-readiness evidence.
 
 
-### Testing status
+### Testing
 
-Phase 2 contains Jest coverage for the graph-analysis engine and Architecture Intelligence UI regressions, including graph metrics, malformed and incomplete models, path finding, blast radius, junction detection, object drill-down, custom-only Object Usage selection, explicit external references, Clear / Refresh behaviour, and Relationship Insights self-relationship filtering.
+**LWC / Jest CI**
 
-> **Development status:** these tests are present on the Phase 2 branch, but this README does not claim that the complete Salesforce/Jest suite has passed until it is executed in the appropriate project environment.
+Version 2 currently has **112 Jest tests across 5 suites**, covering the shared ER/diagram logic, export utilities, viewer, Studio workflows and Architecture Intelligence. The suite includes regression coverage for graph metrics, malformed/incomplete models, path finding, blast radius, junction detection, custom-only Object Usage, explicit external references, Relationship Insights self-relationship filtering, Clear / Refresh, Mimic draft reset and custom `__c` suffix normalisation.
 
-For implementation details and engineering constraints, see [docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md](docs/PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md).
+The GitHub Actions workflow runs the Version 2 Jest suite on the Version 2 release line and on `main`. The latest release promotion to `main` completed successfully with **112/112 tests passing**.
 
-## Phase 1 foundation retained in Phase 2
+**Apex**
 
-Everything documented later in this README under modelling, org-aware views, Data Dictionary, export, workspace and appearance is the **Phase 1 foundation inherited by Phase 2** unless specifically noted otherwise. Those capabilities have not been rebranded as new Phase 2 features.
+The existing Apex production and test classes remain the original Salesforce foundation; the Data Architecture Intelligence work did not change those Apex classes. `DiagramFileControllerTest`, `SchemaMetadataControllerTest` and `DiagramPreferenceControllerTest` cover their Salesforce-side paths. Apex tests must be run in a Salesforce org and are not included in the Jest pass count above.
 
-## Installing
+## Contributors
 
-All package links below are **unmanaged Salesforce packages**. Once installed, the components are available in the target org as editable metadata.
+Developed and maintained by **Crius Consulting Architects**.
 
-### Latest Release — Version 2
-
-**Version 2 Stable** includes the complete Version 1 modelling foundation plus Version 2 Data Architecture Intelligence.
-
-- **Production or Developer Edition:** [Install Version 2 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
-- **Sandbox:** [Install Version 2 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT)
-
-### Previous Release — Version 1
-
-Version 1 remains available for users who specifically need the previous stable release.
-
-- **Production or Developer Edition:** [Install Version 1 unmanaged package](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
-- **Sandbox:** [Install Version 1 unmanaged package](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd)
-
-For both releases, the package is the same for Production/Developer Edition and Sandbox; only the Salesforce login domain changes. **Admins Only** is the safest default installation option, after which access can be assigned deliberately through the provided permission set.
-
-## What it does
-
-### Modeling the diagram
-
-- **Live DSL editor** — a resizable, collapsible code panel next to the
-  file explorer where you type entity/relationship lines and watch the
-  canvas render as you type. Context-aware autocomplete (entity names,
-  field names, relationship arrows, target entities) suggests from your
-  org's real schema — picking a field inserts its real type (and
-  required/roll-up markers, when they apply) automatically, the exact
-  same bracket text Import from Org would generate for that field, so
-  hand-picking from the dropdown and importing the whole object produce
-  identical DSL. See [docs/DSL.md](docs/DSL.md) for the full syntax,
-  or [docs/dsl-compiler-architecture.md](docs/dsl-compiler-architecture.md)
-  for how parsing and rendering actually work internally.
-- **Import from your org** — **File > Import from Org**: give it object
-  API names and it describes them from your org's actual fields and
-  relationships (Master-Detail, Lookup, Polymorphic Lookup) and generates
-  the DSL for you.
-- **Roll-Up Summary fields are visible on the canvas** — a small teal Σ
-  marker next to any field that's a genuine roll-up summary, the same
-  pattern as the gold `*` for primary keys and purple `~` for
-  relationships. Populated automatically when importing from your org, or
-  written by hand with an optional `[rollup]` suffix on a field
-  (`TotalProductAmount[rollup]`) — entirely optional, so DSL written
-  before this existed still parses exactly as it always did. Detecting a
-  genuine roll-up (vs. an ordinary Formula field, which describes almost
-  identically) uses a verified technique, not a guess: a roll-up's
-  `getCalculatedFormula()` comes back blank, a real formula's doesn't.
-- **Required fields are visible on the canvas too** — a small red `R` at
-  the right edge of the field's row, independent of and combinable with
-  the PK/relationship/rollup markers on the left. Populated automatically
-  when importing from your org (using the field's own schema definition —
-  not nillable — never the importing user's own create permission), or
-  written by hand with `[Required]` — combinable with a type label or
-  `[rollup]` in the same bracket, e.g. `AnnualRevenue[Currency, Required]`.
-  Required fields are also sorted to the top of each entity's field list
-  automatically on import, ahead of everything else.
-- **Object palette** — a searchable list of every object you can access;
-  drag one onto the canvas and it auto-wires any relationships it has to
-  entities already there.
-- **Freeform canvas** — drag boxes to reposition, resize the height or
-  width of a box, collapse long field lists, zoom in/out, or use
-  **Diagram > Auto Layout** to snap everything back to a grid. A box with
-  many fields (Account can easily have 70+) shows a **"+N more (click to
-  show all)"** hint at the bottom — click it, or double-click the resize
-  handle, to instantly restore the box to its natural height rather than
-  manually dragging it there, which for a large object can mean an
-  impractically long drag well beyond what fits on screen in one motion.
-  Click an entity's header to enter **Focus mode** — everything except
-  it and its direct relationships fades out; click it again (or empty
-  canvas) to release.
-- **Smart relationship linter** — once a couple of related objects are on
-  the canvas, the DSL editor notices relationship fields pointing at
-  another entity already there but not yet wired up, and suggests adding
-  the line.
-- **Compare with org schema** — **Diagram > Compare with Org**:
-  re-describes every entity on the canvas that maps to a real org object
-  and diffs it against the diagram — fields the org has that the diagram
-  doesn't, and fields the diagram lists that the org didn't return
-  (renamed, deleted, or hidden by field-level security). One click adds
-  or removes each.
-- A few deliberate parsing refinements: entity names match
-  case-insensitively (`account` and `Account` merge into one box, not
-  two); a field genuinely polymorphic to more than one object shows every
-  target on its row; a self-relationship (`Account.ParentId -> Account`)
-  draws as a loop instead of collapsing to nothing; multiple relationships
-  between the same two entities fan out instead of overlapping.
-
-### Org-aware views
-
-Two independent, opt-in toggles in the **View** menu that read live org
-data and badge or color the canvas — neither is on by default, neither
-runs against more than what's currently on the canvas, and both re-fetch
-fresh every time (nothing here is cached). A third feature, the hover
-card below, needs no toggle of its own — it just aggregates whatever the
-other two have already fetched.
-
-- **Sharing View** — badges each object with its org-wide default sharing
-  model, sourced from `EntityDefinition` (the same data Setup shows under
-  Object Manager > Sharing Settings, not otherwise available via the
-  describe API). Shows **internal** (regular org users — solid badge) and
-  **external** (Experience Cloud / community / guest users — hollow
-  badge, when configured) side by side. A Master-Detail child's internal
-  badge naturally comes back as *Controlled by Parent* — exactly what
-  shows its sharing is inherited, reasoning that's normally spread across
-  several Setup pages. Org-wide defaults are read directly, via
-  `EntityDefinition`; role hierarchy is not read at all (there's no
-  narrow, per-object question to ask it — see below for why sharing
-  rules and Apex Managed Sharing are handled differently, on the hover
-  card, not here).
-- **Sharing Rules / Apex Sharing (on the hover card, alongside Sharing
-  View's org-wide default badges)** — deliberately Tooling-API-free:
-  rather than reading the actual `SharingRules` metadata (which would
-  need a Named Credential and a Connected App, neither required for
-  anything else in this app), this reads the *runtime effect* instead —
-  the distinct `RowCause` values present on the object's own `__Share`
-  table, which is plain, regular SOQL. `RowCause = 'Rule'` reliably
-  means a sharing rule has fired, on any object. Apex Managed Sharing is
-  a genuinely different story: it can only be told apart from a person
-  manually sharing one record on a **custom** object, since standard
-  objects can't define their own Apex Sharing Reason at all and both use
-  the exact same `RowCause` ('Manual') there — so the hover card says
-  **"Not determinable on standard objects"** rather than guessing, since
-  a definite answer there would be actively misleading, not just
-  incomplete. An object with no `__Share` table at all (a custom object
-  with Public Read/Write, for instance, never gets one) shows "No
-  sharing data for this object" instead of a false negative.
-- **Heatmap** — colors each box by activity, not just whether it has any
-  records: light orange if genuinely empty, light blue if it has records
-  and at least one was touched within the last year, light amber if it
-  has records but none touched in over a year — a real signal that's
-  easy to miss otherwise, since a box with thousands of records nobody's
-  touched in three years used to look identical to one being actively
-  used today. One aggregate query per object (`COUNT(Id)` and
-  `MAX(LastModifiedDate)` together), nothing about the records
-  themselves is read. The actual count is badged at the top (e.g.
-  `1.2K`, `45`); hovering the badge (or the object summary hover card
-  below) shows the exact last-touched date.
-- **Object summary hover card** — hover any entity on the canvas (no
-  toggle needed) for a small card with its field count and standard/custom
-  status, plus whatever the two toggles above have already fetched:
-  record count (with the same stale/active distinction the heatmap
-  color encodes, stated in words — "Stale — Last touched 14/3/2023" vs.
-  "Last touched yesterday" — not left for you to infer from a color),
-  internal/external sharing, and Sharing Rules / Apex Sharing (see above
-  for the accuracy limit on standard objects — this is stated plainly
-  on the card itself, not glossed over). Ties every view together into
-  one glance instead of separate badges to read — and for anything from
-  a toggle you haven't turned on yet, the card says so directly
-  ("Turn on Heatmap to see this") rather than just omitting the row
-  silently. Dismisses on **Esc**, or automatically if you delete the
-  entity it's showing — it never lingers over a box that's no longer
-  there.
-
-### Data Dictionary
-
-A full-screen tab, separate from the canvas, for browsing every
-accessible object in the org — toggle it from the **View** menu.
-
-- **Left**: search or scroll the full object list (reuses data already
-  loaded for the palette, so it's instant).
-- **Right**: select an object for a full field-level table — label,
-  description, data type, required, custom, primary key, foreign key
-  (and which object it points to), last modified. **Data type** shows
-  Setup's actual field-type labels (`Text`, `Number`,
-  `Master-Detail Relationship`, `Formula (Number)`, `Roll-Up Summary`,
-  `Text Area (Long)`...)
-  rather than the raw Apex describe enum name. **Description** and
-  **last-modified date** come from `FieldDefinition`, metadata the
-  regular describe API doesn't expose at all.
-- **Sortable columns** — click **Field API Name**, **Required**, or
-  **Custom** to sort (each shows a faint always-on indicator so it's clear
-  they're sortable); click again to reverse. A **Clear Selection** button
-  resets the right panel back to nothing-selected without touching the
-  object list on the left.
-- **% Used** (how many existing records have a non-blank value) is a
-  genuine data scan, so it's opt-in per object via a **Calculate Usage %**
-  button rather than automatic — deliberately, to keep browsing instant.
-- **Export** the current object to CSV or a real `.xlsx` (respecting
-  whatever sort is currently applied), or **Export All** as one workbook
-  with every object on its own tab (bulk export skips % Used, to stay
-  fast and safely inside governor limits across potentially hundreds of
-  objects, and has no per-object sort to respect).
-- The dictionary is an overlay, not a page change — closing it (**← Back
-  to Diagram**, or the × close) returns you to the canvas exactly as you
-  left it: zoom, position, and open tabs untouched.
-
-### Export
-
-- Render the current diagram to **PNG** at native size, A4 landscape, or
-  A3 landscape, with the relationship legend baked into the image.
-  Exports are saved as a Salesforce File and downloaded from there (no
-  client-side blob tricks, so it works under Lightning Web Security).
-- The export modal also gives you **Mermaid `erDiagram` syntax** (paste
-  into a GitHub README, Confluence, or Notion page — it renders live
-  there) or a **draw.io / diagrams.net file** — laid out using your
-  diagram's *actual* canvas positions, not auto-arranged from scratch.
-  Both show each field's real Salesforce data type (`Currency`,
-  `Text Area (Long)`, `Roll-Up Summary`...) rather than a generic
-  placeholder — carried through from whatever was imported from the org,
-  or typed by hand with the same optional bracket syntax as
-  `[rollup]` (e.g. `AnnualRevenue[Currency]`).
-- **Read-only viewer** (`diagramViewer`) — a companion component for
-  Record/App/Home pages that pins a saved diagram for people who just
-  need to look at it, with its own PNG export and legend.
-
-### Workspace & appearance
-
-- **Multi-file workspace** — a VS Code–style tab strip and sidebar file
-  list; open several diagrams at once, rename, duplicate, or delete them.
-  Diagram names must be unique — saving or renaming to a name another
-  diagram already has (case-insensitive) is rejected with a clear message
-  rather than silently creating two records sharing the same name.
-- **Themes** — a selector in the toolbar switches between four real VS
-  Code themes: **Dark+** and **Light+** (VS Code's own defaults, blue
-  accent), **Monokai**, and **Solarized Light** — applies instantly across
-  the whole app, Data Dictionary included. Your choice is remembered per
-  user (via a Hierarchy Custom Setting, not just the browser you're on),
-  so it follows you across sessions and devices.
-  Status colors (error red, success green) and the
-  Master-Detail/Lookup/Polymorphic relationship colors on the canvas are
-  deliberately left out of theming — they're semantic, and the
-  relationship colors specifically have to stay identical to what gets
-  baked into PNG/Mermaid/draw.io exports, or the on-screen diagram and
-  the exported file would disagree with each other.
-
-## Components
-
-| Type | Name | Purpose |
-|---|---|---|
-| LWC | `diagramStudio` | The main editor — canvas, sidebar, DSL editor with intellisense, tabs, palette, import panel, export modal, zoom, Data Dictionary, themes. Deployable to an App Page, Record Page, Home Page, or its own Tab. |
-| LWC | `diagramViewer` | Read-only, drop it on any page and point it at a saved diagram's Id. |
-| LWC | `erDiagramLogic` | Pure JS: parses the DSL, lays out boxes/connectors, builds the export legend, and generates Mermaid `erDiagram` / draw.io XML. No UI, no dependencies — imported by both components above. |
-| LWC | `diagramExportUtils` | Pure JS: renders an SVG diagram to a PNG (canvas-based). Shared by both components. |
-| Apex | `DiagramFileController` | CRUD for `Diagram_File__c` records, plus saving a PNG export as a Salesforce File. |
-| Apex | `SchemaMetadataController` | Read-only schema introspection — object/field describe for the import panel/palette/autocomplete, internal + external sharing model for Sharing View, sharing rule and Apex Managed Sharing detection (via `__Share` table `RowCause` values, not Tooling API) for the hover card, per-object record counts and freshness (most recent LastModifiedDate) for the Heatmap, and the Data Dictionary's field descriptions, last-modified dates, and on-demand usage percentages. |
-| Apex | `DiagramPreferenceController` | Gets/saves the current user's selected theme, backed by a Hierarchy Custom Setting. |
-| Object | `Diagram_File__c` | Stores each diagram: `Name`, `Diagram_Type__c`, `Source_Code__c` (the DSL text). |
-| Custom Setting | `Diagram_Studio_Pref__c` | Hierarchy custom setting holding each user's `Theme__c` preference. |
-| Static Resource | `sheetjs` | [SheetJS](https://www.npmjs.com/package/xlsx) (Apache-2.0), bundled for real client-side `.xlsx` generation — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Only loaded on first use of an Excel export. |
-
-## Architecture
-
-```mermaid
-graph TD
-    subgraph UI["Lightning Pages"]
-        DS["diagramStudio<br/>editor LWC"]
-        DV["diagramViewer<br/>read-only LWC"]
-    end
-
-    subgraph Logic["Pure JS — no dependencies"]
-        ERL["erDiagramLogic<br/>parse DSL · lay out boxes/connectors ·<br/>build legend · export Mermaid / draw.io"]
-        EXP["diagramExportUtils<br/>SVG → PNG"]
-    end
-
-    subgraph ThirdParty["Bundled Static Resource"]
-        XLSX["sheetjs<br/>client-side .xlsx generation<br/>lazy-loaded on first Excel export"]
-    end
-
-    subgraph Apex["Apex (with sharing)"]
-        DFC["DiagramFileController"]
-        SMC["SchemaMetadataController"]
-        DPC["DiagramPreferenceController"]
-    end
-
-    subgraph Data["Salesforce Data"]
-        OBJ["Diagram_File__c<br/>Name · Diagram_Type__c · Source_Code__c"]
-        FILES["ContentVersion<br/>PNG exports"]
-        SCHEMA["Org Schema<br/>describe API"]
-        CATALOG["Metadata Catalog<br/>EntityDefinition · FieldDefinition"]
-        RECORDS["Object Records<br/>COUNT() aggregates only —<br/>Heatmap counts, Dictionary usage %"]
-        PREF["Diagram_Studio_Pref__c<br/>Hierarchy Custom Setting"]
-    end
-
-    DS -- "parse / render" --> ERL
-    DS -- "export" --> EXP
-    DS -- "Excel export" --> XLSX
-    DS -- "CRUD, save PNG" --> DFC
-    DS -- "describe objects,<br/>autocomplete, linter,<br/>schema compare, sharing,<br/>heatmap, data dictionary" --> SMC
-    DS -- "get/save theme" --> DPC
-
-    DV -- "render" --> ERL
-    DV -- "export" --> EXP
-    DV -- "get file, save PNG" --> DFC
-
-    DFC --> OBJ
-    DFC --> FILES
-    SMC --> SCHEMA
-    SMC --> CATALOG
-    SMC --> RECORDS
-    DPC --> PREF
-```
-
-`diagramStudio` and `diagramViewer` never talk to each other or duplicate
-logic between themselves — both are thin UI shells over the same two pure
-JS modules, so a DSL parsing or rendering fix in `erDiagramLogic` applies
-identically whether you're editing or just viewing a diagram.
-`SchemaMetadataController` is the only Apex class that ever reads live
-*record data* (`RECORDS`, for the Heatmap and the Data Dictionary's
-opt-in usage-percentage feature) — everything else it does is
-metadata-only.
-
-## Deploying to an org
-
-This is a standard Salesforce DX project.
-
-```bash
-sf project deploy start --source-dir force-app
-```
-
-Then assign the permission set so users can access the object, fields,
-and Apex classes:
-
-```bash
-sf org assign permset --name Diagram_Studio_User
-```
-
-## Setting it up in the org
-
-1. In Setup, create a **Lightning App** (or use an existing one) and add a
-   new tab, or drop the `diagramStudio` component straight onto an App
-   Page / Home Page via Lightning App Builder.
-2. Assign the `Diagram Studio User` permission set to anyone who needs to
-   create or edit diagrams.
-3. Open the page — it starts with a blank "Untitled ER Diagram" tab and a
-   sample entity to get you oriented.
-
-To pin a specific saved diagram somewhere read-only (e.g. on an app's
-landing page), drop `diagramViewer` on a page instead and set its
-**Diagram Id** property in App Builder to the record's Id (use the "Copy
-Id" button in the studio's sidebar to grab it).
-
-## Quick start
-
-1. Type directly into the **DSL editor** panel next to the file explorer
-   (click the `</>` toolbar button if it's collapsed, or drag its right
-   edge to resize it):
-
-   ```
-   entity Account : Name, Industry, Phone
-   entity Contact : LastName, FirstName, Email
-
-   Contact.AccountId => Account
-   ```
-
-   The canvas updates as you type, and autocomplete suggestions appear
-   below the editor as you go — arrow up/down then Enter or Tab to
-   accept, Esc to dismiss. See [docs/DSL.md](docs/DSL.md) for the full
-   syntax (relationship arrows, comments, self-relationships, etc).
-
-2. Or click **File > Import from Org**, type in object API names (e.g.
-   `Account, Contact, Opportunity`), and the tool describes them from
-   your org's actual schema and generates the DSL for you — including
-   any relationships between the objects you listed.
-
-3. Or open the **object palette** on the side, search for an object, and
-   drag it onto the canvas. Dropping an object that already has a
-   relationship to something on the canvas wires it up automatically.
-
-4. Drag boxes around to lay them out the way you want; drag the bottom or
-   right edge of a box to resize it; use the zoom controls (top-left of
-   the canvas) to zoom in/out, or **Diagram > Auto Layout** to reset
-   everything to an automatic grid.
-
-5. **Ctrl/Cmd+S**, or **File > Save**, writes the diagram back to its
-   `Diagram_File__c` record. Use **File > Export** to render a PNG — the
-   relationship legend is baked into the exported image — or to
-   copy/download the diagram as **Mermaid** or **draw.io** for pasting
-   into a README, wiki page, or editing further in draw.io.
-
-## Testing
-
-**LWC (Jest)**
-
-73 tests across all four LWC bundles: `erDiagramLogic` (parsing,
-geometry, Mermaid/draw.io export with real per-field data types, legend,
-Roll-Up Summary and Required-field marker handling, including their
-combined-bracket syntax), `diagramExportUtils` (PNG rendering,
-including a mocked canvas/Image success path, not just error branches),
-`diagramViewer`, and `diagramStudio` (core flows — init, DSL typing →
-render, import round-trips including friendly data-type and required-field
-annotations, the DSL autocomplete inserting those same annotations when a
-field is picked from the dropdown, New/Save/Clear/Auto Layout, error
-handling, Focus mode, the object summary hover card and its dismissal on
-Esc/entity deletion, and a dedicated Data Dictionary suite covering its
-Clear button, sortable columns, and a real race-condition regression test).
-
-**Apex** — `DiagramFileControllerTest` (CRUD, including the unique-name
-validation on both save and rename), `SchemaMetadataControllerTest`,
-and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
-and preference-storage paths respectively. Run them in your org:
-
-## Author
-
-Crius Consulting Architects
+**Lead Architect & Author:** Vikas Cohen
 
 ## License
 
