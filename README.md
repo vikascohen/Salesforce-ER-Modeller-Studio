@@ -94,7 +94,9 @@ For both releases, the package is the same for Production/Developer Edition and 
 - [Installing](#installing)
 - [Version 1 release notes](docs/RELEASE-NOTES-V1.md)
 - [Version 2 release notes](docs/RELEASE-NOTES-V2.md)
-- [Version 2 combined feature set](#version-2-combined-feature-set)
+- [Data Architecture Intelligence](#data-architecture-intelligence)
+- [Product capabilities](#product-capabilities)
+  - [Version 1 vs Version 2](#version-1-vs-version-2)
 - [What it does](#what-it-does)
   - [Modeling the diagram](#modeling-the-diagram)
   - [Org-aware views](#org-aware-views)
@@ -113,9 +115,17 @@ For both releases, the package is the same for Production/Developer Edition and 
 - [License](#license)
 - [Contributing](#contributing)
 
-## Version 2 combined feature set
+## Product capabilities
 
-**Version 2 Stable is the complete product.** It contains the full Version 1 feature set plus the Version 2 architecture-intelligence capabilities. Users deploying Version 2 do not need Version 1 separately.
+### Version 1 vs Version 2
+
+**Version 1 Stable** is the original modelling foundation. It includes the visual ER modelling experience, DSL/compiler workflow, Salesforce schema visualisation, diagram editing, Import from Org, Data Dictionary capabilities, export options, themes and the supporting Salesforce components used by the Studio.
+
+**Version 2 Stable** is the current complete release. It includes everything in Version 1 and adds the **Data Architecture Intelligence** layer: Architecture Overview, Object Map & Impact, Relationship Path Finder, Object Usage & Change Readiness, Relationship Insights, explicit external-reference detection, junction intelligence, shared graph analysis, Clear / Refresh and active-file visibility.
+
+You do **not** need to install Version 1 before Version 2. Version 1 remains available as a preserved stable release for users who specifically need the earlier modelling-only release.
+
+For detailed release history, see [Version 1 release notes](docs/RELEASE-NOTES-V1.md) and [Version 2 release notes](docs/RELEASE-NOTES-V2.md).
 
 ### Modelling and DSL
 - Live text-to-visual ER modelling with the Studio DSL and shared parser/compiler.
@@ -153,11 +163,10 @@ For both releases, the package is the same for Production/Developer Edition and 
 - **112 Jest tests across 5 suites are currently passing on `main`.**
 - Version 2 makes no claim that diagram evidence proves unrepresented Apex, Flow, report, integration, security or live-record dependencies.
 
-For release-specific history, see [Version 1 release notes](docs/RELEASE-NOTES-V1.md) and [Version 2 release notes](docs/RELEASE-NOTES-V2.md).
 
-## Version 2 — Data Architecture Intelligence
+## Data Architecture Intelligence
 
-Phase 2 keeps the Phase 1 modelling engine intact and adds an architect-facing analysis layer over the ER model currently open on the canvas. It does not generate an opaque architecture score or pretend that a diagram contains runtime facts it cannot know. Instead, it turns relationships already represented in the model into readable structural evidence.
+The architecture layer builds on the original modelling engine and analyses the ER model currently open on the canvas. It does not generate an opaque architecture score or pretend that a diagram contains runtime facts it cannot know. Instead, it turns relationships already represented in the model into readable structural evidence.
 
 Open **View → Architecture Intelligence** to analyse the current file. The header identifies the file being analysed, and **Clear / Refresh** resets Architecture Intelligence and rebuilds the analysis from the current ER source.
 
@@ -213,7 +222,7 @@ Architecture Intelligence analyses the **current ER model**. It can state what o
 
 Phase 2 therefore follows a simple principle: **show what the model proves, identify what remains unknown, and avoid synthetic certainty.**
 
-### Version 2 architecture at a glance
+### Architecture at a glance
 
 ~~~mermaid
 flowchart LR
@@ -248,7 +257,7 @@ The GitHub Actions workflow runs the Version 2 Jest suite on the Version 2 relea
 
 **Apex**
 
-The existing Apex production and test classes remain the Version 1 Salesforce foundation; Phase 2 / Version 2 did not change those Apex classes. `DiagramFileControllerTest`, `SchemaMetadataControllerTest` and `DiagramPreferenceControllerTest` cover their Salesforce-side paths. Apex tests must be run in a Salesforce org and are not included in the Jest pass count above.
+The existing Apex production and test classes remain the original Salesforce foundation; the Data Architecture Intelligence work did not change those Apex classes. `DiagramFileControllerTest`, `SchemaMetadataControllerTest` and `DiagramPreferenceControllerTest` cover their Salesforce-side paths. Apex tests must be run in a Salesforce org and are not included in the Jest pass count above.
 
 ## Contributors
 
