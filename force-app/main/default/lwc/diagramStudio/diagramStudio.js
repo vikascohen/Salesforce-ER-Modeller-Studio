@@ -2017,6 +2017,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         await this.loadById(id);
     }
 
+    getRecordFieldValue(record, apiName) {
+        if (!record) return undefined;
+        if (Object.prototype.hasOwnProperty.call(record, apiName)) return record[apiName];
+        const namespacedKey = Object.keys(record).find((key) => key.endsWith('__' + apiName));
+        return namespacedKey ? record[namespacedKey] : undefined;
+    }
+
     async loadById(id) {
         try {
             const rec = await getFile({ fileId: id });
@@ -2024,7 +2031,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             if (rec) {
                 this.currentId  = rec.Id;
                 this.fileName   = rec.Name;
-                this.sourceText = rec.Source_Code__c || '';
+                this.sourceText = this.getRecordFieldValue(rec, 'Source_Code__c') || '';
                 this.erPositions = {};
                 this.boxHeightOverrides = {};
                 this.boxWidthOverrides  = {};
