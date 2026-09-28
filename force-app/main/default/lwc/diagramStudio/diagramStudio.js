@@ -135,6 +135,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
+    _fileLoadToken    = 0;
     _sharingRequestToken = 0;
     _heatmapRequestToken = 0;
     _isDisconnected = false;
@@ -261,6 +262,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     disconnectedCallback() {
         this._isDisconnected = true;
+        this._fileLoadToken++;
         this._sharingRequestToken++;
         this._heatmapRequestToken++;
         this._dictionaryRequestToken++;
@@ -2017,21 +2019,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         await this.loadById(id);
     }
 
-    getRecordFieldValue(record, apiName) {
-        if (!record) return undefined;
-        if (Object.prototype.hasOwnProperty.call(record, apiName)) return record[apiName];
-        const namespacedKey = Object.keys(record).find((key) => key.endsWith('__' + apiName));
-        return namespacedKey ? record[namespacedKey] : undefined;
-    }
-
     async loadById(id) {
+        const myToken = ++this._fileLoadToken;
         try {
             const rec = await getFile({ fileId: id });
-            if (this._isDisconnected) return;
+            if (myToken !== this._fileLoadToken || this._isDisconnected) return;
             if (rec) {
                 this.currentId  = rec.Id;
                 this.fileName   = rec.Name;
-                this.sourceText = this.getRecordFieldValue(rec, 'Source_Code__c') || '';
+                this.sourceText = rec.Source_Code__c || '';
                 this.erPositions = {};
                 this.boxHeightOverrides = {};
                 this.boxWidthOverrides  = {};
@@ -2047,7 +2043,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.errorMessage = `No saved diagram found for Id "${id}".`;
             }
         } catch (e) {
-            if (!this._isDisconnected) this.errorMessage = this.reduceError(e);
+            if (myToken === this._fileLoadToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
         }
     }
 
