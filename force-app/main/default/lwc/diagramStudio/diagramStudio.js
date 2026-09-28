@@ -135,7 +135,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
-    _fileLoadToken    = 0;
     _sharingRequestToken = 0;
     _heatmapRequestToken = 0;
     _isDisconnected = false;
@@ -262,7 +261,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     disconnectedCallback() {
         this._isDisconnected = true;
-        this._fileLoadToken++;
         this._sharingRequestToken++;
         this._heatmapRequestToken++;
         this._dictionaryRequestToken++;
@@ -2020,10 +2018,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async loadById(id) {
-        const myToken = ++this._fileLoadToken;
         try {
             const rec = await getFile({ fileId: id });
-            if (myToken !== this._fileLoadToken || this._isDisconnected) return;
+            if (this._isDisconnected) return;
             if (rec) {
                 this.currentId  = rec.Id;
                 this.fileName   = rec.Name;
@@ -2043,7 +2040,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.errorMessage = `No saved diagram found for Id "${id}".`;
             }
         } catch (e) {
-            if (myToken === this._fileLoadToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
+            if (!this._isDisconnected) this.errorMessage = this.reduceError(e);
         }
     }
 
