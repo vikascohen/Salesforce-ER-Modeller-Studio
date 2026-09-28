@@ -38,7 +38,7 @@ public with sharing class DiagramFileController {
 
     // ── get single ──
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static Diagram_File__c getFile(Id fileId) {
         List<Diagram_File__c> r = [
             SELECT Id, Name, Diagram_Type__c, Source_Code__c
