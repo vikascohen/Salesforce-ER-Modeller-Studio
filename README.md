@@ -1,19 +1,5 @@
 # Salesforce ER Modeller Studio — Version 2 Stable
 
-## Built by Crius Consulting architects — our commitment to open source
-
-Salesforce ER Modeller Studio **Version 2 Stable** combines the complete Version 1 modelling foundation with Version 2 Data Architecture Intelligence. It has been built by architects at **Crius Consulting**. We are proud to contribute it openly because we believe the Salesforce ecosystem becomes stronger when architects do more than consume community knowledge: we should also create, experiment, share and give useful engineering capability back.
-
-That philosophy is influenced by a tradition deeply rooted in the Salesforce ecosystem: Salesforce's **1-1-1 model** and the broader **Pledge 1%** movement encourage companies to make giving back part of how they operate. Crius Consulting brings that spirit into our engineering work through a passion for sharing knowledge, contributing time and making practical technology available to the wider community. ER Modeller Studio is one expression of that commitment.
-
-For us, open source is not simply publishing a repository. It means putting real architecture work into the hands of other architects and engineers: something they can inspect, challenge, learn from, extend and use in their own organisations. We want our contribution to be measured by whether it helps somebody solve a real problem, understand a Salesforce data model more deeply, or build something better because the foundations were shared with them.
-
-**Version 1** established the modelling engine, DSL/compiler foundations, Salesforce metadata integration, visualisation, Data Dictionary, export capabilities and the working Studio experience. **Version 2** retains that complete foundation and adds Data Architecture Intelligence, graph-based structural analysis, object drill-down, topology evidence, Mimic New ER, performance safeguards and stronger resilience.
-
-This is part of the culture we want at **Crius Consulting**: build deeply, share what can be shared, contribute useful technology back to the ecosystem, and keep learning from the community in return. We believe commercial consulting and meaningful open-source contribution can strengthen each other.
-
-Our engineering principle remains simple: **transparent architecture evidence rather than opaque scores, practical tooling rather than slideware, and useful contribution rather than technology built only to be talked about.**
-
 ## Deploy Version 2 Stable to Salesforce
 
 [![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable&continue)
@@ -204,9 +190,11 @@ The GitHub Actions workflow runs the Version 2 Jest suite on the Version 2 relea
 
 The existing Apex production and test classes remain the Version 1 Salesforce foundation; Phase 2 / Version 2 did not change those Apex classes. `DiagramFileControllerTest`, `SchemaMetadataControllerTest` and `DiagramPreferenceControllerTest` cover their Salesforce-side paths. Apex tests must be run in a Salesforce org and are not included in the Jest pass count above.
 
-## Author
+## Contributors
 
-Crius Consulting Architects
+Developed and maintained by **Crius Consulting Architects**.
+
+**Lead Architect & Author:** Vikas Cohen
 
 ## License
 
