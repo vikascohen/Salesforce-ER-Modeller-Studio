@@ -1,5 +1,36 @@
 # Salesforce ER Modeller Studio — Version 2 Stable
 
+## What is Salesforce ER Modeller Studio?
+
+Salesforce ER Modeller Studio is a **Salesforce-native data modelling and architecture intelligence workspace** built for architects, developers and teams that need to understand, design and reason about complex Salesforce data models.
+
+Enterprise Salesforce orgs rarely stay simple. Over time they accumulate standard and custom objects, relationships, integrations, inherited design decisions and dependencies that can make architecture difficult to understand and risky to change. Traditional ER diagrams can show structure, but they do not always help answer the questions architects face when assessing an existing org or planning a change.
+
+ER Modeller Studio brings **modelling, Salesforce metadata and architecture analysis into one workspace**. Teams can create models visually or through the Studio DSL, import Salesforce schema information, inspect objects and fields, explore relationships, analyse topology and dependencies, trace paths between objects, investigate potential change impact and maintain architecture artefacts without leaving the Salesforce ecosystem.
+
+### Problems it helps solve
+
+- **Understanding complex data models:** turn Salesforce object and relationship structures into navigable architecture views rather than relying on disconnected spreadsheets, screenshots or tribal knowledge.
+- **Architecture discovery:** explore how objects are connected, identify highly connected or isolated areas of a model, inspect relationship paths and understand structural dependencies.
+- **Change analysis:** investigate the represented blast radius around an object before making schema changes, while clearly distinguishing model evidence from dependencies the diagram cannot prove.
+- **Design and modelling:** create ER models using a visual workspace or a lightweight DSL with live rendering, relationship linting and Salesforce-aware modelling capabilities.
+- **Documentation:** generate a Data Dictionary and export architecture information to formats that can be shared outside the Studio.
+- **Architecture conversations:** give architects, developers and delivery teams a common visual and evidence-based representation of the Salesforce data architecture.
+
+### Who can benefit?
+
+**Enterprise and Solution Architects** can use the Studio for architecture discovery, data-model reviews, dependency analysis and change planning.
+
+**Salesforce Developers and Technical Leads** can investigate unfamiliar schemas, understand object relationships and reason about the structural context surrounding a proposed implementation.
+
+**Administrators and Platform Teams** can inspect metadata, maintain data dictionaries and obtain a clearer view of how an org's data model has evolved.
+
+**Consulting and Delivery Teams** can use it during discovery, solution design, technical assessment and handover to create a shared understanding of an organisation's Salesforce data architecture.
+
+**Large Salesforce programmes** can use the architecture intelligence capabilities to complement existing governance and design practices, particularly where years of customisation have made the underlying data model difficult to reason about.
+
+> **Evidence boundary:** Architecture Intelligence analyses the model and Salesforce information available to the Studio. It does not claim that an ER diagram alone can prove every Apex, Flow, integration, reporting, security or runtime dependency.
+
 ## Deploy Version 2 Stable to Salesforce
 
 [![Deploy to Salesforce](https://img.shields.io/badge/Deploy%20to-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-2-stable&continue)
