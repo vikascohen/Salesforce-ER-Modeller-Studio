@@ -33,11 +33,11 @@ private class StudioDiagnosticsControllerTest {
         Boolean found=false;
         for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='tooling'&&c.status=='Failed'){
             found=true;
-            System.assertNotEquals(null,c.likelyCause);
-            System.assert(c.likelyCause.contains('Authentication') || c.likelyCause.contains('principal'));
-            System.assert(c.remediationSteps.size()>=10);
+            System.assertNotEquals(null,c.diagnosis);
+            System.assert(c.diagnosis.contains('Authentication') || c.diagnosis.contains('principal'));
+            System.assert(c.actions.size()>=10);
             Boolean principalStep=false;
-            for(String step:c.remediationSteps)if(step.contains('External Credential Principal Access'))principalStep=true;
+            for(String step:c.actions)if(step.contains('External Credential Principal Access'))principalStep=true;
             System.assert(principalStep,'Troubleshooting must explicitly call out External Credential Principal Access.');
         }
         System.assert(found);
