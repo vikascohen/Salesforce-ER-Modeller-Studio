@@ -1,0 +1,4 @@
+@IsTest private class FieldUsageDynamicQueryServiceTest {
+ @IsTest static void missingOptionalObjectReturnsEmpty(){System.assertEquals(false,FieldUsageDynamicQueryService.objectExists('DefinitelyMissingMetadataObject__c'));System.assertEquals(0,FieldUsageDynamicQueryService.queryAvailable('DefinitelyMissingMetadataObject__c',new List<String>{'Id'},10).size());}
+ @IsTest static void availableObjectUsesSafeFields(){insert new Account(Name='Dynamic Query Test');List<SObject> rows=FieldUsageDynamicQueryService.queryAvailable('Account',new List<String>{'Id','Name','DefinitelyMissing__c'},10);System.assertEquals(1,rows.size());System.assertEquals('Dynamic Query Test',String.valueOf(rows[0].get('Name')));}
+}
