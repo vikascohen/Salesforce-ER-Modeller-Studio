@@ -55,6 +55,13 @@ const getSharingModels = require('@salesforce/apex/SchemaMetadataController.getS
 const getSharingSignal = require('@salesforce/apex/SchemaMetadataController.getSharingSignal').default;
 // eslint-disable-next-line no-undef
 const getSchemaReferences = require('@salesforce/apex/SchemaMetadataController.getSchemaReferences').default;
+// eslint-disable-next-line no-undef
+const getSnapshotAvailability = require('@salesforce/apex/FieldUsageController.getSnapshotAvailability').default;
+// eslint-disable-next-line no-undef
+const getSnapshotObjects = require('@salesforce/apex/FieldUsageController.getSnapshotObjects').default;
+// eslint-disable-next-line no-undef
+const getFieldUsageStatus = require('@salesforce/apex/FieldUsageController.getStatus').default;
+
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
 const objectNamesAdapter = registerApexTestWireAdapter(getAllObjectNames);
@@ -102,6 +109,52 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('[role="alert"], .error-bar')).toBeNull();
         const nameInput = el.shadowRoot.querySelector('.diag-name-input');
         expect(nameInput.value).toBe('Untitled ER Diagram');
+    });
+
+    it('gates Field Usage when no successful snapshot exists', async () => {
+        getSnapshotAvailability.mockResolvedValueOnce({ available: false });
+        getFieldUsageStatus.mockResolvedValueOnce({ run: null, schedules: [] });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const viewMenu = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-wrap > button'))
+            .find((button) => button.textContent.includes('View'));
+        viewMenu.click();
+        await flushPromises();
+
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
+            .find((item) => item.textContent.includes('Field Usage'))
+            .click();
+        await flushPromises();
+
+        expect(el.shadowRoot.textContent).toContain(
+            'Field Usage requires a successful scan before it can be loaded'
+        );
+        expect(el.shadowRoot.querySelector('.fu-controls')).toBeNull();
+    });
+
+    it('loads Field Usage selectors from persisted snapshot data when available', async () => {
+        getSnapshotAvailability.mockResolvedValueOnce({ available: true });
+        getFieldUsageStatus.mockResolvedValueOnce({ run: { Status__c: 'Completed' }, schedules: [] });
+        getSnapshotObjects.mockResolvedValueOnce(['Account', 'Contact']);
+
+        const el = createStudio();
+        await flushPromises();
+
+        const viewMenu = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-wrap > button'))
+            .find((button) => button.textContent.includes('View'));
+        viewMenu.click();
+        await flushPromises();
+
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
+            .find((item) => item.textContent.includes('Field Usage'))
+            .click();
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.fu-controls')).not.toBeNull();
+        expect(el.shadowRoot.textContent).toContain('Account');
+        expect(el.shadowRoot.textContent).toContain('Contact');
     });
 
     it('the theme dropdown reflects a saved theme once it loads asynchronously, not just the default', async () => {
