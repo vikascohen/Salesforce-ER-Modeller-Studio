@@ -76,6 +76,11 @@ public without sharing class FieldUsageToolingDiscoveryBatch
     }
 
     public void finish(Database.BatchableContext context) {
+        AsyncApexJob discoveryJob=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:context.getJobId()];
+        if(discoveryJob.NumberOfErrors>0){
+            FieldUsageSnapshotFinalizer.finish(runId,Integer.valueOf(discoveryJob.NumberOfErrors),new List<String>{'Tooling discovery batch reported platform or callout errors.'});
+            return;
+        }
         Integer total = [
             SELECT COUNT()
             FROM Field_Usage_Work_Unit__c
