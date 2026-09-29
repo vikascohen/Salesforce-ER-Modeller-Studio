@@ -149,6 +149,56 @@ describe('c-field-usage-intelligence', () => {
         expect(element.shadowRoot.textContent).toContain('Risk_Score__c');
     });
 
+    it('renders Apex Class and Apex Trigger evidence from the persisted snapshot', async () => {
+        getEvidence.mockResolvedValueOnce([
+            {
+                Field_Key__c: 'Account.Name',
+                Field_API_Name__c: 'Name',
+                Source_Type__c: 'Apex Class',
+                Component_Name__c: 'AccountService',
+                Evidence_Type__c: 'Apex Source Reference',
+                Confidence__c: 'High',
+                Occurrence_Count__c: 3,
+                Location__c: 'Apex Class: AccountService'
+            },
+            {
+                Field_Key__c: 'Account.Name',
+                Field_API_Name__c: 'Name',
+                Source_Type__c: 'Apex Trigger',
+                Component_Name__c: 'AccountTrigger',
+                Evidence_Type__c: 'Apex Source Reference',
+                Confidence__c: 'High',
+                Occurrence_Count__c: 1,
+                Location__c: 'Apex Trigger: AccountTrigger'
+            }
+        ]);
+
+        const element = createComponent();
+        await flushPromises();
+
+        element.shadowRoot.querySelector('lightning-combobox').dispatchEvent(
+            new CustomEvent('change', { detail: { value: 'Account' } })
+        );
+        await flushPromises();
+
+        element.shadowRoot.querySelector('lightning-dual-listbox').dispatchEvent(
+            new CustomEvent('change', { detail: { value: ['Name'] } })
+        );
+        await flushPromises();
+
+        Array.from(element.shadowRoot.querySelectorAll('lightning-button'))
+            .find((button) => button.label === 'Analyse Selected Fields')
+            .click();
+        await flushPromises();
+
+        const text = element.shadowRoot.textContent;
+        expect(text).toContain('Apex Class');
+        expect(text).toContain('AccountService');
+        expect(text).toContain('3 occurrence(s)');
+        expect(text).toContain('Apex Trigger');
+        expect(text).toContain('AccountTrigger');
+    });
+
     it('keeps an empty snapshot useful instead of rendering a blank result area', async () => {
         const element = createComponent();
         await flushPromises();
