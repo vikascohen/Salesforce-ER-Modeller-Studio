@@ -37,6 +37,11 @@ public with sharing class FieldUsageController {
         return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c
                 FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys ORDER BY Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT 5000];
     }
+    @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> getEvidenceDetail(String objectApiName,String fieldApiName,String sourceType,Integer rowLimit){
+        if(String.isBlank(objectApiName)||String.isBlank(fieldApiName)||String.isBlank(sourceType))return new List<Field_Usage_Evidence__c>();
+        Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));String key=objectApiName+'.'+fieldApiName;
+        return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType ORDER BY Component_Name__c,Location__c LIMIT :lim];
+    }
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
         String raw=String.isBlank(searchText)?null:searchText.trim(); Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));
         String exactKey=raw!=null&&raw.contains('.')?raw:null; String prefix=raw==null?null:raw+'%';
