@@ -1443,7 +1443,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return ['Queued', 'Running'].includes(this.fieldUsageRun?.Status__c || '');
     }
     get fieldUsageNoConsoleLines() { return !(this.fieldUsageConsoleLines || []).length; }
-    get fieldUsageIdle() { return !this.fieldUsageRunning; }
+    get fieldUsageIdle() {
+        const apexJobActive = ['Holding', 'Queued', 'Preparing', 'Processing'].includes(this.fieldUsageJobStatus || '');
+        return !this.fieldUsageRunning && !apexJobActive;
+    }
     get fieldUsageRunStatusText() {
         if (!this.fieldUsageRun) return 'Ready to start a new org snapshot scan.';
         if (this.fieldUsageRunning) return 'A Field Usage scan is already active. Live progress is attached below.';
@@ -1453,7 +1456,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return 'No Field Usage scan is currently running.';
     }
     get fieldUsageCanCleanConsole() {
-        return !this.fieldUsageRunning && (this.fieldUsageConsoleLines || []).length > 0;
+        return this.fieldUsageIdle && (this.fieldUsageConsoleLines || []).length > 0;
     }
 
     async handleOpenFieldUsageConsole() {
