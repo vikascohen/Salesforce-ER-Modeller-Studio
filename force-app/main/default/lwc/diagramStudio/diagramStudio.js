@@ -4186,6 +4186,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         fields.forEach(field=>{const summaries=rows.filter(r=>!r._detail&&r.fieldApiName===field),fy=y,fk='f:'+field;add(fk,field,summaries.reduce((n,r)=>n+(r.occurrences||r.evidenceRows||0),0)+' usages',280,fy,'field');if(!summaries.length){const nk=fk+':none';add(nk,'No dependency detected','Current successful snapshot · 0 dependencies',540,y,'empty');connect(fk,nk);y+=90;}else{summaries.forEach(r=>{const tk=fk+':'+r.sourceType,details=rows.filter(d=>d._detail&&d.Field_API_Name__c===field&&d.Source_Type__c===r.sourceType),pageState=rows.find(d=>d._pageState&&d.Field_API_Name__c===field&&d.Source_Type__c===r.sourceType);add(tk,r.sourceType,(r.occurrences||r.evidenceRows||0)+' usages · '+(!details.length?'click to expand':pageState?.hasMore?'click to load more':details.length+' details loaded'),540,y,'type',{field,source:r.sourceType,expandable:true});connect(fk,tk);if(details.length){[...new Set(details.map(d=>d.Component_Name__c))].forEach((name,i)=>{const ck=tk+':'+i;add(ck,name,details.filter(d=>d.Component_Name__c===name).reduce((n,d)=>n+(d.Occurrence_Count__c||1),0)+' usages',800,y+i*76,'component');connect(tk,ck);});y+=Math.max(90,[...new Set(details.map(d=>d.Component_Name__c))].length*76);}else y+=90;});}centres.push(fy);y+=24;});
         const oy=centres.length?centres.reduce((a,b)=>a+b,0)/centres.length:40;add('object',this.fieldUsageObject||'Object','Selected object',30,oy,'object');fields.forEach(field=>connect('object','f:'+field));return {nodes,edges,width:1080,height:Math.max(650,y+80)};
     }
+    get fieldUsageNodes(){return this._fieldUsageMapCache.nodes;}
+    get fieldUsageEdges(){return this._fieldUsageMapCache.edges;}
+    get fieldUsageCanvasStyle(){const m=this._fieldUsageMapCache;return 'width:'+m.width+'px;height:'+m.height+'px;transform:scale('+this.fieldUsageZoom+');transform-origin:0 0;';}
+
 
 
 }
