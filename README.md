@@ -47,6 +47,20 @@ There is an important Salesforce platform boundary: Apex class and trigger sourc
 - `Field_Usage_Schedule__c` — human-readable scan-time configuration.
 - `fieldUsageIntelligence` — object/field selection, persisted dependency tree, scan status, Run Now and schedule administration.
 
+### Integrated map and scan console
+
+Phase 3 is integrated into the existing Diagram Studio rather than presented as a disconnected application. Open **View → Field Usage Map** to enter the full-screen dependency workspace and use **Back to Diagram** to return to the ER canvas. The workspace inherits the Studio theme and provides **Clear Map**, zoom out, zoom reset and zoom in controls plus two-axis scrolling for large dependency maps.
+
+The map uses a deterministic, non-force-directed hierarchy so the same evidence produces stable positions. Its hierarchy is **Object → Field → Source Type → Component → Evidence Location**. Nodes display occurrence totals. For example, an Apex evidence adapter can produce **Account → My_Field__c → Apex → AccountService (4 usages) → evidence locations**; Flow, Trigger, OmniStudio, Formula and future source types use the same graph model.
+
+Open **Diagram → Run Field Usage Scan…** or **Scan Console** from the map for the compact batch activity window. The console is intentionally similar to an installer activity log: it shows persisted timestamped progress, current phase, percentage, objects processed, dependency counts and errors from the actual asynchronous run. It follows scheduled scans as well as manual scans. **Launch Batch Now** is disabled while a run is queued/running. **Clean Console** appears after activity completes and clears only the local console display; it never deletes the authoritative snapshot. Close/Back to Diagram leaves the asynchronous batch running.
+
+### Optional metadata objects and dynamic SOQL
+
+Phase 3 includes the project's existing `GenericDynamicSoqlBuilder` and a `FieldUsageDynamicQueryService`. Optional metadata/configuration objects are checked through `Schema.getGlobalDescribe()` before query construction. Requested fields are filtered against runtime Describe information, and unavailable objects return an empty result instead of causing a static-SOQL deployment/runtime failure. This is intended for source adapters such as OmniStudio where available object models can differ by org and installed product version.
+
+The dynamic query service has tests covering missing optional objects and runtime field filtering. Phase 3 also includes tests for current-snapshot-only reads, occurrence counting, schedule validation/default creation and concurrent scan protection.
+
 ### Deployment and first use
 
 Deploy with the Phase 3 button above, add **Field Usage Intelligence** to a Lightning App/Home page or Lightning tab, and open it as an administrator. The first component initialisation creates the two default schedule records and corresponding Salesforce scheduled jobs if they do not already exist. This first-use bootstrap is idempotent because normal Salesforce source deployment does not execute arbitrary Apex automatically.
