@@ -11,4 +11,11 @@
   System.assertEquals(0,FieldUsageFormulaScanner.countToken(cleaned,'Account'));
   System.assertEquals(0,FieldUsageFormulaScanner.countToken(cleaned,'Parent__r'));
  }
+
+ @IsTest static void scansRealSchemaSafelyAndSkipsNonFormulaField(){
+  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
+  System.assertEquals(0,FieldUsageFormulaScanner.scanField(run.Id,'Account','Name').size());
+  List<Field_Usage_Evidence__c> rows=FieldUsageFormulaScanner.scan(run.Id,'Account');
+  System.assertNotEquals(null,rows);
+ }
 }
