@@ -29,6 +29,8 @@ jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ def
 jest.mock('@salesforce/apex/FieldUsageController.getObjects', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getFields', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getEvidence', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getEvidenceSummary', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getEvidenceDetail', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.runNow', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.bootstrap', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getStatus', () => ({ default: jest.fn(() => Promise.resolve({ run: null, schedules: [] })) }), { virtual: true });
@@ -116,9 +118,9 @@ describe('c-diagram-studio', () => {
         getSnapshotObjects.mockResolvedValue(['Account']);
         getFieldUsageStatus.mockResolvedValue({ run: { Status__c: 'Completed' }, schedules: [] });
         const getFields = require('@salesforce/apex/FieldUsageController.getFields').default;
-        const getEvidence = require('@salesforce/apex/FieldUsageController.getEvidence').default;
+        const getEvidenceSummary = require('@salesforce/apex/FieldUsageController.getEvidenceSummary').default;
         getFields.mockResolvedValue(['Unused_Field__c']);
-        getEvidence.mockResolvedValue([]);
+        getEvidenceSummary.mockResolvedValue([]);
 
         const el = createStudio();
         await flushPromises();
