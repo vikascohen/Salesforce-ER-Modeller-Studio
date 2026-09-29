@@ -111,7 +111,7 @@ describe('c-diagram-studio', () => {
         expect(nameInput.value).toBe('Untitled ER Diagram');
     });
 
-    it('renders zero dependency evidence as explicit map intelligence in Field Usage', async () => {
+    it('treats a schema field with no persisted evidence as zero detected dependencies in Field Usage', async () => {
         getSnapshotAvailability.mockResolvedValue({ available: true });
         getSnapshotObjects.mockResolvedValue(['Account']);
         getFieldUsageStatus.mockResolvedValue({ run: { Status__c: 'Completed' }, schedules: [] });
@@ -144,7 +144,7 @@ describe('c-diagram-studio', () => {
             .find((button) => button.textContent.includes('Analyse')).click();
         await flushPromises();
 
-        expect(el.shadowRoot.textContent).toContain('No usage detected');
+        expect(el.shadowRoot.textContent).toContain('No dependency detected');
         expect(el.shadowRoot.textContent).toContain('0 dependencies');
     });
 
@@ -171,7 +171,7 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.fu-controls')).toBeNull();
     });
 
-    it('loads Field Usage selectors from persisted snapshot data when available', async () => {
+    it('loads Field Usage entry objects from the successful snapshot when available', async () => {
         getSnapshotAvailability.mockResolvedValueOnce({ available: true });
         getFieldUsageStatus.mockResolvedValueOnce({ run: { Status__c: 'Completed' }, schedules: [] });
         getSnapshotObjects.mockResolvedValueOnce(['Account', 'Contact']);
