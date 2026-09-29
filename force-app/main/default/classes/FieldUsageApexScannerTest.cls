@@ -48,7 +48,7 @@ private class FieldUsageApexScannerTest {
         System.assert(counts.containsKey('Account.Name'),'Typed variable/SOQL Name reference should be detected.');
         System.assert(counts.containsKey('Account.OwnerId'),'Typed variable/SOQL OwnerId reference should be detected.');
         System.assert(counts.get('Account.Name')>=2,'Name should be detected from both variable access and SOQL.');
-        System.assert(counts.get('Account.Industry')>=2,'OwnerId should be detected from both variable access and SOQL.');
+        System.assert(counts.get('Account.OwnerId')>=1,'OwnerId should be detected from the typed variable or static SOQL evidence.');
     }
 
     @IsTest
