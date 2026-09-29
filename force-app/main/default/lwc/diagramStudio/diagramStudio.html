@@ -846,13 +846,24 @@
         <div class="fu-workspace">
             <header class="fu-header"><div><div class="arch-kicker">PHASE 3 · ORG SNAPSHOT INTELLIGENCE</div><h1>Field Usage Map</h1><p>Explore persisted field dependency evidence from the latest successful org snapshot.</p></div>
                 <div class="fu-actions"><button class="arch-action-btn" onclick={handleFieldUsageClear}>Clear Map</button><button class="arch-action-btn" onclick={handleOpenFieldUsageConsole}>Scan Console</button><button class="arch-action-btn" onclick={handleCloseFieldUsage}>Back to Diagram</button></div></header>
-            <div class="fu-controls"><label>Object<select onchange={handleFieldUsageObject}><option value="">Select object…</option><template for:each={fieldUsageObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></label>
-                <label>Fields<select multiple size="6" onchange={handleFieldUsageFields}><template for:each={fieldUsageFieldOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></label>
-                <div class="fu-control-actions"><button class="arch-action-btn arch-export-btn" onclick={handleFieldUsageAnalyse}>Build Map</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button></div></div>
-            <div class="fu-scroll"><div class="fu-canvas" style={fieldUsageCanvasStyle}>
-                <svg class="fu-edges"><template for:each={fieldUsageEdges} for:item="e"><line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}></line></template></svg>
-                <template for:each={fieldUsageNodes} for:item="n"><article key={n.key} class="fu-node" data-kind={n.kind} style={n.style}><strong>{n.label}</strong><span>{n.sub}</span></article></template>
-            </div></div>
+            <template if:true={fieldUsageLoading}>
+                <div class="afi-empty"><strong>Loading Field Usage snapshot…</strong><p>Checking for persisted dependency evidence.</p></div>
+            </template>
+            <template if:true={fieldUsageShowEntryMessage}>
+                <div class="afi-empty"><strong>{fieldUsageEntryMessage}</strong>
+                    <template if:true={fieldUsageNeedsScan}><p>No successful snapshot exists yet. Open the Scan Console and launch the first scan.</p><button class="arch-action-btn arch-export-btn" onclick={handleOpenFieldUsageConsole}>Open Scan Console</button></template>
+                    <template if:true={fieldUsageWaitingForBatch}><p>A scan is already queued or running. You do not need to launch another one.</p><button class="arch-action-btn" onclick={handleOpenFieldUsageConsole}>View Scan Progress</button></template>
+                </div>
+            </template>
+            <template if:true={fieldUsageReady}>
+                <div class="fu-controls"><label>Object<select onchange={handleFieldUsageObject}><option value="">Select object…</option><template for:each={fieldUsageObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></label>
+                    <label>Fields<select multiple size="6" onchange={handleFieldUsageFields}><template for:each={fieldUsageFieldOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></label>
+                    <div class="fu-control-actions"><button class="arch-action-btn arch-export-btn" onclick={handleFieldUsageAnalyse}>Build Map</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button></div></div>
+                <div class="fu-scroll"><div class="fu-canvas" style={fieldUsageCanvasStyle}>
+                    <svg class="fu-edges"><template for:each={fieldUsageEdges} for:item="e"><line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}></line></template></svg>
+                    <template for:each={fieldUsageNodes} for:item="n"><article key={n.key} class="fu-node" data-kind={n.kind} style={n.style}><strong>{n.label}</strong><span>{n.sub}</span></article></template>
+                </div></div>
+            </template>
         </div>
     </template>
 
