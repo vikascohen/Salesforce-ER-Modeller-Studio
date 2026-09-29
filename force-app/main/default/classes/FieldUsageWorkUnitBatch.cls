@@ -6,6 +6,13 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
     private final Id runId; private Integer completed=0, failed=0, dependencies=0; private List<String> errors=new List<String>();
     public FieldUsageWorkUnitBatch(Id runId){this.runId=runId;}
     public Database.QueryLocator start(Database.BatchableContext bc){
+        update new Field_Usage_Run__c(
+            Id=runId,
+            Status__c='Running',
+            Heartbeat_At__c=System.now(),
+            Job_Id__c=String.valueOf(bc.getJobId()),
+            Progress_Phase__c='Processing resumable work units'
+        );
         return Database.getQueryLocator([SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running') ORDER BY CreatedDate]);
     }
     public void execute(Database.BatchableContext bc,List<SObject> scope){
@@ -128,7 +135,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         List<Field_Usage_Work_Unit__c> remaining=[SELECT Id,Status__c,Last_Error__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
         AsyncApexJob job=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:bc.getJobId()];
         if(!remaining.isEmpty()&&job.NumberOfErrors>0){for(Field_Usage_Work_Unit__c unit:remaining){unit.Status__c='Failed';unit.Last_Error__c='Worker transaction rolled back before checkpoint completion. Review the scanner target and rerun after correction.';}update remaining;failures+=remaining.size();errors.add('One or more worker transactions were rolled back by the platform; the incomplete work units were retained and marked Failed.');}
-        else if(!remaining.isEmpty()){Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);return;}
+        else if(!remaining.isEmpty()){Id retryJobId=Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);update new Field_Usage_Run__c(Id=runId,Job_Id__c=String.valueOf(retryJobId),Heartbeat_At__c=System.now(),Progress_Phase__c='Queued remaining resumable work units');return;}
         FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
     }
 }
