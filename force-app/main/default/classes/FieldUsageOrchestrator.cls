@@ -18,10 +18,12 @@ public with sharing class FieldUsageOrchestrator {
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
         insert run;
         Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
-        // Do not perform a second DML update here merely to store the job id.
-        // The batch start() binds the durable run to bc.getJobId(), which is
-        // the authoritative job identity and avoids a launch-time tracking
-        // update racing the async worker.
+        // Database.executeBatch() returns the authoritative AsyncApexJob Id.
+        // Persist it immediately so a newly opened console can attach to the
+        // real Salesforce job even before the batch start() transaction runs.
+        run.Job_Id__c = String.valueOf(jobId);
+        run.Progress_Phase__c = 'Queued for Batch Apex';
+        update run;
         return run.Id;
     }
 
