@@ -15,6 +15,8 @@
   FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();System.assertEquals(true,snapshot.available);
   System.assertEquals(new List<String>{'Account'},FieldUsageController.getSnapshotObjects());
   System.assertEquals(new List<String>{'Name'},FieldUsageController.getSnapshotFields('Account'));
+  List<FieldUsageController.EvidenceSummaryDTO> summary=FieldUsageController.getEvidenceSummary('Account',new List<String>{'Name','Industry'});
+  System.assertEquals(1,summary.size());System.assertEquals('Name',summary[0].fieldApiName);System.assertEquals('Apex Class',summary[0].sourceType);System.assertEquals(1,summary[0].evidenceRows);
   System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
   System.assertEquals(new List<String>{'Formula Field'},FieldUsageController.getSourceTypes());
  }
