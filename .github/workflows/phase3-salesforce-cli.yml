@@ -67,7 +67,7 @@ jobs:
             --tests FieldUsageSnapshotFinalizerTest \
             --tests FieldUsageToolingApiClientTest \
             --tests FieldUsageToolingDiscoveryBatchTest \
-            --tests FieldUsageWorkUnitBatchTest \
+            --tests FieldUsageWorkUnitBatchTest --tests StudioDiagnosticsControllerTest \
             --code-coverage \
             --result-format human \
             --wait 30
