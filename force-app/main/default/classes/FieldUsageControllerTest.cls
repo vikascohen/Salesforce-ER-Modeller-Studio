@@ -12,7 +12,7 @@
   };
   List<Field_Usage_Evidence__c> rows=FieldUsageController.getEvidence('Account',new List<String>{'Name'});
   System.assertEquals(2,rows.size());System.assertEquals(new Set<String>{'Current','AccountService'},new Set<String>{rows[0].Component_Name__c,rows[1].Component_Name__c});
-  System.assertNotEquals(null,FieldUsageController.getStatus().run);
+  System.assertNotEquals(null,FieldUsageController.getStatus(null).run);
   FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();System.assertEquals(true,snapshot.available);
   System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
   System.assert(FieldUsageController.getSnapshotFields('Account').contains('Name'));
@@ -38,6 +38,15 @@
 
   System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
   System.assert(FieldUsageController.getSnapshotFields('Account').contains(zeroEvidenceField),'Snapshot selectors use schema and must retain zero-dependency fields.');
+ }
+ @IsTest static void statusCanBePinnedToExactRun(){
+  Field_Usage_Run__c older=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=25,Progress_Phase__c='Older run');insert older;
+  Field_Usage_Run__c newer=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Newer run');insert newer;
+  FieldUsageController.StatusDTO pinned=FieldUsageController.getStatus(older.Id);
+  System.assertEquals(older.Id,pinned.run.Id,'Polling by run id must stay attached to the launched scan.');
+  System.assertEquals('Running',pinned.run.Status__c);
+  FieldUsageController.StatusDTO latest=FieldUsageController.getStatus(null);
+  System.assertEquals(newer.Id,latest.run.Id,'Unpinned callers should still receive the latest run.');
  }
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
