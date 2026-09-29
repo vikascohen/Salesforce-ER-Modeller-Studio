@@ -1,3 +1,8 @@
+/**
+ * Diagram Studio Jest tests
+ *
+ * @author Vikas Cohen
+ */
 import { createElement } from 'lwc';
 import { registerApexTestWireAdapter } from '@salesforce/sfdx-lwc-jest';
 import listFiles from '@salesforce/apex/DiagramFileController.listFiles';
@@ -21,6 +26,16 @@ jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => 
 jest.mock('@salesforce/apex/SchemaMetadataController.getSchemaReferences', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.getTheme', () => ({ default: jest.fn(() => Promise.resolve(null)) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getObjects', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getFields', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getEvidence', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.runNow', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.bootstrap', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getStatus', () => ({ default: jest.fn(() => Promise.resolve({ run: null, schedules: [] })) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getSnapshotAvailability', () => ({ default: jest.fn(() => Promise.resolve({ available: false })) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getSnapshotObjects', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.searchEvidence', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getSourceTypes', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 
 // eslint-disable-next-line no-undef
 const saveFile = require('@salesforce/apex/DiagramFileController.saveFile').default;
