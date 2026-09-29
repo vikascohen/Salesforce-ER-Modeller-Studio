@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public without sharing class FieldUsageSnapshotFinalizer {
  public static void finish(Id runId,Integer failures,List<String> errors){
   Savepoint sp=Database.setSavepoint();try{
