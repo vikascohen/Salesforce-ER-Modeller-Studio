@@ -47,6 +47,14 @@ There is an important Salesforce platform boundary: Apex class and trigger sourc
 - `Field_Usage_Schedule__c` — human-readable scan-time configuration.
 - `fieldUsageIntelligence` — object/field selection, persisted dependency tree, scan status, Run Now and schedule administration.
 
+### Architecture Intelligence: Field Change Impact
+
+Architecture Intelligence now includes a **Field Change Impact** tile. It combines the objects represented by the current ER model with the latest successful Field Usage snapshot. When a current snapshot exists, users can search for an ER-model object, select it, search all described fields on that object, select a field and render a stable impact map showing **Field → Source Type → Component → Evidence Location** with occurrence totals.
+
+The impact workspace includes horizontal and vertical scrolling, zoom out/reset/in, **Clear**, and **Back to Architecture Intelligence**. Clear resets the object, field, searches, evidence and zoom without deleting persisted scan data.
+
+If no successful current snapshot exists, Architecture Intelligence deliberately hides the selectors and map. It explains that Field Change Impact requires the persisted Field Usage index and offers **Open Batch Console** so the user can run the batch. Once a successful snapshot exists, the instruction state is replaced by the normal impact-analysis screen. A selected field with no persisted references displays a factual “No indexed references found” state rather than treating absence of evidence as proof that the field is unused.
+
 ### Integrated map and scan console
 
 Phase 3 is integrated into the existing Diagram Studio rather than presented as a disconnected application. Open **View → Field Usage Map** to enter the full-screen dependency workspace and use **Back to Diagram** to return to the ER canvas. The workspace inherits the Studio theme and provides **Clear Map**, zoom out, zoom reset and zoom in controls plus two-axis scrolling for large dependency maps.
