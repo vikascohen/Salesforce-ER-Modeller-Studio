@@ -69,6 +69,8 @@ const getSnapshotObjects = require('@salesforce/apex/FieldUsageController.getSna
 // eslint-disable-next-line no-undef
 const getFieldUsageStatus = require('@salesforce/apex/FieldUsageController.getStatus').default;
 // eslint-disable-next-line no-undef
+const runFieldUsageNow = require('@salesforce/apex/FieldUsageController.runNow').default;
+// eslint-disable-next-line no-undef
 const saveSchedules = require('@salesforce/apex/FieldUsageController.saveSchedules').default;
 // eslint-disable-next-line no-undef
 const getScheduledJobs = require('@salesforce/apex/FieldUsageController.getScheduledJobs').default;
@@ -2117,4 +2119,61 @@ describe('Settings workspace', () => {
         await flushPromises();
         expect(pauseSchedule).toHaveBeenCalledWith({scheduleId:'a001'});
     });
+    it('opens Help with configuration and user manual navigation', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        const helpButton = el.shadowRoot.querySelector('button[data-menu="help"]');
+        expect(helpButton).not.toBeNull();
+        helpButton.click();
+        await flushPromises();
+
+        const items = [...el.shadowRoot.querySelectorAll('.dd-menu-item')];
+        const configuration = items.find((item) => item.textContent.trim() === 'Configuration');
+        expect(configuration).toBeTruthy();
+        configuration.click();
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelector('.help-page')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.help-doc').textContent).toContain('Salesforce_Tooling_API');
+        expect(el.shadowRoot.querySelector('.help-doc').textContent).toContain('ToolingAPIPrincipal');
+
+        const manualButton = [...el.shadowRoot.querySelectorAll('.help-nav-item')]
+            .find((button) => button.textContent.trim() === 'User Manual');
+        manualButton.click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.help-doc').textContent).toContain('Field Usage Scan');
+
+        el.shadowRoot.querySelector('.help-head .arch-action-btn').click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.help-page')).toBeNull();
+    });
+
+    it('keeps the scan console attached to the run id returned by launch', async () => {
+        runFieldUsageNow.mockResolvedValue('a00RUN000000001');
+        getFieldUsageStatus.mockResolvedValue({ run: null, schedules: [] });
+
+        const el = createStudio();
+        await flushPromises();
+
+        const diagramButton = el.shadowRoot.querySelector('button[data-menu="diagram"]');
+        diagramButton.click();
+        await flushPromises();
+        const runMenu = [...el.shadowRoot.querySelectorAll('.dd-menu-item')]
+            .find((item) => item.textContent.trim() === 'Run Field Usage Scan...');
+        runMenu.click();
+        await flushPromises();
+
+        const launch = el.shadowRoot.querySelector('.fu-console .arch-export-btn');
+        expect(launch).not.toBeNull();
+        launch.click();
+        await flushPromises();
+        await flushPromises();
+
+        expect(runFieldUsageNow).toHaveBeenCalled();
+        expect(getFieldUsageStatus).toHaveBeenCalledWith({ runId: 'a00RUN000000001' });
+        expect(el.shadowRoot.querySelector('.fu-console-status').textContent).toContain('Queued');
+        expect(el.shadowRoot.querySelector('.fu-console .arch-export-btn')).toBeNull();
+    });
+
 });
