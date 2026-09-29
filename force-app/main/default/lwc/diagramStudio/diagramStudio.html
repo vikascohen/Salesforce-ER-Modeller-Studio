@@ -77,6 +77,9 @@
             </header>
             <div class="settings-shell">
                 <aside class="settings-nav">
+                    <div class="settings-nav-group">SYSTEM</div>
+                    <button class={settingsSystemNavClass} onclick={handleSettingsSystemSection}>System Information</button>
+                    <button class={settingsDiagnosticsNavClass} onclick={handleSettingsDiagnosticsSection}>Diagnostics</button>
                     <div class="settings-nav-group">FIELD USAGE</div>
                     <button class={settingsScheduleNavClass} onclick={handleSettingsScheduleSection}>Schedule Settings</button>
                     <div class="settings-nav-group">APPEARANCE</div>
@@ -133,6 +136,38 @@
                         </section>
                     </template>
                     </template>
+                    <template if:true={settingsSystemSectionOpen}>
+                        <div class="settings-title"><div><h2>System Information</h2><p>Read-only information about this ER Modeller Studio installation and the Salesforce environment it is running in.</p></div><button class="arch-action-btn" onclick={loadSystemInfo}>Refresh</button></div>
+                        <template if:true={systemInfoBusy}><div class="settings-loading">Reading system information…</div></template>
+                        <section class="settings-panel system-info-panel">
+                            <div class="settings-panel-head"><div><h3>Application</h3><p>Use these values when identifying the Studio build or raising a support issue.</p></div></div>
+                            <div class="system-info-grid">
+                                <div><span>ER Modeller Studio</span><strong>Version {systemStudioVersion}</strong></div>
+                                <div><span>Default application theme</span><strong>Dark+</strong></div>
+                                <div><span>Namespace</span><strong>{systemNamespace}</strong></div>
+                            </div>
+                        </section>
+                        <section class="settings-panel system-info-panel">
+                            <div class="settings-panel-head"><div><h3>Salesforce Integration</h3><p>Field Usage uses the Tooling API version shown here. Opening this page does not make a Tooling API request.</p></div></div>
+                            <div class="system-info-grid">
+                                <div><span>Tooling API</span><strong>{systemToolingVersion}</strong></div>
+                                <div><span>Salesforce API baseline</span><strong>v{systemSalesforceApiVersion}</strong></div>
+                                <div><span>Environment</span><strong>{systemEnvironment}</strong></div>
+                                <div><span>Organisation ID</span><strong>{systemOrganisationId}</strong></div>
+                                <div><span>Running user</span><strong>{systemRunningUser}</strong></div>
+                            </div>
+                        </section>
+                    </template>
+
+                    <template if:true={settingsDiagnosticsSectionOpen}>
+                        <div class="settings-title"><div><h2>Diagnostics</h2><p>Verify whether this installation is in a good state to work. Diagnostics do not start a Field Usage scan.</p></div></div>
+                        <section class="settings-panel diagnostics-launch-panel">
+                            <div class="diag-launch-copy"><span class="diag-eyebrow">APPLICATION SELF-TEST</span><h3>ER Modeller Studio Health Check</h3><p>Checks Studio runtime, Field Usage data access, snapshot state, Batch Apex, scheduler configuration and the authenticated Salesforce Tooling API connection.</p><p class="diag-api-note">Opening Settings consumes no Tooling API request. Clicking Run Diagnostics deliberately performs one lightweight Tooling API preflight so authentication can be proven.</p></div>
+                            <button class="arch-action-btn arch-export-btn diag-run-button" onclick={handleRunDiagnostics}>{diagnosticsButtonLabel}</button>
+                            <div class={diagnosticsOverallClass}><span>Current diagnostic state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Last completed: {diagnosticsCompletedAt}</small></div>
+                        </section>
+                    </template>
+
                     <template if:true={settingsThemeSectionOpen}>
                         <div class="settings-title"><div><h2>Theme</h2><p>Choose the appearance used throughout ER Modeller Studio, including the diagram, full-screen workspaces, Settings and Help.</p></div></div>
                         <template if:true={settingsMessage}><div class="settings-message" role="status">{settingsMessage}</div></template>
@@ -148,6 +183,35 @@
                         </section>
                     </template>
                 </main>
+            </div>
+        </section>
+    </template>
+
+    <template if:true={diagnosticsOpen}>
+        <section class="diagnostics-page">
+            <header class="diagnostics-head">
+                <div><span class="settings-kicker">ER MODELLER STUDIO · SYSTEM DIAGNOSTICS</span><h1>Application Health Check</h1><p>Live self-test of the Studio installation. No Field Usage scan is started.</p></div>
+                <button class="arch-action-btn" disabled={diagnosticsRunning} onclick={handleCloseDiagnostics}>Back to Settings</button>
+            </header>
+            <div class="diagnostics-body">
+                <div class="diagnostics-hero">
+                    <div class="diag-pulse" data-running={diagnosticsRunning}><span></span></div>
+                    <div><span class="diag-eyebrow">DIAGNOSTIC ENGINE</span><h2>{diagnosticsOverallStatus}</h2><p>{diagnosticsStage}</p></div>
+                    <button class="arch-action-btn arch-export-btn" disabled={diagnosticsRunning} onclick={handleRunDiagnostics}>{diagnosticsButtonLabel}</button>
+                </div>
+                <template if:true={diagnosticsRunning}><div class="diag-processing"><span></span><span></span><span></span><strong>{diagnosticsStage}</strong></div></template>
+                <div class="diag-check-list">
+                    <template for:each={diagnosticsChecks} for:item="check">
+                        <article class={check.cssClass} key={check.key}>
+                            <div class="diag-status-mark">{check.status}</div>
+                            <div><h3>{check.label}</h3><p>{check.detail}</p><template if:true={check.remediation}><div class="diag-remediation"><strong>What to do</strong><span>{check.remediation}</span></div></template></div>
+                        </article>
+                    </template>
+                </div>
+                <template if:true={diagnosticsHasResults}>
+                    <section class={diagnosticsOverallClass}><span>Overall application state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Completed {diagnosticsCompletedAt}</small></section>
+                </template>
+                <div class="diag-safety-note"><strong>Diagnostic scope</strong><span>This self-test is read-only except for the authenticated Tooling API preflight. It does not launch scans, alter schedules, modify credentials or expose OAuth tokens and secrets.</span></div>
             </div>
         </section>
     </template>
