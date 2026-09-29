@@ -25,6 +25,46 @@ Tooling API access is intentionally restricted to the asynchronous server-side s
 
 The Tooling client uses Salesforce API **v60.0** and expects a Named Credential called **`Salesforce_Tooling_API`**. It queries unmanaged/local `ApexClass` and `ApexTrigger` records with `NamespacePrefix = null`, so managed-package vendor source is deliberately excluded from this scanner.
 
+### Architecture overview
+
+```mermaid
+flowchart LR
+    META["Salesforce Metadata<br/>Apex Classes · Triggers · Formula Fields<br/>Future scanners: Flow · OmniStudio"]
+
+    subgraph BG["Asynchronous Dependency Discovery"]
+        BATCH["Background Batch Processing<br/>Discover and analyse dependencies"]
+        TOOLING["Tooling API<br/>Apex Classes · Apex Triggers"]
+    end
+
+    STORE[("Persisted Field Usage Snapshot<br/>Salesforce Custom Objects<br/>Field → Source → Component → Evidence")]
+
+    subgraph UI["Interactive LWC"]
+        SUMMARY["Summary Queries<br/>Field → Source Type + Count"]
+        DETAIL["Lazy Detail Retrieval<br/>Load evidence on demand"]
+        MAPS["Field Usage Map<br/>Field Change Impact"]
+    end
+
+    USER["Architect / User"]
+
+    META --> BATCH
+    META --> TOOLING
+    TOOLING --> BATCH
+    BATCH -->|"Persist sparse dependency evidence"| STORE
+    STORE -->|"Read successful snapshot"| SUMMARY
+    STORE -->|"Paged evidence when expanded"| DETAIL
+    SUMMARY --> MAPS
+    DETAIL --> MAPS
+    MAPS --> USER
+```
+
+The architectural boundary is deliberate. The LWC is an interactive presentation layer, not a metadata scanner. In a large Salesforce org, opening a page should not trigger request-time analysis of thousands of Apex classes, triggers, formulas and other metadata or make the browser responsible for Tooling API source retrieval.
+
+Phase 3 therefore performs expensive discovery asynchronously and treats the persisted successful snapshot as a dependency index. The LWC reads lightweight aggregate results first and retrieves detailed evidence only when the user expands a source. This keeps interactive work bounded as org size and dependency volume grow.
+
+In short:
+
+> **Batch Apex performs expensive dependency discovery, Salesforce custom objects persist the evidence, and the LWC reads that index to build the maps.**
+
 ### Scan pipeline
 
 The implemented pipeline is:
