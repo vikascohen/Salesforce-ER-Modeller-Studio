@@ -67,4 +67,19 @@ private class FieldUsageToolingApiClientTest {
         Test.stopTest();
         System.assertEquals(0,rows.size(),'A Flow deleted after discovery should contribute no evidence rather than fail the snapshot.');
     }
+
+    private class EmptyQueryMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){
+            HttpResponse response=new HttpResponse();response.setStatusCode(200);response.setBody('{"totalSize":0,"done":true,"records":[]}');return response;
+        }
+    }
+
+    @IsTest
+    static void deletedApexComponentBetweenDiscoveryAndWorkerIsHarmless(){
+        Test.setMock(HttpCalloutMock.class,new EmptyQueryMock());
+        Test.startTest();
+        List<FieldUsageToolingApiClient.SourceComponent> rows=FieldUsageToolingApiClient.getApexClasses(new Set<String>{'01p000000000099'});
+        Test.stopTest();
+        System.assertEquals(0,rows.size());
+    }
 }
