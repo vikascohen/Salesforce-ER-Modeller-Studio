@@ -110,6 +110,19 @@ private class FieldUsageToolingApiClientTest {
     }
 
     @IsTest
+    static void connectionPreflightUsesSupportedToolingObject() {
+        Test.setMock(HttpCalloutMock.class, new EmptyQueryMock());
+
+        Test.startTest();
+        FieldUsageToolingApiClient.assertConnectionReady();
+        Test.stopTest();
+
+        // Regression: Organization is a REST API sObject, not a Tooling API
+        // query object. The preflight must use a Tooling-supported object.
+        System.assertEquals(1, Limits.getCallouts());
+    }
+
+    @IsTest
     static void connectionPreflightExplainsMissingOrUnauthorisedCredential() {
         Test.setMock(HttpCalloutMock.class, new ErrorMock());
         try {
