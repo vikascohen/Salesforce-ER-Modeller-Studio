@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8"?><CustomField xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Error_Count__c</fullName><label>Error Count</label><type>Number</type><precision>8</precision><scale>0</scale><defaultValue>0</defaultValue></CustomField>
