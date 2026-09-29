@@ -124,8 +124,7 @@ describe('c-diagram-studio', () => {
 
         const el = createStudio();
         await flushPromises();
-        const viewMenu = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-wrap > button'))
-            .find((button) => button.textContent.includes('View'));
+        const viewMenu = el.shadowRoot.querySelector('button[data-menu="view"]');
         viewMenu.click();
         await flushPromises();
         Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
@@ -157,8 +156,7 @@ describe('c-diagram-studio', () => {
         const el = createStudio();
         await flushPromises();
 
-        const viewMenu = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-wrap > button'))
-            .find((button) => button.textContent.includes('View'));
+        const viewMenu = el.shadowRoot.querySelector('button[data-menu="view"]');
         viewMenu.click();
         await flushPromises();
 
@@ -181,8 +179,7 @@ describe('c-diagram-studio', () => {
         const el = createStudio();
         await flushPromises();
 
-        const viewMenu = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-wrap > button'))
-            .find((button) => button.textContent.includes('View'));
+        const viewMenu = el.shadowRoot.querySelector('button[data-menu="view"]');
         viewMenu.click();
         await flushPromises();
 
