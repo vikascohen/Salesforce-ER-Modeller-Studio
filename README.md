@@ -402,7 +402,9 @@ The user that starts a Field Usage scan must be allowed to use the named princip
 External Credential Principal Access
 ~~~
 
-Click **Edit**, enable the principal belonging to **Salesforce_Tooling_API / ToolingAPIPrincipal**, save the permission set, and make sure the permission set is assigned to the user who will run Field Usage.
+Click **Edit**, move **Salesforce_Tooling_API - ToolingAPIPrincipal** from **Available External Credential Principals** to **Enabled External Credential Principals**, then click **Save**. Make sure the permission set is assigned to the user who will run Field Usage.
+
+After saving, reopen **External Credential Principal Access** and confirm that **Salesforce_Tooling_API - ToolingAPIPrincipal** is still listed as enabled. **Do not assume that a principal showing Authentication Status = Configured on the External Credential means the user has permission to use it. These are separate settings.**
 
 > [!WARNING]
 > **Verify this access after authentication and before the first scan.** If **External Credential Principal Access** is blank or the `Salesforce_Tooling_API - ToolingAPIPrincipal` entry is not enabled, Salesforce rejects the callout with a credential-access error even when the Named Principal itself shows **Configured**.
