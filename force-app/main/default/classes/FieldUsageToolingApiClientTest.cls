@@ -8,34 +8,47 @@ private class FieldUsageToolingApiClientTest {
             HttpResponse response = new HttpResponse();
             response.setStatusCode(200);
 
-            if (request.getEndpoint().contains('/tooling/query/')) {
-                response.setBody(
-                    '{"totalSize":1,"done":true,"records":[' +
-                    '{"attributes":{"type":"ApexClass"},"Id":"01p000000000001",' +
-                    '"Name":"AccountService","Body":"String x = Account.Name;"}]}'
-                );
-            } else {
-                response.setBody(
-                    '{"Id":"01p000000000001","Name":"AccountService",' +
-                    '"Body":"String x = Account.Name;"}'
-                );
-            }
+            Boolean includesBody = request.getEndpoint().contains('Body');
+            String bodyProperty = includesBody
+                ? ',"Body":"String x = Account.Name;"'
+                : '';
+
+            response.setBody(
+                '{"totalSize":2,"done":true,"records":[' +
+                '{"attributes":{"type":"ApexClass"},"Id":"01p000000000001",' +
+                '"Name":"AccountService"' + bodyProperty + '},' +
+                '{"attributes":{"type":"ApexClass"},"Id":"01p000000000002",' +
+                '"Name":"ContactService"' + bodyProperty + '}]}'
+            );
             return response;
         }
     }
 
     @IsTest
-    static void readsToolingQueryAndIndividualSource() {
+    static void indexQueryDoesNotRequestSourceBody() {
         Test.setMock(HttpCalloutMock.class, new ToolingMock());
 
         List<FieldUsageToolingApiClient.SourceComponent> components =
-            FieldUsageToolingApiClient.getApexClasses();
-        System.assertEquals(1, components.size());
-        System.assertEquals('AccountService', components[0].name);
+            FieldUsageToolingApiClient.getApexClassIndex();
 
-        FieldUsageToolingApiClient.SourceComponent component =
-            FieldUsageToolingApiClient.getApexClass('01p000000000001');
-        System.assertEquals('String x = Account.Name;', component.body);
-        System.assertEquals('Apex Class', component.sourceType);
+        System.assertEquals(2, components.size());
+        System.assertEquals(null, components[0].body);
+    }
+
+    @IsTest
+    static void bulkSourceQueryReturnsMultipleComponentsInOneCall() {
+        Test.setMock(HttpCalloutMock.class, new ToolingMock());
+
+        Test.startTest();
+        List<FieldUsageToolingApiClient.SourceComponent> components =
+            FieldUsageToolingApiClient.getApexClasses(
+                new Set<String>{ '01p000000000001', '01p000000000002' }
+            );
+        Integer callouts = Limits.getCallouts();
+        Test.stopTest();
+
+        System.assertEquals(2, components.size());
+        System.assertEquals('String x = Account.Name;', components[0].body);
+        System.assertEquals(1, callouts);
     }
 }
