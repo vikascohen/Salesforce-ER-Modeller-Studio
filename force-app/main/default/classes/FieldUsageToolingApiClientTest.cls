@@ -82,4 +82,29 @@ private class FieldUsageToolingApiClientTest {
         Test.stopTest();
         System.assertEquals(0,rows.size());
     }
+
+    private class FlowMetadataMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){
+            HttpResponse response=new HttpResponse();response.setStatusCode(200);
+            if(request.getEndpoint().contains('/tooling/sobjects/Flow/'))
+                response.setBody('{"Id":"301000000000001","MasterLabel":"Account Flow","Metadata":{"object":"Account","field":"Name"}}');
+            else response.setBody('{"totalSize":1,"done":true,"records":[{"Id":"301000000000001","MasterLabel":"Account Flow","Status":"Active","VersionNumber":1}]}');
+            return response;
+        }
+    }
+    @IsTest static void flowIndexAndMetadataAreParsed(){
+        Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
+        Test.setMock(HttpCalloutMock.class,new FlowMetadataMock());
+        System.assertEquals(1,FieldUsageToolingApiClient.getFlowIndex().size());
+        List<Field_Usage_Evidence__c> evidence=FieldUsageToolingApiClient.scanFlow(run.Id,'301000000000001');
+        System.assertEquals(1,evidence.size());System.assertEquals('Account.Name',evidence[0].Field_Key__c);
+    }
+    private class ErrorMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){HttpResponse response=new HttpResponse();response.setStatusCode(500);response.setBody('server failure');return response;}
+    }
+    @IsTest static void toolingHttpFailureIsExplicit(){
+        Test.setMock(HttpCalloutMock.class,new ErrorMock());
+        try{FieldUsageToolingApiClient.getApexTriggerIndex();System.assert(false,'Expected Tooling API exception');}
+        catch(FieldUsageToolingApiClient.ToolingApiException ex){System.assert(ex.getMessage().contains('HTTP 500'));}
+    }
 }
