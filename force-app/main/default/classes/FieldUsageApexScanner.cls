@@ -7,6 +7,10 @@ public without sharing class FieldUsageApexScanner {
     @TestVisible
     private static final Pattern QUALIFIED_FIELD_PATTERN =
         Pattern.compile('(?i)\\b([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)\\b');
+    private static final Pattern VARIABLE_DECLARATION_PATTERN =
+        Pattern.compile('(?i)\\b([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b');
+    private static final Pattern SOQL_PATTERN =
+        Pattern.compile('(?is)\\bSELECT\\s+(.+?)\\s+FROM\\s+([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\b');
 
     public static List<Field_Usage_Evidence__c> scan(
         Id runId,
@@ -22,7 +26,8 @@ public without sharing class FieldUsageApexScanner {
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
         Map<String, Integer> occurrences = new Map<String, Integer>();
-        Matcher matcher = QUALIFIED_FIELD_PATTERN.matcher(stripCommentsAndStrings(body));
+        String cleanedBody=stripCommentsAndStrings(body);
+        Matcher matcher = QUALIFIED_FIELD_PATTERN.matcher(cleanedBody);
 
         while (matcher.find()) {
             String objectName = canonicalObjectName(globalDescribe, matcher.group(1));
@@ -42,6 +47,34 @@ public without sharing class FieldUsageApexScanner {
                 key,
                 (occurrences.containsKey(key) ? occurrences.get(key) : 0) + 1
             );
+        }
+
+        Map<String,String> variableTypes=new Map<String,String>();
+        Matcher declarations=VARIABLE_DECLARATION_PATTERN.matcher(cleanedBody);
+        while(declarations.find()){
+            String objectName=canonicalObjectName(globalDescribe,declarations.group(1));
+            if(objectName!=null)variableTypes.put(declarations.group(2).toLowerCase(),objectName);
+        }
+        for(String variableName:variableTypes.keySet()){
+            String objectName=variableTypes.get(variableName);
+            Matcher variableReference=Pattern.compile('(?i)\\b'+variableName+'\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)\\b').matcher(cleanedBody);
+            Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();
+            while(variableReference.find()){
+                String fieldName=canonicalFieldName(fields,variableReference.group(1));if(fieldName==null)continue;
+                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);
+            }
+        }
+        Matcher soql=SOQL_PATTERN.matcher(cleanedBody);
+        while(soql.find()){
+            String objectName=canonicalObjectName(globalDescribe,soql.group(2));if(objectName==null)continue;
+            Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();
+            for(String expression:soql.group(1).split(',')){
+                String candidate=expression.trim();
+                if(candidate.contains(' '))candidate=candidate.substringBefore(' ');
+                if(candidate.contains('.'))candidate=candidate.substringBefore('.');
+                String fieldName=canonicalFieldName(fields,candidate);if(fieldName==null)continue;
+                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);
+            }
         }
 
         for (String fieldKey : occurrences.keySet()) {
