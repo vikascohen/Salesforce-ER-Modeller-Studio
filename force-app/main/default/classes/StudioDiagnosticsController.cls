@@ -24,7 +24,10 @@ public with sharing class StudioDiagnosticsController {
         @AuraEnabled public String status;
         @AuraEnabled public String detail;
         @AuraEnabled public String remediation;
+        @AuraEnabled public String likelyCause;
+        @AuraEnabled public List<String> remediationSteps = new List<String>();
         public CheckDTO(String k,String l,String s,String d,String r){key=k;label=l;status=s;detail=d;remediation=r;}
+        public CheckDTO addStep(String step){ if(!String.isBlank(step)) remediationSteps.add(step); return this; }
     }
     public class DiagnosticDTO {
         @AuraEnabled public String overallStatus;
@@ -86,7 +89,7 @@ public with sharing class StudioDiagnosticsController {
             FieldUsageToolingApiClient.assertConnectionReady();
             dto.checks.add(new CheckDTO('tooling','Tooling API Connection','Passed','Salesforce Tooling API '+TOOLING_API_VERSION+' authenticated successfully through Salesforce_Tooling_API.',''));
         }catch(Exception ex){
-            dto.checks.add(new CheckDTO('tooling','Tooling API Connection','Failed',safeMessage(ex),'Open Help → Configuration and verify the Named Credential, External Credential authentication and External Credential Principal Access.'));
+            dto.checks.add(buildToolingFailure(ex));
         }
 
         Integer failed=0,attention=0;
@@ -95,6 +98,41 @@ public with sharing class StudioDiagnosticsController {
         dto.summary=failed>0?failed+' diagnostic check(s) failed. Resolve the failed checks before relying on all Studio features.':(attention>0?attention+' item(s) need attention. Core diagnostics completed.':'All required diagnostic checks passed. ER Modeller Studio is ready to work.');
         dto.completedAt=String.valueOf(System.now());
         return dto;
+    }
+
+    private static CheckDTO buildToolingFailure(Exception ex){
+        String raw=safeMessage(ex);
+        String lower=raw.toLowerCase();
+        CheckDTO check=new CheckDTO(
+            'tooling',
+            'Tooling API Connection',
+            'Failed',
+            raw,
+            'Work through the checks below, correct the first missing or invalid item, then run Diagnostics again.'
+        );
+
+        if(lower.contains('401') || lower.contains('unauthorized') || lower.contains('authentication')){
+            check.likelyCause='Authentication or External Credential principal access is the most likely cause. Salesforce returned an authentication-style failure, but Diagnostics cannot safely inspect credential secrets to prove which configuration item is responsible.';
+        }else if(lower.contains('403') || lower.contains('forbidden') || lower.contains('permission') || lower.contains('principal')){
+            check.likelyCause='Permission or External Credential Principal Access is the most likely cause. Verify the principal assignment explicitly.';
+        }else if(lower.contains('named credential') || lower.contains('callout')){
+            check.likelyCause='The Salesforce_Tooling_API Named Credential, its External Credential, or access to that credential could not be resolved successfully.';
+        }else{
+            check.likelyCause='The Tooling API preflight failed. The exact Salesforce configuration cause could not be proven automatically, so verify each item below.';
+        }
+
+        check.addStep('Confirm the Named Credential Salesforce_Tooling_API exists and is enabled.');
+        check.addStep('Confirm Salesforce_Tooling_API points to the intended Salesforce endpoint and uses the correct External Credential.');
+        check.addStep('Confirm the linked External Credential exists and its authentication protocol is configured correctly.');
+        check.addStep('Confirm the External Credential has a Principal configured for ER Modeller Studio.');
+        check.addStep('Open the permission set assigned to the running user and check External Credential Principal Access. Explicitly grant access to the principal used by ER Modeller Studio.');
+        check.addStep('Confirm the ER Modeller Studio permission set is assigned to the running user. Remember: assigning the Studio permission set does not automatically prove External Credential Principal Access unless that access is included in the permission set.');
+        check.addStep('Confirm any required OAuth authentication for the External Credential has been completed and has not expired or been revoked.');
+        check.addStep('Confirm the running user has API Enabled and the Salesforce permissions required to query Tooling API metadata.');
+        check.addStep('Confirm Tooling API '+TOOLING_API_VERSION+' is supported and accessible in this org.');
+        check.addStep('If Salesforce returned an HTTP status or authentication message above, use that evidence to correct the matching credential, principal, permission or OAuth configuration.');
+        check.addStep('After making the change, return here and run Diagnostics again before starting a Field Usage scan.');
+        return check;
     }
 
     private static String resolveNamespace(){
