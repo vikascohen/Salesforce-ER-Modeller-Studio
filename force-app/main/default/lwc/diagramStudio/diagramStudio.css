@@ -671,8 +671,29 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     position: relative;
+    overflow: hidden;
+}
+.dsl-line-numbers {
+    width: 46px;
+    flex: 0 0 46px;
+    box-sizing: border-box;
+    padding: 8px 8px 8px 4px;
+    background: var(--bg-darker);
+    border-right: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: right;
+    user-select: none;
+    pointer-events: none;
+    will-change: transform;
+}
+.dsl-line-numbers span {
+    display: block;
+    height: 19.2px;
 }
 .code-editor {
     flex: 1;
@@ -689,6 +710,11 @@
     white-space: pre;
     overflow-x: auto;
     overflow-y: auto;
+}
+.code-editor-wrap {
+    white-space: pre-wrap;
+    overflow-x: hidden;
+    overflow-wrap: anywhere;
 }
 .code-editor:focus { background: var(--bg-dark); }
 .code-editor::placeholder { color: var(--text-muted); }
