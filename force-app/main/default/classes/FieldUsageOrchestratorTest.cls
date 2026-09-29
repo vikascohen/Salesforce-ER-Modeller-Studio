@@ -3,11 +3,13 @@
  */
 @IsTest private class FieldUsageOrchestratorTest {
     @IsTest static void preventsConcurrentRunWhenAsyncJobIsActive(){
-        Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running',Run_Type__c='Manual');
+        Field_Usage_Run__c run=new Field_Usage_Run__c(
+            Status__c='Running',
+            Run_Type__c='Manual',
+            Job_Id__c='707000000000001AAA'
+        );
         insert run;
-        Id jobId=Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
-        run.Job_Id__c=String.valueOf(jobId);
-        update run;
+        FieldUsageOrchestrator.asyncJobActiveOverride=true;
 
         try{
             FieldUsageOrchestrator.ensureNoActiveRun();
