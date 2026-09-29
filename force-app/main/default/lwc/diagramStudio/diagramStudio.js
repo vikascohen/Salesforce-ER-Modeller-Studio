@@ -1509,7 +1509,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             objectApiName: this.fieldUsageObject,
             fieldApiNames: this.fieldUsageSelectedFields
         });
-        this.rebuildFieldUsageMap();
+        this._fieldUsageMapCache=this.rebuildFieldUsageMap();
     }
 
     handleCloseFieldUsage() {
@@ -1539,7 +1539,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fieldImpactFilteredFields(){const q=(this.fieldImpactFieldSearch||'').toLowerCase();return this.fieldImpactFields.filter(x=>!q||x.toLowerCase().includes(q)).map(x=>({label:x,value:x}));}
     handleFieldImpactObjectSearch(e){this.fieldImpactObjectSearch=e.target.value||'';} handleFieldImpactFieldSearch(e){this.fieldImpactFieldSearch=e.target.value||'';}
     async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldUsageGetFields({objectApiName:this.fieldImpactObject}):[];}
-    async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidenceSummary({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];this.rebuildFieldImpactMap();}
+    async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidenceSummary({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];this._fieldImpactMapCache=this.rebuildFieldImpactMap();}
     clearFieldImpact(clearAvailability=true){this.fieldImpactObject='';this.fieldImpactField='';this.fieldImpactObjectSearch='';this.fieldImpactFieldSearch='';this.fieldImpactFields=[];this.fieldImpactEvidence=[];this._fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};this.fieldImpactZoom=1;this.fieldImpactUsageSearch='';this.fieldImpactSourceType='';this.fieldImpactSearchResults=[];if(clearAvailability){this.fieldImpactAvailable=false;this.fieldImpactObjects=[];this.fieldImpactSnapshotInfo=null;}}
     handleFieldImpactClear(){this.clearFieldImpact(false);}
     handleFieldImpactBack(){this.clearFieldImpact(false);this.architectureSection='home';}
@@ -1551,7 +1551,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const field=e.currentTarget.dataset.field,source=e.currentTarget.dataset.source;if(!field||!source)return;
         const existing=this.fieldImpactEvidence.filter(r=>r._detail&&r.Field_API_Name__c===field&&r.Source_Type__c===source),last=existing.length?existing[existing.length-1]:null;
         const page=await fieldUsageGetEvidenceDetail({objectApiName:this.fieldImpactObject,fieldApiName:field,sourceType:source,rowLimit:500,afterId:last?.Id||null});
-        this.fieldImpactEvidence=[...this.fieldImpactEvidence.filter(r=>!(r._pageState&&r.Field_API_Name__c===field&&r.Source_Type__c===source)),...(page.rows||[]).map(r=>({...r,_detail:true})),{_pageState:true,Field_API_Name__c:field,Source_Type__c:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}];this.rebuildFieldImpactMap();
+        this.fieldImpactEvidence=[...this.fieldImpactEvidence.filter(r=>!(r._pageState&&r.Field_API_Name__c===field&&r.Source_Type__c===source)),...(page.rows||[]).map(r=>({...r,_detail:true})),{_pageState:true,Field_API_Name__c:field,Source_Type__c:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}];this._fieldImpactMapCache=this.rebuildFieldImpactMap();
     }
     rebuildFieldImpactMap(){
         const rows=this.fieldImpactEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind,extra={})=>nodes.push({key,label,sub,x,y,kind,...extra,style:'left:'+x+'px;top:'+y+'px;'});
@@ -4174,7 +4174,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const field=e.currentTarget.dataset.field,source=e.currentTarget.dataset.source;if(!field||!source)return;
         const existing=this.fieldUsageEvidence.filter(r=>r._detail&&r.Field_API_Name__c===field&&r.Source_Type__c===source),last=existing.length?existing[existing.length-1]:null;
         const page=await fieldUsageGetEvidenceDetail({objectApiName:this.fieldUsageObject,fieldApiName:field,sourceType:source,rowLimit:500,afterId:last?.Id||null});
-        this.fieldUsageEvidence=[...this.fieldUsageEvidence.filter(r=>!(r._pageState&&r.Field_API_Name__c===field&&r.Source_Type__c===source)),...(page.rows||[]).map(r=>({...r,_detail:true})),{_pageState:true,Field_API_Name__c:field,Source_Type__c:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}];this.rebuildFieldUsageMap();
+        this.fieldUsageEvidence=[...this.fieldUsageEvidence.filter(r=>!(r._pageState&&r.Field_API_Name__c===field&&r.Source_Type__c===source)),...(page.rows||[]).map(r=>({...r,_detail:true})),{_pageState:true,Field_API_Name__c:field,Source_Type__c:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}];this._fieldUsageMapCache=this.rebuildFieldUsageMap();
     }
     rebuildFieldUsageMap(){
         const rows=this.fieldUsageEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind,extra={})=>nodes.push({key,label,sub,x,y,kind,...extra,style:'left:'+x+'px;top:'+y+'px;'});
