@@ -115,7 +115,7 @@ public without sharing class FieldUsageApexScanner {
     ) {
         for (String name : globalDescribe.keySet()) {
             if (name.equalsIgnoreCase(candidate)) {
-                return name;
+                return globalDescribe.get(name).getDescribe().getName();
             }
         }
         return null;
@@ -127,7 +127,7 @@ public without sharing class FieldUsageApexScanner {
     ) {
         for (String name : fields.keySet()) {
             if (name.equalsIgnoreCase(candidate)) {
-                return name;
+                return fields.get(name).getDescribe().getName();
             }
         }
         return null;
