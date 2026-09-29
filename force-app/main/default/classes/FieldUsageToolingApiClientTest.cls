@@ -101,6 +101,27 @@ private class FieldUsageToolingApiClientTest {
     private class ErrorMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest request){HttpResponse response=new HttpResponse();response.setStatusCode(500);response.setBody('server failure');return response;}
     }
+    @IsTest
+    static void connectionPreflightAcceptsAuthenticatedToolingApi() {
+        Test.setMock(HttpCalloutMock.class, new EmptyQueryMock());
+        Test.startTest();
+        FieldUsageToolingApiClient.assertConnectionReady();
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void connectionPreflightExplainsMissingOrUnauthorisedCredential() {
+        Test.setMock(HttpCalloutMock.class, new ErrorMock());
+        try {
+            FieldUsageToolingApiClient.assertConnectionReady();
+            System.assert(false, 'Expected the Tooling API preflight to fail.');
+        } catch (FieldUsageToolingApiClient.ToolingApiException ex) {
+            System.assert(ex.getMessage().contains('Salesforce_Tooling_API'));
+            System.assert(ex.getMessage().contains('configured and authenticated'));
+            System.assert(ex.getMessage().contains('HTTP 500'));
+        }
+    }
+
     @IsTest static void toolingHttpFailureIsExplicit(){
         Test.setMock(HttpCalloutMock.class,new ErrorMock());
         try{FieldUsageToolingApiClient.getApexTriggerIndex();System.assert(false,'Expected Tooling API exception');}
