@@ -8,8 +8,8 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 import saveSchedules from '@salesforce/apex/FieldUsageController.saveSchedules';
 import deleteSchedule from '@salesforce/apex/FieldUsageController.deleteSchedule';
-import getObjects from '@salesforce/apex/FieldUsageController.getObjects';
-import getFields from '@salesforce/apex/FieldUsageController.getFields';
+import getObjects from '@salesforce/apex/FieldUsageController.getSnapshotObjects';
+import getFields from '@salesforce/apex/FieldUsageController.getSnapshotFields';
 import getEvidence from '@salesforce/apex/FieldUsageController.getEvidence';
 import runScan from '@salesforce/apex/FieldUsageController.runNow';
 import bootstrap from '@salesforce/apex/FieldUsageController.bootstrap';
