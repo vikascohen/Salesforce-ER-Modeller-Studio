@@ -143,24 +143,17 @@ describe('c-diagram-studio', () => {
         el.shadowRoot.querySelector('[data-action="field-usage"]').click();
         await flushPromises();
 
-        const objectSelect = el.shadowRoot.querySelector('.fu-controls select');
-        objectSelect.value = 'Account';
-        objectSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        const objectRow = el.shadowRoot.querySelector('.fu-picker-row[data-value="Account"]');
+        expect(objectRow).not.toBeNull();
+        objectRow.click();
         await flushPromises();
 
-        const fieldSelect = el.shadowRoot.querySelector('.fu-controls select[multiple]');
-        const selectedFieldOption = Array.from(fieldSelect.options)
-            .find((option) => option.value === 'Unused_Field__c');
-        fieldSelect.value = 'Unused_Field__c';
-        selectedFieldOption.selected = true;
-        Object.defineProperty(fieldSelect, 'selectedOptions', {
-            configurable: true,
-            value: [selectedFieldOption]
-        });
-        fieldSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        const fieldRow = el.shadowRoot.querySelector('.fu-picker-row[data-value="Unused_Field__c"]');
+        expect(fieldRow).not.toBeNull();
+        fieldRow.click();
         await flushPromises();
 
-        el.shadowRoot.querySelector('.fu-control-actions .arch-export-btn').click();
+        el.shadowRoot.querySelector('.fu-map-toolbar .arch-export-btn').click();
         await flushPromises();
 
         expect(el.shadowRoot.textContent).toContain('No dependency detected');
@@ -184,7 +177,7 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.textContent).toContain(
             'Field Usage requires a successful scan before it can be loaded'
         );
-        expect(el.shadowRoot.querySelector('.fu-controls')).toBeNull();
+        expect(el.shadowRoot.querySelector('.fu-browser-shell')).toBeNull();
     });
 
     it('loads Field Usage entry objects from the successful snapshot when available', async () => {
@@ -202,7 +195,7 @@ describe('c-diagram-studio', () => {
         el.shadowRoot.querySelector('[data-action="field-usage"]').click();
         await flushPromises();
 
-        expect(el.shadowRoot.querySelector('.fu-controls')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.fu-browser-shell')).not.toBeNull();
         expect(el.shadowRoot.textContent).toContain('Account');
         expect(el.shadowRoot.textContent).toContain('Contact');
     });
