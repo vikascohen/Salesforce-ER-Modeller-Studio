@@ -26,13 +26,13 @@ public with sharing class FieldUsageController {
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> getEvidence(String objectApiName,List<String> fieldApiNames){
         if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty()) return new List<Field_Usage_Evidence__c>();
         Set<String> keys=new Set<String>(); for(String f:fieldApiNames) keys.add(objectApiName+'.'+f);
-        return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c
+        return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c
                 FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys ORDER BY Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT 5000];
     }
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
         String raw=String.isBlank(searchText)?null:searchText.trim(); Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));
         String exactKey=raw!=null&&raw.contains('.')?raw:null; String prefix=raw==null?null:raw+'%';
-        String fields='SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true';
+        String fields='SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true';
         if(!String.isBlank(sourceType)) fields+=' AND Source_Type__c = :sourceType';
         if(exactKey!=null) fields+=' AND Field_Key__c = :exactKey';
         else if(prefix!=null) fields+=' AND (Field_Key__c LIKE :prefix OR Object_API_Name__c LIKE :prefix OR Field_API_Name__c LIKE :prefix OR Component_Name__c LIKE :prefix OR Location__c LIKE :prefix)';
