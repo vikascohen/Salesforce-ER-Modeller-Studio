@@ -1467,10 +1467,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         // pins every subsequent read to that exact run id.
         this.fieldUsageRun = null;
         try {
+            // Do not decide whether the console is Ready from local component
+            // state. Every open/reopen performs a fresh server query first so
+            // an already-running Batch Apex job is attached before the screen
+            // is allowed to present its status.
             await this.refreshFieldUsageConsole();
             // Opening the manual scan console must never create scheduled Apex jobs.
             // Scheduling is an explicit configuration concern, not a side effect of viewing scan status.
-            this.startFieldUsagePolling();
+            const apexJobActive = ['Holding', 'Queued', 'Preparing', 'Processing'].includes(this.fieldUsageJobStatus || '');
+            if (this.fieldUsageRunning || apexJobActive) this.startFieldUsagePolling(true);
         } catch (e) {
             this.errorMessage = 'Field Usage console: ' + this.reduceError(e);
         }
