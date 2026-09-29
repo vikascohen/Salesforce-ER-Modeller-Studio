@@ -40,7 +40,8 @@ public without sharing class FieldUsageToolingApiClient {
     }
 
     public static List<Field_Usage_Evidence__c> scanFlow(Id runId,String componentId) {
-        HttpResponse response=send('/services/data/'+API_VERSION+'/tooling/sobjects/Flow/'+EncodingUtil.urlEncode(componentId,'UTF-8'));
+        HttpResponse response=sendAllowNotFound('/services/data/'+API_VERSION+'/tooling/sobjects/Flow/'+EncodingUtil.urlEncode(componentId,'UTF-8'));
+        if(response.getStatusCode()==404)return new List<Field_Usage_Evidence__c>();
         String responseBody=response.getBody();
         response=null;
         Map<String,Object> record=(Map<String,Object>)JSON.deserializeUntyped(responseBody);
@@ -60,7 +61,8 @@ public without sharing class FieldUsageToolingApiClient {
         while(nextUrl!=null){
             HttpResponse response=send(nextUrl);
             Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());
-            for(Object raw:(List<Object>)payload.get('records')){
+            List<Object> records=payload.get('records') instanceof List<Object>?(List<Object>)payload.get('records'):new List<Object>();
+            for(Object raw:records){
                 Map<String,Object> record=(Map<String,Object>)raw;
                 SourceComponent c=new SourceComponent();c.id=(String)record.get('Id');c.name=(String)record.get('MasterLabel');c.sourceType='Flow';out.add(c);
             }
@@ -70,11 +72,15 @@ public without sharing class FieldUsageToolingApiClient {
     }
 
     private static HttpResponse send(String relativeUrl) {
-        HttpRequest request=new HttpRequest();request.setEndpoint(NAMED_CREDENTIAL+relativeUrl);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(120000);
-        HttpResponse response=new Http().send(request);
-        if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new ToolingApiException('Tooling API request failed with HTTP '+response.getStatusCode()+': '+response.getBody().left(1000));
+        HttpResponse response=sendAllowNotFound(relativeUrl);
+        if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new ToolingApiException('Tooling API request failed with HTTP '+response.getStatusCode()+': '+safeBody(response).left(1000));
         return response;
     }
+    private static HttpResponse sendAllowNotFound(String relativeUrl) {
+        HttpRequest request=new HttpRequest();request.setEndpoint(NAMED_CREDENTIAL+relativeUrl);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(120000);
+        return new Http().send(request);
+    }
+    private static String safeBody(HttpResponse response){String body=response==null?null:response.getBody();return body==null?'':body;}
 
     private static List<SourceComponent> queryComponents(
         String toolingObject,
@@ -121,7 +127,8 @@ public without sharing class FieldUsageToolingApiClient {
             Map<String, Object> payload =
                 (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
 
-            for (Object rawRecord : (List<Object>) payload.get('records')) {
+            List<Object> records=payload.get('records') instanceof List<Object>?(List<Object>)payload.get('records'):new List<Object>();
+            for (Object rawRecord : records) {
                 Map<String, Object> record = (Map<String, Object>) rawRecord;
                 SourceComponent component = new SourceComponent();
                 component.id = (String) record.get('Id');
