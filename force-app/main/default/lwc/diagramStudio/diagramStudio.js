@@ -1520,9 +1520,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // Keep scan failures inside the scan console. Do not leak them onto
             // the ER canvas where they look like diagram/parser failures.
             this.errorMessage = '';
+            const credentialHelp = /named credential|external credential|credential\(s\)|tooling api connection|salesforce_tooling_api/i.test(message);
+            this.fieldUsageRun = null;
+            this.fieldUsageBatchRunning = false;
+            this.stopFieldUsagePolling();
             this.fieldUsageConsoleLines = [
                 ...(this.fieldUsageConsoleLines || []),
-                { key: 'launch-error-' + Date.now(), text: '[error] Could not start Field Usage scan: ' + message }
+                { key: 'launch-error-' + Date.now(), text: '[error] Could not start Field Usage scan: ' + message },
+                ...(credentialHelp ? [{ key: 'credential-help-' + Date.now(), text: '[help] Tooling API configuration is required. Open Help → Configuration for the complete Salesforce setup guide.' }] : [])
             ];
         }
     }
