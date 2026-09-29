@@ -18,8 +18,10 @@ public with sharing class FieldUsageOrchestrator {
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
         insert run;
         Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
-        run.Job_Id__c = jobId==null?null:String.valueOf(jobId);
-        update run;
+        // Do not perform a second DML update here merely to store the job id.
+        // The batch start() binds the durable run to bc.getJobId(), which is
+        // the authoritative job identity and avoids a launch-time tracking
+        // update racing the async worker.
         return run.Id;
     }
 
