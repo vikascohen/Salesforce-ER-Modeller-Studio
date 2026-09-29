@@ -285,7 +285,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._heatmapRequestToken++;
         this._dictionaryRequestToken++;
         [this.renderTimer, this._sharingFetchTimer, this._heatmapFetchTimer, this._hoverTimer, this._relScanTimer].forEach((timer) => clearTimeout(timer));
-        clearInterval(this.fieldUsagePollTimer);\n        window.removeEventListener('keydown', this._handleKeyDown);
+        clearInterval(this.fieldUsagePollTimer);
+        window.removeEventListener('keydown', this._handleKeyDown);
         window.removeEventListener('click',   this._handleGlobalClick);
     }
 
