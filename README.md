@@ -9,93 +9,199 @@
 
 ## Phase 3 — Field Usage Intelligence
 
-Phase 3 introduces a Salesforce-native asynchronous field-dependency index. The LWC never performs an expensive live org scan. Scheduled or manually started Batch Apex builds a persisted snapshot and the UI queries that snapshot by object and selected fields.
+Phase 3 introduces an asynchronous, persisted Salesforce field-dependency index. The Lightning UI does **not** scan Apex, formulas or metadata interactively. A manual or scheduled run discovers scan work in Batch Apex, persists dependency evidence, and promotes a successful snapshot for the UI to query.
 
-### Snapshot safety
+### Current scanner coverage
 
-Each scan owns its own `Field_Usage_Run__c` and `Field_Usage_Evidence__c` records. The last successful snapshot remains authoritative while a new scan is running. A new run is promoted only from the batch finish path. If a scan fails before promotion, the previous snapshot remains available. After successful promotion, the previous snapshot and its child evidence are removed so the dependency table represents the org at the latest successful scan rather than accumulating daily history.
+The current Phase 3 branch indexes:
 
-Runs record status, start/completion/heartbeat times, job id, dependency count, error count and bounded error details. Evidence records deliberately contain extensible source/component/evidence/confidence fields so future scanners can add new dependency categories without replacing the persistence model.
+- **Formula fields** through Salesforce Schema Describe and calculated-formula metadata.
+- **Apex classes** through the Salesforce **Tooling API**.
+- **Apex triggers** through the Salesforce **Tooling API**.
+
+Flow and OmniStudio remain planned scanner adapters; they are **not** described as implemented coverage on this branch.
+
+Tooling API access is intentionally restricted to the asynchronous server-side scan pipeline. The LWC never calls Tooling API and never receives Salesforce source bodies. Apex and Trigger discovery/retrieval is performed by Batch Apex callouts through `FieldUsageToolingApiClient`.
+
+The Tooling client uses Salesforce API **v60.0** and expects a Named Credential called **`Salesforce_Tooling_API`**. It queries unmanaged/local `ApexClass` and `ApexTrigger` records with `NamespacePrefix = null`, so managed-package vendor source is deliberately excluded from this scanner.
+
+### Scan pipeline
+
+The implemented pipeline is:
+
+~~~text
+Manual Run / Scheduler
+        ↓
+FieldUsageOrchestrator
+        ↓
+FieldUsageDiscoveryBatch
+        ├─ Schema discovery of calculated formula fields
+        └─ durable Formula work units
+        ↓
+FieldUsageToolingDiscoveryBatch
+        ├─ Tooling API ApexClass index
+        ├─ Tooling API ApexTrigger index
+        └─ durable bulk source work units
+        ↓
+FieldUsageWorkUnitBatch
+        ├─ Formula scanner
+        ├─ Tooling source retrieval
+        ├─ Apex/Trigger source scanner
+        └─ sparse Field_Usage_Evidence__c persistence
+        ↓
+FieldUsageSnapshotFinalizer
+        ↓
+Current successful snapshot
+        ↓
+Field Usage Map / Field Change Impact
+~~~
+
+Apex/Trigger Tooling work is chunked into groups of **12 component IDs** so the durable `Target_Key__c` value remains within its 255-character field limit. Worker execution uses a batch scope of one work unit per transaction, giving each checkpoint a fresh asynchronous governor-limit budget.
+
+### Sparse dependency model
+
+Phase 3 deliberately does **not** persist a dense row for every field in the org. `Field_Usage_Evidence__c` stores only detected dependency evidence.
+
+Object and field selectors use Salesforce Schema information, so a real field remains selectable even when no evidence row exists for it. If a selected field has no evidence in the current successful snapshot, the UI reports:
+
+> **No dependency detected — 0 dependencies**
+
+That means no dependency was detected by the scanners covered by that successful snapshot. It is **not** a universal claim that the field is unused. Integrations, reports, dynamic code, managed-package internals, unsupported metadata types and other sources may remain outside current scanner coverage.
+
+### Apex and Trigger evidence
+
+`FieldUsageApexScanner` analyses source returned asynchronously by Tooling API. The current scanner recognises:
+
+- explicit object/field references such as `Account.Name`;
+- typed-variable references such as `Account acc` followed by `acc.Name`;
+- straightforward static SOQL such as `SELECT Name, Industry FROM Account`.
+
+Candidates are validated against Salesforce Schema before evidence is persisted. Comments and string literals are stripped from the normal source-reference path to reduce false positives.
+
+This is intentionally described as dependency evidence rather than a complete Apex compiler. Dynamic SOQL, complex relationship expressions, runtime-generated field names and other indirect references may require future scanner improvements.
+
+### Resumable work and failure safety
+
+Each scan owns a `Field_Usage_Run__c` and durable `Field_Usage_Work_Unit__c` checkpoints. Work units record scanner type, target, status, attempts, completion and error information.
+
+A work unit may retry up to **three attempts**. Evidence persistence for a work unit is transactional: if any evidence insert fails, the work unit transaction rolls back rather than being marked successfully completed with partial evidence. Idempotency checks also prevent intentional duplicate evidence for the same field/source/component/location identity within a run.
+
+`FieldUsageSnapshotFinalizer` independently checks for incomplete work units before promotion. A run with failed or incomplete work becomes **Completed With Errors** and does not replace the previous successful current snapshot.
+
+On successful promotion the previous run is unset as current and the new run becomes authoritative. **Historical-run deletion is not currently performed by the finaliser**, so the README does not claim old snapshots are already purged.
 
 ### Scheduling without CRON knowledge
 
-On first use, Phase 3 bootstraps two default daily schedules: **03:00** and **21:00** in the scheduling user's Salesforce timezone. Admins can add, edit, enable, disable or remove additional daily scan times in the Field Usage Intelligence component. Apex generates and manages the CRON expressions. There is no two-run limit.
+Phase 3 bootstraps two default daily schedules: **03:00** and **21:00** in the scheduling user's Salesforce timezone. Admins can configure daily scan times without writing CRON expressions; Apex owns the scheduled-job representation.
 
-The scheduler calls the same orchestration service as **Run Scan Now**. A persisted run lock prevents a manual or scheduled invocation from starting a second scan while one is already queued or running.
+Manual **Run Scan Now** and scheduled execution use the same orchestration path. Run locking prevents a second manual or scheduled scan from intentionally starting while another run is queued or running.
 
-### Resumable governor-safe scan execution
+### Scalable snapshot reads
 
-Phase 3 scan discovery now creates durable `Field_Usage_Work_Unit__c` checkpoints. A work unit identifies the run, scanner type and smallest practical target. Formula scanning uses one work unit per calculated field rather than one per object and records Pending, Running, Completed or Failed state plus attempt count and error details. The worker batch runs with a scope of **one work unit per transaction**, giving each target a fresh asynchronous Apex governor-limit budget.
+The UI reads persisted snapshot data rather than source metadata. Initial map construction is **summary first**:
 
-Completed work units are excluded from subsequent worker queries. Evidence insertion is idempotent within a run by checking the field/source/component/location identity before inserting, so retrying or resuming a target does not intentionally duplicate the same dependency evidence. Snapshot promotion is separated into `FieldUsageSnapshotFinalizer` and occurs only after the worker has exhausted its checkpoint query and no work units failed. Failed/incomplete runs never replace the previous successful current snapshot.
+~~~text
+Object
+  → Field
+      → Source Type + authoritative aggregate count
+~~~
 
-This design is deliberately extensible: Flow, Apex, Trigger, OmniStudio and future scanners should create their own work units rather than loading all metadata into one transaction. A scanner must further split a large component into smaller work units whenever its payload itself can approach CPU or heap limits. If a platform-level failure rolls back a worker transaction, the unfinished checkpoint remains visible. The finaliser will not promote that run. Rolled-back units are marked Failed rather than being retried forever, preventing a poison component from creating an infinite asynchronous job chain.
+The map does not initially transfer every evidence record. Clicking a source type lazily requests detail for only that object/field/source combination.
 
-### Performance and scalability
+Detail retrieval is bounded to at most **500 rows per request** and uses **Id-based keyset pagination**, not SOQL OFFSET. Repeated expansion loads the next page until `hasMore = false`. This avoids Salesforce's OFFSET ceiling and prevents a field with thousands of dependencies from forcing thousands of evidence records into the browser at initial render.
 
-Phase 3 is designed to avoid doing metadata analysis in interactive LWC requests. Formula scanning tokenises each formula once and resolves tokens through a field-name map instead of running a regular expression once for every candidate field. The formula batch skips objects that have no calculated fields, reducing asynchronous work in large orgs.
+The aggregate summary remains authoritative while detail is partially loaded. For example, a node can correctly show `Apex Class — 1,247 usages` even when only the first 500 evidence rows have been expanded.
 
-Snapshot reads are bounded and driven by `Field_Key__c`, which is an External ID. Exact `Object.Field` searches use that key directly. General search uses bounded prefix filters over compact indexed/searchable evidence columns and deliberately does not perform a synchronous wildcard scan of the long evidence body. Salesforce recommends narrow/selective queries and reducing the number of active records processed for large-data-volume performance.
+Both Field Usage Map and Architecture Intelligence → Field Change Impact use this summary/lazy-detail model.
 
-Both Field Usage Map and Architecture Field Change Impact calculate their graph geometry once when evidence changes and cache the resulting nodes/edges. Zooming and ordinary component rerenders reuse that geometry instead of repeatedly rebuilding the complete dependency graph.
+### Field Usage Map
 
-### Error handling and performance
+Open **View → Field Usage Map** to analyse the latest successful snapshot. Select an object and one or more Schema fields, then build the map.
 
-Phase 3 is designed around governor-limit-safe asynchronous processing. Scanner work is divided across Batch Apex transactions. Database writes are collected and executed outside processing loops, evidence inserts use partial DML, individual object/scanner failures are captured without intentionally terminating unrelated work, and the LWC reads only persisted evidence for the selected fields. The field key is an External ID to support selective snapshot queries.
+The initial hierarchy is:
 
-The UI continues to show the last successful results while a refresh is running and gives an explicit running/wait state. A failed refresh does not intentionally clear the current snapshot.
+~~~text
+Object → Field → Source Type
+~~~
 
-### Scanner coverage and the no-Tooling-API boundary
+Source Type nodes can be expanded on demand to load component evidence. Zero-evidence selected fields remain visible and explicitly show **No dependency detected**.
 
-Phase 3 does **not use the Tooling API**. The first native scanner included on this branch indexes field references in formula fields using Schema Describe and records high-confidence evidence. The scanner/persistence architecture is deliberately source-agnostic so Apex, Trigger, Flow, OmniStudio and other adapters can write to the same evidence model.
-
-There is an important Salesforce platform boundary: Apex class and trigger source bodies are development metadata and are not exposed to ordinary Apex SOQL/Schema Describe. Salesforce documents source-code access through development metadata interfaces such as Tooling API. Because this project explicitly prohibits Tooling API, Phase 3 must not pretend that ordinary Batch Apex can discover Apex/Trigger source references that Salesforce has not exposed to it. A future non-Tooling metadata-source adapter can be added behind the batch layer without changing the LWC or snapshot schema.
-
-### Main Phase 3 components
-
-- `FieldUsageController` — thin LWC-facing controller.
-- `FieldUsageOrchestrator` — run locking and batch launch.
-- `FieldUsageSnapshotBatch` — asynchronous snapshot construction, error aggregation and promotion.
-- `FieldUsageFormulaScanner` — native formula dependency scanner.
-- `FieldUsageScheduler` and `FieldUsageScheduleService` — arbitrary daily schedules managed without exposing CRON.
-- `Field_Usage_Run__c` — snapshot/run lifecycle and audit record.
-- `Field_Usage_Evidence__c` — extensible dependency evidence index.
-- `Field_Usage_Schedule__c` — human-readable scan-time configuration.
-- `fieldUsageIntelligence` — object/field selection, persisted dependency tree, scan status, Run Now and schedule administration.
+The map uses deterministic geometry, cached nodes/edges, zoom controls and two-axis scrolling. **Clear Map** resets only the current visual selection; it does not delete persisted scan data.
 
 ### Architecture Intelligence: Field Change Impact
 
-Architecture Intelligence now includes a **Field Change Impact** tile. It combines the objects represented by the current ER model with the latest successful Field Usage snapshot. When a current snapshot exists, users can search for an ER-model object, select it, search all described fields on that object, select a field and render a stable impact map showing **Field → Source Type → Component → Evidence Location** with occurrence totals.
+Architecture Intelligence includes **Field Change Impact** for field-level change investigation. It uses the same successful snapshot and the same summary/lazy-detail API as the Field Usage Map rather than launching a second scan.
 
-The impact workspace also includes **Search Field Usage**, which searches the persisted evidence index across field/object keys, component names, evidence locations and evidence text. Users can filter by whatever source types exist in the snapshot, including **Formula Field, Flow, Apex, Trigger, OmniStudio** and future adapters. This makes questions such as “where is Account.Status__c used?”, “which formula fields reference this field?” or “show Flow references” searchable without a live metadata scan.
+A selected field is presented as:
 
-The impact workspace includes horizontal and vertical scrolling, zoom out/reset/in, **Clear**, and **Back to Architecture Intelligence**. Clear resets the object, field, searches, evidence and zoom without deleting persisted scan data.
+~~~text
+Selected Field
+  → Source Type + total
+      → Component details loaded on demand
+~~~
 
-If no successful current snapshot exists, Architecture Intelligence deliberately hides the selectors and map. It explains that Field Change Impact requires the persisted Field Usage index and offers **Open Batch Console** so the user can run the batch. Once a successful snapshot exists, the instruction state is replaced by the normal impact-analysis screen. A selected field with no persisted references displays a factual “No indexed references found” state rather than treating absence of evidence as proof that the field is unused.
+This gives architects a bounded blast-radius view while preserving the evidence boundary: structural evidence found by the implemented scanners is shown, but absence of evidence is not presented as proof of universal non-use.
 
-### Integrated map and scan console
+### Search and persisted evidence
 
-Phase 3 is integrated into the existing Diagram Studio rather than presented as a disconnected application. Open **View → Field Usage Map** to enter the full-screen dependency workspace and use **Back to Diagram** to return to the ER canvas. The workspace inherits the Studio theme and provides **Clear Map**, zoom out, zoom reset and zoom in controls plus two-axis scrolling for large dependency maps.
+`FieldUsageController` exposes bounded snapshot/search APIs for the LWC. Exact field analysis uses `Field_Key__c` values such as `Account.Name`. Summary queries aggregate by field and source type. Detailed expansion is separately paged.
 
-The map uses a deterministic, non-force-directed hierarchy so the same evidence produces stable positions. Its hierarchy is **Object → Field → Source Type → Component → Evidence Location**. Nodes display occurrence totals. For example, an Apex evidence adapter can produce **Account → My_Field__c → Apex → AccountService (4 usages) → evidence locations**; Flow, Trigger, OmniStudio, Formula and future source types use the same graph model.
+`Field_Usage_Evidence__c` records include object, field, source type, component, component id, evidence type, confidence, observed time, occurrence count and location so new scanners can reuse the same persistence model.
 
-Open **Diagram → Run Field Usage Scan…** or **Scan Console** from the map for the compact batch activity window. The console is intentionally similar to an installer activity log: it shows persisted timestamped progress, current phase, percentage, objects processed, dependency counts and errors from the actual asynchronous run. It follows scheduled scans as well as manual scans. **Launch Batch Now** is disabled while a run is queued/running. **Clean Console** appears after activity completes and clears only the local console display; it never deletes the authoritative snapshot. Close/Back to Diagram leaves the asynchronous batch running.
+### Optional metadata and future scanners
 
-### Optional metadata objects and dynamic SOQL
+The branch retains `GenericDynamicSoqlBuilder` and `FieldUsageDynamicQueryService` for optional Salesforce data/configuration models that may not exist in every org. Runtime Describe checks are used before dynamic queries are constructed.
 
-Phase 3 includes the project's existing `GenericDynamicSoqlBuilder` and a `FieldUsageDynamicQueryService`. Optional metadata/configuration objects are checked through `Schema.getGlobalDescribe()` before query construction. Requested fields are filtered against runtime Describe information, and unavailable objects return an empty result instead of causing a static-SOQL deployment/runtime failure. This is intended for source adapters such as OmniStudio where available object models can differ by org and installed product version.
+This is useful for future adapters such as OmniStudio, where installed products and object models can differ between orgs. Flow and OmniStudio should create durable work units and write to the same evidence model when implemented.
 
-The dynamic query service has tests covering missing optional objects and runtime field filtering. Phase 3 also includes tests for current-snapshot-only reads, occurrence counting, schedule validation/default creation and concurrent scan protection.
+### Main Phase 3 components
 
-### Deployment and first use
+- `FieldUsageController` — LWC-facing snapshot, summary, detail, search and scheduling API.
+- `FieldUsageOrchestrator` — duplicate-run protection and asynchronous launch.
+- `FieldUsageDiscoveryBatch` — Schema/formula discovery and formula work-unit creation.
+- `FieldUsageToolingDiscoveryBatch` — asynchronous Tooling API discovery of Apex classes and triggers.
+- `FieldUsageToolingApiClient` — Named-Credential Tooling API client for Apex/Trigger index and source retrieval.
+- `FieldUsageWorkUnitBatch` — resumable worker, scanner dispatch, retry and atomic evidence persistence.
+- `FieldUsageFormulaScanner` — formula dependency scanner.
+- `FieldUsageApexScanner` — Apex/Trigger source-reference scanner.
+- `FieldUsageSnapshotFinalizer` — promotion guard for successful snapshots.
+- `FieldUsageScheduler` / `FieldUsageScheduleService` — human-readable daily scheduling without exposing CRON.
+- `Field_Usage_Run__c` — scan lifecycle, progress and audit information.
+- `Field_Usage_Work_Unit__c` — durable resumable scan checkpoints.
+- `Field_Usage_Evidence__c` — sparse dependency evidence.
+- `Field_Usage_Schedule__c` — schedule configuration.
+- `diagramStudio` — integrated Field Usage Map, scan console and Architecture Intelligence Field Change Impact.
+- `fieldUsageIntelligence` — standalone Field Usage Intelligence experience.
 
-Deploy with the Phase 3 button above, add **Field Usage Intelligence** to a Lightning App/Home page or Lightning tab, and open it as an administrator. The first component initialisation creates the two default schedule records and corresponding Salesforce scheduled jobs if they do not already exist. This first-use bootstrap is idempotent because normal Salesforce source deployment does not execute arbitrary Apex automatically.
+### Deployment requirement: Tooling API Named Credential
 
-Use **Run Scan Now** for an immediate snapshot. While it runs, the prior successful snapshot remains queryable. Use the schedule editor to add more daily scans or change the defaults without writing a CRON expression.
+Phase 3 Apex/Trigger scanning requires a Salesforce Named Credential named:
 
-### Apex engineering standards
+~~~text
+Salesforce_Tooling_API
+~~~
 
-Phase 3 follows Salesforce bulk-processing patterns: no intentional SOQL or DML inside record-processing loops, collection-oriented DML, bounded UI queries, Batch Apex for large asynchronous work, thin controllers, separated orchestration/services/scanners, defensive null/error handling and testable helper logic.
+It must authenticate to the Salesforce org whose Apex/Trigger metadata is being scanned and permit the asynchronous Apex callouts used by the Tooling API client.
+
+Do **not** hard-code access tokens, session IDs or credentials in Apex, LWC, repository files or Custom Metadata. The Named Credential is the authentication boundary for Tooling API callouts.
+
+If the Named Credential is absent or cannot call Tooling API, Apex/Trigger discovery cannot complete successfully and the run must not be treated as a complete successful snapshot.
+
+### Testing and CI
+
+The branch has Jest CI for the LWC layer and a Salesforce CLI validation workflow for Apex/org validation.
+
+At the time of this README update, the latest Jest CI run on the Phase 3 branch completed with **128/128 tests passing across 6 suites**.
+
+The Salesforce CLI workflow requires the GitHub Actions repository secret `SFDX_AUTH_URL`. If that secret is absent, the workflow intentionally fails before Salesforce authentication, deployment validation or Apex tests. A red run caused by the missing secret is therefore **not evidence that Apex tests executed and failed**.
+
+### Current evidence boundary
+
+Phase 3 currently provides persisted evidence from **Formula fields, local/unmanaged Apex classes and local/unmanaged Apex triggers**.
+
+It does not currently claim complete coverage of Flow, OmniStudio, managed-package internals, reports, integrations, dynamic SOQL, runtime-generated references or every possible Salesforce dependency mechanism.
+
+The design principle is: **persist what the scanners can prove, keep the successful snapshot queryable, and make unsupported coverage explicit rather than inventing certainty.**
 
 ---
 
