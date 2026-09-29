@@ -127,8 +127,7 @@ describe('c-diagram-studio', () => {
         const viewMenu = el.shadowRoot.querySelector('button[data-menu="view"]');
         viewMenu.click();
         await flushPromises();
-        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
-            .find((item) => item.textContent.includes('Field Usage')).click();
+        el.shadowRoot.querySelector('[data-action="field-usage"]').click();
         await flushPromises();
 
         const objectSelect = el.shadowRoot.querySelector('.fu-controls select');
@@ -160,9 +159,7 @@ describe('c-diagram-studio', () => {
         viewMenu.click();
         await flushPromises();
 
-        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
-            .find((item) => item.textContent.includes('Field Usage'))
-            .click();
+        el.shadowRoot.querySelector('[data-action="field-usage"]').click();
         await flushPromises();
 
         expect(el.shadowRoot.textContent).toContain(
@@ -183,9 +180,7 @@ describe('c-diagram-studio', () => {
         viewMenu.click();
         await flushPromises();
 
-        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
-            .find((item) => item.textContent.includes('Field Usage'))
-            .click();
+        el.shadowRoot.querySelector('[data-action="field-usage"]').click();
         await flushPromises();
 
         expect(el.shadowRoot.querySelector('.fu-controls')).not.toBeNull();
