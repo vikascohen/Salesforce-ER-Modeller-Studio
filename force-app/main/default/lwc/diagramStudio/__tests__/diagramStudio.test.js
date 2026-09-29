@@ -140,8 +140,7 @@ describe('c-diagram-studio', () => {
         fieldSelect.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
 
-        Array.from(el.shadowRoot.querySelectorAll('.arch-action-btn'))
-            .find((button) => button.textContent.includes('Analyse')).click();
+        el.shadowRoot.querySelector('.fu-control-actions .arch-export-btn').click();
         await flushPromises();
 
         expect(el.shadowRoot.textContent).toContain('No dependency detected');
