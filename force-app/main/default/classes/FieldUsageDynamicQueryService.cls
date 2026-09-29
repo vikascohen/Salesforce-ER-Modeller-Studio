@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public inherited sharing class FieldUsageDynamicQueryService {
     public static Boolean objectExists(String objectApiName) { return !String.isBlank(objectApiName) && Schema.getGlobalDescribe().containsKey(objectApiName); }
     public static List<SObject> queryAvailable(String objectApiName,List<String> requestedFields,Integer rowLimit) {
