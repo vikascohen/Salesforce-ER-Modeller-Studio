@@ -230,7 +230,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageLoading=false; @track fieldUsageSnapshotAvailable=false; @track fieldUsageBatchRunning=false; @track fieldUsageEntryMessage='';
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
-    @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
+    @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track fieldUsageConsoleCleared=false; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactBatchRunning=false; @track fieldImpactBatchStatus=''; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
     @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null; @track _fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};
@@ -1460,6 +1460,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.fieldUsageConsoleOpen = true;
         this.errorMessage = '';
         this.fieldUsageRun = { Status__c: 'Queued', Progress_Percent__c: 0, Progress_Phase__c: 'Starting Field Usage scan' };
+        this.fieldUsageConsoleCleared = false;
         this.fieldUsageConsoleLines = [{ key: 'client-start', text: '[starting] Field Usage scan requested…' }];
         try {
             const runId = await fieldUsageRunNow();
@@ -1491,6 +1492,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     handleCleanFieldUsageConsole() {
+        this.fieldUsageConsoleCleared = true;
         this.fieldUsageConsoleLines = [];
     }
 
@@ -1526,7 +1528,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             else if (state === 'Failed') lines.push({ key: 'failed-' + run.Id, text: '[failed] Scan failed. Review the run error details.' });
         }
         if (run && !run.Status__c) this.fieldUsageRun = null;
-        this.fieldUsageConsoleLines = lines;
+        if (!this.fieldUsageConsoleCleared) this.fieldUsageConsoleLines = lines;
         if (!this.fieldUsageRunning) this.stopFieldUsagePolling();
     }
 
