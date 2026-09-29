@@ -1,5 +1,16 @@
 public with sharing class FieldUsageController {
     public class StatusDTO { @AuraEnabled public Field_Usage_Run__c run; @AuraEnabled public List<Field_Usage_Schedule__c> schedules; }
+    public class SnapshotDTO { @AuraEnabled public Boolean available; @AuraEnabled public Datetime completedAt; @AuraEnabled public Integer dependencyCount; }
+    @AuraEnabled(cacheable=true) public static SnapshotDTO getSnapshotAvailability(){
+        SnapshotDTO dto=new SnapshotDTO(); List<Field_Usage_Run__c> rows=[SELECT Completed_At__c,Dependency_Count__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
+        dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=Integer.valueOf(rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c);} return dto;
+    }
+    @AuraEnabled(cacheable=true) public static List<String> getSnapshotObjects(){
+        List<String> names=new List<String>(); for(AggregateResult ar:[SELECT Object_API_Name__c n FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true GROUP BY Object_API_Name__c ORDER BY Object_API_Name__c LIMIT 2000]) names.add((String)ar.get('n')); return names;
+    }
+    @AuraEnabled(cacheable=true) public static List<String> getSnapshotFields(String objectApiName){
+        if(String.isBlank(objectApiName)) return new List<String>(); List<String> names=new List<String>(); for(AggregateResult ar:[SELECT Field_API_Name__c n FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Object_API_Name__c=:objectApiName GROUP BY Field_API_Name__c ORDER BY Field_API_Name__c LIMIT 2000]) names.add((String)ar.get('n')); return names;
+    }
     @AuraEnabled(cacheable=true) public static List<String> getObjects(){
         List<String> names=new List<String>();
         for(String n:Schema.getGlobalDescribe().keySet()) if(Schema.getGlobalDescribe().get(n).getDescribe().isAccessible()) names.add(n);
