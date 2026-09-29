@@ -22,6 +22,12 @@ import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFie
 import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSchemaReferences';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
+import fieldUsageGetObjects from '@salesforce/apex/FieldUsageController.getObjects';
+import fieldUsageGetFields from '@salesforce/apex/FieldUsageController.getFields';
+import fieldUsageGetEvidence from '@salesforce/apex/FieldUsageController.getEvidence';
+import fieldUsageRunNow from '@salesforce/apex/FieldUsageController.runNow';
+import fieldUsageBootstrap from '@salesforce/apex/FieldUsageController.bootstrap';
+import fieldUsageGetStatus from '@salesforce/apex/FieldUsageController.getStatus';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
@@ -209,6 +215,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     _hoverTimer = null;
 
     // ── data dictionary ──
+    // Phase 3 — Field Usage Intelligence
+    @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
+    @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
+    @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; fieldUsagePollTimer=null;
     @track dictionaryOpen       = false;
     @track dictionaryFullScreen = true;
     @track dictionarySearch     = '';
@@ -267,7 +277,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._heatmapRequestToken++;
         this._dictionaryRequestToken++;
         [this.renderTimer, this._sharingFetchTimer, this._heatmapFetchTimer, this._hoverTimer, this._relScanTimer].forEach((timer) => clearTimeout(timer));
-        window.removeEventListener('keydown', this._handleKeyDown);
+        clearInterval(this.fieldUsagePollTimer);\n        window.removeEventListener('keydown', this._handleKeyDown);
         window.removeEventListener('click',   this._handleGlobalClick);
     }
 
@@ -1246,7 +1256,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
     handleMenuClearCanvas()    { this.openMenu = null; this.handleClearCanvas(); }
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
-    handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
+    handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }\n    handleMenuRunFieldUsage() { this.handleOpenFieldUsageConsole(); }
     handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
     handleMenuArchitecture()   {
         this.openMenu = null;
