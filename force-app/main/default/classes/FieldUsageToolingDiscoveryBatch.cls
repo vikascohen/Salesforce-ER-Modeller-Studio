@@ -21,6 +21,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
     }
 
     public void execute(Database.BatchableContext context, List<String> sourceTypes) {
+        List<Field_Usage_Work_Unit__c> allUnits = new List<Field_Usage_Work_Unit__c>();
         for (String sourceType : sourceTypes) {
             List<FieldUsageToolingApiClient.SourceComponent> components =
                 sourceType == 'ApexClass'
@@ -56,15 +57,18 @@ public without sharing class FieldUsageToolingDiscoveryBatch
                 ));
             }
 
-            if (!units.isEmpty()) {
-                Database.SaveResult[] results = Database.insert(units, false);
-                for (Database.SaveResult result : results) {
-                    if (!result.isSuccess()) {
-                        throw new FieldUsageToolingApiClient.ToolingApiException(
-                            'Could not checkpoint bulk Tooling API discovery: ' +
-                            result.getErrors()[0].getMessage()
-                        );
-                    }
+            allUnits.addAll(units);
+        }
+
+        // All Tooling callouts must finish before the first DML in this transaction.
+        if (!allUnits.isEmpty()) {
+            Database.SaveResult[] results = Database.insert(allUnits, false);
+            for (Database.SaveResult result : results) {
+                if (!result.isSuccess()) {
+                    throw new FieldUsageToolingApiClient.ToolingApiException(
+                        'Could not checkpoint bulk Tooling API discovery: ' +
+                        result.getErrors()[0].getMessage()
+                    );
                 }
             }
         }
