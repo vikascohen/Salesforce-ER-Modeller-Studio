@@ -134,6 +134,47 @@ public with sharing class FieldUsageController {
         }
 
         populateJobStatus(dto);
+
+        // Last-resort runtime truth: if the durable run record is missing,
+        // stale, or not yet linked, discover *our* currently active Batch Apex
+        // job directly from AsyncApexJob. This is deliberately restricted to
+        // the Field Usage batch classes, so the console can never attach to an
+        // unrelated org batch.
+        if(dto.run==null || String.isBlank(dto.jobStatus) ||
+           !new Set<String>{'Holding','Queued','Preparing','Processing'}.contains(dto.jobStatus)){
+            Set<String> fieldUsageBatchClasses=new Set<String>{
+                'FieldUsageDiscoveryBatch',
+                'FieldUsageToolingDiscoveryBatch',
+                'FieldUsageWorkUnitBatch'
+            };
+            List<AsyncApexJob> liveJobs=[
+                SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors,ExtendedStatus,ApexClass.Name,CreatedDate
+                FROM AsyncApexJob
+                WHERE ApexClass.Name IN :fieldUsageBatchClasses
+                  AND Status IN ('Holding','Queued','Preparing','Processing')
+                ORDER BY CreatedDate DESC
+                LIMIT 1
+            ];
+            if(!liveJobs.isEmpty()){
+                AsyncApexJob live=liveJobs[0];
+                List<Field_Usage_Run__c> linked=Database.query(
+                    'SELECT '+fields+' FROM Field_Usage_Run__c WHERE Job_Id__c=:live.Id ORDER BY CreatedDate DESC LIMIT 1'
+                );
+                if(!linked.isEmpty()) dto.run=linked[0];
+                if(dto.run==null){
+                    dto.run=new Field_Usage_Run__c(
+                        Status__c='Running',
+                        Job_Id__c=String.valueOf(live.Id),
+                        Progress_Phase__c='Batch Apex job is '+live.Status
+                    );
+                }else{
+                    dto.run.Status__c=live.Status=='Queued' || live.Status=='Holding'?'Queued':'Running';
+                    if(String.isBlank(dto.run.Progress_Phase__c)) dto.run.Progress_Phase__c='Batch Apex job is '+live.Status;
+                }
+                copyJobStatus(dto,live);
+            }
+        }
+
         dto.schedules=[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c];
         return dto;
     }
