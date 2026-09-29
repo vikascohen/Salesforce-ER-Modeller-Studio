@@ -30,7 +30,6 @@ import fieldUsageBootstrap from '@salesforce/apex/FieldUsageController.bootstrap
 import fieldUsageGetStatus from '@salesforce/apex/FieldUsageController.getStatus';
 import fieldImpactSnapshot from '@salesforce/apex/FieldUsageController.getSnapshotAvailability';
 import fieldImpactObjects from '@salesforce/apex/FieldUsageController.getSnapshotObjects';
-import fieldUsageGetSnapshotFields from '@salesforce/apex/FieldUsageController.getSnapshotFields';
 import fieldUsageSearchEvidence from '@salesforce/apex/FieldUsageController.searchEvidence';
 import fieldUsageGetSourceTypes from '@salesforce/apex/FieldUsageController.getSourceTypes';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
@@ -1490,7 +1489,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.fieldUsageEvidence = [];
         this._fieldUsageMapCache = { nodes: [], edges: [], width: 1320, height: 650 };
         this.fieldUsageFields = this.fieldUsageObject
-            ? await fieldUsageGetSnapshotFields({ objectApiName: this.fieldUsageObject })
+            ? await fieldUsageGetFields({ objectApiName: this.fieldUsageObject })
             : [];
     }
 
@@ -1535,7 +1534,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fieldImpactSearchRows(){return this.fieldImpactSearchResults.map((r,i)=>({key:(r.Id||r.Field_Key__c||'r')+'-'+i,field:r.Field_Key__c,source:r.Source_Type__c,component:r.Component_Name__c||'—',location:r.Location__c||r.Evidence_Type__c||'—',count:r.Occurrence_Count__c||1}));}
     get fieldImpactFilteredFields(){const q=(this.fieldImpactFieldSearch||'').toLowerCase();return this.fieldImpactFields.filter(x=>!q||x.toLowerCase().includes(q)).map(x=>({label:x,value:x}));}
     handleFieldImpactObjectSearch(e){this.fieldImpactObjectSearch=e.target.value||'';} handleFieldImpactFieldSearch(e){this.fieldImpactFieldSearch=e.target.value||'';}
-    async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldUsageGetSnapshotFields({objectApiName:this.fieldImpactObject}):[];}
+    async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldUsageGetFields({objectApiName:this.fieldImpactObject}):[];}
     async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidence({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];this.rebuildFieldImpactMap();}
     clearFieldImpact(clearAvailability=true){this.fieldImpactObject='';this.fieldImpactField='';this.fieldImpactObjectSearch='';this.fieldImpactFieldSearch='';this.fieldImpactFields=[];this.fieldImpactEvidence=[];this._fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};this.fieldImpactZoom=1;this.fieldImpactUsageSearch='';this.fieldImpactSourceType='';this.fieldImpactSearchResults=[];if(clearAvailability){this.fieldImpactAvailable=false;this.fieldImpactObjects=[];this.fieldImpactSnapshotInfo=null;}}
     handleFieldImpactClear(){this.clearFieldImpact(false);}
@@ -1547,7 +1546,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     rebuildFieldImpactMap(){
         const rows=this.fieldImpactEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind)=>nodes.push({key,label,sub,x,y,kind,style:'left:'+x+'px;top:'+y+'px;'});
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+205,y1:A.y+38,x2:B.x,y2:B.y+38});};let cursor=45;
-        add('field',this.fieldImpactObject+'.'+this.fieldImpactField,'FIELD BEING CHANGED',35,160,'impactfield');if(!rows.length){add('no-usage','No usage detected','Current successful snapshot · 0 dependencies',335,160,'impactempty');connect('field','no-usage');return {nodes,edges,width:700,height:600};}
+        add('field',this.fieldImpactObject+'.'+this.fieldImpactField,'FIELD BEING CHANGED',35,160,'impactfield');if(!rows.length){add('no-usage','No dependency detected','Current successful snapshot · 0 dependencies',335,160,'impactempty');connect('field','no-usage');return {nodes,edges,width:700,height:600};}
         const types=[...new Set(rows.map(r=>r.Source_Type__c))].sort();types.forEach(type=>{const tr=rows.filter(r=>r.Source_Type__c===type),start=cursor,comps=[...new Set(tr.map(r=>r.Component_Name__c))].sort();
           comps.forEach(name=>{const cr=tr.filter(r=>r.Component_Name__c===name),count=Math.max(1,cr.length),cy=cursor+((count-1)*70)/2,ck='c:'+type+':'+name;add(ck,name,cr.reduce((n,r)=>n+(r.Occurrence_Count__c||1),0)+' usages',600,cy,'impactcomponent');cr.forEach((r,i)=>{const ek=ck+':'+i,ey=cursor+i*70;add(ek,r.Location__c||r.Evidence_Type__c,(r.Occurrence_Count__c||1)+' occurrence(s) · '+(r.Confidence__c||'evidence'),880,ey,'impactevidence');connect(ck,ek);});cursor+=Math.max(88,count*70+18);});
           const ty=(start+Math.max(start+76,cursor-18))/2,tk='t:'+type;add(tk,type,tr.reduce((n,r)=>n+(r.Occurrence_Count__c||1),0)+' usages',335,ty,'impacttype');connect('field',tk);comps.forEach(name=>connect(tk,'c:'+type+':'+name));cursor+=20;});
@@ -4168,7 +4167,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+190,y1:A.y+34,x2:B.x,y2:B.y+34});};
         const fields=this.fieldUsageSelectedFields.length?this.fieldUsageSelectedFields:[...new Set(rows.map(r=>r.Field_API_Name__c))];let cursor=40;const fieldCentres=[];
         fields.forEach(field=>{const fr=rows.filter(r=>r.Field_API_Name__c===field),fieldStart=cursor;const types=[...new Set(fr.map(r=>r.Source_Type__c))].sort();
-            if(!types.length){const nk='f:'+field+':no-usage';add(nk,'No usage detected','Current successful snapshot · 0 dependencies',540,cursor,'empty');cursor+=90;}
+            if(!types.length){const nk='f:'+field+':no-usage';add(nk,'No dependency detected','Current successful snapshot · 0 dependencies',540,cursor,'empty');cursor+=90;}
             types.forEach(type=>{const tr=fr.filter(r=>r.Source_Type__c===type),typeStart=cursor;const comps=[...new Set(tr.map(r=>r.Component_Name__c))].sort();
                 comps.forEach(name=>{const cr=tr.filter(r=>r.Component_Name__c===name),leafCount=Math.max(1,cr.length),componentY=cursor+((leafCount-1)*62)/2,ck='f:'+field+':t:'+type+':c:'+name;
                     add(ck,name,cr.reduce((s,r)=>s+(r.Occurrence_Count__c||1),0)+' usages',800,componentY,'component');
