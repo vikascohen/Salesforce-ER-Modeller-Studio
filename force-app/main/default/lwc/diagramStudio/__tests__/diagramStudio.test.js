@@ -111,6 +111,43 @@ describe('c-diagram-studio', () => {
         expect(nameInput.value).toBe('Untitled ER Diagram');
     });
 
+    it('renders zero dependency evidence as explicit map intelligence in Field Usage', async () => {
+        getSnapshotAvailability.mockResolvedValue({ available: true });
+        getSnapshotObjects.mockResolvedValue(['Account']);
+        getFieldUsageStatus.mockResolvedValue({ run: { Status__c: 'Completed' }, schedules: [] });
+        const getFields = require('@salesforce/apex/FieldUsageController.getFields').default;
+        const getEvidence = require('@salesforce/apex/FieldUsageController.getEvidence').default;
+        getFields.mockResolvedValue(['Unused_Field__c']);
+        getEvidence.mockResolvedValue([]);
+
+        const el = createStudio();
+        await flushPromises();
+        const viewMenu = Array.from(el.shadowRoot.querySelectorAll('.dd-menu-wrap > button'))
+            .find((button) => button.textContent.includes('View'));
+        viewMenu.click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item'))
+            .find((item) => item.textContent.includes('Field Usage')).click();
+        await flushPromises();
+
+        const objectSelect = el.shadowRoot.querySelector('.fu-controls select');
+        objectSelect.value = 'Account';
+        objectSelect.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        const fieldSelect = el.shadowRoot.querySelector('.fu-controls select[multiple]');
+        Array.from(fieldSelect.options).forEach((option) => { option.selected = option.value === 'Unused_Field__c'; });
+        fieldSelect.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        Array.from(el.shadowRoot.querySelectorAll('.arch-action-btn'))
+            .find((button) => button.textContent.includes('Analyse')).click();
+        await flushPromises();
+
+        expect(el.shadowRoot.textContent).toContain('No usage detected');
+        expect(el.shadowRoot.textContent).toContain('0 dependencies');
+    });
+
     it('gates Field Usage when no successful snapshot exists', async () => {
         getSnapshotAvailability.mockResolvedValueOnce({ available: false });
         getFieldUsageStatus.mockResolvedValueOnce({ run: null, schedules: [] });
