@@ -3932,7 +3932,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (err.body && typeof err.body.message === 'string') return err.body.message;
         return err.message ? err.message : JSON.stringify(err);
     }
-}    get fieldUsageMap(){
+    get fieldUsageMap(){
         const rows=this.fieldUsageEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind)=>nodes.push({key,label,sub,x,y,kind,style:'left:'+x+'px;top:'+y+'px;'});
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+190,y1:A.y+34,x2:B.x,y2:B.y+34});};
         const fields=this.fieldUsageSelectedFields.length?this.fieldUsageSelectedFields:[...new Set(rows.map(r=>r.Field_API_Name__c))];let cursor=40;const fieldCentres=[];
@@ -3952,3 +3952,5 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return {nodes,edges,width:1320,height:Math.max(650,cursor+80)};
     }
 
+
+}
