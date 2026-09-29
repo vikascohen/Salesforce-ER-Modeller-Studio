@@ -1323,6 +1323,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return ['Queued', 'Running'].includes(this.fieldUsageRun?.Status__c || '');
     }
     get fieldUsageNoConsoleLines() { return !(this.fieldUsageConsoleLines || []).length; }
+    get fieldUsageIdle() { return !this.fieldUsageRunning; }
+    get fieldUsageRunStatusText() {
+        if (!this.fieldUsageRun) return 'Ready to start a new org snapshot scan.';
+        if (this.fieldUsageRunning) return 'A Field Usage scan is already active. Live progress is attached below.';
+        if (this.fieldUsageRun.Status__c === 'Completed') return 'Latest scan completed. The snapshot is ready for Field Usage Map.';
+        if (this.fieldUsageRun.Status__c === 'Completed With Errors') return 'Latest scan completed with errors. Review the activity below before starting another scan.';
+        if (this.fieldUsageRun.Status__c === 'Failed') return 'Latest scan failed. Review the activity below before starting another scan.';
+        return 'No Field Usage scan is currently running.';
+    }
     get fieldUsageCanCleanConsole() {
         return !this.fieldUsageRunning && (this.fieldUsageConsoleLines || []).length > 0;
     }
@@ -1331,8 +1340,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.openMenu = null;
         this.fieldUsageConsoleOpen = true;
         try {
-            await fieldUsageBootstrap();
+            // Status comes first so opening the console attaches immediately to
+            // an existing run rather than presenting a launch-first experience.
             await this.refreshFieldUsageConsole();
+            if (!this.fieldUsageRunning) await fieldUsageBootstrap();
             this.startFieldUsagePolling();
         } catch (e) {
             this.errorMessage = 'Field Usage console: ' + this.reduceError(e);
