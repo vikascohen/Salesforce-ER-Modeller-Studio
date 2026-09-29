@@ -26,7 +26,7 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
                 else { errorCount++; addError('Evidence insert: '+sr.getErrors()[0].getMessage()); }
             }
         }
-        Integer pct=totalCount==0?95:Math.min(95,Integer.valueOf((Decimal.valueOf(processedCount)/Decimal.valueOf(totalCount))*90)+5); Field_Usage_Run__c progress=[SELECT Id,Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId]; progress.Heartbeat_At__c=System.now(); progress.Error_Count__c=errorCount; progress.Dependency_Count__c=dependencyCount; progress.Objects_Processed__c=processedCount; progress.Progress_Percent__c=pct; progress.Progress_Phase__c='Scanning field dependencies'; progress.Progress_Log__c=appendLog(progress.Progress_Log__c,stamp('Scanned '+processedCount+' / '+totalCount+' objects · '+dependencyCount+' evidence records · '+errorCount+' errors.')); update progress;
+        Integer pct=totalCount==0?95:Math.min(95,((processedCount*90)/totalCount)+5); Field_Usage_Run__c progress=[SELECT Id,Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId]; progress.Heartbeat_At__c=System.now(); progress.Error_Count__c=errorCount; progress.Dependency_Count__c=dependencyCount; progress.Objects_Processed__c=processedCount; progress.Progress_Percent__c=pct; progress.Progress_Phase__c='Scanning field dependencies'; progress.Progress_Log__c=appendLog(progress.Progress_Log__c,stamp('Scanned '+processedCount+' / '+totalCount+' objects · '+dependencyCount+' evidence records · '+errorCount+' errors.')); update progress;
     }
     public void finish(Database.BatchableContext bc) {
         try {
@@ -49,5 +49,7 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
             try { update new Field_Usage_Run__c(Id=runId,Status__c='Failed',Completed_At__c=System.now(),Errors__c=ex.getTypeName()+': '+ex.getMessage(),Is_Current__c=false); } catch(Exception ignored) {}
         }
     }
-    private static String stamp(String message){return '['+System.now().format('HH:mm:ss')+'] '+message;}\n    private static String appendLog(String existing,String line){String value=String.isBlank(existing)?line:existing+'\\n'+line;return value.length()>32000?value.right(32000):value;}\n    private void addError(String message){ if(errors.size()<100) errors.add(message.left(500)); }
+    private static String stamp(String message){return '['+System.now().format('HH:mm:ss')+'] '+message;}
+    private static String appendLog(String existing,String line){String value=String.isBlank(existing)?line:existing+'\\n'+line;return value.length()>32000?value.right(32000):value;}
+    private void addError(String message){ if(errors.size()<100) errors.add(message.left(500)); }
 }
