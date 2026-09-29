@@ -26,6 +26,16 @@ public with sharing class FieldUsageController {
         return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c
                 FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys ORDER BY Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT 5000];
     }
+    @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
+        String term=String.isBlank(searchText)?null:'%'+searchText.trim()+'%'; Integer lim=Math.max(1,Math.min(rowLimit==null?500:rowLimit,2000));
+        if(term==null && String.isBlank(sourceType)) return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true ORDER BY Source_Type__c,Object_API_Name__c,Field_API_Name__c LIMIT :lim];
+        if(term==null) return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Source_Type__c=:sourceType ORDER BY Object_API_Name__c,Field_API_Name__c LIMIT :lim];
+        if(String.isBlank(sourceType)) return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND (Field_Key__c LIKE :term OR Object_API_Name__c LIKE :term OR Field_API_Name__c LIKE :term OR Component_Name__c LIKE :term OR Location__c LIKE :term OR Evidence__c LIKE :term) ORDER BY Source_Type__c,Object_API_Name__c,Field_API_Name__c LIMIT :lim];
+        return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Evidence__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Source_Type__c=:sourceType AND (Field_Key__c LIKE :term OR Object_API_Name__c LIKE :term OR Field_API_Name__c LIKE :term OR Component_Name__c LIKE :term OR Location__c LIKE :term OR Evidence__c LIKE :term) ORDER BY Object_API_Name__c,Field_API_Name__c LIMIT :lim];
+    }
+    @AuraEnabled(cacheable=true) public static List<String> getSourceTypes(){
+        List<String> out=new List<String>(); for(AggregateResult ar:[SELECT Source_Type__c n FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c GROUP BY Source_Type__c ORDER BY Source_Type__c]) out.add((String)ar.get('n')); return out;
+    }
     @AuraEnabled public static Id runNow(){ try{return FieldUsageOrchestrator.start('Manual');}catch(FieldUsageOrchestrator.ScanAlreadyRunningException ex){throw new AuraHandledException(ex.getMessage());} }
     @AuraEnabled public static void bootstrap(){ FieldUsageScheduleService.ensureDefaults(); }
     @AuraEnabled(cacheable=true) public static StatusDTO getStatus(){
