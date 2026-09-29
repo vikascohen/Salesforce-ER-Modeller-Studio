@@ -1,7 +1,7 @@
 /**
  * @author Vikas Cohen
  */
-public without sharing class FieldUsageWorkUnitBatch implements Database.Batchable<SObject>, Database.Stateful {
+public without sharing class FieldUsageWorkUnitBatch implements Database.Batchable<SObject>, Database.Stateful, Database.AllowsCallouts {
     private final Id runId; private Integer completed=0, failed=0, dependencies=0; private List<String> errors=new List<String>();
     public FieldUsageWorkUnitBatch(Id runId){this.runId=runId;}
     public Database.QueryLocator start(Database.BatchableContext bc){
@@ -20,7 +20,33 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         updateProgress();
     }
     private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit){
-        if(unit.Scanner_Type__c=='Formula'){List<String> parts=unit.Target_Key__c.split('\\|');if(parts.size()==2)return FieldUsageFormulaScanner.scanField(runId,parts[0],parts[1]);}
+        if (unit.Scanner_Type__c == 'Formula') {
+            List<String> parts = unit.Target_Key__c.split('\\|');
+            if (parts.size() == 2) {
+                return FieldUsageFormulaScanner.scanField(runId, parts[0], parts[1]);
+            }
+        }
+
+        if (unit.Scanner_Type__c == 'Apex Class' || unit.Scanner_Type__c == 'Apex Trigger') {
+            List<String> parts = unit.Target_Key__c.split('\\|', 2);
+            if (parts.isEmpty()) {
+                return new List<Field_Usage_Evidence__c>();
+            }
+
+            FieldUsageToolingApiClient.SourceComponent component =
+                unit.Scanner_Type__c == 'Apex Class'
+                    ? FieldUsageToolingApiClient.getApexClass(parts[0])
+                    : FieldUsageToolingApiClient.getApexTrigger(parts[0]);
+
+            return FieldUsageApexScanner.scan(
+                runId,
+                component.sourceType,
+                component.name,
+                component.id,
+                component.body
+            );
+        }
+
         return new List<Field_Usage_Evidence__c>();
     }
     private Integer insertIdempotent(List<Field_Usage_Evidence__c> rows){
