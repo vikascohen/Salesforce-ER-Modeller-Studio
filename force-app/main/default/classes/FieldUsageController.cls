@@ -112,9 +112,16 @@ public with sharing class FieldUsageController {
     @AuraEnabled public static void bootstrap(){ FieldUsageScheduleService.ensureDefaults(); }
     @AuraEnabled public static StatusDTO getStatus(Id runId){
         StatusDTO dto=new StatusDTO();
-        List<Field_Usage_Run__c> runs = runId == null
-            ? [SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1]
-            : [SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c WHERE Id=:runId LIMIT 1];
+        List<Field_Usage_Run__c> runs;
+        if(runId != null){
+            runs=[SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c WHERE Id=:runId LIMIT 1];
+        }else{
+            // The scan console is a live monitor. Prefer the active durable run
+            // over a newer terminal/history record so reopening the modal can
+            // never say Ready while its Batch Apex job is Processing.
+            runs=[SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c WHERE Status__c IN ('Queued','Running') ORDER BY CreatedDate DESC LIMIT 1];
+            if(runs.isEmpty()) runs=[SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
+        }
         dto.run=runs.isEmpty()?null:runs[0];
         dto.schedules=[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c];
         if(dto.run!=null && !String.isBlank(dto.run.Job_Id__c)){
