@@ -33,8 +33,9 @@ public without sharing class FieldUsageToolingDiscoveryBatch
                 sourceType == 'ApexTrigger' ? 'Apex Trigger Bulk' : 'Flow Bulk';
 
             List<Field_Usage_Work_Unit__c> units = new List<Field_Usage_Work_Unit__c>();
-            for (Integer offset = 0; offset < components.size(); offset += CHUNK_SIZE) {
-                Integer chunkEnd = Math.min(offset + CHUNK_SIZE, components.size());
+            Integer chunkSize = sourceType == 'Flow' ? 1 : CHUNK_SIZE;
+            for (Integer offset = 0; offset < components.size(); offset += chunkSize) {
+                Integer chunkEnd = Math.min(offset + chunkSize, components.size());
                 List<String> componentIds = new List<String>();
                 List<String> componentNames = new List<String>();
 
@@ -47,7 +48,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
                     Run__c = runId,
                     Work_Key__c =
                         String.valueOf(runId) + '|' + scannerType + '|' +
-                        String.valueOf(offset / CHUNK_SIZE),
+                        String.valueOf(offset / chunkSize),
                     Scanner_Type__c = scannerType,
                     Target_Key__c = String.join(componentIds, ','),
                     Status__c = 'Pending'
