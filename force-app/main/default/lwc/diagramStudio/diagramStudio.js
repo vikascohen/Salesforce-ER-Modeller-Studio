@@ -1454,9 +1454,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         // Reopening the console is a fresh view of the persisted server-side
         // run. Clear Console must not permanently hide subsequent status.
         this.fieldUsageConsoleCleared = false;
+        // Opening the console is discovery, not continuation of an old local
+        // selection. Ask Apex for the active run first; once attached, polling
+        // pins every subsequent read to that exact run id.
+        this.fieldUsageRun = null;
         try {
-            // Status comes first so opening the console attaches immediately to
-            // an existing run rather than presenting a launch-first experience.
             await this.refreshFieldUsageConsole();
             // Opening the manual scan console must never create scheduled Apex jobs.
             // Scheduling is an explicit configuration concern, not a side effect of viewing scan status.
