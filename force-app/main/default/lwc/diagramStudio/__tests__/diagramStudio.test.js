@@ -2149,6 +2149,26 @@ describe('Settings workspace', () => {
         expect(el.shadowRoot.querySelector('.help-page')).toBeNull();
     });
 
+    it('keeps credential launch failure visible and directs the user to Help', async () => {
+        runFieldUsageNow.mockRejectedValue(new Error('Named Credential Salesforce_Tooling_API is not configured'));
+        getFieldUsageStatus.mockResolvedValue({ run: null, schedules: [] });
+
+        const el = createStudio();
+        await flushPromises();
+        el.shadowRoot.querySelector('button[data-menu="diagram"]').click();
+        await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')]
+            .find((item) => item.textContent.trim() === 'Run Field Usage Scan...').click();
+        await flushPromises();
+        el.shadowRoot.querySelector('.fu-console .arch-export-btn').click();
+        await flushPromises();
+        await flushPromises();
+
+        const terminal = el.shadowRoot.querySelector('.fu-terminal').textContent;
+        expect(terminal).toContain('Salesforce_Tooling_API');
+        expect(terminal).toContain('Help → Configuration');
+    });
+
     it('keeps the scan console attached to the run id returned by launch', async () => {
         runFieldUsageNow.mockResolvedValue('a00RUN000000001');
         getFieldUsageStatus.mockResolvedValue({ run: null, schedules: [] });
