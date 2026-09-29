@@ -4,4 +4,11 @@
 @IsTest private class FieldUsageFormulaScannerTest {
  @IsTest static void tokenMatchingIsBoundarySafe(){System.assert(FieldUsageFormulaScanner.containsToken('Amount + 1','Amount'));System.assert(!FieldUsageFormulaScanner.containsToken('TotalAmount + 1','Amount'));System.assertEquals(2,FieldUsageFormulaScanner.countToken('Amount + Amount','Amount'));System.assertEquals(2,FieldUsageFormulaScanner.tokenCounts('Amount + Amount + TotalAmount').get('amount'));}
  @IsTest static void unknownObjectIsSafe(){Field_Usage_Run__c r=new Field_Usage_Run__c(Status__c='Queued');insert r;System.assertEquals(0,FieldUsageFormulaScanner.scan(r.Id,'Definitely_Not_An_Object__c').size());}
+
+ @IsTest static void qualifiedRelationshipReferenceIsNotCountedAsSameObjectField(){
+  String cleaned=FieldUsageFormulaScanner.removeQualifiedReferences('Account.Name & Name & Parent__r.Name');
+  System.assertEquals(1,FieldUsageFormulaScanner.countToken(cleaned,'Name'),'Only the unqualified same-object Name reference should remain.');
+  System.assertEquals(0,FieldUsageFormulaScanner.countToken(cleaned,'Account'));
+  System.assertEquals(0,FieldUsageFormulaScanner.countToken(cleaned,'Parent__r'));
+ }
 }
