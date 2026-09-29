@@ -70,14 +70,19 @@ public with sharing class FieldUsageController {
         dto.hasMore=page.size()>lim;if(dto.hasMore)page.remove(page.size()-1);dto.rows=page;if(!page.isEmpty())dto.nextCursor=page[page.size()-1].Id;return dto;
     }
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
-        String raw=String.isBlank(searchText)?null:searchText.trim(); Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));
-        String exactKey=raw!=null&&raw.contains('.')?raw:null; String prefix=raw==null?null:raw+'%';
-        String fields='SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true';
-        if(!String.isBlank(sourceType)) fields+=' AND Source_Type__c = :sourceType';
-        if(exactKey!=null) fields+=' AND Field_Key__c = :exactKey';
-        else if(prefix!=null) fields+=' AND (Field_Key__c LIKE :prefix OR Object_API_Name__c LIKE :prefix OR Field_API_Name__c LIKE :prefix OR Component_Name__c LIKE :prefix OR Location__c LIKE :prefix)';
-        fields+=' ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim';
-        return Database.queryWithBinds(fields,new Map<String,Object>{'sourceType'=>sourceType,'exactKey'=>exactKey,'prefix'=>prefix,'lim'=>lim},AccessLevel.USER_MODE);
+        String raw=String.isBlank(searchText)?null:searchText.trim();Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));
+        String exactKey=raw!=null&&raw.contains('.')?raw:null;String prefix=raw==null?null:raw+'%';
+        if(exactKey!=null&&!String.isBlank(sourceType))
+            return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Source_Type__c=:sourceType AND Field_Key__c=:exactKey ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim];
+        if(exactKey!=null)
+            return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:exactKey ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim];
+        if(prefix!=null&&!String.isBlank(sourceType))
+            return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Source_Type__c=:sourceType AND (Field_Key__c LIKE :prefix OR Object_API_Name__c LIKE :prefix OR Field_API_Name__c LIKE :prefix OR Component_Name__c LIKE :prefix OR Location__c LIKE :prefix) ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim];
+        if(prefix!=null)
+            return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND (Field_Key__c LIKE :prefix OR Object_API_Name__c LIKE :prefix OR Field_API_Name__c LIKE :prefix OR Component_Name__c LIKE :prefix OR Location__c LIKE :prefix) ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim];
+        if(!String.isBlank(sourceType))
+            return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Source_Type__c=:sourceType ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim];
+        return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true ORDER BY Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT :lim];
     }
     @AuraEnabled(cacheable=true) public static List<String> getSourceTypes(){
         return new List<String>{'Apex Class','Apex Trigger','Flow','Formula Field'};
