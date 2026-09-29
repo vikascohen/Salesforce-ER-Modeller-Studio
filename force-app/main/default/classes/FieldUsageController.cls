@@ -4,6 +4,19 @@
 public with sharing class FieldUsageController {
     public class StatusDTO { @AuraEnabled public Field_Usage_Run__c run; @AuraEnabled public List<Field_Usage_Schedule__c> schedules; }
     public class SnapshotDTO { @AuraEnabled public Boolean available; @AuraEnabled public Datetime completedAt; @AuraEnabled public Integer dependencyCount; }
+    public class ScheduledJobDTO {
+        @AuraEnabled public Id scheduleId;
+        @AuraEnabled public String scheduleName;
+        @AuraEnabled public Boolean enabled;
+        @AuraEnabled public Decimal hour;
+        @AuraEnabled public Decimal minute;
+        @AuraEnabled public Id cronTriggerId;
+        @AuraEnabled public String jobName;
+        @AuraEnabled public String state;
+        @AuraEnabled public Datetime nextFireTime;
+        @AuraEnabled public Datetime previousFireTime;
+        @AuraEnabled public String cronExpression;
+    }
     @AuraEnabled(cacheable=true) public static SnapshotDTO getSnapshotAvailability(){
         SnapshotDTO dto=new SnapshotDTO(); List<Field_Usage_Run__c> rows=[SELECT Completed_At__c,Dependency_Count__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
         dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c.intValue();} return dto;
@@ -94,5 +107,26 @@ public with sharing class FieldUsageController {
         dto.run=runs.isEmpty()?null:runs[0]; dto.schedules=[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c]; return dto;
     }
     @AuraEnabled public static void saveSchedules(List<Field_Usage_Schedule__c> rows){ FieldUsageScheduleService.save(rows); }
+
+    @AuraEnabled(cacheable=true) public static List<ScheduledJobDTO> getScheduledJobs(){
+        String pattern=FieldUsageScheduleService.PREFIX+'%';
+        Map<String,CronTrigger> jobsByName=new Map<String,CronTrigger>();
+        for(CronTrigger job:[SELECT Id,State,NextFireTime,PreviousFireTime,CronExpression,CronJobDetail.Name FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern]){
+            jobsByName.put(job.CronJobDetail.Name,job);
+        }
+        List<ScheduledJobDTO> out=new List<ScheduledJobDTO>();
+        for(Field_Usage_Schedule__c row:[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c]){
+            ScheduledJobDTO dto=new ScheduledJobDTO();
+            dto.scheduleId=row.Id; dto.scheduleName=row.Name; dto.enabled=row.Enabled__c; dto.hour=row.Hour__c; dto.minute=row.Minute__c; dto.jobName=row.Cron_Job_Name__c;
+            CronTrigger job=String.isBlank(row.Cron_Job_Name__c)?null:jobsByName.get(row.Cron_Job_Name__c);
+            if(job!=null){dto.cronTriggerId=job.Id;dto.state=job.State;dto.nextFireTime=job.NextFireTime;dto.previousFireTime=job.PreviousFireTime;dto.cronExpression=job.CronExpression;}
+            else dto.state=row.Enabled__c?'Not Scheduled':'Paused';
+            out.add(dto);
+        }
+        return out;
+    }
+
+    @AuraEnabled public static void pauseSchedule(Id scheduleId){ FieldUsageScheduleService.setEnabled(scheduleId,false); }
+    @AuraEnabled public static void resumeSchedule(Id scheduleId){ FieldUsageScheduleService.setEnabled(scheduleId,true); }
     @AuraEnabled public static void deleteSchedule(Id scheduleId){ if(scheduleId==null) return; delete [SELECT Id FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1]; FieldUsageScheduleService.apply(); }
 }
