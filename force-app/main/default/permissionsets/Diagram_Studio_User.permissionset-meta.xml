@@ -36,4 +36,8 @@
         <apexClass>DiagramPreferenceController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>StudioDiagnosticsController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
 </PermissionSet>
