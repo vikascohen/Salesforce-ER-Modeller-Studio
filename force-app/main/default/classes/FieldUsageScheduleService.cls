@@ -11,8 +11,8 @@ public with sharing class FieldUsageScheduleService {
             };
         }
         String pattern=PREFIX+'%';
-        Integer scheduledCount=[SELECT COUNT() FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern];
-        if(scheduledCount==0) apply();
+        List<CronTrigger> existingJobs=[SELECT Id FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern LIMIT 1];
+        if(existingJobs.isEmpty()) apply();
     }
     public static void apply() {
         String pattern=PREFIX+'%';
