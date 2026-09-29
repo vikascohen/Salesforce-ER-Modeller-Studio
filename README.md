@@ -260,8 +260,9 @@ Do **not** hard-code access tokens, session IDs, client secrets or user credenti
 ## 🛡️ ADMINISTRATOR SETUP — REQUIRED FOR FIELD USAGE
 
 > [!IMPORTANT]
-> **ADMIN ACTION REQUIRED — COMPLETE THIS ENTIRE SECTION BEFORE USING FIELD USAGE**  
-> Phase 3 requires an authenticated Salesforce Tooling API connection in every target org. The steps inside this highlighted block are the complete administrator setup for Developer Edition, sandboxes, SIT/UAT and production.  
+> **ADMIN ACTION REQUIRED — THIS IS A ONE-TIME SETUP STEP FOR EACH SALESFORCE ORG**  
+> This configuration is an important prerequisite for **Apex Class and Apex Trigger scanning** in Phase 3. Field Usage uses the Salesforce Tooling API to discover and analyse Apex dependencies, so the Apex scan cannot run successfully until this connection is configured and authenticated.  
+> Complete this setup once in each target org (Developer Edition, sandbox, SIT/UAT or production). After it is configured, normal users do not need to repeat these OAuth setup steps every time they run a Field Usage scan.  
 > **Do not skip the principal-access step. Do not copy OAuth tokens or secrets between environments.**
 
 <div style="border: 3px solid #0176d3; border-radius: 10px; padding: 18px; background-color: #eef7ff;">
