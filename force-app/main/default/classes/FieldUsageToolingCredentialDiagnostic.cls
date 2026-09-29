@@ -1,4 +1,4 @@
-public with sharing class FieldUsageToolingCredentialDiagnostic {
+public without sharing class FieldUsageToolingCredentialDiagnostic {
     @AuraEnabled
     public static String run() {
         HttpRequest req = new HttpRequest();
