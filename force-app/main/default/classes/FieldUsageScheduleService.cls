@@ -4,7 +4,8 @@
 public with sharing class FieldUsageScheduleService {
     private static final String PREFIX='ER Modeller Field Usage ';
     public static void ensureDefaults() {
-        if([SELECT COUNT() FROM Field_Usage_Schedule__c]=0) {
+        List<Field_Usage_Schedule__c> configuredSchedules=[SELECT Id FROM Field_Usage_Schedule__c LIMIT 1];
+        if(configuredSchedules.isEmpty()) {
             insert new List<Field_Usage_Schedule__c>{
                 new Field_Usage_Schedule__c(Name='Early Morning',Enabled__c=true,Hour__c=3,Minute__c=0),
                 new Field_Usage_Schedule__c(Name='Night',Enabled__c=true,Hour__c=21,Minute__c=0)
