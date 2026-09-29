@@ -11,11 +11,13 @@ public with sharing class FieldUsageScheduleService {
             };
         }
         String pattern=PREFIX+'%';
-        if([SELECT COUNT() FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern]=0) apply();
+        Integer scheduledCount=[SELECT COUNT() FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern];
+        if(scheduledCount==0) apply();
     }
     public static void apply() {
         String pattern=PREFIX+'%';
-        for(CronTrigger ct:[SELECT Id,CronJobDetail.Name FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern]) System.abortJob(ct.Id);
+        List<CronTrigger> scheduledJobs=[SELECT Id,CronJobDetail.Name FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern];
+        for(CronTrigger ct:scheduledJobs) System.abortJob(ct.Id);
         List<Field_Usage_Schedule__c> rows=[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c];
         for(Field_Usage_Schedule__c row:rows) {
             validate(row);
