@@ -31,7 +31,10 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
     private static List<String> rowsFieldKeys(List<Field_Usage_Evidence__c> rows){List<String> out=new List<String>();for(Field_Usage_Evidence__c r:rows)out.add(r.Field_Key__c);return out;}
     private void updateProgress(){Integer total=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];Integer done=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Completed'];Integer pct=total==0?95:Math.min(95,5+(done*90/total));Integer evidence=[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:runId];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Objects_Processed__c=done,Objects_Total__c=total,Dependency_Count__c=evidence,Error_Count__c=failures,Progress_Percent__c=pct,Progress_Phase__c='Processing resumable work units');}
     public void finish(Database.BatchableContext bc){
-        Integer remaining=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
-        if(remaining>0){Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);return;}FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
+        List<Field_Usage_Work_Unit__c> remaining=[SELECT Id,Status__c,Last_Error__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
+        AsyncApexJob job=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:bc.getJobId()];
+        if(!remaining.isEmpty()&&job.NumberOfErrors>0){for(Field_Usage_Work_Unit__c unit:remaining){unit.Status__c='Failed';unit.Last_Error__c='Worker transaction rolled back before checkpoint completion. Review the scanner target and rerun after correction.';}update remaining;failures+=remaining.size();errors.add('One or more worker transactions were rolled back by the platform; the incomplete work units were retained and marked Failed.');}
+        else if(!remaining.isEmpty()){Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);return;}
+        FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
     }
 }
