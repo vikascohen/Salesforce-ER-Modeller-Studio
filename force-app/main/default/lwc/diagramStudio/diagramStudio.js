@@ -1525,7 +1525,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async initialiseFieldImpact(){this.fieldImpactLoading=true;this.clearFieldImpact(false);try{const [info,status]=await Promise.all([fieldImpactSnapshot(),fieldUsageGetStatus()]);this.fieldImpactSnapshotInfo=info;this.fieldImpactAvailable=!!info?.available;this.fieldImpactBatchStatus=status?.run?.Status__c||'';this.fieldImpactBatchRunning=['Queued','Running'].includes(this.fieldImpactBatchStatus);if(this.fieldImpactAvailable){this.fieldImpactBatchRunning=false;this.fieldImpactObjects=await fieldImpactObjects();this.fieldImpactSourceTypes=await fieldUsageGetSourceTypes();}}catch(e){this.architectureError='Field Change Impact: '+this.reduceError(e);}finally{this.fieldImpactLoading=false;}}
-    get fieldImpactEmpty(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&!this.fieldImpactBatchRunning;}\n    get fieldImpactWaitingForBatch(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&this.fieldImpactBatchRunning;}
+    get fieldImpactEmpty(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&!this.fieldImpactBatchRunning;}
+    get fieldImpactWaitingForBatch(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&this.fieldImpactBatchRunning;}
     get fieldImpactReady(){return !this.fieldImpactLoading&&this.fieldImpactAvailable;}
     get fieldImpactFilteredObjects(){const q=(this.fieldImpactObjectSearch||'').toLowerCase(),model=new Set((this._erBoxes||[]).map(x=>(x.name||'').toLowerCase()));return this.fieldImpactObjects.filter(x=>(!model.size||model.has(x.toLowerCase()))&&(!q||x.toLowerCase().includes(q))).map(x=>({label:x,value:x}));}
     get fieldImpactSourceOptions(){return [{label:'All indexed sources',value:''},...this.fieldImpactSourceTypes.map(x=>({label:x,value:x}))];}
