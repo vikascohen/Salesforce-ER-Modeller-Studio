@@ -49,5 +49,12 @@
   System.assertNotEquals(null,latest.run,'Unpinned callers should still receive a run.');
   System.assert(new Set<Id>{older.Id,newer.Id}.contains(latest.run.Id),'Unpinned status must return one of the runs created in this test; CreatedDate ties are not ordered deterministically inside one test transaction.');
  }
+ @IsTest static void unpinnedStatusPrefersActiveRunOverTerminalHistory(){
+  Field_Usage_Run__c active=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=1,Progress_Phase__c='Discovering scan work');insert active;
+  Field_Usage_Run__c terminal=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert terminal;
+  FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);
+  System.assertEquals(active.Id,status.run.Id,'Opening the live console must attach to an active run rather than terminal history.');
+  System.assertEquals('Running',status.run.Status__c);
+ }
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
