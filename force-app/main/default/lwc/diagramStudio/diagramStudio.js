@@ -1264,7 +1264,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
     handleMenuClearCanvas()    { this.openMenu = null; this.handleClearCanvas(); }
     handleMenuSharingView()    { this.openMenu = null; this.handleToggleSharingView(); }
-    handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }\n    handleMenuRunFieldUsage() { this.handleOpenFieldUsageConsole(); }
+    handleMenuDataDictionary() { this.openMenu = null; this.handleToggleDictionary(); }
+    handleMenuRunFieldUsage() { this.handleOpenFieldUsageConsole(); }
     handleMenuHeatmap()        { this.openMenu = null; this.handleToggleHeatmap(); }
     handleMenuArchitecture()   {
         this.openMenu = null;
