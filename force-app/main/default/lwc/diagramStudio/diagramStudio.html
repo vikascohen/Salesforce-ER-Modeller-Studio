@@ -877,8 +877,9 @@
         <div class="fu-console-backdrop"><section class="fu-console">
             <header><div><div class="arch-kicker">FIELD USAGE BATCH</div><h2>Org Snapshot Activity</h2></div><button class="modal-close" onclick={handleCloseFieldUsageConsole}>x</button></header>
             <div class="fu-progress-head"><strong>{fieldUsagePhase}</strong><span>{fieldUsageProgress}%</span></div><div class="fu-progress"><div style={fieldUsageProgressStyle}></div></div>
-            <div class="fu-terminal" role="log"><template for:each={fieldUsageConsoleLines} for:item="line"><div key={line.key}>{line.text}</div></template><template if:true={fieldUsageNoConsoleLines}><div>[ready] No scan activity yet. Launch a scan or wait for the next automatic schedule.</div></template></div>
-            <footer><template if:true={fieldUsageCanCleanConsole}><button class="arch-action-btn" onclick={handleCleanFieldUsageConsole}>Clean Console</button></template><button class="arch-action-btn" onclick={handleCloseFieldUsageConsole}>Close</button><button class="arch-action-btn" onclick={handleCloseFieldUsageConsole}>Back to Diagram</button><button class="arch-action-btn arch-export-btn" onclick={handleLaunchFieldUsageScan} disabled={fieldUsageRunning}>Launch Batch Now</button></footer>
+            <div class="fu-console-status">{fieldUsageRunStatusText}</div>
+            <div class="fu-terminal" role="log" aria-live="polite"><template for:each={fieldUsageConsoleLines} for:item="line"><div key={line.key}>{line.text}</div></template><template if:true={fieldUsageNoConsoleLines}><div>[ready] No scan activity yet.</div></template></div>
+            <footer><template if:true={fieldUsageCanCleanConsole}><button class="arch-action-btn" onclick={handleCleanFieldUsageConsole}>Clean Console</button></template><button class="arch-action-btn" onclick={handleCloseFieldUsageConsole}>Close</button><button class="arch-action-btn" onclick={handleCloseFieldUsageConsole}>Back to Diagram</button><template if:true={fieldUsageIdle}><button class="arch-action-btn arch-export-btn" onclick={handleLaunchFieldUsageScan}>Launch Batch Now</button></template></footer>
         </section></div>
     </template>
 
