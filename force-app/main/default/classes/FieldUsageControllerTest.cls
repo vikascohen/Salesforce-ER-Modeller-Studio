@@ -17,9 +17,10 @@
   System.assertEquals(new List<String>{'Name'},FieldUsageController.getSnapshotFields('Account'));
   List<FieldUsageController.EvidenceSummaryDTO> summary=FieldUsageController.getEvidenceSummary('Account',new List<String>{'Name','Industry'});
   System.assertEquals(1,summary.size());System.assertEquals('Name',summary[0].fieldApiName);System.assertEquals('Apex Class',summary[0].sourceType);System.assertEquals(1,summary[0].evidenceRows);
-  List<Field_Usage_Evidence__c> detail=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500);
-  System.assertEquals(1,detail.size());System.assertEquals('AccountService',detail[0].Component_Name__c);
-  System.assertEquals(0,FieldUsageController.getEvidenceDetail('Account','Industry','Apex Class',500).size());
+  FieldUsageController.EvidenceDetailPageDTO detail=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500,null);
+  System.assertEquals(1,detail.rows.size());System.assertEquals('AccountService',detail.rows[0].Component_Name__c);System.assertEquals(false,detail.hasMore);System.assertEquals(detail.rows[0].Id,detail.nextCursor);
+  FieldUsageController.EvidenceDetailPageDTO afterLast=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500,detail.nextCursor);System.assertEquals(0,afterLast.rows.size());
+  System.assertEquals(0,FieldUsageController.getEvidenceDetail('Account','Industry','Apex Class',500,null).rows.size());
   System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
   System.assertEquals(new List<String>{'Formula Field'},FieldUsageController.getSourceTypes());
  }
