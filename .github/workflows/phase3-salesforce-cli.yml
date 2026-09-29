@@ -1,0 +1,50 @@
+name: Phase 3 Salesforce CLI Validation
+
+on:
+  push:
+    branches:
+      - version-3-field-usage-intelligence
+  pull_request:
+    branches:
+      - version-3-field-usage-intelligence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Metadata and Apex
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Verify Salesforce CLI
+        run: sf version
+
+      - name: Authenticate CI org
+        shell: bash
+        env:
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
+        run: |
+          if [ -z "$SFDX_AUTH_URL" ]; then
+            echo "::error::Repository secret SFDX_AUTH_URL is not configured."
+            exit 1
+          fi
+          printf '%s' "$SFDX_AUTH_URL" > /tmp/sfdx-auth-url.txt
+          sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias phase3-ci --set-default
+          rm -f /tmp/sfdx-auth-url.txt
+
+      - name: Validate Phase 3 source and run Apex tests
+        run: |
+          sf project deploy validate \
+            --source-dir force-app \
+            --target-org phase3-ci \
+            --test-level RunLocalTests \
+            --wait 40
