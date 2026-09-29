@@ -9,20 +9,52 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         return Database.getQueryLocator([SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running') ORDER BY CreatedDate]);
     }
     public void execute(Database.BatchableContext bc,List<SObject> scope){
-        for(SObject raw:scope){ Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;
-            unit.Status__c='Running';unit.Attempt_Count__c=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c)+1;update unit;
-            Savepoint workUnitSavepoint=Database.setSavepoint();
+        for(SObject raw:scope){
+            Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;
+            Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c)+1;
+            List<Field_Usage_Evidence__c> rows;
             try{
-                List<Field_Usage_Evidence__c> rows=scan(unit); Integer inserted=insertIdempotent(rows);dependencies+=inserted;
-                unit.Status__c='Completed';unit.Completed_At__c=System.now();unit.Last_Error__c=null;update unit;completed++;
-            }catch(Exception ex){
-                Database.rollback(workUnitSavepoint);
-                unit=[SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Id=:unit.Id];
-                unit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000); if(unit.Attempt_Count__c < MAX_ATTEMPTS){unit.Status__c='Pending';}else{unit.Status__c='Failed';failed++;if(errors.size()<100)errors.add(unit.Target_Key__c+': '+unit.Last_Error__c.left(500));} update unit;
+                // Callout-capable scanning must happen before any DML or savepoint in this transaction.
+                rows=scan(unit);
+            }catch(Exception scanEx){
+                checkpointFailure(unit.Id,nextAttempt,scanEx);
+                continue;
+            }
+
+            Savepoint persistenceSavepoint=Database.setSavepoint();
+            try{
+                unit.Attempt_Count__c=nextAttempt;
+                unit.Status__c='Running';
+                update unit;
+                Integer inserted=insertIdempotent(rows);
+                dependencies+=inserted;
+                unit.Status__c='Completed';
+                unit.Completed_At__c=System.now();
+                unit.Last_Error__c=null;
+                update unit;
+                completed++;
+            }catch(Exception persistenceEx){
+                Database.rollback(persistenceSavepoint);
+                checkpointFailure(unit.Id,nextAttempt,persistenceEx);
             }
         }
         updateProgress();
     }
+
+    private void checkpointFailure(Id unitId,Integer attempt,Exception ex){
+        Field_Usage_Work_Unit__c failedUnit=[SELECT Id,Target_Key__c FROM Field_Usage_Work_Unit__c WHERE Id=:unitId];
+        failedUnit.Attempt_Count__c=attempt;
+        failedUnit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000);
+        if(attempt<MAX_ATTEMPTS){
+            failedUnit.Status__c='Pending';
+        }else{
+            failedUnit.Status__c='Failed';
+            failed++;
+            if(errors.size()<100)errors.add(failedUnit.Target_Key__c+': '+failedUnit.Last_Error__c.left(500));
+        }
+        update failedUnit;
+    }
+
     private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit) {
         if (unit.Scanner_Type__c == 'Formula') {
             List<String> parts = unit.Target_Key__c.split('\\|');
