@@ -794,6 +794,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // Phase 2 workspace presentation only. These controls never alter DSL text or compiler behaviour.
     @track dslMaximised = false;
+    @track dslWordWrap = false;
+    @track dslScrollTop = 0;
     @track canvasMaximised = false;
     @track canvasFitActive = false;
     @track canvasSummaryVisible = false;
@@ -803,6 +805,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }
     get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }
     get dslMaximiseLabel(){ return this.dslMaximised?'Restore':'Maximise'; }
+    get dslWrapLabel(){ return this.dslWordWrap?'Wrap: On':'Wrap: Off'; }
+    get dslWrapAttribute(){ return this.dslWordWrap?'soft':'off'; }
+    get dslEditorClass(){ return 'code-editor'+(this.dslWordWrap?' code-editor-wrap':''); }
+    get dslLineNumbers(){
+        const count=Math.max(1,(this.sourceText||'').split('\n').length);
+        return Array.from({length:count},(_,index)=>({key:'dsl-line-'+(index+1),number:index+1}));
+    }
+    get dslLineNumberStyle(){ return `transform:translateY(-${this.dslScrollTop}px)`; }
+    handleToggleDslWrap(){
+        this.dslWordWrap=!this.dslWordWrap;
+        this.dslSuggestOpen=false;
+        requestAnimationFrame(()=>{
+            const ta=this.template.querySelector('.code-editor');
+            if(ta) this.dslScrollTop=ta.scrollTop||0;
+        });
+    }
     get canvasMaximiseLabel(){ return this.canvasMaximised?'Restore':'Maximise'; }
     get canvasHasModel(){ return (this._erBoxes||[]).length>0; }
     get canvasRelationshipSummary(){
@@ -3464,8 +3482,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.updateDslSuggestions(event.target);
     }
 
-    handleDslScroll() {
+    handleDslScroll(event) {
         this.dslSuggestOpen = false;
+        this.dslScrollTop = event?.target?.scrollTop || 0;
     }
 
     handleDslBlur() {
