@@ -87,7 +87,7 @@ public with sharing class StudioDiagnosticsController {
 
         try{
             FieldUsageToolingApiClient.assertConnectionReady();
-            dto.checks.add(new CheckDTO('tooling','Tooling API Connection','Passed','Salesforce Tooling API '+TOOLING_API_VERSION+' authenticated successfully through Salesforce_Tooling_API.',''));
+            dto.checks.add(new CheckDTO('tooling','Tooling API Connection','Passed','Salesforce Tooling API '+TOOLING_API_VERSION+' authenticated successfully through Salesforce_Tooling_API.',null).withDiagnosis('Authenticated and reachable'));
         }catch(Exception ex){
             dto.checks.add(buildToolingFailure(ex));
         }
@@ -133,6 +133,56 @@ public with sharing class StudioDiagnosticsController {
         check.addStep('If Salesforce returned an HTTP status or authentication message above, use that evidence to correct the matching credential, principal, permission or OAuth configuration.');
         check.addStep('After making the change, return here and run Diagnostics again before starting a Field Usage scan.');
         return check;
+    }
+
+    private static CheckDTO buildToolingFailure(Exception ex){
+        String raw=safeMessage(ex), lower=raw.toLowerCase();
+        String diagnosis='Tooling API configuration could not be verified', detail=raw;
+        List<String> actions=new List<String>();
+        Boolean principalSignal=lower.contains('external credential')||lower.contains('principal')||lower.contains('user external credential');
+        Boolean namedSignal=lower.contains('named credential')||lower.contains('salesforce_tooling_api')||lower.contains('callout');
+        Boolean authSignal=lower.contains('unauthorized')||lower.contains('authentication')||lower.contains('oauth')||lower.contains('401')||lower.contains('403')||lower.contains('access denied')||lower.contains('not authorized');
+        Boolean endpointSignal=lower.contains('404')||lower.contains('not found')||lower.contains('endpoint');
+        if(principalSignal||(authSignal&&namedSignal)){
+            diagnosis='Likely External Credential Principal access or authentication issue';
+            detail='The preflight returned an authentication/access failure. Salesforce does not expose enough protected credential metadata to prove which setting is missing, so check these likely causes first. Evidence: '+raw;
+            actions.add('Open Setup → Permission Sets and open the permission set assigned to the running user.');
+            actions.add('Open External Credential Principal Access and confirm the principal used by Salesforce_Tooling_API is enabled.');
+            actions.add('Confirm that permission set is assigned to the running user. Studio Apex/class access alone does not grant External Credential Principal access.');
+            actions.add('Open Setup → Named Credentials and confirm Salesforce_Tooling_API exists and references the intended External Credential.');
+            actions.add('Open the External Credential and confirm its principal is configured and authentication has been completed where required.');
+        }else if(namedSignal){
+            diagnosis='Named Credential configuration issue';
+            actions.add('Open Setup → Named Credentials and confirm Salesforce_Tooling_API exists with that exact API name.');
+            actions.add('Confirm Salesforce_Tooling_API references the intended External Credential and endpoint.');
+            actions.add('Confirm the running user has access through the configured External Credential Principal.');
+        }else if(endpointSignal){
+            diagnosis='Tooling API endpoint or API version issue';
+            actions.add('Confirm the Named Credential endpoint targets the correct Salesforce org/domain.');
+            actions.add('Confirm Tooling API '+TOOLING_API_VERSION+' is supported by this org.');
+        }else if(authSignal){
+            diagnosis='Tooling API authentication or authorisation issue';
+            actions.add('Confirm the External Credential authentication is valid and has not expired or been revoked.');
+            actions.add('Confirm External Credential Principal Access is granted to the running user through a Permission Set.');
+            actions.add('Confirm the running user has Salesforce API access required by the Tooling API.');
+        }else{
+            diagnosis='Tooling API request failed — configuration requires review';
+            actions.add('Review the error evidence shown above, then verify the connection configuration below.');
+        }
+        addCommonToolingChecks(actions);
+        return new CheckDTO('tooling','Tooling API Connection','Failed',detail,'Diagnostics identified the most likely failure area. Work through the checks below, then run Diagnostics again.').withDiagnosis(diagnosis).withActions(actions);
+    }
+    private static void addCommonToolingChecks(List<String> actions){
+        List<String> common=new List<String>{
+            'Confirm the ER Modeller Studio permission set is assigned to the running user.',
+            'Confirm the running user has External Credential Principal Access for the principal used by Salesforce_Tooling_API.',
+            'Confirm the Named Credential and External Credential are active and correctly linked.',
+            'Confirm authentication/token state is valid and complete.',
+            'Confirm the running user has Salesforce API access required for Tooling API queries.',
+            'Confirm the org permits API access and Tooling API '+TOOLING_API_VERSION+' is available.',
+            'After correcting configuration, return here and run Diagnostics again.'
+        };
+        for(String item:common)if(!actions.contains(item))actions.add(item);
     }
 
     private static String resolveNamespace(){
