@@ -22,6 +22,8 @@ import getFieldUsageStats from '@salesforce/apex/SchemaMetadataController.getFie
 import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSchemaReferences';
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
+import getStudioSystemInfo from '@salesforce/apex/StudioDiagnosticsController.getSystemInfo';
+import runStudioDiagnostics from '@salesforce/apex/StudioDiagnosticsController.runDiagnostics';
 import fieldUsageGetObjects from '@salesforce/apex/FieldUsageController.getObjects';
 import fieldUsageGetFields from '@salesforce/apex/FieldUsageController.getFields';
 import fieldUsageGetEvidence from '@salesforce/apex/FieldUsageController.getEvidence';
@@ -263,6 +265,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track settingsJobs = [];
     @track settingsBusy = false;
     @track settingsMessage = '';
+    @track systemInfo = null;
+    @track systemInfoBusy = false;
+    @track diagnosticsOpen = false;
+    @track diagnosticsRunning = false;
+    @track diagnosticsStage = '';
+    @track diagnosticsResult = null;
+    @track diagnosticsChecks = [];
     settingsScheduleSeq = 0;
     @track currentTheme = 'theme-dark-plus';
     sheetJsLoaded = false;
@@ -1262,16 +1271,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.settingsMessage = 'Theme is previewed, but could not be saved: ' + this.reduceError(e);
         }
     }
-    handleThemeChangeAndSaveLegacy(event) {
-        this.currentTheme = event.target.value;
-        saveTheme({ theme: this.currentTheme }).catch((e) => {
-            // The theme still applies for this session either way — but
-            // surface the failure rather than swallowing it silently, since
-            // a silent failure here looks identical to "my theme choice
-            // never sticks," which is exactly the bug this is meant to catch.
-            this.errorMessage = 'Theme applied, but saving it for next time failed: ' + this.reduceError(e);
-        });
-    }
     get fileMenuOpen()    { return this.openMenu === 'file'; }
     get diagramMenuOpen() { return this.openMenu === 'diagram'; }
     get viewMenuOpen()    { return this.openMenu === 'view'; }
@@ -1306,10 +1305,59 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     get settingsScheduleSectionOpen(){return this.settingsSection==='field-usage-schedule';}
     get settingsThemeSectionOpen(){return this.settingsSection==='theme';}
+    get settingsSystemSectionOpen(){return this.settingsSection==='system-information';}
+    get settingsDiagnosticsSectionOpen(){return this.settingsSection==='diagnostics';}
     get settingsScheduleNavClass(){return this.settingsScheduleSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
     get settingsThemeNavClass(){return this.settingsThemeSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
+    get settingsSystemNavClass(){return this.settingsSystemSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
+    get settingsDiagnosticsNavClass(){return this.settingsDiagnosticsSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
     handleSettingsScheduleSection(){this.settingsSection='field-usage-schedule';this.settingsMessage='';}
     handleSettingsThemeSection(){this.settingsSection='theme';this.settingsMessage='';}
+    async handleSettingsSystemSection(){this.settingsSection='system-information';this.settingsMessage='';await this.loadSystemInfo();}
+    handleSettingsDiagnosticsSection(){this.settingsSection='diagnostics';this.settingsMessage='';}
+    async loadSystemInfo(){
+        this.systemInfoBusy=true;
+        try{this.systemInfo=await getStudioSystemInfo();}
+        catch(e){this.settingsMessage='Could not load system information: '+this.reduceError(e);}
+        finally{this.systemInfoBusy=false;}
+    }
+    get systemNamespace(){return this.systemInfo?.namespacePrefix||'—';}
+    get systemStudioVersion(){return this.systemInfo?.studioVersion||'—';}
+    get systemToolingVersion(){return this.systemInfo?.toolingApiVersion||'—';}
+    get systemSalesforceApiVersion(){return this.systemInfo?.salesforceApiVersion||'—';}
+    get systemEnvironment(){return this.systemInfo?.environmentType||'—';}
+    get systemOrganisationId(){return this.systemInfo?.organisationId||'—';}
+    get systemRunningUser(){return this.systemInfo?.runningUser||'—';}
+    get diagnosticsOverallClass(){
+        const s=this.diagnosticsResult?.overallStatus||'';
+        return 'diag-overall '+(s==='Application Ready'?'diag-ready':s==='Attention Required'?'diag-attention':'diag-required');
+    }
+    get diagnosticsOverallStatus(){return this.diagnosticsResult?.overallStatus||'Not run yet';}
+    get diagnosticsSummary(){return this.diagnosticsResult?.summary||'Run diagnostics to verify whether ER Modeller Studio is ready to work in this Salesforce org.';}
+    get diagnosticsCompletedAt(){return this.diagnosticsResult?.completedAt||'—';}
+    get diagnosticsButtonLabel(){return this.diagnosticsResult?'Run Again':'Run Diagnostics';}
+    get diagnosticsHasResults(){return !!this.diagnosticsResult;}
+    async handleRunDiagnostics(){
+        if(this.diagnosticsRunning)return;
+        this.diagnosticsOpen=true;this.diagnosticsRunning=true;this.diagnosticsResult=null;this.diagnosticsChecks=[];
+        const stages=['Preparing Studio self-test…','Checking application runtime and data model…','Checking Field Usage snapshot and Batch Apex state…','Checking scheduler configuration…','Authenticating Salesforce Tooling API…'];
+        for(const stage of stages){this.diagnosticsStage=stage;await new Promise(resolve=>setTimeout(resolve,180));}
+        try{
+            const result=await runStudioDiagnostics();
+            this.diagnosticsStage='Building diagnostic report…';
+            const rows=result?.checks||[];
+            this.diagnosticsChecks=[];
+            for(const row of rows){
+                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
+                await new Promise(resolve=>setTimeout(resolve,90));
+            }
+            this.diagnosticsResult=result;
+        }catch(e){
+            this.diagnosticsResult={overallStatus:'Configuration Required',summary:'Diagnostics could not complete: '+this.reduceError(e),completedAt:new Date().toLocaleString()};
+        }finally{this.diagnosticsRunning=false;this.diagnosticsStage='Diagnostic run complete.';}
+    }
+    handleCloseDiagnostics(){if(!this.diagnosticsRunning)this.diagnosticsOpen=false;}
+    handleBackToDiagnosticsSettings(){if(!this.diagnosticsRunning)this.diagnosticsOpen=false;}
     get settingsConfigurationTabClass(){return this.settingsTab==='configuration'?'settings-tab settings-tab-active':'settings-tab';}
     get settingsJobsTabClass(){return this.settingsTab==='jobs'?'settings-tab settings-tab-active':'settings-tab';}
     get settingsConfigurationOpen(){return this.settingsTab==='configuration';}
