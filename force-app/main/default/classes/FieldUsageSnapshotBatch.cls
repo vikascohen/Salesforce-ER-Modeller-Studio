@@ -9,7 +9,7 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
         List<String> names=new List<String>();
         for(String apiName:gd.keySet()) {
             Schema.DescribeSObjectResult d=gd.get(apiName).getDescribe();
-            if(d.isAccessible() && d.isQueryable()) names.add(apiName);
+            if(d.isAccessible() && d.isQueryable() && d.fields.getMap().size()>1 && hasCalculatedField(d.fields.getMap())) names.add(apiName);
         }
         names.sort(); totalCount=names.size(); update new Field_Usage_Run__c(Id=runId,Objects_Total__c=totalCount,Progress_Percent__c=1,Progress_Phase__c='Discovering org metadata',Progress_Log__c=stamp('Discovered '+totalCount+' queryable objects. Starting dependency scanners.')); return names;
     }
@@ -49,6 +49,7 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
             try { update new Field_Usage_Run__c(Id=runId,Status__c='Failed',Completed_At__c=System.now(),Errors__c=ex.getTypeName()+': '+ex.getMessage(),Is_Current__c=false); } catch(Exception ignored) {}
         }
     }
+    @TestVisible private static Boolean hasCalculatedField(Map<String,Schema.SObjectField> fields){for(Schema.SObjectField f:fields.values())if(f.getDescribe().isCalculated())return true;return false;}
     private static String stamp(String message){return '['+System.now().format('HH:mm:ss')+'] '+message;}
     private static String appendLog(String existing,String line){String value=String.isBlank(existing)?line:existing+'\\n'+line;return value.length()>32000?value.right(32000):value;}
     private void addError(String message){ if(errors.size()<100) errors.add(message.left(500)); }
