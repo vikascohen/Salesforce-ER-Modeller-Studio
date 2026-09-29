@@ -1508,7 +1508,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
         } catch (e) {
             const message = this.reduceError(e);
-            await this.refreshFieldUsageConsole();
+            // A launch failure must not be replaced by a second status failure.
+            // Refresh is best-effort so the original credential/concurrency
+            // message always reaches the console and Help guidance below.
+            try {
+                await this.refreshFieldUsageConsole();
+            } catch (refreshError) {
+                this.stopFieldUsagePolling();
+            }
             if (/already running/i.test(message)) {
                 // This is a normal concurrency guard, not a canvas-level error.
                 // Keep the console open and attach to the existing run instead.
