@@ -29,9 +29,9 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         if(fresh.isEmpty())return 0;Database.SaveResult[] results=Database.insert(fresh,false);Integer n=0;for(Database.SaveResult sr:results)if(sr.isSuccess())n++;else{failed++;if(errors.size()<100)errors.add('Evidence insert: '+sr.getErrors()[0].getMessage().left(450));}return n;
     }
     private static List<String> rowsFieldKeys(List<Field_Usage_Evidence__c> rows){List<String> out=new List<String>();for(Field_Usage_Evidence__c r:rows)out.add(r.Field_Key__c);return out;}
-    private void updateProgress(){AggregateResult ar=[SELECT COUNT(Id) total,COUNT_DISTINCT(Target_Key__c) targets FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];Integer total=(Integer)ar.get('total');Integer done=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Completed'];Integer pct=total==0?95:Math.min(95,5+(done*90/total));update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Objects_Processed__c=done,Objects_Total__c=total,Dependency_Count__c=dependencies,Error_Count__c=failed,Progress_Percent__c=pct,Progress_Phase__c='Processing resumable work units');}
+    private void updateProgress(){Integer total=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];Integer done=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Completed'];Integer pct=total==0?95:Math.min(95,5+(done*90/total));update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Objects_Processed__c=done,Objects_Total__c=total,Dependency_Count__c=dependencies,Error_Count__c=failed,Progress_Percent__c=pct,Progress_Phase__c='Processing resumable work units');}
     public void finish(Database.BatchableContext bc){
-        Integer pending=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
+        Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
         FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
     }
 }
