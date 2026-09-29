@@ -30,7 +30,6 @@ import fieldUsageBootstrap from '@salesforce/apex/FieldUsageController.bootstrap
 import fieldUsageGetStatus from '@salesforce/apex/FieldUsageController.getStatus';
 import fieldImpactSnapshot from '@salesforce/apex/FieldUsageController.getSnapshotAvailability';
 import fieldImpactObjects from '@salesforce/apex/FieldUsageController.getSnapshotObjects';
-import fieldImpactFields from '@salesforce/apex/FieldUsageController.getSnapshotFields';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
@@ -1364,7 +1363,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fieldImpactFilteredObjects(){const q=(this.fieldImpactObjectSearch||'').toLowerCase(),model=new Set((this._erBoxes||[]).map(x=>(x.name||'').toLowerCase()));return this.fieldImpactObjects.filter(x=>(!model.size||model.has(x.toLowerCase()))&&(!q||x.toLowerCase().includes(q))).map(x=>({label:x,value:x}));}
     get fieldImpactFilteredFields(){const q=(this.fieldImpactFieldSearch||'').toLowerCase();return this.fieldImpactFields.filter(x=>!q||x.toLowerCase().includes(q)).map(x=>({label:x,value:x}));}
     handleFieldImpactObjectSearch(e){this.fieldImpactObjectSearch=e.target.value||'';} handleFieldImpactFieldSearch(e){this.fieldImpactFieldSearch=e.target.value||'';}
-    async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldImpactFields({objectApiName:this.fieldImpactObject}):[];}
+    async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldUsageGetFields({objectApiName:this.fieldImpactObject}):[];}
     async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidence({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];}
     clearFieldImpact(clearAvailability=true){this.fieldImpactObject='';this.fieldImpactField='';this.fieldImpactObjectSearch='';this.fieldImpactFieldSearch='';this.fieldImpactFields=[];this.fieldImpactEvidence=[];this.fieldImpactZoom=1;if(clearAvailability){this.fieldImpactAvailable=false;this.fieldImpactObjects=[];this.fieldImpactSnapshotInfo=null;}}
     handleFieldImpactClear(){this.clearFieldImpact(false);}
