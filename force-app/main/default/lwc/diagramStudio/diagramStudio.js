@@ -256,6 +256,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track settingsOpen = false;
     @track helpOpen = false;
     @track helpSection = 'configuration';
+    @track helpManualSearch = '';
     @track settingsSection = 'field-usage-schedule';
     @track settingsTab = 'configuration';
     @track settingsSchedules = [];
@@ -1272,6 +1273,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuHelpUserManual(){ this.openMenu=null; this.helpOpen=true; this.helpSection='manual'; }
     handleHelpConfiguration(){ this.helpSection='configuration'; }
     handleHelpUserManual(){ this.helpSection='manual'; }
+    handleHelpManualSearch(event){
+        this.helpManualSearch=(event.target.value||'').trim().toLowerCase();
+        const query=this.helpManualSearch;
+        this.template.querySelectorAll('.help-manual-section').forEach(section=>{
+            const haystack=((section.dataset.search||'')+' '+(section.textContent||'')).toLowerCase();
+            section.hidden=!!query && !haystack.includes(query);
+        });
+    }
+    handleClearHelpManualSearch(){
+        this.helpManualSearch='';
+        const input=this.template.querySelector('.help-manual-search'); if(input) input.value='';
+        this.template.querySelectorAll('.help-manual-section').forEach(section=>{section.hidden=false;});
+    }
     handleCloseHelp(){ this.helpOpen=false; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
