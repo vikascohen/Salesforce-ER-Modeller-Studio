@@ -229,7 +229,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // Phase 3 — Field Usage Intelligence
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageLoading=false; @track fieldUsageSnapshotAvailable=false; @track fieldUsageBatchRunning=false; @track fieldUsageEntryMessage='';
-    @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
+    @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null; @track fieldUsageObjectSearch=''; @track fieldUsageFieldSearch='';
     @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track fieldUsageConsoleCleared=false; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactBatchRunning=false; @track fieldImpactBatchStatus=''; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
@@ -1798,15 +1798,29 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     get fieldUsageObjectOptions() {
-        return (this.fieldUsageObjects || []).map((name) => ({ label: name, value: name }));
+        const q=(this.fieldUsageObjectSearch||'').trim().toLowerCase();
+        return (this.fieldUsageObjects || []).filter(name=>!q||name.toLowerCase().includes(q)).map((name) => ({
+            label: name, value: name, selected: name===this.fieldUsageObject,
+            rowClass: 'fu-picker-row'+(name===this.fieldUsageObject?' fu-picker-row-active':'')
+        }));
     }
 
     get fieldUsageFieldOptions() {
-        return (this.fieldUsageFields || []).map((name) => ({ label: name, value: name }));
+        const q=(this.fieldUsageFieldSearch||'').trim().toLowerCase();
+        const selected=new Set(this.fieldUsageSelectedFields||[]);
+        return (this.fieldUsageFields || []).filter(name=>!q||name.toLowerCase().includes(q)).map((name) => ({
+            label: name, value: name, selected: selected.has(name),
+            rowClass: 'fu-picker-row'+(selected.has(name)?' fu-picker-row-active':'')
+        }));
     }
+    get fieldUsageHasObject(){return !!this.fieldUsageObject;}
+    get fieldUsageHasSelection(){return (this.fieldUsageSelectedFields||[]).length>0;}
+    handleFieldUsageObjectSearch(event){this.fieldUsageObjectSearch=event.target.value||'';}
+    handleFieldUsageFieldSearch(event){this.fieldUsageFieldSearch=event.target.value||'';}
 
     async handleFieldUsageObject(event) {
-        this.fieldUsageObject = event.target.value || '';
+        this.fieldUsageObject = event.currentTarget?.dataset?.value || event.target.value || '';
+        this.fieldUsageFieldSearch='';
         this.fieldUsageSelectedFields = [];
         this.fieldUsageEvidence = [];
         this._fieldUsageMapCache = { nodes: [], edges: [], width: 1320, height: 650 };
@@ -1816,12 +1830,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     handleFieldUsageFields(event) {
-        const selected = Array.from(event.target.options || [])
-            .filter((option) => option.selected)
-            .map((option) => option.value);
-        this.fieldUsageSelectedFields = selected.length
-            ? selected
-            : (event.target.value ? [event.target.value] : []);
+        if(event.currentTarget?.dataset?.value){
+            const value=event.currentTarget.dataset.value;
+            const selected=new Set(this.fieldUsageSelectedFields||[]);
+            if(selected.has(value)) selected.delete(value); else selected.add(value);
+            this.fieldUsageSelectedFields=[...selected];
+            return;
+        }
+        const selected = Array.from(event.target.options || []).filter((option) => option.selected).map((option) => option.value);
+        this.fieldUsageSelectedFields = selected.length ? selected : (event.target.value ? [event.target.value] : []);
     }
 
     async handleFieldUsageAnalyse() {
