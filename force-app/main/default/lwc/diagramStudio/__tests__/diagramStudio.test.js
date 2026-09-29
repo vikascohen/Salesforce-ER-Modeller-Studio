@@ -1500,6 +1500,56 @@ describe('c-diagram-studio', () => {
             expect(el.shadowRoot.querySelector('.dict-detail-title').textContent).toBe('Account');
         });
 
+        it('field filter picklist remains usable after Calculate Usage rerenders the dictionary', async () => {
+            describeObjectsForDictionary.mockResolvedValue([
+                {
+                    apiName: 'Account',
+                    label: 'Account',
+                    isCustom: false,
+                    fields: [
+                        { apiName: 'Name', isPrimaryKey: true, isCustom: false, required: true, dataType: 'ID' },
+                        { apiName: 'Industry', isPrimaryKey: false, isCustom: false, required: false, dataType: 'Picklist' },
+                        { apiName: 'Custom_Status__c', isPrimaryKey: false, isCustom: true, required: false, dataType: 'Picklist' }
+                    ]
+                }
+            ]);
+            const getFieldUsageStats = require('@salesforce/apex/SchemaMetadataController.getFieldUsageStats').default;
+            getFieldUsageStats.mockResolvedValue({
+                percentages: { Industry: 50, Custom_Status__c: 0 }
+            });
+
+            const el = createStudio();
+            objectNamesAdapter.emit(['Account']);
+            await flushPromises();
+            await openObjectNamed(el, 'Account');
+            await flushPromises();
+
+            let filter = el.shadowRoot.querySelector('.dict-field-filter');
+            filter.value = 'picklist';
+            filter.dispatchEvent(new CustomEvent('change'));
+            await flushPromises();
+            expect(filter.value).toBe('picklist');
+
+            const calculate = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+                .find((button) => button.textContent.includes('Calculate Usage'));
+            calculate.click();
+            await flushPromises();
+            await flushPromises();
+
+            filter = el.shadowRoot.querySelector('.dict-field-filter');
+            expect(filter.value).toBe('picklist');
+
+            filter.value = 'custom';
+            filter.dispatchEvent(new CustomEvent('change'));
+            await flushPromises();
+
+            filter = el.shadowRoot.querySelector('.dict-field-filter');
+            expect(filter.value).toBe('custom');
+            const visibleRows = Array.from(el.shadowRoot.querySelectorAll('.dict-table tbody tr'));
+            expect(visibleRows).toHaveLength(1);
+            expect(visibleRows[0].textContent).toContain('Custom_Status__c');
+        });
+
         it('sort arrow moves to whichever column was clicked most recently', async () => {
             describeObjectsForDictionary.mockResolvedValue([
                 {
