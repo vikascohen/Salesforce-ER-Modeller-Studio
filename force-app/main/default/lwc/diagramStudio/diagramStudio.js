@@ -1348,7 +1348,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const rows=result?.checks||[];
             this.diagnosticsChecks=[];
             for(const row of rows){
-                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
+                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,actions:(row.actions||[]).map((label,index)=>({key:String(row.key||'check')+'-'+index,label})),hasActions:(row.actions||[]).length>0,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
                 await new Promise(resolve=>setTimeout(resolve,90));
             }
             this.diagnosticsResult=result;
