@@ -6,7 +6,7 @@ public with sharing class FieldUsageController {
     public class SnapshotDTO { @AuraEnabled public Boolean available; @AuraEnabled public Datetime completedAt; @AuraEnabled public Integer dependencyCount; }
     @AuraEnabled(cacheable=true) public static SnapshotDTO getSnapshotAvailability(){
         SnapshotDTO dto=new SnapshotDTO(); List<Field_Usage_Run__c> rows=[SELECT Completed_At__c,Dependency_Count__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
-        dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=Integer.valueOf(rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c);} return dto;
+        dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c.intValue();} return dto;
     }
     @AuraEnabled(cacheable=true) public static List<String> getSnapshotObjects(){
         List<String> names=new List<String>(); for(AggregateResult ar:[SELECT Object_API_Name__c n FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true GROUP BY Object_API_Name__c ORDER BY Object_API_Name__c LIMIT 2000]) names.add((String)ar.get('n')); return names;
@@ -26,9 +26,9 @@ public with sharing class FieldUsageController {
     public class EvidenceSummaryDTO { @AuraEnabled public String fieldApiName; @AuraEnabled public String sourceType; @AuraEnabled public Integer evidenceRows; @AuraEnabled public Decimal occurrences; }
     @AuraEnabled(cacheable=true) public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
         List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>(); if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
-        Set<String> keys=new Set<String>();for(String f:fieldApiNames)keys.add(objectApiName+'.'+f);
+        Set<String> keys=new Set<String>();for(String f:fieldApiNames)if(!String.isBlank(f))keys.add(objectApiName+'.'+f);if(keys.isEmpty())return out;
         for(AggregateResult ar:[SELECT Field_API_Name__c fieldName,Source_Type__c sourceType,COUNT(Id) evidenceRows,SUM(Occurrence_Count__c) occurrences FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys GROUP BY Field_API_Name__c,Source_Type__c ORDER BY Field_API_Name__c,Source_Type__c]){
-            EvidenceSummaryDTO dto=new EvidenceSummaryDTO();dto.fieldApiName=(String)ar.get('fieldName');dto.sourceType=(String)ar.get('sourceType');dto.evidenceRows=(Integer)ar.get('evidenceRows');dto.occurrences=(Decimal)ar.get('occurrences');out.add(dto);
+            EvidenceSummaryDTO dto=new EvidenceSummaryDTO();dto.fieldApiName=(String)ar.get('fieldName');dto.sourceType=(String)ar.get('sourceType');dto.evidenceRows=Integer.valueOf(String.valueOf(ar.get('evidenceRows')));dto.occurrences=(Decimal)ar.get('occurrences');out.add(dto);
         }return out;
     }
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> getEvidence(String objectApiName,List<String> fieldApiNames){
