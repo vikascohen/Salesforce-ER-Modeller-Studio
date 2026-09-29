@@ -205,6 +205,90 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.code-editor').className).toContain('code-editor-wrap');
     });
 
+    it('word wrap preserves existing-field IntelliSense exclusion and still suggests missing fields', async () => {
+        describeObjects.mockResolvedValue([
+            {
+                apiName: 'Account',
+                label: 'Account',
+                isCustom: false,
+                fields: [
+                    { apiName: 'Name', friendlyType: 'Text', isRelationship: false, isRollupSummary: false, required: false },
+                    { apiName: 'AccountNumber', friendlyType: 'Text', isRelationship: false, isRollupSummary: false, required: false },
+                    { apiName: 'AccountSource', friendlyType: 'Picklist', isRelationship: false, isRollupSummary: false, required: false }
+                ]
+            }
+        ]);
+        const el = createStudio();
+        await flushPromises();
+
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent.includes('Wrap: Off')).click();
+        await flushPromises();
+
+        const ta = el.shadowRoot.querySelector('.code-editor');
+        ta.value = 'entity Account : Name[Text], AccountNumber[Text], Acc';
+        ta.selectionStart = ta.value.length;
+        ta.selectionEnd = ta.value.length;
+        ta.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        const labels = Array.from(el.shadowRoot.querySelectorAll('.dsl-suggest-label'))
+            .map((node) => node.textContent);
+        expect(labels).toContain('AccountSource');
+        expect(labels).not.toContain('AccountNumber');
+        expect(labels).not.toContain('Name');
+        expect(ta.getAttribute('wrap')).toBe('soft');
+    });
+
+    it('real newlines remain source newlines with word wrap enabled', async () => {
+        const el = createStudio();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent.includes('Wrap: Off')).click();
+        await flushPromises();
+
+        const ta = el.shadowRoot.querySelector('.code-editor');
+        const source = 'entity Account : Name[Text]\nentity Contact : LastName[Text]';
+        ta.value = source;
+        ta.selectionStart = source.indexOf('\n') + 1;
+        ta.selectionEnd = ta.selectionStart;
+        ta.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        expect(ta.value).toBe(source);
+        expect(el.shadowRoot.querySelectorAll('.dsl-line-numbers span')).toHaveLength(2);
+    });
+
+    it('preserves a caret selection through word wrap and maximise restore', async () => {
+        const el = createStudio();
+        await flushPromises();
+        let ta = el.shadowRoot.querySelector('.code-editor');
+        ta.value = 'entity Account : Name, Industry';
+        ta.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+        ta = el.shadowRoot.querySelector('.code-editor');
+        ta.focus();
+        ta.setSelectionRange(7, 14);
+
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent.includes('Wrap: Off')).click();
+        await flushPromises();
+        ta = el.shadowRoot.querySelector('.code-editor');
+        expect([ta.selectionStart, ta.selectionEnd]).toEqual([7, 14]);
+
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent === 'Maximise').click();
+        await flushPromises();
+        ta = el.shadowRoot.querySelector('.code-editor');
+        expect([ta.selectionStart, ta.selectionEnd]).toEqual([7, 14]);
+
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent === 'Restore').click();
+        await flushPromises();
+        ta = el.shadowRoot.querySelector('.code-editor');
+        expect([ta.selectionStart, ta.selectionEnd]).toEqual([7, 14]);
+    });
+
     it('the theme dropdown reflects a saved theme once it loads asynchronously, not just the default', async () => {
         getTheme.mockResolvedValueOnce('theme-monokai');
 
