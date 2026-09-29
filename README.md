@@ -25,11 +25,11 @@ The scheduler calls the same orchestration service as **Run Scan Now**. A persis
 
 ### Resumable governor-safe scan execution
 
-Phase 3 scan discovery now creates durable `Field_Usage_Work_Unit__c` checkpoints. A work unit identifies the run, scanner type and target component/object and records Pending, Running, Completed or Failed state plus attempt count and error details. The worker batch runs with a scope of **one work unit per transaction**, giving each target a fresh asynchronous Apex governor-limit budget.
+Phase 3 scan discovery now creates durable `Field_Usage_Work_Unit__c` checkpoints. A work unit identifies the run, scanner type and smallest practical target. Formula scanning uses one work unit per calculated field rather than one per object and records Pending, Running, Completed or Failed state plus attempt count and error details. The worker batch runs with a scope of **one work unit per transaction**, giving each target a fresh asynchronous Apex governor-limit budget.
 
 Completed work units are excluded from subsequent worker queries. Evidence insertion is idempotent within a run by checking the field/source/component/location identity before inserting, so retrying or resuming a target does not intentionally duplicate the same dependency evidence. Snapshot promotion is separated into `FieldUsageSnapshotFinalizer` and occurs only after the worker has exhausted its checkpoint query and no work units failed. Failed/incomplete runs never replace the previous successful current snapshot.
 
-This design is deliberately extensible: Flow, Apex, Trigger, OmniStudio and future scanners should create their own work units rather than loading all metadata into one transaction. A scanner may further split a large component into multiple work units if its payload itself can approach CPU or heap limits.
+This design is deliberately extensible: Flow, Apex, Trigger, OmniStudio and future scanners should create their own work units rather than loading all metadata into one transaction. A scanner must further split a large component into smaller work units whenever its payload itself can approach CPU or heap limits. If a platform-level failure rolls back a worker transaction, the unfinished checkpoint remains visible. The finaliser will not promote that run. Rolled-back units are marked Failed rather than being retried forever, preventing a poison component from creating an infinite asynchronous job chain.
 
 ### Performance and scalability
 
