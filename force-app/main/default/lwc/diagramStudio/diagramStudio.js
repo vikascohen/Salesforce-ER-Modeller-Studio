@@ -1520,7 +1520,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async refreshFieldUsageConsole() {
-        const status = await fieldUsageGetStatus();
+        const status = await fieldUsageGetStatus({ runId: this.fieldUsageRun?.Id || null });
         const statusRun = status?.run || null;
         // Do not throw away a locally known Queued/Running scan because one
         // status read returned no run. That used to reset the modal to Ready
