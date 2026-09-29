@@ -2192,7 +2192,8 @@ describe('Settings workspace', () => {
 
         expect(runFieldUsageNow).toHaveBeenCalled();
         expect(getFieldUsageStatus).toHaveBeenCalledWith({ runId: 'a00RUN000000001' });
-        expect(el.shadowRoot.querySelector('.fu-console-status').textContent).toContain('Queued');
+        expect(el.shadowRoot.querySelector('.fu-console-status').textContent).toContain('already active');
+        expect(el.shadowRoot.querySelector('.fu-terminal').textContent).toContain('Waiting for background scan to start');
         expect(el.shadowRoot.querySelector('.fu-console .arch-export-btn')).toBeNull();
     });
 
