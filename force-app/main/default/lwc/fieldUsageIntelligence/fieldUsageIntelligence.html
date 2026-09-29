@@ -59,6 +59,12 @@
                     <template for:each={groups} for:item="group">
                         <section key={group.key} class="node">
                             <h3>{group.field}</h3>
+                            <template if:true={group.noDependency}>
+                                <div class="leaf">
+                                    <strong>No dependency detected</strong>
+                                    <div class="muted">Current successful snapshot · 0 dependencies</div>
+                                </div>
+                            </template>
                             <template for:each={group.items} for:item="item">
                                 <div key={item.key} class="leaf">
                                     <strong>{item.source}</strong> → {item.component}
