@@ -397,6 +397,11 @@ External Credential Principal Access
 
 Click **Edit**, enable the principal belonging to **Salesforce_Tooling_API / ToolingAPIPrincipal**, save the permission set, and make sure the permission set is assigned to the user who will run Field Usage.
 
+> [!WARNING]
+> **Verify this access after authentication and before the first scan.** If **External Credential Principal Access** is blank or the `Salesforce_Tooling_API - ToolingAPIPrincipal` entry is not enabled, Salesforce rejects the callout with a credential-access error even when the Named Principal itself shows **Configured**.
+
+For OAuth Browser Flow with a Named Principal, also grant the Phase 3 permission set the required access to **Object Settings → User External Credentials**. In the target org, verify the user has the Salesforce-required object access used to read/update the stored OAuth credential, including **Modify All Records** where required by the Salesforce UI/security model.
+
 For scheduled execution, the scheduling/executing user must also retain the permissions and principal access required by the scan.
 
 **7. Verify before relying on a scan**
