@@ -19,7 +19,7 @@ The current Phase 3 branch indexes:
 - **Apex classes** through the Salesforce **Tooling API**.
 - **Apex triggers** through the Salesforce **Tooling API**.
 
-Flow and OmniStudio remain planned scanner adapters; they are **not** described as implemented coverage on this branch.
+**Flow and OmniStudio are intentionally deferred to Phase 4.** They are outside the Phase 3 implementation boundary and are not counted as Phase 3 dependency coverage.
 
 Tooling API access is intentionally restricted to the asynchronous server-side scan pipeline. The LWC never calls Tooling API and never receives Salesforce source bodies. Apex and Trigger discovery/retrieval is performed by Batch Apex callouts through `FieldUsageToolingApiClient`.
 
@@ -29,7 +29,7 @@ The Tooling client uses Salesforce API **v60.0** and expects a Named Credential 
 
 ```mermaid
 flowchart LR
-    META["Salesforce Metadata<br/>Apex Classes · Triggers · Formula Fields<br/>Future scanners: Flow · OmniStudio"]
+    META["Salesforce Metadata<br/>Apex Classes · Triggers · Formula Fields<br/>Phase 4: Flow · OmniStudio"]
 
     subgraph BG["Asynchronous Dependency Discovery"]
         BATCH["Background Batch Processing<br/>Discover and analyse dependencies"]
@@ -209,11 +209,15 @@ This gives architects a bounded blast-radius view while preserving the evidence 
 
 `Field_Usage_Evidence__c` records include object, field, source type, component, component id, evidence type, confidence, observed time, occurrence count and location so new scanners can reuse the same persistence model.
 
-### Optional metadata and future scanners
+### Phase 4 boundary: Flow and OmniStudio
 
-The branch retains `GenericDynamicSoqlBuilder` and `FieldUsageDynamicQueryService` for optional Salesforce data/configuration models that may not exist in every org. Runtime Describe checks are used before dynamic queries are constructed.
+Phase 4 will extend the same durable work-unit and sparse evidence architecture to **Flow** and **OmniStudio**.
 
-This is useful for future adapters such as OmniStudio, where installed products and object models can differ between orgs. Flow and OmniStudio should create durable work units and write to the same evidence model when implemented.
+Flow dependency discovery will remain asynchronous and will write into the same `Field_Usage_Evidence__c` model rather than introducing a second UI-side scanning path.
+
+OmniStudio must be treated as an **optional capability** because it is not present in every Salesforce org and its available object model can differ by runtime/package model. Phase 4 must therefore use runtime Schema/Describe discovery before querying OmniStudio data. `GenericDynamicSoqlBuilder` and `FieldUsageDynamicQueryService` are retained for this purpose: only objects and fields that actually exist in the target org should be queried. If no supported OmniStudio model is present, the Omni scanner must create no work and the overall field-usage scan must continue normally rather than fail.
+
+Both Phase 4 scanners should create durable work units and persist evidence through the existing snapshot pipeline so the Field Usage Map and Field Change Impact views can consume the additional source types without changing the LWC architecture.
 
 ### Main Phase 3 components
 
@@ -260,7 +264,7 @@ The Salesforce CLI workflow requires the GitHub Actions repository secret `SFDX_
 
 Phase 3 currently provides persisted evidence from **Formula fields, local/unmanaged Apex classes and local/unmanaged Apex triggers**.
 
-It does not currently claim complete coverage of Flow, OmniStudio, managed-package internals, reports, integrations, dynamic SOQL, runtime-generated references or every possible Salesforce dependency mechanism.
+**Flow and OmniStudio are Phase 4 scope.** Phase 3 also does not claim complete coverage of managed-package internals, reports, integrations, dynamic SOQL, runtime-generated references or every possible Salesforce dependency mechanism.
 
 The design principle is: **persist what the scanners can prove, keep the successful snapshot queryable, and make unsupported coverage explicit rather than inventing certainty.**
 
