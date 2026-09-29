@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public without sharing class FieldUsageWorkCoordinator {
  public static Id start(Id runId){
   update new Field_Usage_Run__c(Id=runId,Status__c='Running',Started_At__c=System.now(),Heartbeat_At__c=System.now(),Progress_Percent__c=1,Progress_Phase__c='Discovering scan work');
