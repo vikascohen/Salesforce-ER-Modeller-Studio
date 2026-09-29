@@ -30,6 +30,11 @@ import fieldUsageGetEvidenceDetail from '@salesforce/apex/FieldUsageController.g
 import fieldUsageRunNow from '@salesforce/apex/FieldUsageController.runNow';
 import fieldUsageBootstrap from '@salesforce/apex/FieldUsageController.bootstrap';
 import fieldUsageGetStatus from '@salesforce/apex/FieldUsageController.getStatus';
+import fieldUsageSaveSchedules from '@salesforce/apex/FieldUsageController.saveSchedules';
+import fieldUsageDeleteSchedule from '@salesforce/apex/FieldUsageController.deleteSchedule';
+import fieldUsageGetScheduledJobs from '@salesforce/apex/FieldUsageController.getScheduledJobs';
+import fieldUsagePauseSchedule from '@salesforce/apex/FieldUsageController.pauseSchedule';
+import fieldUsageResumeSchedule from '@salesforce/apex/FieldUsageController.resumeSchedule';
 import fieldImpactSnapshot from '@salesforce/apex/FieldUsageController.getSnapshotAvailability';
 import fieldImpactObjects from '@salesforce/apex/FieldUsageController.getSnapshotObjects';
 import fieldUsageSearchEvidence from '@salesforce/apex/FieldUsageController.searchEvidence';
@@ -247,7 +252,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryExportBusy    = false;
     @track dictionaryExportAllBusy = false;
     @track dictionaryExportAllProgress = '';
-    @track openMenu = null; // 'file' | 'diagram' | 'view' | null
+    @track openMenu = null; // 'file' | 'diagram' | 'view' | 'settings' | null
+    @track settingsOpen = false;
+    @track settingsSection = 'field-usage-schedule';
+    @track settingsTab = 'configuration';
+    @track settingsSchedules = [];
+    @track settingsJobs = [];
+    @track settingsBusy = false;
+    @track settingsMessage = '';
+    settingsScheduleSeq = 0;
     @track currentTheme = 'theme-dark-plus';
     sheetJsLoaded = false;
     sheetJsLoadPromise = null;
@@ -1219,6 +1232,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fileMenuClass()    { return this.openMenu === 'file'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get diagramMenuClass() { return this.openMenu === 'diagram' ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get viewMenuClass()    { return this.openMenu === 'view'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
+    get settingsMenuClass(){ return this.openMenu === 'settings'? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get rootClass() { return 'er-studio ' + this.currentTheme; }
     // Kept as separate, explicitly-named getters (isThemeX) rather than a
     // single value binding on <select> itself -- LWC reliably re-applies a
@@ -1245,10 +1259,95 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fileMenuOpen()    { return this.openMenu === 'file'; }
     get diagramMenuOpen() { return this.openMenu === 'diagram'; }
     get viewMenuOpen()    { return this.openMenu === 'view'; }
+    get settingsMenuOpen(){ return this.openMenu === 'settings'; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
     get architectureMenuText(){ return this.architectureOpen ? 'Architecture Intelligence \u2713' : 'Architecture Intelligence'; }
+
+    get settingsConfigurationTabClass(){return this.settingsTab==='configuration'?'settings-tab settings-tab-active':'settings-tab';}
+    get settingsJobsTabClass(){return this.settingsTab==='jobs'?'settings-tab settings-tab-active':'settings-tab';}
+    get settingsConfigurationOpen(){return this.settingsTab==='configuration';}
+    get settingsJobsOpen(){return this.settingsTab==='jobs';}
+    get settingsHasSchedules(){return (this.settingsSchedules||[]).length>0;}
+    get settingsNoSchedules(){return !this.settingsHasSchedules;}
+    get settingsHasJobs(){return (this.settingsJobs||[]).length>0;}
+    get settingsNoJobs(){return !this.settingsHasJobs;}
+    get settingsJobsView(){
+        return (this.settingsJobs||[]).map(j=>({
+            ...j,
+            key:j.scheduleId||j.cronTriggerId||j.jobName,
+            timeText:String(Math.trunc(Number(j.hour||0))).padStart(2,'0')+':'+String(Math.trunc(Number(j.minute||0))).padStart(2,'0'),
+            nextRunText:j.nextFireTime?new Date(j.nextFireTime).toLocaleString():'—',
+            canPause:!!j.enabled,
+            canResume:!j.enabled
+        }));
+    }
+    handleMenuSettings(){this.openMenu=null;this.openSettingsWorkspace();}
+    async openSettingsWorkspace(){
+        this.settingsOpen=true;this.settingsSection='field-usage-schedule';this.settingsTab='configuration';this.settingsMessage='';
+        await this.loadScheduleSettings();
+    }
+    handleCloseSettings(){this.settingsOpen=false;this.settingsMessage='';}
+    async loadScheduleSettings(){
+        this.settingsBusy=true;
+        try{
+            const status=await fieldUsageGetStatus();
+            this.settingsSchedules=(status?.schedules||[]).map(row=>({...row,_key:row.Id||'schedule-'+(++this.settingsScheduleSeq)}));
+        }catch(e){this.settingsMessage='Could not load schedules: '+this.reduceError(e);}
+        finally{this.settingsBusy=false;}
+    }
+    async handleSettingsConfigurationTab(){this.settingsTab='configuration';await this.loadScheduleSettings();}
+    async handleSettingsJobsTab(){this.settingsTab='jobs';await this.loadScheduledJobs();}
+    async loadScheduledJobs(){
+        this.settingsBusy=true;this.settingsMessage='';
+        try{this.settingsJobs=await fieldUsageGetScheduledJobs()||[];}
+        catch(e){this.settingsMessage='Could not load scheduled jobs: '+this.reduceError(e);}
+        finally{this.settingsBusy=false;}
+    }
+    handleAddSchedule(){
+        const key='schedule-'+(++this.settingsScheduleSeq);
+        this.settingsSchedules=[...this.settingsSchedules,{_key:key,Name:'Field Usage Schedule',Enabled__c:true,Hour__c:3,Minute__c:0}];
+    }
+    handleScheduleName(e){const key=e.currentTarget.dataset.key,value=e.target.value;this.settingsSchedules=this.settingsSchedules.map(r=>r._key===key?{...r,Name:value}:r);}
+    handleScheduleEnabled(e){const key=e.currentTarget.dataset.key,value=e.target.checked;this.settingsSchedules=this.settingsSchedules.map(r=>r._key===key?{...r,Enabled__c:value}:r);}
+    handleScheduleHour(e){const key=e.currentTarget.dataset.key,value=Number(e.target.value);this.settingsSchedules=this.settingsSchedules.map(r=>r._key===key?{...r,Hour__c:value}:r);}
+    handleScheduleMinute(e){const key=e.currentTarget.dataset.key,value=Number(e.target.value);this.settingsSchedules=this.settingsSchedules.map(r=>r._key===key?{...r,Minute__c:value}:r);}
+    async handleDeleteSchedule(e){
+        const key=e.currentTarget.dataset.key,row=this.settingsSchedules.find(r=>r._key===key);
+        this.settingsBusy=true;this.settingsMessage='';
+        try{
+            if(row?.Id) await fieldUsageDeleteSchedule({scheduleId:row.Id});
+            this.settingsSchedules=this.settingsSchedules.filter(r=>r._key!==key);
+            this.settingsMessage='Schedule deleted.';
+        }catch(err){this.settingsMessage='Could not delete schedule: '+this.reduceError(err);}
+        finally{this.settingsBusy=false;}
+    }
+    async handleSaveSchedules(){
+        this.settingsBusy=true;this.settingsMessage='';
+        try{
+            const rows=this.settingsSchedules.map(r=>({Id:r.Id,Name:r.Name||'Field Usage Schedule',Enabled__c:!!r.Enabled__c,Hour__c:Number(r.Hour__c),Minute__c:Number(r.Minute__c)}));
+            await fieldUsageSaveSchedules({rows});
+            this.settingsMessage='Schedule configuration saved.';
+            await this.loadScheduleSettings();
+        }catch(e){this.settingsMessage='Could not save schedules: '+this.reduceError(e);this.settingsBusy=false;}
+    }
+    async handleRefreshScheduledJobs(){await this.loadScheduledJobs();}
+    async handlePauseScheduledJob(e){
+        this.settingsBusy=true;
+        try{await fieldUsagePauseSchedule({scheduleId:e.currentTarget.dataset.id});this.settingsMessage='Schedule paused.';await this.loadScheduledJobs();}
+        catch(err){this.settingsMessage='Could not pause schedule: '+this.reduceError(err);this.settingsBusy=false;}
+    }
+    async handleResumeScheduledJob(e){
+        this.settingsBusy=true;
+        try{await fieldUsageResumeSchedule({scheduleId:e.currentTarget.dataset.id});this.settingsMessage='Schedule resumed.';await this.loadScheduledJobs();}
+        catch(err){this.settingsMessage='Could not resume schedule: '+this.reduceError(err);this.settingsBusy=false;}
+    }
+    async handleDeleteScheduledJob(e){
+        this.settingsBusy=true;
+        try{await fieldUsageDeleteSchedule({scheduleId:e.currentTarget.dataset.id});this.settingsMessage='Schedule deleted.';await this.loadScheduledJobs();}
+        catch(err){this.settingsMessage='Could not delete schedule: '+this.reduceError(err);this.settingsBusy=false;}
+    }
 
     // Each wraps an existing, already-tested handler — closes the dropdown
     // first, then delegates, so none of the underlying action logic changes.
