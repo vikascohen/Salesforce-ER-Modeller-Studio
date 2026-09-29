@@ -23,6 +23,14 @@ On first use, Phase 3 bootstraps two default daily schedules: **03:00** and **21
 
 The scheduler calls the same orchestration service as **Run Scan Now**. A persisted run lock prevents a manual or scheduled invocation from starting a second scan while one is already queued or running.
 
+### Resumable governor-safe scan execution
+
+Phase 3 scan discovery now creates durable `Field_Usage_Work_Unit__c` checkpoints. A work unit identifies the run, scanner type and target component/object and records Pending, Running, Completed or Failed state plus attempt count and error details. The worker batch runs with a scope of **one work unit per transaction**, giving each target a fresh asynchronous Apex governor-limit budget.
+
+Completed work units are excluded from subsequent worker queries. Evidence insertion is idempotent within a run by checking the field/source/component/location identity before inserting, so retrying or resuming a target does not intentionally duplicate the same dependency evidence. Snapshot promotion is separated into `FieldUsageSnapshotFinalizer` and occurs only after the worker has exhausted its checkpoint query and no work units failed. Failed/incomplete runs never replace the previous successful current snapshot.
+
+This design is deliberately extensible: Flow, Apex, Trigger, OmniStudio and future scanners should create their own work units rather than loading all metadata into one transaction. A scanner may further split a large component into multiple work units if its payload itself can approach CPU or heap limits.
+
 ### Performance and scalability
 
 Phase 3 is designed to avoid doing metadata analysis in interactive LWC requests. Formula scanning tokenises each formula once and resolves tokens through a field-name map instead of running a regular expression once for every candidate field. The formula batch skips objects that have no calculated fields, reducing asynchronous work in large orgs.
