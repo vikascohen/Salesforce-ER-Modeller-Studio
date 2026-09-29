@@ -126,6 +126,8 @@ This separation is important: the **architecture diagram** describes the system 
 
 Apex/Trigger Tooling work is chunked into groups of **12 component IDs** so the durable `Target_Key__c` value remains within its 255-character field limit. Worker execution uses a batch scope of one work unit per transaction, giving each checkpoint a fresh asynchronous governor-limit budget.
 
+Tooling API access is minimised according to the retrieval capability of each metadata type. Apex classes and triggers support bulk source retrieval and therefore use 12-ID `IN (...)` work units. Active Flows are discovered in one paged Tooling query, but full Flow metadata is retrieved per Flow through the Tooling sObject resource; Flow therefore uses one durable work unit per active version. This avoids pretending that metadata-heavy retrieval is bulk-safe where Salesforce imposes per-component metadata boundaries, while still eliminating per-Flow discovery calls. It also isolates retries so one problematic Flow does not force unrelated Flow metadata to be fetched again.
+
 ### Sparse dependency model
 
 Phase 3 deliberately does **not** persist a dense row for every field in the org. `Field_Usage_Evidence__c` stores only detected dependency evidence.
