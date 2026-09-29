@@ -3,6 +3,7 @@
  */
 @IsTest
 private class FieldUsageToolingDiscoveryBatchTest {
+ @TestSetup static void setupRun(){insert new Field_Usage_Run__c(Status__c='Running',Run_Type__c='Manual');}
  private class IndexMock implements HttpCalloutMock {
   public HttpResponse respond(HttpRequest request){
    HttpResponse response=new HttpResponse();response.setStatusCode(200);
@@ -12,7 +13,7 @@ private class FieldUsageToolingDiscoveryBatchTest {
   }
  }
  @IsTest static void checkpointsBulkApexWorkUnit(){
-  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
+  Field_Usage_Run__c run=[SELECT Id FROM Field_Usage_Run__c LIMIT 1];
   Test.setMock(HttpCalloutMock.class,new IndexMock());
   FieldUsageToolingDiscoveryBatch batch=new FieldUsageToolingDiscoveryBatch(run.Id);
   Integer sourceCount=0;for(String ignored:batch.start(null))sourceCount++;System.assertEquals(3,sourceCount);
