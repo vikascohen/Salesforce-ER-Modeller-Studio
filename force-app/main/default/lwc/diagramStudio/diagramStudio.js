@@ -1432,11 +1432,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return Math.max(0, Math.min(100, Math.round(value)));
     }
     get fieldUsagePhase() {
-        const phase = this.fieldUsageRun?.Progress_Phase__c || this.fieldUsageRun?.Status__c || 'Ready';
-        if (this.fieldUsageRunning && this.fieldUsageJobTotal > 0) {
-            return phase + ' · ' + this.fieldUsageJobProcessed + ' / ' + this.fieldUsageJobTotal + ' batches';
+        const apexJobActive = ['Holding', 'Queued', 'Preparing', 'Processing'].includes(this.fieldUsageJobStatus || '');
+        if (apexJobActive) {
+            return 'Batch ' + this.fieldUsageJobStatus;
         }
-        return phase;
+        return this.fieldUsageRun?.Progress_Phase__c || this.fieldUsageRun?.Status__c || '';
     }
     get fieldUsageProgressStyle() { return 'width:' + this.fieldUsageProgress + '%;'; }
     get fieldUsageRunning() {
@@ -1448,7 +1448,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return !this.fieldUsageRunning && !apexJobActive;
     }
     get fieldUsageRunStatusText() {
-        if (!this.fieldUsageRun) return 'Ready to start a new org snapshot scan.';
+        const apexJobActive = ['Holding', 'Queued', 'Preparing', 'Processing'].includes(this.fieldUsageJobStatus || '');
+        if (apexJobActive) {
+            return 'Field Usage batch is ' + this.fieldUsageJobStatus.toLowerCase() + '. ' +
+                this.fieldUsageJobProcessed + ' of ' + this.fieldUsageJobTotal + ' batches processed.';
+        }
+        if (!this.fieldUsageRun) return '';
         if (this.fieldUsageRunning) return 'A Field Usage scan is already active. Live progress is attached below.';
         if (this.fieldUsageRun.Status__c === 'Completed') return 'Latest scan completed. The snapshot is ready for Field Usage Map.';
         if (this.fieldUsageRun.Status__c === 'Completed With Errors') return 'Latest scan completed with errors. Review the activity below before starting another scan.';
