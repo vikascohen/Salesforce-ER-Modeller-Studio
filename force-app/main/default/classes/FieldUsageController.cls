@@ -27,10 +27,30 @@ public with sharing class FieldUsageController {
     @AuraEnabled(cacheable=true) public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
         List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>(); if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
         Set<String> keys=new Set<String>();for(String f:fieldApiNames)if(!String.isBlank(f))keys.add(objectApiName+'.'+f);if(keys.isEmpty())return out;
-        for(AggregateResult ar:[SELECT Field_API_Name__c fieldName,Source_Type__c sourceType,COUNT(Id) evidenceRows,SUM(Occurrence_Count__c) occurrences FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys GROUP BY Field_API_Name__c,Source_Type__c ORDER BY Field_API_Name__c,Source_Type__c]){
-            EvidenceSummaryDTO dto=new EvidenceSummaryDTO();dto.fieldApiName=(String)ar.get('fieldName');dto.sourceType=(String)ar.get('sourceType');dto.evidenceRows=Integer.valueOf(String.valueOf(ar.get('evidenceRows')));dto.occurrences=(Decimal)ar.get('occurrences');out.add(dto);
-        }return out;
+        Id currentRunId=getCurrentRunId();if(currentRunId==null)return out;
+        Map<String,EvidenceSummaryDTO> summaries=new Map<String,EvidenceSummaryDTO>();
+        Id afterId=null;
+        while(true){
+            List<Field_Usage_Evidence__c> page=afterId==null
+                ? [SELECT Id,Field_API_Name__c,Source_Type__c,Occurrence_Count__c FROM Field_Usage_Evidence__c WHERE Run__c=:currentRunId AND Field_Key__c IN :keys ORDER BY Id LIMIT 2000]
+                : [SELECT Id,Field_API_Name__c,Source_Type__c,Occurrence_Count__c FROM Field_Usage_Evidence__c WHERE Run__c=:currentRunId AND Field_Key__c IN :keys AND Id>:afterId ORDER BY Id LIMIT 2000];
+            if(page.isEmpty())break;
+            for(Field_Usage_Evidence__c row:page){
+                String summaryKey=row.Field_API_Name__c+'|'+row.Source_Type__c;
+                EvidenceSummaryDTO dto=summaries.get(summaryKey);
+                if(dto==null){dto=new EvidenceSummaryDTO();dto.fieldApiName=row.Field_API_Name__c;dto.sourceType=row.Source_Type__c;dto.evidenceRows=0;dto.occurrences=0;summaries.put(summaryKey,dto);}
+                dto.evidenceRows++;
+                dto.occurrences+=(row.Occurrence_Count__c==null?0:row.Occurrence_Count__c);
+            }
+            afterId=page[page.size()-1].Id;
+            if(page.size()<2000)break;
+        }
+        out.addAll(summaries.values());
+        out.sort(new EvidenceSummaryComparator());
+        return out;
     }
+    private static Id getCurrentRunId(){List<Field_Usage_Run__c> runs=[SELECT Id FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];return runs.isEmpty()?null:runs[0].Id;}
+    public class EvidenceSummaryComparator implements Comparator<EvidenceSummaryDTO>{public Integer compare(EvidenceSummaryDTO a,EvidenceSummaryDTO b){String ak=(a.fieldApiName==null?'':a.fieldApiName)+'|'+(a.sourceType==null?'':a.sourceType);String bk=(b.fieldApiName==null?'':b.fieldApiName)+'|'+(b.sourceType==null?'':b.sourceType);return ak.compareTo(bk);}}
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> getEvidence(String objectApiName,List<String> fieldApiNames){
         if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty()) return new List<Field_Usage_Evidence__c>();
         Set<String> keys=new Set<String>(); for(String f:fieldApiNames) keys.add(objectApiName+'.'+f);
