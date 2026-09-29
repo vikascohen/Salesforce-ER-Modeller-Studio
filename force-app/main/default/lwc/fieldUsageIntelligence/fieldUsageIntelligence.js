@@ -8,8 +8,8 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 import saveSchedules from '@salesforce/apex/FieldUsageController.saveSchedules';
 import deleteSchedule from '@salesforce/apex/FieldUsageController.deleteSchedule';
-import getObjects from '@salesforce/apex/FieldUsageController.getSnapshotObjects';
-import getFields from '@salesforce/apex/FieldUsageController.getSnapshotFields';
+import getObjects from '@salesforce/apex/FieldUsageController.getObjects';
+import getFields from '@salesforce/apex/FieldUsageController.getFields';
 import getEvidence from '@salesforce/apex/FieldUsageController.getEvidence';
 import runScan from '@salesforce/apex/FieldUsageController.runNow';
 import bootstrap from '@salesforce/apex/FieldUsageController.bootstrap';
@@ -86,17 +86,16 @@ export default class FieldUsageIntelligence extends LightningElement {
                 });
             });
 
-            this.groups = Object.keys(byField)
+            this.groups = [...this.selectedFields]
                 .sort()
                 .map((field) => ({
                     key: field,
                     field,
-                    items: byField[field]
+                    noDependency: !byField[field]?.length,
+                    items: byField[field] || []
                 }));
 
-            this.message = rows.length
-                ? undefined
-                : 'No persisted dependency evidence was found for the selected fields in the current snapshot.';
+            this.message = undefined;
         } catch (error) {
             this.handleError(error);
         }
