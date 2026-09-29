@@ -22,7 +22,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
             Id = runId,
             Status__c = 'Running',
             Heartbeat_At__c = System.now(),
-            Job_Id__c = String.valueOf(context.getJobId()),
+            Job_Id__c = context == null ? null : String.valueOf(context.getJobId()),
             Progress_Phase__c = 'Discovering Apex classes, triggers and active Flows'
         );
         return new List<String>{ 'ApexClass', 'ApexTrigger', 'Flow' };
