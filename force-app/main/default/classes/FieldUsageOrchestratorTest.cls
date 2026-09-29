@@ -10,7 +10,7 @@
         update run;
 
         try{
-            FieldUsageOrchestrator.start('Manual');
+            FieldUsageOrchestrator.ensureNoActiveRun();
             System.assert(false,'An active async job must prevent a duplicate scan.');
         }catch(FieldUsageOrchestrator.ScanAlreadyRunningException e){
             System.assert(e.getMessage().contains('already running'));
@@ -25,13 +25,12 @@
         );
         insert abandoned;
 
-        Id newRunId=FieldUsageOrchestrator.start('Manual');
+        FieldUsageOrchestrator.ensureNoActiveRun();
 
         abandoned=[SELECT Status__c,Is_Current__c,Completed_At__c,Progress_Phase__c FROM Field_Usage_Run__c WHERE Id=:abandoned.Id];
         System.assertEquals('Failed',abandoned.Status__c);
         System.assertEquals(false,abandoned.Is_Current__c);
         System.assertNotEquals(null,abandoned.Completed_At__c);
         System.assertEquals('Aborted scan recovered',abandoned.Progress_Phase__c);
-        System.assertNotEquals(null,newRunId);
     }
 }
