@@ -25,7 +25,7 @@ public without sharing class FieldUsageToolingApiClient {
      * creating a durable run or thousands of batch executions.
      */
     public static void assertConnectionReady() {
-        String soql = 'SELECT Id FROM Organization LIMIT 1';
+        String soql = 'SELECT Id FROM ApexClass LIMIT 1';
         try {
             send('/services/data/' + API_VERSION + '/tooling/query/?q=' +
                 EncodingUtil.urlEncode(soql, 'UTF-8'));
