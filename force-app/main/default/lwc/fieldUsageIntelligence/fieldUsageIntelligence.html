@@ -62,7 +62,8 @@
                             <template for:each={group.items} for:item="item">
                                 <div key={item.key} class="leaf">
                                     <strong>{item.source}</strong> → {item.component}
-                                    <div class="muted">{item.type} · {item.confidence}</div>
+                                    <div class="muted">{item.type} · {item.confidence} · {item.count} occurrence(s)</div>
+                                    <div class="muted">{item.location}</div>
                                 </div>
                             </template>
                         </section>
