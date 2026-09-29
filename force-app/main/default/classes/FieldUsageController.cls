@@ -16,7 +16,7 @@ public with sharing class FieldUsageController {
     }
     @AuraEnabled(cacheable=true) public static List<String> getObjects(){
         List<String> names=new List<String>();Map<String,Schema.SObjectType> globalDescribe=Schema.getGlobalDescribe();
-        for(String n:globalDescribe.keySet()) if(globalDescribe.get(n).getDescribe().isAccessible()) names.add(n);
+        for(String n:globalDescribe.keySet()){Schema.DescribeSObjectResult describe=globalDescribe.get(n).getDescribe();if(describe.isAccessible())names.add(describe.getName());}
         names.sort(); return names;
     }
     @AuraEnabled(cacheable=true) public static List<String> getFields(String objectApiName){
