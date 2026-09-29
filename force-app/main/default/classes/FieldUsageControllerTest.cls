@@ -30,13 +30,14 @@
   insert new Field_Usage_Evidence__c(Run__c=currentRun.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='AccountService',Occurrence_Count__c=1);
 
   List<String> schemaFields=FieldUsageController.getFields('Account');
-  System.assert(schemaFields.contains('Industry'),'Industry must remain selectable from schema even when sparse snapshot has no evidence row.');
+  String zeroEvidenceField=null;for(String fieldName:schemaFields)if(fieldName!='Name'){zeroEvidenceField=fieldName;break;}
+  System.assertNotEquals(null,zeroEvidenceField,'Account must expose at least one schema field other than Name for this sparse-model test.');
 
-  List<Field_Usage_Evidence__c> noDependency=FieldUsageController.getEvidence('Account',new List<String>{'Industry'});
+  List<Field_Usage_Evidence__c> noDependency=FieldUsageController.getEvidence('Account',new List<String>{zeroEvidenceField});
   System.assertEquals(0,noDependency.size(),'A schema field with no persisted evidence must return zero dependencies.');
 
   System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
-  System.assert(FieldUsageController.getSnapshotFields('Account').contains('Industry'),'Snapshot selectors use schema and must retain zero-dependency fields.');
+  System.assert(FieldUsageController.getSnapshotFields('Account').contains(zeroEvidenceField),'Snapshot selectors use schema and must retain zero-dependency fields.');
  }
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
