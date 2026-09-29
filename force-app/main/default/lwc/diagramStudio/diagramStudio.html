@@ -78,9 +78,12 @@
             <div class="settings-shell">
                 <aside class="settings-nav">
                     <div class="settings-nav-group">FIELD USAGE</div>
-                    <button class="settings-nav-item settings-nav-item-active">Schedule Settings</button>
+                    <button class={settingsScheduleNavClass} onclick={handleSettingsScheduleSection}>Schedule Settings</button>
+                    <div class="settings-nav-group">APPEARANCE</div>
+                    <button class={settingsThemeNavClass} onclick={handleSettingsThemeSection}>Theme</button>
                 </aside>
                 <main class="settings-content">
+                    <template if:true={settingsScheduleSectionOpen}>
                     <div class="settings-title"><div><h2>Field Usage Schedule Settings</h2><p>Control automatic Field Usage scans and inspect the Salesforce jobs created by this Studio.</p></div></div>
                     <div class="settings-tabs">
                         <button class={settingsConfigurationTabClass} onclick={handleSettingsConfigurationTab}>Schedule Configuration</button>
@@ -127,6 +130,21 @@
                                     </template>
                                 </div>
                             </template>
+                        </section>
+                    </template>
+                    </template>
+                    <template if:true={settingsThemeSectionOpen}>
+                        <div class="settings-title"><div><h2>Theme</h2><p>Choose the appearance used throughout ER Modeller Studio, including the diagram, full-screen workspaces, Settings and Help.</p></div></div>
+                        <template if:true={settingsMessage}><div class="settings-message" role="status">{settingsMessage}</div></template>
+                        <section class="settings-panel">
+                            <div class="settings-panel-head"><div><h3>Application Theme</h3><p>Select a theme to preview it immediately. Click Save Theme to keep the choice for future Studio sessions.</p></div></div>
+                            <label><span>Theme</span><select class="theme-select settings-theme-select" onchange={handleThemeChange}>
+                                <option value="theme-dark-plus" selected={isThemeDarkPlus}>Dark+</option>
+                                <option value="theme-light-plus" selected={isThemeLightPlus}>Light+</option>
+                                <option value="theme-monokai" selected={isThemeMonokai}>Monokai</option>
+                                <option value="theme-solarized-light" selected={isThemeSolarizedLight}>Solarized Light</option>
+                            </select></label>
+                            <div class="settings-actions"><button class="arch-action-btn arch-export-btn" onclick={handleSaveTheme}>Save Theme</button></div>
                         </section>
                     </template>
                 </main>
@@ -427,13 +445,6 @@
                 </div>
             </template>
         </div>
-
-        <select class="theme-select" onchange={handleThemeChange} title="Color theme">
-            <option value="theme-dark-plus" selected={isThemeDarkPlus}>Dark+</option>
-            <option value="theme-light-plus" selected={isThemeLightPlus}>Light+</option>
-            <option value="theme-monokai" selected={isThemeMonokai}>Monokai</option>
-            <option value="theme-solarized-light" selected={isThemeSolarizedLight}>Solarized Light</option>
-        </select>
 
         <div class="tb-spacer"></div>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
