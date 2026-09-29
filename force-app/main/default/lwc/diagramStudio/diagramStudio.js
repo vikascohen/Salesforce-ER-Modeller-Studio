@@ -221,6 +221,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // ── data dictionary ──
     // Phase 3 — Field Usage Intelligence
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
+    @track fieldUsageLoading=false; @track fieldUsageSnapshotAvailable=false; @track fieldUsageBatchRunning=false; @track fieldUsageEntryMessage='';
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
     @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactBatchRunning=false; @track fieldImpactBatchStatus=''; @track fieldImpactObject=''; @track fieldImpactField='';
@@ -1362,6 +1363,121 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureShowFieldImpact(){return this.architectureSection==='fieldimpact';}
     get architectureShowMetrics(){return this.architectureSection==='metrics';}
     get architectureShowObject(){return this.architectureSection==='object';}
+    async handleMenuFieldUsage() {
+        this.openMenu = null;
+        this.fieldUsageOpen = true;
+        await this.initialiseFieldUsage();
+    }
+
+    async initialiseFieldUsage() {
+        this.fieldUsageLoading = true;
+        this.fieldUsageEntryMessage = '';
+        this.fieldUsageObjects = [];
+        this.fieldUsageFields = [];
+        this.fieldUsageObject = '';
+        this.fieldUsageSelectedFields = [];
+        this.fieldUsageEvidence = [];
+        this._fieldUsageMapCache = { nodes: [], edges: [], width: 1320, height: 650 };
+
+        try {
+            const [snapshot, status] = await Promise.all([
+                fieldImpactSnapshot(),
+                fieldUsageGetStatus()
+            ]);
+
+            this.fieldUsageSnapshotAvailable = !!snapshot?.available;
+            const statusName = status?.run?.Status__c || '';
+            this.fieldUsageBatchRunning = ['Queued', 'Running'].includes(statusName);
+
+            if (this.fieldUsageSnapshotAvailable) {
+                this.fieldUsageObjects = await fieldImpactObjects();
+                this.fieldUsageEntryMessage = this.fieldUsageBatchRunning
+                    ? 'A newer scan is running. Showing the latest successful snapshot.'
+                    : '';
+            } else if (this.fieldUsageBatchRunning) {
+                this.fieldUsageEntryMessage =
+                    'Field Usage scan is currently running. The map will be available after the first successful snapshot is created.';
+            } else {
+                this.fieldUsageEntryMessage =
+                    'Field Usage requires a successful scan before it can be loaded. Run a scan from the Scan Console first.';
+            }
+        } catch (error) {
+            this.fieldUsageSnapshotAvailable = false;
+            this.fieldUsageBatchRunning = false;
+            this.fieldUsageEntryMessage =
+                'Field Usage snapshot status could not be loaded: ' + this.reduceError(error);
+        } finally {
+            this.fieldUsageLoading = false;
+        }
+    }
+
+    get fieldUsageReady() {
+        return !this.fieldUsageLoading && this.fieldUsageSnapshotAvailable;
+    }
+
+    get fieldUsageNeedsScan() {
+        return !this.fieldUsageLoading &&
+            !this.fieldUsageSnapshotAvailable &&
+            !this.fieldUsageBatchRunning;
+    }
+
+    get fieldUsageWaitingForBatch() {
+        return !this.fieldUsageLoading &&
+            !this.fieldUsageSnapshotAvailable &&
+            this.fieldUsageBatchRunning;
+    }
+
+    get fieldUsageShowEntryMessage() {
+        return !!this.fieldUsageEntryMessage;
+    }
+
+    get fieldUsageObjectOptions() {
+        return (this.fieldUsageObjects || []).map((name) => ({ label: name, value: name }));
+    }
+
+    get fieldUsageFieldOptions() {
+        return (this.fieldUsageFields || []).map((name) => ({ label: name, value: name }));
+    }
+
+    async handleFieldUsageObject(event) {
+        this.fieldUsageObject = event.target.value || '';
+        this.fieldUsageSelectedFields = [];
+        this.fieldUsageEvidence = [];
+        this._fieldUsageMapCache = { nodes: [], edges: [], width: 1320, height: 650 };
+        this.fieldUsageFields = this.fieldUsageObject
+            ? await fieldUsageGetFields({ objectApiName: this.fieldUsageObject })
+            : [];
+    }
+
+    handleFieldUsageFields(event) {
+        this.fieldUsageSelectedFields = Array.from(event.target.selectedOptions || [])
+            .map((option) => option.value);
+    }
+
+    async handleFieldUsageAnalyse() {
+        if (!this.fieldUsageReady || !this.fieldUsageObject || !this.fieldUsageSelectedFields.length) {
+            return;
+        }
+        this.fieldUsageEvidence = await fieldUsageGetEvidence({
+            objectApiName: this.fieldUsageObject,
+            fieldApiNames: this.fieldUsageSelectedFields
+        });
+        this.rebuildFieldUsageMap();
+    }
+
+    handleCloseFieldUsage() {
+        this.fieldUsageOpen = false;
+    }
+
+    handleFieldUsageClear() {
+        this.fieldUsageObject = '';
+        this.fieldUsageFields = [];
+        this.fieldUsageSelectedFields = [];
+        this.fieldUsageEvidence = [];
+        this.fieldUsageZoom = 1;
+        this._fieldUsageMapCache = { nodes: [], edges: [], width: 1320, height: 650 };
+    }
+
     async initialiseFieldImpact(){this.fieldImpactLoading=true;this.clearFieldImpact(false);try{const [info,status]=await Promise.all([fieldImpactSnapshot(),fieldUsageGetStatus()]);this.fieldImpactSnapshotInfo=info;this.fieldImpactAvailable=!!info?.available;this.fieldImpactBatchStatus=status?.run?.Status__c||'';this.fieldImpactBatchRunning=['Queued','Running'].includes(this.fieldImpactBatchStatus);if(this.fieldImpactAvailable){this.fieldImpactBatchRunning=false;this.fieldImpactObjects=await fieldImpactObjects();this.fieldImpactSourceTypes=await fieldUsageGetSourceTypes();}}catch(e){this.architectureError='Field Change Impact: '+this.reduceError(e);}finally{this.fieldImpactLoading=false;}}
     get fieldImpactEmpty(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&!this.fieldImpactBatchRunning;}\n    get fieldImpactWaitingForBatch(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&this.fieldImpactBatchRunning;}
     get fieldImpactReady(){return !this.fieldImpactLoading&&this.fieldImpactAvailable;}
