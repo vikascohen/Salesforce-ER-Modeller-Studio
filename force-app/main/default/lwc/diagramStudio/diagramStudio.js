@@ -1469,7 +1469,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 { key: 'client-run', text: '[run] ' + runId }
             ];
             await this.refreshFieldUsageConsole();
-            this.startFieldUsagePolling();
+            // Start polling even if the first status read is briefly empty.
+            // The scan transaction has already returned a run id, so an empty
+            // status response must not reset the console to Ready.
+            this.startFieldUsagePolling(true);
         } catch (e) {
             const message = this.reduceError(e);
             await this.refreshFieldUsageConsole();
@@ -1498,7 +1501,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async refreshFieldUsageConsole() {
         const status = await fieldUsageGetStatus();
-        this.fieldUsageRun = status?.run || null;
+        const statusRun = status?.run || null;
+        // Do not throw away a locally known Queued/Running scan because one
+        // status read returned no run. That used to reset the modal to Ready
+        // and stop its timer while the AsyncApexJob was still Processing.
+        if (statusRun) {
+            this.fieldUsageRun = statusRun;
+        } else if (!this.fieldUsageRunning) {
+            this.fieldUsageRun = null;
+        }
         this.fieldUsageBatchRunning = this.fieldUsageRunning;
         const run = this.fieldUsageRun;
         const jobTotal = Number(status?.jobTotal || 0);
@@ -1532,9 +1543,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (!this.fieldUsageRunning) this.stopFieldUsagePolling();
     }
 
-    startFieldUsagePolling() {
+    startFieldUsagePolling(force = false) {
         this.stopFieldUsagePolling();
-        if (!this.fieldUsageConsoleOpen || !this.fieldUsageRunning) return;
+        if (!this.fieldUsageConsoleOpen || (!force && !this.fieldUsageRunning)) return;
         this.fieldUsagePollTimer = window.setInterval(async () => {
             if (!this.fieldUsageConsoleOpen) {
                 this.stopFieldUsagePolling();
