@@ -34,6 +34,11 @@ jest.mock('@salesforce/apex/FieldUsageController.getEvidenceDetail', () => ({ de
 jest.mock('@salesforce/apex/FieldUsageController.runNow', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.bootstrap', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getStatus', () => ({ default: jest.fn(() => Promise.resolve({ run: null, schedules: [] })) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.saveSchedules', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.deleteSchedule', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.getScheduledJobs', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.pauseSchedule', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
+jest.mock('@salesforce/apex/FieldUsageController.resumeSchedule', () => ({ default: jest.fn(() => Promise.resolve()) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getSnapshotAvailability', () => ({ default: jest.fn(() => Promise.resolve({ available: false })) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getSnapshotObjects', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.searchEvidence', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
@@ -63,6 +68,12 @@ const getSnapshotAvailability = require('@salesforce/apex/FieldUsageController.g
 const getSnapshotObjects = require('@salesforce/apex/FieldUsageController.getSnapshotObjects').default;
 // eslint-disable-next-line no-undef
 const getFieldUsageStatus = require('@salesforce/apex/FieldUsageController.getStatus').default;
+// eslint-disable-next-line no-undef
+const saveSchedules = require('@salesforce/apex/FieldUsageController.saveSchedules').default;
+// eslint-disable-next-line no-undef
+const getScheduledJobs = require('@salesforce/apex/FieldUsageController.getScheduledJobs').default;
+// eslint-disable-next-line no-undef
+const pauseSchedule = require('@salesforce/apex/FieldUsageController.pauseSchedule').default;
 
 
 const listFilesAdapter = registerApexTestWireAdapter(listFiles);
@@ -2054,5 +2065,56 @@ describe('Mimic New ER session state', () => {
         expect(el.shadowRoot.querySelector('.mimic-model-name input').value).toBe('Mimicked Model');
         expect(el.shadowRoot.querySelectorAll('.mimic-object')).toHaveLength(1);
         expect(el.shadowRoot.querySelector('.mimic-object-head input').value).toBe('');
+    });
+});
+
+
+describe('Settings workspace', () => {
+    it('opens Schedule Settings and loads every configured schedule', async () => {
+        getFieldUsageStatus.mockResolvedValue({
+            run:null,
+            schedules:[
+                {Id:'a001',Name:'Morning',Enabled__c:true,Hour__c:6,Minute__c:30},
+                {Id:'a002',Name:'Night',Enabled__c:false,Hour__c:21,Minute__c:0}
+            ]
+        });
+        const el=createStudio(); await flushPromises();
+        el.shadowRoot.querySelector('button[data-menu="settings"]').click(); await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find(i=>i.textContent.includes('Open Settings')).click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.settings-page')).not.toBeNull();
+        expect(el.shadowRoot.querySelectorAll('.settings-schedule-row')).toHaveLength(2);
+        expect(el.shadowRoot.querySelector('.settings-content').textContent).toContain('Schedule Configuration');
+        expect(el.shadowRoot.querySelector('.settings-content').textContent).toContain('Scheduled Jobs');
+    });
+
+    it('adds a schedule and saves the complete configuration', async () => {
+        getFieldUsageStatus.mockResolvedValue({run:null,schedules:[]});
+        const el=createStudio(); await flushPromises();
+        el.shadowRoot.querySelector('button[data-menu="settings"]').click(); await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find(i=>i.textContent.includes('Open Settings')).click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.settings-panel button')).find(b=>b.textContent.includes('Add Schedule')).click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelectorAll('.settings-schedule-row')).toHaveLength(1);
+        Array.from(el.shadowRoot.querySelectorAll('.settings-panel button')).find(b=>b.textContent.includes('Save Changes')).click();
+        await flushPromises();
+        expect(saveSchedules).toHaveBeenCalledTimes(1);
+        expect(saveSchedules.mock.calls[0][0].rows).toHaveLength(1);
+    });
+
+    it('refreshes Studio-owned jobs and can pause one', async () => {
+        getFieldUsageStatus.mockResolvedValue({run:null,schedules:[]});
+        getScheduledJobs.mockResolvedValue([{scheduleId:'a001',scheduleName:'Morning',enabled:true,hour:6,minute:30,state:'WAITING',nextFireTime:'2026-09-30T06:30:00.000Z',jobName:'ER Modeller Field Usage a001'}]);
+        const el=createStudio(); await flushPromises();
+        el.shadowRoot.querySelector('button[data-menu="settings"]').click(); await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find(i=>i.textContent.includes('Open Settings')).click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.settings-tab')).find(b=>b.textContent.includes('Scheduled Jobs')).click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.settings-job-table').textContent).toContain('Morning');
+        el.shadowRoot.querySelector('.settings-job-actions button').click();
+        await flushPromises();
+        expect(pauseSchedule).toHaveBeenCalledWith({scheduleId:'a001'});
     });
 });
