@@ -114,66 +114,26 @@ public with sharing class FieldUsageController {
         StatusDTO dto=new StatusDTO();
         String fields='Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c';
 
-        if(runId != null){
+        if(runId!=null){
             List<Field_Usage_Run__c> exact=Database.query('SELECT '+fields+' FROM Field_Usage_Run__c WHERE Id=:runId LIMIT 1');
             dto.run=exact.isEmpty()?null:exact[0];
-            populateJobStatus(dto);
         }else{
-            // Reconcile the durable run with Salesforce's actual async state.
-            // A run record can be stale/terminal while its Batch Apex job is
-            // still Queued/Preparing/Processing. The console must follow the
-            // real job rather than incorrectly falling back to Ready.
-            List<Field_Usage_Run__c> candidates=Database.query(
-                'SELECT '+fields+' FROM Field_Usage_Run__c WHERE Job_Id__c != null ORDER BY CreatedDate DESC LIMIT 50'
+            // Opening/reopening the console attaches to the durable active run.
+            // Job_Id__c is written from Database.executeBatch() and by every
+            // chained batch, so there is no heuristic AsyncApexJob discovery.
+            List<Field_Usage_Run__c> active=Database.query(
+                'SELECT '+fields+' FROM Field_Usage_Run__c WHERE Status__c IN (\'Queued\',\'Running\') ORDER BY CreatedDate DESC LIMIT 1'
             );
-            Map<Id,Field_Usage_Run__c> runByJobId=new Map<Id,Field_Usage_Run__c>();
-            Set<Id> jobIds=new Set<Id>();
-            for(Field_Usage_Run__c candidate:candidates){
-                try{
-                    Id jobId=(Id)candidate.Job_Id__c;
-                    jobIds.add(jobId);
-                    runByJobId.put(jobId,candidate);
-                }catch(Exception ignored){}
-            }
-
-            if(!jobIds.isEmpty()){
-                List<AsyncApexJob> activeJobs=[
-                    SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors,CreatedDate
-                    FROM AsyncApexJob
-                    WHERE Id IN :jobIds AND Status IN ('Holding','Queued','Preparing','Processing')
-                    ORDER BY CreatedDate DESC
-                ];
-                if(!activeJobs.isEmpty()){
-                    AsyncApexJob job=activeJobs[0];
-                    dto.run=runByJobId.get(job.Id);
-                    // Runtime truth wins for display. Do not persist from this
-                    // cacheable read; the owning batch remains responsible for
-                    // durable lifecycle updates.
-                    if(dto.run!=null && !new Set<String>{'Queued','Running'}.contains(dto.run.Status__c)){
-                        dto.run.Status__c='Running';
-                        dto.run.Progress_Phase__c=String.isBlank(dto.run.Progress_Phase__c)
-                            ?'Batch Apex job is '+job.Status
-                            :dto.run.Progress_Phase__c;
-                    }
-                    copyJobStatus(dto,job);
-                }
-            }
-
-            if(dto.run==null){
-                List<Field_Usage_Run__c> active=Database.query(
-                    'SELECT '+fields+' FROM Field_Usage_Run__c WHERE Status__c IN (\'Queued\',\'Running\') ORDER BY CreatedDate DESC LIMIT 1'
+            if(!active.isEmpty()) dto.run=active[0];
+            else{
+                List<Field_Usage_Run__c> latest=Database.query(
+                    'SELECT '+fields+' FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1'
                 );
-                if(!active.isEmpty()) dto.run=active[0];
-                else{
-                    List<Field_Usage_Run__c> latest=Database.query(
-                        'SELECT '+fields+' FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1'
-                    );
-                    dto.run=latest.isEmpty()?null:latest[0];
-                }
-                populateJobStatus(dto);
+                dto.run=latest.isEmpty()?null:latest[0];
             }
         }
 
+        populateJobStatus(dto);
         dto.schedules=[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c];
         return dto;
     }
@@ -183,10 +143,19 @@ public with sharing class FieldUsageController {
         try{
             Id asyncId=(Id)dto.run.Job_Id__c;
             List<AsyncApexJob> jobs=[
-                SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors
+                SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors,ExtendedStatus
                 FROM AsyncApexJob WHERE Id=:asyncId LIMIT 1
             ];
-            if(!jobs.isEmpty()) copyJobStatus(dto,jobs[0]);
+            if(!jobs.isEmpty()){
+                copyJobStatus(dto,jobs[0]);
+                // AsyncApexJob is authoritative for whether the current stage
+                // is active. This mutation is display-only; lifecycle DML
+                // remains owned by the batches/finalizer.
+                if(new Set<String>{'Holding','Queued','Preparing','Processing'}.contains(jobs[0].Status)){
+                    dto.run.Status__c=jobs[0].Status=='Queued' || jobs[0].Status=='Holding' ? 'Queued' : 'Running';
+                    if(String.isBlank(dto.run.Progress_Phase__c)) dto.run.Progress_Phase__c='Batch Apex job is '+jobs[0].Status;
+                }
+            }
         }catch(Exception ignored){}
     }
 
