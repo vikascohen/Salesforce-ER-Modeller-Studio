@@ -1438,6 +1438,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async handleOpenFieldUsageConsole() {
         this.openMenu = null;
         this.fieldUsageConsoleOpen = true;
+        // Reopening the console is a fresh view of the persisted server-side
+        // run. Clear Console must not permanently hide subsequent status.
+        this.fieldUsageConsoleCleared = false;
         try {
             // Status comes first so opening the console attaches immediately to
             // an existing run rather than presenting a launch-first experience.
@@ -1507,7 +1510,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         // and stop its timer while the AsyncApexJob was still Processing.
         if (statusRun) {
             this.fieldUsageRun = statusRun;
-        } else if (!this.fieldUsageRunning) {
+        } else if (!this.fieldUsageRun) {
+            // An empty status response is not evidence that a previously
+            // displayed run disappeared. Preserve terminal state too so a
+            // completed run remains visible when the console is reopened.
             this.fieldUsageRun = null;
         }
         this.fieldUsageBatchRunning = this.fieldUsageRunning;
