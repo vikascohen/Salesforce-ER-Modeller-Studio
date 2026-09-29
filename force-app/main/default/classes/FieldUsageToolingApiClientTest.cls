@@ -115,11 +115,12 @@ private class FieldUsageToolingApiClientTest {
 
         Test.startTest();
         FieldUsageToolingApiClient.assertConnectionReady();
+        Integer callouts = Limits.getCallouts();
         Test.stopTest();
 
         // Regression: Organization is a REST API sObject, not a Tooling API
         // query object. The preflight must use a Tooling-supported object.
-        System.assertEquals(1, Limits.getCallouts());
+        System.assertEquals(1, callouts);
     }
 
     @IsTest
