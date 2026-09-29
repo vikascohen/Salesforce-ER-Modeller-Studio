@@ -21,7 +21,7 @@ public with sharing class FieldUsageController {
     }
     @AuraEnabled(cacheable=true) public static List<String> getFields(String objectApiName){
         Schema.SObjectType t=Schema.getGlobalDescribe().get(objectApiName); if(t==null) throw new AuraHandledException('Unknown object.');
-        List<String> names=new List<String>(t.getDescribe().fields.getMap().keySet()); names.sort(); return names;
+        List<String> names=new List<String>();for(Schema.SObjectField field:t.getDescribe().fields.getMap().values())names.add(field.getDescribe().getName());names.sort();return names;
     }
     public class EvidenceSummaryDTO { @AuraEnabled public String fieldApiName; @AuraEnabled public String sourceType; @AuraEnabled public Integer evidenceRows; @AuraEnabled public Decimal occurrences; }
     @AuraEnabled(cacheable=true) public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
