@@ -9,6 +9,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
 
     // 12 x 18-character Salesforce IDs plus commas stays within Target_Key__c (255).
     private static final Integer CHUNK_SIZE = 12;
+    @TestVisible private static Boolean suppressWorkerChainForTest = false;
 
     private final Id runId;
 
@@ -104,6 +105,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
             return;
         }
 
+        if(Test.isRunningTest() && suppressWorkerChainForTest) return;
         Id workerJobId = Database.executeBatch(new FieldUsageWorkUnitBatch(runId), 1);
         update new Field_Usage_Run__c(
             Id = runId,
