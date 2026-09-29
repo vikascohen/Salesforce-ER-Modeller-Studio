@@ -9,6 +9,9 @@
   List<Field_Usage_Evidence__c> rows=FieldUsageController.getEvidence('Account',new List<String>{'Name'});
   System.assertEquals(1,rows.size());System.assertEquals('Current',rows[0].Component_Name__c);System.assertEquals(2,rows[0].Occurrence_Count__c);
   System.assertNotEquals(null,FieldUsageController.getStatus().run);
+  FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();System.assertEquals(true,snapshot.available);
+  System.assertEquals(new List<String>{'Account'},FieldUsageController.getSnapshotObjects());
+  System.assertEquals(new List<String>{'Name'},FieldUsageController.getSnapshotFields('Account'));
  }
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
