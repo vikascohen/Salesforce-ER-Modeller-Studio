@@ -1059,13 +1059,30 @@
                 </div>
             </template>
             <template if:true={fieldUsageReady}>
-                <div class="fu-controls"><label>Object<select onchange={handleFieldUsageObject}><option value="">Select object…</option><template for:each={fieldUsageObjectOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></label>
-                    <label>Fields<select multiple size="6" onchange={handleFieldUsageFields}><template for:each={fieldUsageFieldOptions} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></label>
-                    <div class="fu-control-actions"><button class="arch-action-btn arch-export-btn" onclick={handleFieldUsageAnalyse}>Build Map</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button></div></div>
-                <div class="fu-scroll"><div class="fu-canvas" style={fieldUsageCanvasStyle}>
-                    <svg class="fu-edges"><template for:each={fieldUsageEdges} for:item="e"><line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}></line></template></svg>
-                    <template for:each={fieldUsageNodes} for:item="n"><article key={n.key} class="fu-node" data-kind={n.kind} data-field={n.field} data-source={n.source} style={n.style} onclick={handleFieldUsageNodeClick}><strong>{n.label}</strong><span>{n.sub}</span></article></template>
-                </div></div>
+                <div class="fu-browser-shell">
+                    <aside class="fu-picker-pane">
+                        <div class="fu-pane-head"><strong>Objects</strong><span>{fieldUsageObject}</span></div>
+                        <input class="fu-picker-search" type="search" placeholder="Search objects…" value={fieldUsageObjectSearch} oninput={handleFieldUsageObjectSearch}/>
+                        <div class="fu-picker-list">
+                            <template for:each={fieldUsageObjectOptions} for:item="o"><button key={o.value} class={o.rowClass} data-value={o.value} onclick={handleFieldUsageObject}>{o.label}</button></template>
+                        </div>
+                    </aside>
+                    <aside class="fu-picker-pane fu-field-pane">
+                        <div class="fu-pane-head"><strong>Fields</strong><template if:true={fieldUsageHasObject}><span>{fieldUsageObject}</span></template></div>
+                        <input class="fu-picker-search" type="search" placeholder="Search fields…" value={fieldUsageFieldSearch} oninput={handleFieldUsageFieldSearch} disabled={fieldUsageLoading}/>
+                        <div class="fu-picker-list">
+                            <template if:false={fieldUsageHasObject}><div class="fu-picker-empty">Select an object to load its fields.</div></template>
+                            <template for:each={fieldUsageFieldOptions} for:item="o"><button key={o.value} class={o.rowClass} data-value={o.value} onclick={handleFieldUsageFields}>{o.label}</button></template>
+                        </div>
+                    </aside>
+                    <main class="fu-map-pane">
+                        <div class="fu-map-toolbar"><div><strong>Dependency Map</strong><span>Choose one or more fields, then build the persisted dependency view.</span></div><div class="fu-control-actions"><button class="arch-action-btn arch-export-btn" onclick={handleFieldUsageAnalyse}>Build Map</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button></div></div>
+                        <div class="fu-scroll"><div class="fu-canvas" style={fieldUsageCanvasStyle}>
+                            <svg class="fu-edges"><template for:each={fieldUsageEdges} for:item="e"><line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}></line></template></svg>
+                            <template for:each={fieldUsageNodes} for:item="n"><article key={n.key} class="fu-node" data-kind={n.kind} data-field={n.field} data-source={n.source} style={n.style} onclick={handleFieldUsageNodeClick}><strong>{n.label}</strong><span>{n.sub}</span></article></template>
+                        </div></div>
+                    </main>
+                </div>
             </template>
         </div>
     </template>
