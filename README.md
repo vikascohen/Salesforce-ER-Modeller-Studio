@@ -23,6 +23,14 @@ On first use, Phase 3 bootstraps two default daily schedules: **03:00** and **21
 
 The scheduler calls the same orchestration service as **Run Scan Now**. A persisted run lock prevents a manual or scheduled invocation from starting a second scan while one is already queued or running.
 
+### Performance and scalability
+
+Phase 3 is designed to avoid doing metadata analysis in interactive LWC requests. Formula scanning tokenises each formula once and resolves tokens through a field-name map instead of running a regular expression once for every candidate field. The formula batch skips objects that have no calculated fields, reducing asynchronous work in large orgs.
+
+Snapshot reads are bounded and driven by `Field_Key__c`, which is an External ID. Exact `Object.Field` searches use that key directly. General search uses bounded prefix filters over compact indexed/searchable evidence columns and deliberately does not perform a synchronous wildcard scan of the long evidence body. Salesforce recommends narrow/selective queries and reducing the number of active records processed for large-data-volume performance.
+
+Both Field Usage Map and Architecture Field Change Impact calculate their graph geometry once when evidence changes and cache the resulting nodes/edges. Zooming and ordinary component rerenders reuse that geometry instead of repeatedly rebuilding the complete dependency graph.
+
 ### Error handling and performance
 
 Phase 3 is designed around governor-limit-safe asynchronous processing. Scanner work is divided across Batch Apex transactions. Database writes are collected and executed outside processing loops, evidence inserts use partial DML, individual object/scanner failures are captured without intentionally terminating unrelated work, and the LWC reads only persisted evidence for the selected fields. The field key is an External ID to support selective snapshot queries.
