@@ -223,7 +223,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
     @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
-    @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactObject=''; @track fieldImpactField='';
+    @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactBatchRunning=false; @track fieldImpactBatchStatus=''; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
     @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null; @track _fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};
     @track fieldImpactUsageSearch=''; @track fieldImpactSourceType=''; @track fieldImpactSourceTypes=[]; @track fieldImpactSearchResults=[]; @track fieldImpactSearchBusy=false;
@@ -1361,8 +1361,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureShowFieldImpact(){return this.architectureSection==='fieldimpact';}
     get architectureShowMetrics(){return this.architectureSection==='metrics';}
     get architectureShowObject(){return this.architectureSection==='object';}
-    async initialiseFieldImpact(){this.fieldImpactLoading=true;this.clearFieldImpact(false);try{const info=await fieldImpactSnapshot();this.fieldImpactSnapshotInfo=info;this.fieldImpactAvailable=!!info?.available;if(this.fieldImpactAvailable){this.fieldImpactObjects=await fieldImpactObjects();this.fieldImpactSourceTypes=await fieldUsageGetSourceTypes();}}catch(e){this.architectureError='Field Change Impact: '+this.reduceError(e);}finally{this.fieldImpactLoading=false;}}
-    get fieldImpactEmpty(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable;}
+    async initialiseFieldImpact(){this.fieldImpactLoading=true;this.clearFieldImpact(false);try{const [info,status]=await Promise.all([fieldImpactSnapshot(),fieldUsageGetStatus()]);this.fieldImpactSnapshotInfo=info;this.fieldImpactAvailable=!!info?.available;this.fieldImpactBatchStatus=status?.run?.Status__c||'';this.fieldImpactBatchRunning=['Queued','Running'].includes(this.fieldImpactBatchStatus);if(this.fieldImpactAvailable){this.fieldImpactBatchRunning=false;this.fieldImpactObjects=await fieldImpactObjects();this.fieldImpactSourceTypes=await fieldUsageGetSourceTypes();}}catch(e){this.architectureError='Field Change Impact: '+this.reduceError(e);}finally{this.fieldImpactLoading=false;}}
+    get fieldImpactEmpty(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&!this.fieldImpactBatchRunning;}\n    get fieldImpactWaitingForBatch(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable&&this.fieldImpactBatchRunning;}
     get fieldImpactReady(){return !this.fieldImpactLoading&&this.fieldImpactAvailable;}
     get fieldImpactFilteredObjects(){const q=(this.fieldImpactObjectSearch||'').toLowerCase(),model=new Set((this._erBoxes||[]).map(x=>(x.name||'').toLowerCase()));return this.fieldImpactObjects.filter(x=>(!model.size||model.has(x.toLowerCase()))&&(!q||x.toLowerCase().includes(q))).map(x=>({label:x,value:x}));}
     get fieldImpactSourceOptions(){return [{label:'All indexed sources',value:''},...this.fieldImpactSourceTypes.map(x=>({label:x,value:x}))];}
