@@ -6,6 +6,9 @@ private class StudioDiagnosticsControllerTest {
             HttpResponse res=new HttpResponse();res.setStatusCode(200);res.setBody('{"totalSize":1,"done":true,"records":[{"Id":"01p000000000001AAA"}]}');return res;
         }
     }
+    private class ToolingErrorMock implements HttpCalloutMock {
+        public HTTPResponse respond(HTTPRequest req){HttpResponse res=new HttpResponse();res.setStatusCode(401);res.setBody('Unauthorized');return res;}
+    }
     @IsTest static void systemInfoIsReadOnlyAndVersioned(){
         Test.startTest();StudioDiagnosticsController.SystemInfoDTO dto=StudioDiagnosticsController.getSystemInfo();Test.stopTest();
         System.assertEquals('3',dto.studioVersion);
@@ -24,7 +27,7 @@ private class StudioDiagnosticsControllerTest {
         System.assert(toolingPassed,'Tooling API must be proven by an authenticated preflight.');
     }
     @IsTest static void failedToolingConnectionIsActionable(){
-        Test.setMock(HttpCalloutMock.class,new FieldUsageToolingApiClientTest.ErrorMock(401,'Unauthorized'));
+        Test.setMock(HttpCalloutMock.class,new ToolingErrorMock());
         Test.startTest();StudioDiagnosticsController.DiagnosticDTO dto=StudioDiagnosticsController.runDiagnostics();Test.stopTest();
         System.assertEquals('Configuration Required',dto.overallStatus);
         Boolean found=false;
