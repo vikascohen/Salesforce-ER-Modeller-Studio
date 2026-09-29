@@ -199,30 +199,47 @@ describe('c-field-usage-intelligence', () => {
         expect(text).toContain('AccountTrigger');
     });
 
-    it('keeps an empty snapshot useful instead of rendering a blank result area', async () => {
+    it('keeps schema-selected fields visible when sparse evidence has no dependency row', async () => {
+        getEvidence.mockResolvedValueOnce([
+            {
+                Field_Key__c: 'Account.Name',
+                Field_API_Name__c: 'Name',
+                Source_Type__c: 'Apex Class',
+                Component_Name__c: 'AccountService',
+                Evidence_Type__c: 'Apex Source Reference',
+                Confidence__c: 'High',
+                Occurrence_Count__c: 1,
+                Location__c: 'Apex Class: AccountService'
+            }
+        ]);
+
         const element = createComponent();
         await flushPromises();
 
-        const objectPicker = element.shadowRoot.querySelector('lightning-combobox');
-        objectPicker.dispatchEvent(
+        element.shadowRoot.querySelector('lightning-combobox').dispatchEvent(
             new CustomEvent('change', { detail: { value: 'Account' } })
         );
         await flushPromises();
 
-        const fieldPicker = element.shadowRoot.querySelector('lightning-dual-listbox');
-        fieldPicker.dispatchEvent(
-            new CustomEvent('change', { detail: { value: ['Name'] } })
+        element.shadowRoot.querySelector('lightning-dual-listbox').dispatchEvent(
+            new CustomEvent('change', { detail: { value: ['Name', 'Industry'] } })
         );
         await flushPromises();
 
-        const analyseButton = Array.from(
-            element.shadowRoot.querySelectorAll('lightning-button')
-        ).find((button) => button.label === 'Analyse Selected Fields');
-        analyseButton.click();
+        Array.from(element.shadowRoot.querySelectorAll('lightning-button'))
+            .find((button) => button.label === 'Analyse Selected Fields')
+            .click();
         await flushPromises();
 
-        expect(element.shadowRoot.textContent).toContain(
-            'No persisted dependency evidence was found'
-        );
+        const text = element.shadowRoot.textContent;
+        expect(getEvidence).toHaveBeenCalledWith({
+            objectApiName: 'Account',
+            fieldApiNames: ['Name', 'Industry']
+        });
+        expect(text).toContain('Name');
+        expect(text).toContain('AccountService');
+        expect(text).toContain('Industry');
+        expect(text).toContain('No dependency detected');
+        expect(text).toContain('0 dependencies');
     });
 });
