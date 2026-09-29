@@ -23,6 +23,14 @@ public with sharing class FieldUsageController {
         Schema.SObjectType t=Schema.getGlobalDescribe().get(objectApiName); if(t==null) throw new AuraHandledException('Unknown object.');
         List<String> names=new List<String>(t.getDescribe().fields.getMap().keySet()); names.sort(); return names;
     }
+    public class EvidenceSummaryDTO { @AuraEnabled public String fieldApiName; @AuraEnabled public String sourceType; @AuraEnabled public Integer evidenceRows; @AuraEnabled public Decimal occurrences; }
+    @AuraEnabled(cacheable=true) public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
+        List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>(); if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
+        Set<String> keys=new Set<String>();for(String f:fieldApiNames)keys.add(objectApiName+'.'+f);
+        for(AggregateResult ar:[SELECT Field_API_Name__c fieldName,Source_Type__c sourceType,COUNT(Id) evidenceRows,SUM(Occurrence_Count__c) occurrences FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys GROUP BY Field_API_Name__c,Source_Type__c ORDER BY Field_API_Name__c,Source_Type__c]){
+            EvidenceSummaryDTO dto=new EvidenceSummaryDTO();dto.fieldApiName=(String)ar.get('fieldName');dto.sourceType=(String)ar.get('sourceType');dto.evidenceRows=(Integer)ar.get('evidenceRows');dto.occurrences=(Decimal)ar.get('occurrences');out.add(dto);
+        }return out;
+    }
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> getEvidence(String objectApiName,List<String> fieldApiNames){
         if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty()) return new List<Field_Usage_Evidence__c>();
         Set<String> keys=new Set<String>(); for(String f:fieldApiNames) keys.add(objectApiName+'.'+f);
