@@ -18,8 +18,9 @@ The current Phase 3 branch indexes:
 - **Formula fields** through Salesforce Schema Describe and calculated-formula metadata.
 - **Apex classes** through the Salesforce **Tooling API**.
 - **Apex triggers** through the Salesforce **Tooling API**.
+- **Active Flows** through asynchronous Tooling API metadata retrieval and schema-validated metadata analysis.
 
-**Flow and OmniStudio are intentionally deferred to Phase 4.** They are outside the Phase 3 implementation boundary and are not counted as Phase 3 dependency coverage.
+**OmniStudio is intentionally deferred to Phase 4.** It is outside the Phase 3 implementation boundary.
 
 Tooling API access is intentionally restricted to the asynchronous server-side scan pipeline. The LWC never calls Tooling API and never receives Salesforce source bodies. Apex and Trigger discovery/retrieval is performed by Batch Apex callouts through `FieldUsageToolingApiClient`.
 
@@ -29,7 +30,7 @@ The Tooling client uses Salesforce API **v60.0** and expects a Named Credential 
 
 ```mermaid
 flowchart LR
-    META["Salesforce Metadata<br/>Apex Classes · Triggers · Formula Fields<br/>Phase 4: Flow · OmniStudio"]
+    META["Salesforce Metadata<br/>Apex Classes · Triggers · Formula Fields<br/>Flow · Phase 4: OmniStudio"]
 
     subgraph BG["Asynchronous Dependency Discovery"]
         BATCH["Background Batch Processing<br/>Discover and analyse dependencies"]
@@ -81,10 +82,12 @@ flowchart TD
     TDISC["FieldUsageToolingDiscoveryBatch"]
     APEXIDX["Tooling API<br/>ApexClass index"]
     TRIGGERIDX["Tooling API<br/>ApexTrigger index"]
+    FLOWIDX["Tooling API<br/>Active Flow index + Metadata"]
     TWORK["Create durable<br/>bulk source work units"]
 
     WORKER["FieldUsageWorkUnitBatch"]
     FSCAN["Formula scanner"]
+    FLOWSCAN["Flow metadata scanner"]
     SOURCE["Tooling source retrieval"]
     ASCAN["Apex / Trigger source scanner"]
     EVIDENCE[("Sparse dependency evidence<br/>Field_Usage_Evidence__c")]
@@ -100,14 +103,18 @@ flowchart TD
     FWORK --> TDISC
     TDISC --> APEXIDX
     TDISC --> TRIGGERIDX
+    TDISC --> FLOWIDX
     APEXIDX --> TWORK
     TRIGGERIDX --> TWORK
+    FLOWIDX --> TWORK
     TWORK --> WORKER
 
     WORKER --> FSCAN
+    WORKER --> FLOWSCAN
     WORKER --> SOURCE --> ASCAN
 
     FSCAN --> EVIDENCE
+    FLOWSCAN --> EVIDENCE
     ASCAN --> EVIDENCE
 
     EVIDENCE --> FINAL --> DECISION
@@ -209,15 +216,13 @@ This gives architects a bounded blast-radius view while preserving the evidence 
 
 `Field_Usage_Evidence__c` records include object, field, source type, component, component id, evidence type, confidence, observed time, occurrence count and location so new scanners can reuse the same persistence model.
 
-### Phase 4 boundary: Flow and OmniStudio
+### Phase 4 boundary: OmniStudio
 
-Phase 4 will extend the same durable work-unit and sparse evidence architecture to **Flow** and **OmniStudio**.
+Flow is implemented in Phase 3 through asynchronous Tooling API retrieval of active Flow metadata. Flow evidence is written into the same `Field_Usage_Evidence__c` model and consumed by the existing maps.
 
-Flow dependency discovery will remain asynchronous and will write into the same `Field_Usage_Evidence__c` model rather than introducing a second UI-side scanning path.
+Phase 4 will extend the same durable work-unit and sparse evidence architecture to **OmniStudio**. OmniStudio must be treated as an **optional capability** because it is not present in every Salesforce org and its available object model can differ by runtime/package model. Phase 4 must therefore use runtime Schema/Describe discovery before querying OmniStudio data. `GenericDynamicSoqlBuilder` and `FieldUsageDynamicQueryService` are retained for this purpose: only objects and fields that actually exist in the target org should be queried. If no supported OmniStudio model is present, the Omni scanner must create no work and the overall field-usage scan must continue normally rather than fail.
 
-OmniStudio must be treated as an **optional capability** because it is not present in every Salesforce org and its available object model can differ by runtime/package model. Phase 4 must therefore use runtime Schema/Describe discovery before querying OmniStudio data. `GenericDynamicSoqlBuilder` and `FieldUsageDynamicQueryService` are retained for this purpose: only objects and fields that actually exist in the target org should be queried. If no supported OmniStudio model is present, the Omni scanner must create no work and the overall field-usage scan must continue normally rather than fail.
-
-Both Phase 4 scanners should create durable work units and persist evidence through the existing snapshot pipeline so the Field Usage Map and Field Change Impact views can consume the additional source types without changing the LWC architecture.
+The Phase 4 OmniStudio scanner should create durable work units and persist evidence through the existing snapshot pipeline so the Field Usage Map and Field Change Impact views can consume the additional source type without changing the LWC architecture.
 
 ### Main Phase 3 components
 
@@ -262,9 +267,9 @@ The Salesforce CLI workflow requires the GitHub Actions repository secret `SFDX_
 
 ### Current evidence boundary
 
-Phase 3 currently provides persisted evidence from **Formula fields, local/unmanaged Apex classes and local/unmanaged Apex triggers**.
+Phase 3 currently provides persisted evidence from **Formula fields, local/unmanaged Apex classes, local/unmanaged Apex triggers and active Flows**.
 
-**Flow and OmniStudio are Phase 4 scope.** Phase 3 also does not claim complete coverage of managed-package internals, reports, integrations, dynamic SOQL, runtime-generated references or every possible Salesforce dependency mechanism.
+**OmniStudio is Phase 4 scope.** Phase 3 also does not claim complete coverage of managed-package internals, reports, integrations, dynamic SOQL, runtime-generated references or every possible Salesforce dependency mechanism.
 
 The design principle is: **persist what the scanners can prove, keep the successful snapshot queryable, and make unsupported coverage explicit rather than inventing certainty.**
 
