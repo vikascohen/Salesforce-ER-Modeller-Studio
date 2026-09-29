@@ -60,7 +60,10 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
                     : FieldUsageToolingApiClient.getApexTriggers(componentIds);
 
             List<Field_Usage_Evidence__c> evidence = new List<Field_Usage_Evidence__c>();
+            Integer heapLimit=Limits.getLimitHeapSize();
             for (FieldUsageToolingApiClient.SourceComponent component : components) {
+                if(Limits.getHeapSize() > (heapLimit*80/100))
+                    throw new FieldUsageWorkUnitException('Heap safety threshold reached before scanning all source components. Reduce the Tooling source chunk size.');
                 evidence.addAll(
                     FieldUsageApexScanner.scan(
                         runId,
@@ -70,7 +73,9 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
                         component.body
                     )
                 );
+                component.body=null;
             }
+            components=null;
             return evidence;
         }
 
