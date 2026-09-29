@@ -7,6 +7,8 @@
 public without sharing class FieldUsageToolingDiscoveryBatch
     implements Database.Batchable<String>, Database.AllowsCallouts {
 
+    private static final Integer CHUNK_SIZE = 50;
+
     private final Id runId;
 
     public FieldUsageToolingDiscoveryBatch(Id runId) {
@@ -21,20 +23,30 @@ public without sharing class FieldUsageToolingDiscoveryBatch
         for (String sourceType : sourceTypes) {
             List<FieldUsageToolingApiClient.SourceComponent> components =
                 sourceType == 'ApexClass'
-                    ? FieldUsageToolingApiClient.getApexClasses()
-                    : FieldUsageToolingApiClient.getApexTriggers();
+                    ? FieldUsageToolingApiClient.getApexClassIndex()
+                    : FieldUsageToolingApiClient.getApexTriggerIndex();
+
+            String scannerType =
+                sourceType == 'ApexClass' ? 'Apex Class Bulk' : 'Apex Trigger Bulk';
 
             List<Field_Usage_Work_Unit__c> units = new List<Field_Usage_Work_Unit__c>();
-            for (FieldUsageToolingApiClient.SourceComponent component : components) {
-                String scannerType =
-                    sourceType == 'ApexClass' ? 'Apex Class' : 'Apex Trigger';
+            for (Integer offset = 0; offset < components.size(); offset += CHUNK_SIZE) {
+                Integer chunkEnd = Math.min(offset + CHUNK_SIZE, components.size());
+                List<String> componentIds = new List<String>();
+                List<String> componentNames = new List<String>();
+
+                for (Integer index = offset; index < chunkEnd; index++) {
+                    componentIds.add(components[index].id);
+                    componentNames.add(components[index].name);
+                }
 
                 units.add(new Field_Usage_Work_Unit__c(
                     Run__c = runId,
                     Work_Key__c =
-                        String.valueOf(runId) + '|' + scannerType + '|' + component.id,
+                        String.valueOf(runId) + '|' + scannerType + '|' +
+                        String.valueOf(offset / CHUNK_SIZE),
                     Scanner_Type__c = scannerType,
-                    Target_Key__c = component.id + '|' + component.name,
+                    Target_Key__c = String.join(componentIds, ','),
                     Status__c = 'Pending'
                 ));
             }
@@ -44,7 +56,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
                 for (Database.SaveResult result : results) {
                     if (!result.isSuccess()) {
                         throw new FieldUsageToolingApiClient.ToolingApiException(
-                            'Could not checkpoint Tooling API discovery: ' +
+                            'Could not checkpoint bulk Tooling API discovery: ' +
                             result.getErrors()[0].getMessage()
                         );
                     }
@@ -55,7 +67,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
         update new Field_Usage_Run__c(
             Id = runId,
             Heartbeat_At__c = System.now(),
-            Progress_Phase__c = 'Discovered Apex classes and triggers'
+            Progress_Phase__c = 'Discovered bulk Apex and Trigger work'
         );
     }
 
