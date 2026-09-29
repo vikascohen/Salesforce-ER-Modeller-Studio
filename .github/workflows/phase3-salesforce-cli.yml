@@ -9,6 +9,10 @@ on:
       - version-3-field-usage-intelligence
   workflow_dispatch:
 
+concurrency:
+  group: phase3-salesforce-ci
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
