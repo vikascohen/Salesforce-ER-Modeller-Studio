@@ -1351,8 +1351,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             await this.refreshFieldUsageConsole();
             this.startFieldUsagePolling();
         } catch (e) {
-            this.errorMessage = 'Field Usage scan: ' + this.reduceError(e);
+            const message = this.reduceError(e);
             await this.refreshFieldUsageConsole();
+            if (/already running/i.test(message)) {
+                // This is a normal concurrency guard, not a canvas-level error.
+                // Keep the console open and attach to the existing run instead.
+                this.errorMessage = '';
+                this.fieldUsageConsoleOpen = true;
+                this.startFieldUsagePolling();
+                return;
+            }
+            this.errorMessage = 'Field Usage scan: ' + message;
         }
     }
 
