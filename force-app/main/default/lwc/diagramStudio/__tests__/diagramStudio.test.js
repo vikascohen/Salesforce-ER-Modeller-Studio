@@ -136,7 +136,13 @@ describe('c-diagram-studio', () => {
         await flushPromises();
 
         const fieldSelect = el.shadowRoot.querySelector('.fu-controls select[multiple]');
-        Array.from(fieldSelect.options).forEach((option) => { option.selected = option.value === 'Unused_Field__c'; });
+        const selectedFieldOption = Array.from(fieldSelect.options)
+            .find((option) => option.value === 'Unused_Field__c');
+        selectedFieldOption.selected = true;
+        Object.defineProperty(fieldSelect, 'selectedOptions', {
+            configurable: true,
+            value: [selectedFieldOption]
+        });
         fieldSelect.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
 
