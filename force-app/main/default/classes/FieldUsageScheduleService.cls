@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public with sharing class FieldUsageScheduleService {
     private static final String PREFIX='ER Modeller Field Usage ';
     public static void ensureDefaults() {
