@@ -3611,30 +3611,54 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     /**
-     * Pixel position for the suggestions dropdown, anchored just under the
-     * caret. The editor disables line-wrapping (white-space: pre, horizontal
-     * scroll instead) so every DSL line is exactly one visual row — that
-     * means caret position is plain monospace-grid arithmetic (row/column ×
-     * char size) rather than needing a full mirror-element measurement.
+     * Pixel position for the suggestions dropdown. With wrapping disabled the
+     * editor is a simple monospace grid. With wrapping enabled, source lines
+     * can occupy several visual rows, so account for the usable textarea
+     * width while preserving source-line semantics and IntelliSense filtering.
      */
     computeDslSuggestStyle(textareaEl, caret) {
         const cs = getComputedStyle(textareaEl);
         const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-        const charWidth  = this.measureCharWidth(font);
+        const charWidth = this.measureCharWidth(font);
         const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
         const padLeft = parseFloat(cs.paddingLeft) || 0;
-        const padTop  = parseFloat(cs.paddingTop)  || 0;
+        const padRight = parseFloat(cs.paddingRight) || 0;
+        const padTop = parseFloat(cs.paddingTop) || 0;
 
         const before = textareaEl.value.substring(0, caret);
-        const row = (before.match(/\n/g) || []).length;
-        const col = caret - before.lastIndexOf('\n') - 1;
+        const sourceLines = before.split('\n');
+        const currentLine = sourceLines[sourceLines.length - 1] || '';
+        let visualRow = sourceLines.length - 1;
+        let visualCol = currentLine.length;
 
-        const rawX = textareaEl.offsetLeft + padLeft + col * charWidth - textareaEl.scrollLeft;
-        const rawY = textareaEl.offsetTop + padTop + (row + 1) * lineHeight - textareaEl.scrollTop;
+        if (this.dslWordWrap) {
+            const usableWidth = Math.max(
+                charWidth,
+                textareaEl.clientWidth - padLeft - padRight
+            );
+            const columnsPerRow = Math.max(1, Math.floor(usableWidth / charWidth));
 
-        // Keep the dropdown from running past the panel's own right edge.
-        const maxLeft = Math.max(4, this.dslPanelWidth - this.DSL_SUGGEST_WIDTH - 20);
-        const x = Math.min(Math.max(4, rawX), maxLeft);
+            visualRow = 0;
+            for (let index = 0; index < sourceLines.length - 1; index++) {
+                visualRow += Math.max(1, Math.ceil(sourceLines[index].length / columnsPerRow));
+            }
+            visualRow += Math.floor(currentLine.length / columnsPerRow);
+            visualCol = currentLine.length % columnsPerRow;
+        }
+
+        const rawX =
+            textareaEl.offsetLeft + padLeft + visualCol * charWidth -
+            (this.dslWordWrap ? 0 : textareaEl.scrollLeft);
+        const rawY =
+            textareaEl.offsetTop + padTop + (visualRow + 1) * lineHeight -
+            textareaEl.scrollTop;
+
+        const editorWidth = textareaEl.clientWidth || this.dslPanelWidth;
+        const maxLeft = Math.max(
+            4,
+            textareaEl.offsetLeft + editorWidth - this.DSL_SUGGEST_WIDTH - 10
+        );
+        const x = Math.min(Math.max(textareaEl.offsetLeft + 4, rawX), maxLeft);
         const y = Math.max(4, rawY);
 
         return `left:${Math.round(x)}px; top:${Math.round(y)}px; width:${this.DSL_SUGGEST_WIDTH}px;`;
