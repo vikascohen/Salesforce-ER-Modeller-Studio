@@ -9,14 +9,10 @@ public with sharing class FieldUsageController {
         dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c.intValue();} return dto;
     }
     @AuraEnabled(cacheable=true) public static List<String> getSnapshotObjects(){
-        Id runId=getCurrentRunId();if(runId==null)return new List<String>();Set<String> uniqueNames=new Set<String>();Id afterId=null;
-        while(true){List<Field_Usage_Evidence__c> page=afterId==null?[SELECT Id,Object_API_Name__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Object_API_Name__c!=null ORDER BY Id LIMIT 2000]:[SELECT Id,Object_API_Name__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Object_API_Name__c!=null AND Id>:afterId ORDER BY Id LIMIT 2000];if(page.isEmpty())break;for(Field_Usage_Evidence__c row:page)uniqueNames.add(row.Object_API_Name__c);afterId=page[page.size()-1].Id;if(page.size()<2000)break;}
-        List<String> names=new List<String>(uniqueNames);names.sort();return names;
+        return getObjects();
     }
     @AuraEnabled(cacheable=true) public static List<String> getSnapshotFields(String objectApiName){
-        if(String.isBlank(objectApiName))return new List<String>();Id runId=getCurrentRunId();if(runId==null)return new List<String>();Set<String> uniqueNames=new Set<String>();Id afterId=null;
-        while(true){List<Field_Usage_Evidence__c> page=afterId==null?[SELECT Id,Field_API_Name__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Object_API_Name__c=:objectApiName AND Field_API_Name__c!=null ORDER BY Id LIMIT 2000]:[SELECT Id,Field_API_Name__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Object_API_Name__c=:objectApiName AND Field_API_Name__c!=null AND Id>:afterId ORDER BY Id LIMIT 2000];if(page.isEmpty())break;for(Field_Usage_Evidence__c row:page)uniqueNames.add(row.Field_API_Name__c);afterId=page[page.size()-1].Id;if(page.size()<2000)break;}
-        List<String> names=new List<String>(uniqueNames);names.sort();return names;
+        return String.isBlank(objectApiName)?new List<String>():getFields(objectApiName);
     }
     @AuraEnabled(cacheable=true) public static List<String> getObjects(){
         List<String> names=new List<String>();
@@ -84,9 +80,7 @@ public with sharing class FieldUsageController {
         return Database.queryWithBinds(fields,new Map<String,Object>{'sourceType'=>sourceType,'exactKey'=>exactKey,'prefix'=>prefix,'lim'=>lim},AccessLevel.USER_MODE);
     }
     @AuraEnabled(cacheable=true) public static List<String> getSourceTypes(){
-        Id runId=getCurrentRunId();if(runId==null)return new List<String>();Set<String> uniqueTypes=new Set<String>();Id afterId=null;
-        while(true){List<Field_Usage_Evidence__c> page=afterId==null?[SELECT Id,Source_Type__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Source_Type__c!=null ORDER BY Id LIMIT 2000]:[SELECT Id,Source_Type__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Source_Type__c!=null AND Id>:afterId ORDER BY Id LIMIT 2000];if(page.isEmpty())break;for(Field_Usage_Evidence__c row:page)uniqueTypes.add(row.Source_Type__c);afterId=page[page.size()-1].Id;if(page.size()<2000)break;}
-        List<String> out=new List<String>(uniqueTypes);out.sort();return out;
+        return new List<String>{'Apex Class','Apex Trigger','Flow','Formula Field'};
     }
     @AuraEnabled public static Id runNow(){ try{return FieldUsageOrchestrator.start('Manual');}catch(FieldUsageOrchestrator.ScanAlreadyRunningException ex){throw new AuraHandledException(ex.getMessage());} }
     @AuraEnabled public static void bootstrap(){ FieldUsageScheduleService.ensureDefaults(); }
