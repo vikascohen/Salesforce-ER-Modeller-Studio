@@ -31,7 +31,15 @@ private class StudioDiagnosticsControllerTest {
         Test.startTest();StudioDiagnosticsController.DiagnosticDTO dto=StudioDiagnosticsController.runDiagnostics();Test.stopTest();
         System.assertEquals('Configuration Required',dto.overallStatus);
         Boolean found=false;
-        for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='tooling'&&c.status=='Failed'){found=true;System.assert(c.remediation.contains('Help')); }
+        for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='tooling'&&c.status=='Failed'){
+            found=true;
+            System.assertNotEquals(null,c.likelyCause);
+            System.assert(c.likelyCause.contains('Authentication') || c.likelyCause.contains('principal'));
+            System.assert(c.remediationSteps.size()>=10);
+            Boolean principalStep=false;
+            for(String step:c.remediationSteps)if(step.contains('External Credential Principal Access'))principalStep=true;
+            System.assert(principalStep,'Troubleshooting must explicitly call out External Credential Principal Access.');
+        }
         System.assert(found);
     }
 }
