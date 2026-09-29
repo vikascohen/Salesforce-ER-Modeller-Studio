@@ -4,7 +4,9 @@
  * @author Vikas Cohen
  */
 public without sharing class FieldUsageFlowScanner {
+    private static Map<String,Schema.SObjectType> globalDescribe;
     public static List<Field_Usage_Evidence__c> scan(Id runId,String flowName,String flowId,Object metadata){
+        globalDescribe=Schema.getGlobalDescribe();
         Map<String,Integer> counts=new Map<String,Integer>();
         walk(metadata,counts);
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();
@@ -48,11 +50,11 @@ public without sharing class FieldUsageFlowScanner {
     }
     private static void addIfValid(String objectName,String fieldName,Map<String,Integer> counts){
         if(String.isBlank(objectName)||String.isBlank(fieldName))return;
-        Map<String,Schema.SObjectType> gd=Schema.getGlobalDescribe();
-        if(!gd.containsKey(objectName))return;
-        Map<String,Schema.SObjectField> fields=gd.get(objectName).getDescribe().fields.getMap();
+        if(globalDescribe==null)globalDescribe=Schema.getGlobalDescribe();
+        if(!globalDescribe.containsKey(objectName))return;
+        Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();
         if(!fields.containsKey(fieldName))return;
-        String canonicalObject=gd.get(objectName).getDescribe().getName();
+        String canonicalObject=globalDescribe.get(objectName).getDescribe().getName();
         String canonicalField=fields.get(fieldName).getDescribe().getName();
         String key=canonicalObject+'.'+canonicalField;
         counts.put(key,(counts.containsKey(key)?counts.get(key):0)+1);
