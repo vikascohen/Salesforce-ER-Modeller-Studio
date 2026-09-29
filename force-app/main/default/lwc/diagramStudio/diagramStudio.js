@@ -1499,6 +1499,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.fieldUsageRun = status?.run || null;
         this.fieldUsageBatchRunning = this.fieldUsageRunning;
         const run = this.fieldUsageRun;
+        const jobTotal = Number(status?.jobTotal || 0);
+        const jobProcessed = Number(status?.jobProcessed || 0);
+        const jobErrors = Number(status?.jobErrors || 0);
+        const jobStatus = status?.jobStatus || '';
+        const jobType = status?.jobType || '';
         const lines = [];
         // An empty/partial SObject is not a real run. This can occur after an
         // async job is manually aborted while its tracking record is stale.
@@ -1510,6 +1515,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const dependencies = Number(run.Dependency_Count__c || 0);
             const errors = Number(run.Error_Count__c || 0);
             lines.push({ key: 'run-' + (run.Id || state), text: '[run] ' + state + (phase ? ' · ' + phase : '') });
+            if (jobStatus) lines.push({ key: 'job-' + jobStatus + '-' + jobProcessed, text: '[apex job] ' + jobStatus + (jobType ? ' · ' + jobType : '') + (jobTotal > 0 ? ' · ' + jobProcessed + ' / ' + jobTotal + ' batches processed' : '') + (jobErrors > 0 ? ' · ' + jobErrors + ' errors' : '') });
             if (total > 0) lines.push({ key: 'work-' + processed + '-' + total, text: '[work] ' + processed + ' / ' + total + ' work units processed' });
             lines.push({ key: 'evidence-' + dependencies, text: '[evidence] ' + dependencies + ' dependency records discovered' });
             if (errors > 0) lines.push({ key: 'errors-' + errors, text: '[errors] ' + errors + ' work item(s) reported errors' });
