@@ -134,6 +134,116 @@
         </section>
     </template>
 
+    <!-- IN-APP HELP -->
+    <template if:true={helpOpen}>
+        <section class="help-page">
+            <header class="help-head">
+                <div><div class="help-kicker">ER MODELLER STUDIO HELP</div><h1>Help and Documentation</h1><p>Configuration instructions and day-to-day guidance are available inside the Studio. No GitHub access is required.</p></div>
+                <button class="arch-action-btn" onclick={handleCloseHelp}>Back to Diagram</button>
+            </header>
+            <div class="help-shell">
+                <nav class="help-nav">
+                    <div class="help-nav-group">HELP</div>
+                    <button class={helpConfigurationClass} onclick={handleHelpConfiguration}>Configuration</button>
+                    <button class={helpUserManualClass} onclick={handleHelpUserManual}>User Manual</button>
+                </nav>
+                <main class="help-content">
+                    <template if:true={helpConfigurationOpen}>
+                        <article class="help-doc">
+                            <h2>Field Usage Configuration</h2>
+                            <p class="help-lead">Field Usage scans formula fields directly and use Salesforce Tooling API for Apex classes, Apex triggers and active Flows. Complete the Tooling API connection once in every org where Field Usage will run.</p>
+                            <div class="help-warning"><strong>If a scan says the Named Credential is missing, unauthenticated or inaccessible</strong><span>Do not repeatedly launch the scan. Complete the configuration below, verify principal access, then run the scan again.</span></div>
+
+                            <section><h3>Before you start</h3><p>You need Salesforce Setup access appropriate to create OAuth and Named Credential configuration. Use the target org's own My Domain. Do not copy a Developer Edition, sandbox or production hostname, OAuth token or secret into another environment.</p></section>
+
+                            <section><div class="help-step">1</div><h3>Create the External Auth Identity Provider</h3>
+                                <p>Go to <strong>Setup → Named Credentials → External Auth Identity Providers → New</strong>.</p>
+                                <div class="help-values"><span><b>Label</b> Salesforce Tooling API Provider</span><span><b>Name</b> Salesforce_Tooling_API_Provider</span><span><b>Authentication Protocol</b> OAuth 2.0</span><span><b>Authentication Flow Type</b> Authorization Code (Browser Flow)</span></div>
+                                <p>Use the target org's My Domain for both endpoints:</p><code>https://&lt;your-my-domain&gt;.my.salesforce.com/services/oauth2/authorize</code><code>https://&lt;your-my-domain&gt;.my.salesforce.com/services/oauth2/token</code>
+                                <p>Leave User Info Endpoint blank unless your organisation requires it. If Salesforce requires values before it will save the provider, use temporary Client ID and Client Secret placeholders only long enough to obtain the Salesforce-generated Callback URL. Copy that Callback URL exactly.</p>
+                            </section>
+
+                            <section><div class="help-step">2</div><h3>Create the External Client App</h3>
+                                <p>Go to <strong>Setup → External Client App Manager → New External Client App</strong>.</p>
+                                <div class="help-values"><span><b>External Client App Name</b> Salesforce Tooling API</span><span><b>API Name</b> Salesforce_Tooling_API</span><span><b>Distribution State</b> Local</span></div>
+                                <p>Enable OAuth. Paste the Callback URL generated in step 1. Add these OAuth scopes:</p>
+                                <code>Manage user data via APIs (api)</code><code>Perform requests at any time (refresh_token, offline_access)</code>
+                                <p>Enable Authorization Code and Credentials Flow. If PKCE is enabled or required here, enable <strong>Use Proof Key for Code Exchange (PKCE) Extension</strong> on the External Auth Identity Provider too. Save the app and obtain its Consumer Key and Consumer Secret. Never place the secret in source control.</p>
+                                <p>Return to the External Auth Identity Provider and replace the temporary Client ID and Client Secret with the External Client App's real Consumer Key and Consumer Secret.</p>
+                            </section>
+
+                            <section><div class="help-step">3</div><h3>Create the External Credential</h3>
+                                <p>Go to <strong>Setup → Named Credentials → External Credentials → New</strong>.</p>
+                                <div class="help-values"><span><b>Label</b> Salesforce Tooling API</span><span><b>Name</b> Salesforce_Tooling_API</span><span><b>Authentication Protocol</b> OAuth 2.0</span><span><b>Authentication Flow Type</b> Browser Flow</span><span><b>Identity Provider</b> Salesforce Tooling API Provider</span><span><b>Scope</b> api refresh_token</span></div>
+                                <p>Leave Additional Status Codes for Token Refresh blank unless your organisation specifically requires another value.</p>
+                            </section>
+
+                            <section><div class="help-step">4</div><h3>Create and authenticate the Named Principal</h3>
+                                <p>Open the External Credential. Under <strong>Principals</strong>, create:</p>
+                                <div class="help-values"><span><b>Parameter Name</b> ToolingAPIPrincipal</span><span><b>Sequence Number</b> 1</span><span><b>Identity Type</b> Named Principal</span><span><b>Scope</b> leave blank</span></div>
+                                <p>Save it, choose <strong>Authenticate</strong> from the principal's Actions menu, sign in to this target Salesforce org and approve access. Authentication Status should become <strong>Configured</strong>.</p>
+                                <p>If Salesforce returns <strong>invalid_scope</strong>, confirm the External Client App has the API and refresh-token scopes above and that the External Credential scope is exactly <code>api refresh_token</code>.</p>
+                            </section>
+
+                            <section><div class="help-step">5</div><h3>Create the Named Credential</h3>
+                                <p>Go to <strong>Setup → Named Credentials → Named Credentials → New</strong>.</p>
+                                <div class="help-values"><span><b>Label</b> Salesforce Tooling API</span><span><b>Name</b> Salesforce_Tooling_API</span><span><b>URL</b> https://&lt;target-org-my-domain&gt;.my.salesforce.com</span><span><b>External Credential</b> Salesforce Tooling API</span><span><b>Enabled for Callouts</b> On</span><span><b>Generate Authorization Header</b> On</span></div>
+                                <p>Leave Client Certificate blank unless required by your organisation. The Apex code deliberately uses the logical name <code>callout:Salesforce_Tooling_API</code>; do not change the credential name.</p>
+                                <p>If this Studio's package namespace appears under the Named Credential, add that namespace to <strong>Allowed Namespaces for Callouts</strong>. Do not hard-code a namespace into the credential name used by the Apex code.</p>
+                            </section>
+
+                            <section><div class="help-step">6</div><h3>Grant External Credential Principal Access</h3>
+                                <p>Open the permission set assigned to the user who runs Field Usage, normally <strong>Diagram Studio User</strong>. Open <strong>External Credential Principal Access → Edit</strong>, move <strong>Salesforce_Tooling_API - ToolingAPIPrincipal</strong> to Enabled External Credential Principals and save.</p>
+                                <div class="help-warning"><strong>This is separate from Authentication Status = Configured.</strong><span>The principal can be authenticated while the user still has no permission to use it. Reopen External Credential Principal Access after deployment/configuration and verify the principal is still enabled.</span></div>
+                                <p>Also verify the permission set has the Salesforce-required access to <strong>Object Settings → User External Credentials</strong>. Scheduled scans must run under a user who retains the same required credential/principal access.</p>
+                            </section>
+
+                            <section><div class="help-step">7</div><h3>Verify the connection</h3>
+                                <p>Return to the Studio and choose <strong>Diagram → Run Field Usage Scan</strong>. Before a run is created, the Studio checks <code>Salesforce_Tooling_API</code>. If it cannot use the connection, the scan is stopped and the configuration error is shown instead of deliberately starting a broken Tooling API scan.</p>
+                                <p>When configured correctly, the scan runs in Batch Apex in the background. Keep the activity window open to watch progress, or close it and return later. The scan itself continues independently of the browser.</p>
+                            </section>
+
+                            <section><h3>Common configuration errors</h3>
+                                <div class="help-troubleshoot"><strong>Named Credential does not exist / could not access endpoint</strong><span>Verify the Named Credential name is Salesforce_Tooling_API, Enabled for Callouts is on, the URL is this org's My Domain and the External Credential is selected.</span></div>
+                                <div class="help-troubleshoot"><strong>Could not access credential(s) / external credential might not exist</strong><span>Verify the Named Principal is Configured and, separately, that Salesforce_Tooling_API - ToolingAPIPrincipal is enabled under the running user's permission set.</span></div>
+                                <div class="help-troubleshoot"><strong>invalid_scope</strong><span>External Client App: api plus refresh_token/offline_access. External Credential: api refresh_token.</span></div>
+                                <div class="help-troubleshoot"><strong>Works until a permission-set deployment</strong><span>Recheck External Credential Principal Access. Authentication and principal authorisation are org-specific security configuration and should be verified after deployment.</span></div>
+                            </section>
+                        </article>
+                    </template>
+
+                    <template if:true={helpUserManualOpen}>
+                        <article class="help-doc">
+                            <h2>User Manual</h2>
+                            <p class="help-lead">ER Modeller Studio combines visual ER modelling, Salesforce schema discovery, documentation and architecture analysis. This guide explains the major user-facing features and where to find them.</p>
+
+                            <section><h3>1. Files and diagrams</h3><p>Use the File menu and Explorer to create, open, save, rename and delete diagram files. Multiple files can remain open as tabs. Unsaved changes are marked on the tab. Use the diagram name field at the top to name the active model.</p></section>
+                            <section><h3>2. ER canvas and DSL editor</h3><p>The canvas and DSL represent the same model. Edit the DSL to define objects, fields and relationships, or work visually on the canvas. Drag objects from the Explorer palette onto the canvas, reposition them and use Auto Layout when you want the Studio to reorganise the model. DSL suggestions assist while editing.</p></section>
+                            <section><h3>3. Import Schema</h3><p>In Explorer, open <strong>Import from Org</strong>, enter Salesforce object API names such as Account, Contact and Case, then import. The Studio reads Salesforce schema metadata and builds the corresponding model rather than requiring you to type every field and relationship.</p></section>
+                            <section><h3>4. Mimic New ER</h3><p>Choose <strong>Diagram → Mimic New ER</strong> to design a hypothetical custom-object model without creating Salesforce metadata. Enter base names only; Mimic adds <code>__c</code>. Add fields, choose Salesforce field types and select targets for Lookup, Master Detail or Polymorphic relationships. Generate Model converts the form to the Studio DSL and normal canvas.</p></section>
+                            <section><h3>5. Relationship modelling</h3><p>The Studio recognises Lookup, Master Detail and Polymorphic relationships and draws their semantics on the ER canvas. Relationship summaries explain the model currently displayed. Self relationships are deliberately handled so diagrams remain readable.</p></section>
+                            <section><h3>6. Compare with Org and schema drift</h3><p>Use <strong>Diagram → Compare with Org</strong> to compare the model with current Salesforce schema information. Review differences before changing the DSL. Suggested missing fields or relationships can be added back into the model.</p></section>
+                            <section><h3>7. Sharing View</h3><p>Choose <strong>View → Sharing View</strong> to overlay sharing-model information for objects on the diagram. Use it when reviewing the data model together with the org's object-level sharing posture.</p></section>
+                            <section><h3>8. Record-count Heatmap</h3><p>Choose <strong>View → Heatmap</strong> to load record counts for objects and visually compare relative data volume. This is useful when structural analysis also needs a sense of where the data lives.</p></section>
+                            <section><h3>9. Data Dictionary</h3><p>Choose <strong>View → Data Dictionary</strong>. Select an object to inspect field-level metadata. Search and filter fields, calculate supported field-usage statistics where available, and export dictionary information. <strong>Export All to Excel</strong> produces bulk field metadata; live percentage-used calculation remains a per-object operation.</p></section>
+                            <section><h3>10. Field Usage Scan</h3><p>Choose <strong>Diagram → Run Field Usage Scan</strong> to build a persisted dependency snapshot. The background pipeline discovers formula-field work, then Tooling API work for Apex classes, Apex triggers and active Flows, processes durable work units and promotes the snapshot only when required work succeeds. The activity console shows the run phase, percentage, Batch Apex status, processed work and dependency count. You may close the activity window while the background scan continues.</p><p>If the Studio reports that <code>Salesforce_Tooling_API</code> is not configured or accessible, open <strong>Help → Configuration</strong> and complete the Field Usage configuration before retrying.</p></section>
+                            <section><h3>11. Field Usage Map</h3><p>After a successful snapshot, choose <strong>View → Field Usage Map</strong>. Select an object and one or more fields, then build the map. The Studio reads persisted evidence from the latest successful snapshot. A field showing zero detected dependencies means no dependency was detected by the scanner coverage in that snapshot; it is not a universal claim that nothing uses the field.</p></section>
+                            <section><h3>12. Field Change Impact</h3><p>Open <strong>Architecture Intelligence</strong> and use Field Change Impact to investigate persisted dependency evidence for a selected object/field. Search evidence and source types to understand where a proposed field change may require further investigation.</p></section>
+                            <section><h3>13. Architecture Intelligence</h3><p>Choose <strong>View → Architecture Intelligence</strong>. The workspace analyses the current ER model and provides Architecture Overview, Relationship Path Finder, Object Map and Impact, Object Usage and Change Readiness, Relationship Insights, junction intelligence, topology/complexity evidence, connected components, cycles, hotspots, isolated objects and domain-oriented structural views. These are architecture signals and evidence, not automatic design verdicts.</p></section>
+                            <section><h3>14. Relationship Path Finder</h3><p>Inside Architecture Intelligence, choose two objects to find a relationship route through the current model. Use this to understand how apparently distant parts of the schema are structurally connected.</p></section>
+                            <section><h3>15. Object Map and Impact</h3><p>Select an object to inspect its structural neighbourhood, dependencies and potential blast-radius evidence. The result describes relationships present in the model; it does not claim every structural relationship becomes runtime impact.</p></section>
+                            <section><h3>16. Object Usage and Change Readiness</h3><p>Use Object Usage to inspect where an object participates in relationships and, when available, cached org-schema references beyond the declared ER file. Use the evidence as a starting point for change investigation.</p></section>
+                            <section><h3>17. Relationship Insights and junction intelligence</h3><p>Relationship Insights explains dependency direction, relationship types, external targets and repeated relationships. Junction intelligence identifies structures that behave as junction objects so many-to-many modelling patterns are easier to recognise.</p></section>
+                            <section><h3>18. Export</h3><p>Use the Studio's export tools to produce diagram images and supported architecture outputs. ER models can be exported to formats including PNG, Mermaid and Draw.io, while Architecture Intelligence supports architecture image/PDF reporting where offered by the workspace.</p></section>
+                            <section><h3>19. Schedule Settings</h3><p>Choose <strong>Settings → Open Settings</strong> to configure Field Usage schedules without writing CRON. Add, enable, edit and delete schedule rows under Schedule Configuration. Use Scheduled Jobs to inspect Studio-owned jobs and pause, resume or delete them. Scheduled execution uses the permissions and Tooling API configuration of the scheduling/executing Salesforce context.</p></section>
+                            <section><h3>20. Themes and navigation</h3><p>Use the theme selector in the top bar to switch the Studio appearance. Full-screen workspaces such as Settings, Mimic and Help provide a <strong>Back to Diagram</strong> action so you can return to the active model without losing it.</p></section>
+                        </article>
+                    </template>
+                </main>
+            </div>
+        </section>
+    </template>
+
     <!-- MIMIC NEW ER -->
     <template if:true={mimicOpen}>
         <div class="mimic-page">
@@ -324,6 +434,17 @@
             <template if:true={settingsMenuOpen}>
                 <div class="dd-menu-dropdown" onclick={stopProp}>
                     <div class="dd-menu-item" onclick={handleMenuSettings}>Open Settings</div>
+                </div>
+            </template>
+        </div>
+
+        <!-- HELP MENU -->
+        <div class="dd-menu-wrap">
+            <button class={helpMenuClass} data-menu="help" onclick={handleToggleMenu}>Help <span class="dd-menu-caret">&#9662;</span></button>
+            <template if:true={helpMenuOpen}>
+                <div class="dd-menu-dropdown" onclick={stopProp}>
+                    <div class="dd-menu-item" onclick={handleMenuHelpConfiguration}>Configuration</div>
+                    <div class="dd-menu-item" onclick={handleMenuHelpUserManual}>User Manual</div>
                 </div>
             </template>
         </div>
