@@ -68,6 +68,72 @@
         </div>
     </template>
 
+    <!-- SETTINGS WORKSPACE -->
+    <template if:true={settingsOpen}>
+        <section class="settings-page">
+            <header class="settings-head">
+                <div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Settings</h1><p>Configure Studio features without leaving the application.</p></div>
+                <button class="mimic-close" onclick={handleCloseSettings}>Back to Diagram</button>
+            </header>
+            <div class="settings-shell">
+                <aside class="settings-nav">
+                    <div class="settings-nav-group">FIELD USAGE</div>
+                    <button class="settings-nav-item settings-nav-item-active">Schedule Settings</button>
+                </aside>
+                <main class="settings-content">
+                    <div class="settings-title"><div><h2>Field Usage Schedule Settings</h2><p>Control automatic Field Usage scans and inspect the Salesforce jobs created by this Studio.</p></div></div>
+                    <div class="settings-tabs">
+                        <button class={settingsConfigurationTabClass} onclick={handleSettingsConfigurationTab}>Schedule Configuration</button>
+                        <button class={settingsJobsTabClass} onclick={handleSettingsJobsTab}>Scheduled Jobs</button>
+                    </div>
+                    <template if:true={settingsMessage}><div class="settings-message" role="status">{settingsMessage}</div></template>
+                    <template if:true={settingsBusy}><div class="settings-loading">Working…</div></template>
+
+                    <template if:true={settingsConfigurationOpen}>
+                        <section class="settings-panel">
+                            <div class="settings-panel-head"><div><h3>Automatic Field Usage Scans</h3><p>Only schedules listed here are used. Studio does not create hidden default schedules.</p></div><button class="arch-action-btn" onclick={handleAddSchedule}>+ Add Schedule</button></div>
+                            <template if:true={settingsNoSchedules}><div class="settings-empty"><strong>No schedules configured</strong><p>Add a schedule when you want Salesforce to run Field Usage automatically.</p></div></template>
+                            <template for:each={settingsSchedules} for:item="row">
+                                <div class="settings-schedule-row" key={row._key}>
+                                    <label class="settings-check"><input type="checkbox" checked={row.Enabled__c} data-key={row._key} onchange={handleScheduleEnabled}/><span>Enabled</span></label>
+                                    <label><span>Name</span><input type="text" value={row.Name} data-key={row._key} oninput={handleScheduleName}/></label>
+                                    <label><span>Hour</span><input type="number" min="0" max="23" value={row.Hour__c} data-key={row._key} onchange={handleScheduleHour}/></label>
+                                    <span class="settings-time-sep">:</span>
+                                    <label><span>Minute</span><input type="number" min="0" max="59" value={row.Minute__c} data-key={row._key} onchange={handleScheduleMinute}/></label>
+                                    <button class="settings-delete" data-key={row._key} onclick={handleDeleteSchedule}>Delete</button>
+                                </div>
+                            </template>
+                            <div class="settings-actions"><button class="arch-action-btn arch-export-btn" disabled={settingsBusy} onclick={handleSaveSchedules}>Save Changes</button></div>
+                        </section>
+                    </template>
+
+                    <template if:true={settingsJobsOpen}>
+                        <section class="settings-panel">
+                            <div class="settings-panel-head"><div><h3>Scheduled Jobs</h3><p>Only Field Usage jobs owned by ER Modeller Studio are shown.</p></div><button class="arch-action-btn" disabled={settingsBusy} onclick={handleRefreshScheduledJobs}>Refresh</button></div>
+                            <template if:true={settingsNoJobs}><div class="settings-empty"><strong>No Field Usage scheduled jobs</strong><p>Create a schedule in Schedule Configuration to add one.</p></div></template>
+                            <template if:true={settingsHasJobs}>
+                                <div class="settings-job-table">
+                                    <div class="settings-job-header"><span>Schedule</span><span>Time</span><span>Status</span><span>Next run</span><span>Actions</span></div>
+                                    <template for:each={settingsJobsView} for:item="job">
+                                        <div class="settings-job-row" key={job.key}>
+                                            <span><strong>{job.scheduleName}</strong><small>{job.jobName}</small></span>
+                                            <span>{job.timeText}</span><span>{job.state}</span><span>{job.nextRunText}</span>
+                                            <span class="settings-job-actions">
+                                                <template if:true={job.canPause}><button data-id={job.scheduleId} onclick={handlePauseScheduledJob}>Pause</button></template>
+                                                <template if:true={job.canResume}><button data-id={job.scheduleId} onclick={handleResumeScheduledJob}>Resume</button></template>
+                                                <button class="settings-delete" data-id={job.scheduleId} onclick={handleDeleteScheduledJob}>Delete</button>
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </section>
+                    </template>
+                </main>
+            </div>
+        </section>
+    </template>
+
     <!-- MIMIC NEW ER -->
     <template if:true={mimicOpen}>
         <div class="mimic-page">
@@ -248,6 +314,16 @@
                     <div class="dd-menu-item" data-action="field-usage" onclick={handleMenuFieldUsage}>{fieldUsageMenuText}</div>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item" onclick={handleMenuArchitecture}>{architectureMenuText}</div>
+                </div>
+            </template>
+        </div>
+
+        <!-- SETTINGS MENU -->
+        <div class="dd-menu-wrap">
+            <button class={settingsMenuClass} data-menu="settings" onclick={handleToggleMenu}>Settings <span class="dd-menu-caret">&#9662;</span></button>
+            <template if:true={settingsMenuOpen}>
+                <div class="dd-menu-dropdown" onclick={stopProp}>
+                    <div class="dd-menu-item" onclick={handleMenuSettings}>Open Settings</div>
                 </div>
             </template>
         </div>
