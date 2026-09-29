@@ -157,6 +157,54 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.textContent).toContain('Contact');
     });
 
+    it('shows source line numbers and toggles word wrap without changing DSL text', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        const textarea = el.shadowRoot.querySelector('.code-editor');
+        textarea.value = 'entity Account : Name\nentity Contact : Email\nContact.AccountId => Account';
+        textarea.dispatchEvent(new CustomEvent('input'));
+        await flushPromises();
+
+        expect(el.shadowRoot.querySelectorAll('.dsl-line-numbers span')).toHaveLength(3);
+        expect(textarea.getAttribute('wrap')).toBe('off');
+
+        const wrapButton = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent.includes('Wrap: Off'));
+        wrapButton.click();
+        await flushPromises();
+
+        const wrappedTextarea = el.shadowRoot.querySelector('.code-editor');
+        expect(wrappedTextarea.getAttribute('wrap')).toBe('soft');
+        expect(wrappedTextarea.className).toContain('code-editor-wrap');
+        expect(wrappedTextarea.value).toBe(
+            'entity Account : Name\nentity Contact : Email\nContact.AccountId => Account'
+        );
+        expect(el.shadowRoot.querySelectorAll('.dsl-line-numbers span')).toHaveLength(3);
+    });
+
+    it('keeps word wrap enabled through editor maximise and restore', async () => {
+        const el = createStudio();
+        await flushPromises();
+
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent.includes('Wrap: Off'))
+            .click();
+        await flushPromises();
+
+        const maximise = Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent === 'Maximise');
+        maximise.click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').className).toContain('code-editor-wrap');
+
+        Array.from(el.shadowRoot.querySelectorAll('.dsl-head-btn'))
+            .find((button) => button.textContent === 'Restore')
+            .click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').className).toContain('code-editor-wrap');
+    });
+
     it('the theme dropdown reflects a saved theme once it loads asynchronously, not just the default', async () => {
         getTheme.mockResolvedValueOnce('theme-monokai');
 
