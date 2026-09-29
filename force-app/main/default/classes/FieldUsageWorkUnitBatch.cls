@@ -18,7 +18,6 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
             }catch(Exception ex){
                 Database.rollback(workUnitSavepoint);
                 unit=[SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Id=:unit.Id];
-                unit.Attempt_Count__c=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c)+1;
                 unit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000); if(unit.Attempt_Count__c < MAX_ATTEMPTS){unit.Status__c='Pending';}else{unit.Status__c='Failed';failed++;if(errors.size()<100)errors.add(unit.Target_Key__c+': '+unit.Last_Error__c.left(500));} update unit;
             }
         }
@@ -79,7 +78,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
             return evidence;
         }
 
-        return new List<Field_Usage_Evidence__c>();
+        throw new FieldUsageWorkUnitException('Unsupported scanner type: '+String.valueOf(unit.Scanner_Type__c));
     }
 
     private Integer insertIdempotent(List<Field_Usage_Evidence__c> rows){
