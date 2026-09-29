@@ -27,8 +27,24 @@ public without sharing class FieldUsageToolingApiClient {
     public static void assertConnectionReady() {
         String soql = 'SELECT Id FROM ApexClass LIMIT 1';
         try {
-            send('/services/data/' + API_VERSION + '/tooling/query/?q=' +
-                EncodingUtil.urlEncode(soql, 'UTF-8'));
+            // Keep the preflight request deliberately identical to the proven
+            // Named Credential diagnostic path. This avoids routing the health
+            // check through scanner helper logic before a scan has started.
+            HttpRequest request = new HttpRequest();
+            request.setEndpoint(
+                NAMED_CREDENTIAL +
+                '/services/data/' + API_VERSION + '/tooling/query/?q=' +
+                EncodingUtil.urlEncode(soql, 'UTF-8')
+            );
+            request.setMethod('GET');
+
+            HttpResponse response = new Http().send(request);
+            if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
+                throw new ToolingApiException(
+                    'Tooling API connection check failed with HTTP ' +
+                    response.getStatusCode() + ': ' + safeBody(response).left(1000)
+                );
+            }
         } catch (Exception ex) {
             throw new ToolingApiException(
                 'Field Usage requires the Salesforce_Tooling_API Named Credential to be configured and authenticated in this org. ' +
