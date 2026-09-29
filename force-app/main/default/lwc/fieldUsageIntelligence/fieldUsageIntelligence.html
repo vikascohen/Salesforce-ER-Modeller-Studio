@@ -1,19 +1,147 @@
-<template><lightning-card title="Field Usage Intelligence" icon-name="standard:relationship">
-<div class="slds-p-around_medium">
-<template if:true={message}><div class="notice slds-m-bottom_medium">{message}</div></template>
-<div class="toolbar slds-grid slds-wrap slds-gutters_small">
-<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3"><lightning-combobox label="Object" value={selectedObject} options={objectOptions} onchange={handleObject}></lightning-combobox></div>
-<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3"><lightning-dual-listbox label="Fields" source-label="Available" selected-label="Selected" options={fieldOptions} value={selectedFields} onchange={handleFields}></lightning-dual-listbox></div>
-<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 actions"><lightning-button variant="brand" label="Analyse Selected Fields" onclick={loadEvidence} disabled={disableAnalyse}></lightning-button><lightning-button class="slds-m-left_small" label="Run Scan Now" onclick={runNow} disabled={running}></lightning-button></div>
-</div>
-<template if:true={running}><lightning-spinner alternative-text="Field usage scan running"></lightning-spinner><p class="slds-m-top_medium">A field usage snapshot is currently being built. Existing results remain available until the new snapshot is promoted.</p></template>
-<template if:true={groups.length}><div class="tree slds-m-top_large"><template for:each={groups} for:item="group"><section key={group.key} class="node"><h3>{group.field}</h3><template for:each={group.items} for:item="item"><div key={item.key} class="leaf"><strong>{item.source}</strong> → {item.component}<div class="muted">{item.type} · {item.confidence}</div></div></template></section></template></div></template>
-<div class="slds-m-top_large"><h3 class="slds-text-heading_small">Automatic scan schedule</h3><p class="muted">Configure any number of daily scan times. No CRON knowledge is required.</p>
-<template for:each={schedules} for:item="row" for:index="index"><div key={row.key} class="schedule slds-grid slds-gutters_small">
-<div class="slds-col"><lightning-input label="Name" value={row.Name} data-index={index} data-field="Name" onchange={scheduleChange}></lightning-input></div>
-<div class="slds-col"><lightning-input type="number" min="0" max="23" label="Hour" value={row.Hour__c} data-index={index} data-field="Hour__c" onchange={scheduleChange}></lightning-input></div>
-<div class="slds-col"><lightning-input type="number" min="0" max="59" label="Minute" value={row.Minute__c} data-index={index} data-field="Minute__c" onchange={scheduleChange}></lightning-input></div>
-<div class="slds-col"><lightning-input type="checkbox" label="Enabled" checked={row.Enabled__c} data-index={index} data-field="Enabled__c" onchange={scheduleChange}></lightning-input></div>
-<div class="slds-col actions"><lightning-button-icon icon-name="utility:delete" alternative-text="Delete schedule" data-index={index} onclick={removeSchedule}></lightning-button-icon></div></div></template>
-<div class="slds-m-top_small"><lightning-button label="Add Scan Time" onclick={addSchedule}></lightning-button><lightning-button class="slds-m-left_small" variant="brand" label="Save Schedule" onclick={saveSchedule}></lightning-button></div></div>
-</div></lightning-card></template>
+<!--
+  Field Usage Intelligence
+  @author Vikas Cohen
+-->
+<template>
+    <lightning-card title="Field Usage Intelligence" icon-name="standard:relationship">
+        <div class="slds-p-around_medium">
+            <template if:true={message}>
+                <div class="notice slds-m-bottom_medium">{message}</div>
+            </template>
+
+            <div class="toolbar slds-grid slds-wrap slds-gutters_small">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-combobox
+                        label="Object"
+                        value={selectedObject}
+                        options={objectOptions}
+                        onchange={handleObject}>
+                    </lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-dual-listbox
+                        label="Fields"
+                        source-label="Available"
+                        selected-label="Selected"
+                        options={fieldOptions}
+                        value={selectedFields}
+                        onchange={handleFields}>
+                    </lightning-dual-listbox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 actions">
+                    <lightning-button
+                        variant="brand"
+                        label="Analyse Selected Fields"
+                        onclick={loadEvidence}
+                        disabled={disableAnalyse}>
+                    </lightning-button>
+                    <lightning-button
+                        class="slds-m-left_small"
+                        label="Run Scan Now"
+                        onclick={runNow}
+                        disabled={running}>
+                    </lightning-button>
+                </div>
+            </div>
+
+            <template if:true={running}>
+                <lightning-spinner alternative-text="Field usage scan running"></lightning-spinner>
+                <p class="slds-m-top_medium">
+                    A field usage snapshot is currently being built. Existing results remain
+                    available until the new snapshot is promoted.
+                </p>
+            </template>
+
+            <template if:true={groups.length}>
+                <div class="tree slds-m-top_large">
+                    <template for:each={groups} for:item="group">
+                        <section key={group.key} class="node">
+                            <h3>{group.field}</h3>
+                            <template for:each={group.items} for:item="item">
+                                <div key={item.key} class="leaf">
+                                    <strong>{item.source}</strong> → {item.component}
+                                    <div class="muted">{item.type} · {item.confidence}</div>
+                                </div>
+                            </template>
+                        </section>
+                    </template>
+                </div>
+            </template>
+
+            <div class="slds-m-top_large">
+                <h3 class="slds-text-heading_small">Automatic scan schedule</h3>
+                <p class="muted">
+                    Configure any number of daily scan times. No CRON knowledge is required.
+                </p>
+
+                <template for:each={schedules} for:item="row" for:index="index">
+                    <div key={row.key} class="schedule slds-grid slds-gutters_small">
+                        <div class="slds-col">
+                            <lightning-input
+                                label="Name"
+                                value={row.Name}
+                                data-index={index}
+                                data-field="Name"
+                                onchange={scheduleChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col">
+                            <lightning-input
+                                type="number"
+                                min="0"
+                                max="23"
+                                label="Hour"
+                                value={row.Hour__c}
+                                data-index={index}
+                                data-field="Hour__c"
+                                onchange={scheduleChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col">
+                            <lightning-input
+                                type="number"
+                                min="0"
+                                max="59"
+                                label="Minute"
+                                value={row.Minute__c}
+                                data-index={index}
+                                data-field="Minute__c"
+                                onchange={scheduleChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col">
+                            <lightning-input
+                                type="checkbox"
+                                label="Enabled"
+                                checked={row.Enabled__c}
+                                data-index={index}
+                                data-field="Enabled__c"
+                                onchange={scheduleChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col actions">
+                            <lightning-button-icon
+                                icon-name="utility:delete"
+                                alternative-text="Delete schedule"
+                                data-index={index}
+                                onclick={removeSchedule}>
+                            </lightning-button-icon>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="slds-m-top_small">
+                    <lightning-button label="Add Scan Time" onclick={addSchedule}></lightning-button>
+                    <lightning-button
+                        class="slds-m-left_small"
+                        variant="brand"
+                        label="Save Schedule"
+                        onclick={saveSchedule}>
+                    </lightning-button>
+                </div>
+            </div>
+        </div>
+    </lightning-card>
+</template>
