@@ -14,8 +14,8 @@
   System.assertEquals(2,rows.size());System.assertEquals(new Set<String>{'Current','AccountService'},new Set<String>{rows[0].Component_Name__c,rows[1].Component_Name__c});
   System.assertNotEquals(null,FieldUsageController.getStatus().run);
   FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();System.assertEquals(true,snapshot.available);
-  System.assertEquals(new List<String>{'Account'},FieldUsageController.getSnapshotObjects());
-  System.assertEquals(new List<String>{'Name'},FieldUsageController.getSnapshotFields('Account'));
+  System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
+  System.assert(FieldUsageController.getSnapshotFields('Account').contains('Name'));
   List<FieldUsageController.EvidenceSummaryDTO> summary=FieldUsageController.getEvidenceSummary('Account',new List<String>{'Name','Industry'});
   System.assertEquals(2,summary.size());System.assertEquals('Name',summary[0].fieldApiName);System.assertEquals('Apex Class',summary[0].sourceType);System.assertEquals(1,summary[0].evidenceRows);System.assertEquals(3,summary[0].occurrences);
   FieldUsageController.EvidenceDetailPageDTO detail=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500,null);
@@ -23,7 +23,7 @@
   FieldUsageController.EvidenceDetailPageDTO afterLast=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500,detail.nextCursor);System.assertEquals(0,afterLast.rows.size());
   System.assertEquals(0,FieldUsageController.getEvidenceDetail('Account','Industry','Apex Class',500,null).rows.size());
   System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
-  System.assertEquals(new List<String>{'Apex Class','Formula Field'},FieldUsageController.getSourceTypes());
+  System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','Formula Field'},FieldUsageController.getSourceTypes());
  }
  @IsTest static void sparseSnapshotTreatsSchemaFieldWithoutEvidenceAsNoDependency(){
   Field_Usage_Run__c currentRun=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert currentRun;
@@ -35,8 +35,8 @@
   List<Field_Usage_Evidence__c> noDependency=FieldUsageController.getEvidence('Account',new List<String>{'Industry'});
   System.assertEquals(0,noDependency.size(),'A schema field with no persisted evidence must return zero dependencies.');
 
-  System.assertEquals(new List<String>{'Account'},FieldUsageController.getSnapshotObjects());
-  System.assertEquals(new List<String>{'Name'},FieldUsageController.getSnapshotFields('Account'),'Persisted snapshot catalogue must contain only fields with detected evidence.');
+  System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
+  System.assert(FieldUsageController.getSnapshotFields('Account').contains('Industry'),'Snapshot selectors use schema and must retain zero-dependency fields.');
  }
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
