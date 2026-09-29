@@ -7,7 +7,8 @@ public with sharing class FieldUsageScheduleService {
                 new Field_Usage_Schedule__c(Name='Night',Enabled__c=true,Hour__c=21,Minute__c=0)
             };
         }
-        apply();
+        String pattern=PREFIX+'%';
+        if([SELECT COUNT() FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern]=0) apply();
     }
     public static void apply() {
         String pattern=PREFIX+'%';
