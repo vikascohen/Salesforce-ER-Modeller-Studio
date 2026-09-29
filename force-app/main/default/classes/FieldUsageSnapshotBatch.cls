@@ -1,4 +1,7 @@
 public without sharing class FieldUsageSnapshotBatch implements Database.Batchable<String>, Database.Stateful {
+    @TestVisible private static final Integer MAX_EVIDENCE_BUFFER=1500;
+    @TestVisible private static final Integer CPU_RESERVE_MS=2500;
+    @TestVisible private static final Integer HEAP_RESERVE_BYTES=1500000;
     private final Id runId;
     private Integer errorCount=0, dependencyCount=0, processedCount=0, totalCount=0;
     private List<String> errors=new List<String>();
@@ -16,16 +19,14 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
     public void execute(Database.BatchableContext bc,List<String> objectNames) {
         List<Field_Usage_Evidence__c> evidence=new List<Field_Usage_Evidence__c>();
         for(String objectName:objectNames) {
-            try { evidence.addAll(FieldUsageFormulaScanner.scan(runId,objectName)); }
-            catch(Exception ex) { errorCount++; addError(objectName+': '+ex.getTypeName()+' - '+ex.getMessage()); }
+            try {
+                List<Field_Usage_Evidence__c> objectEvidence=FieldUsageFormulaScanner.scan(runId,objectName);
+                for(Field_Usage_Evidence__c row:objectEvidence){evidence.add(row);if(evidence.size()>=MAX_EVIDENCE_BUFFER)flushEvidence(evidence);}
+            } catch(Exception ex) { errorCount++; addError(objectName+': '+ex.getTypeName()+' - '+ex.getMessage()); }
+            if(Limits.getCpuTime()>Limits.getLimitCpuTime()-CPU_RESERVE_MS || Limits.getHeapSize()>Limits.getLimitHeapSize()-HEAP_RESERVE_BYTES){flushEvidence(evidence);break;}
         }
         processedCount+=objectNames.size();
-        if(!evidence.isEmpty()) {
-            for(Database.SaveResult sr:Database.insert(evidence,false)) {
-                if(sr.isSuccess()) dependencyCount++;
-                else { errorCount++; addError('Evidence insert: '+sr.getErrors()[0].getMessage()); }
-            }
-        }
+        flushEvidence(evidence);
         Integer pct=totalCount==0?95:Math.min(95,((processedCount*90)/totalCount)+5); Field_Usage_Run__c progress=[SELECT Id,Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId]; progress.Heartbeat_At__c=System.now(); progress.Error_Count__c=errorCount; progress.Dependency_Count__c=dependencyCount; progress.Objects_Processed__c=processedCount; progress.Progress_Percent__c=pct; progress.Progress_Phase__c='Scanning field dependencies'; progress.Progress_Log__c=appendLog(progress.Progress_Log__c,stamp('Scanned '+processedCount+' / '+totalCount+' objects · '+dependencyCount+' evidence records · '+errorCount+' errors.')); update progress;
     }
     public void finish(Database.BatchableContext bc) {
@@ -48,6 +49,11 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
         } catch(Exception ex) {
             try { update new Field_Usage_Run__c(Id=runId,Status__c='Failed',Completed_At__c=System.now(),Errors__c=ex.getTypeName()+': '+ex.getMessage(),Is_Current__c=false); } catch(Exception ignored) {}
         }
+    }
+    private void flushEvidence(List<Field_Usage_Evidence__c> evidence){
+        if(evidence.isEmpty())return;
+        List<Field_Usage_Evidence__c> chunk=new List<Field_Usage_Evidence__c>(evidence); evidence.clear();
+        for(Database.SaveResult sr:Database.insert(chunk,false)){if(sr.isSuccess())dependencyCount++;else{errorCount++;addError('Evidence insert: '+sr.getErrors()[0].getMessage());}}
     }
     @TestVisible private static Boolean hasCalculatedField(Map<String,Schema.SObjectField> fields){for(Schema.SObjectField f:fields.values())if(f.getDescribe().isCalculated())return true;return false;}
     private static String stamp(String message){return '['+System.now().format('HH:mm:ss')+'] '+message;}
