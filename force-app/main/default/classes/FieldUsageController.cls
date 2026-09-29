@@ -15,8 +15,8 @@ public with sharing class FieldUsageController {
         return String.isBlank(objectApiName)?new List<String>():getFields(objectApiName);
     }
     @AuraEnabled(cacheable=true) public static List<String> getObjects(){
-        List<String> names=new List<String>();
-        for(String n:Schema.getGlobalDescribe().keySet()) if(Schema.getGlobalDescribe().get(n).getDescribe().isAccessible()) names.add(n);
+        List<String> names=new List<String>();Map<String,Schema.SObjectType> globalDescribe=Schema.getGlobalDescribe();
+        for(String n:globalDescribe.keySet()) if(globalDescribe.get(n).getDescribe().isAccessible()) names.add(n);
         names.sort(); return names;
     }
     @AuraEnabled(cacheable=true) public static List<String> getFields(String objectApiName){
