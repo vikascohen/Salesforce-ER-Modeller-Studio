@@ -80,7 +80,9 @@ export default class FieldUsageIntelligence extends LightningElement {
                     source: row.Source_Type__c,
                     component: row.Component_Name__c,
                     type: row.Evidence_Type__c,
-                    confidence: row.Confidence__c
+                    confidence: row.Confidence__c,
+                    count: row.Occurrence_Count__c || 1,
+                    location: row.Location__c || row.Evidence_Type__c || 'Evidence'
                 });
             });
 
