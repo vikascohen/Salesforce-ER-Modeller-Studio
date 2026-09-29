@@ -26,4 +26,16 @@
   System.assertEquals('Failed',unit.Status__c);
   System.assert(unit.Last_Error__c.contains('Unsupported scanner type'));
  }
+
+ private class ApexBodyMock implements HttpCalloutMock {
+  public HttpResponse respond(HttpRequest request){HttpResponse response=new HttpResponse();response.setStatusCode(200);response.setBody('{"totalSize":1,"done":true,"records":[{"Id":"01p000000000001","Name":"AccountService","Body":"String x = Account.Name;"}]}');return response;}
+ }
+ @IsTest static void apexBulkWorkUnitPersistsEvidence(){
+  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
+  insert new Field_Usage_Work_Unit__c(Run__c=run.Id,Work_Key__c=run.Id+'|Apex|1',Scanner_Type__c='Apex Class Bulk',Target_Key__c='01p000000000001',Status__c='Pending');
+  Test.setMock(HttpCalloutMock.class,new ApexBodyMock());
+  Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
+  System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:run.Id AND Field_Key__c='Account.Name']);
+  System.assertEquals('Completed',[SELECT Status__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id LIMIT 1].Status__c);
+ }
 }
