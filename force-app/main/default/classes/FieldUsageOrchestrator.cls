@@ -9,8 +9,20 @@ public with sharing class FieldUsageOrchestrator {
             Field_Usage_Run__c existing=active[0];
             Datetime lastActivity=existing.Heartbeat_At__c!=null?existing.Heartbeat_At__c:(existing.Started_At__c!=null?existing.Started_At__c:existing.CreatedDate);
             Boolean stale=lastActivity<System.now().addHours(-2);
-            if(stale){
-                existing.Status__c='Failed';existing.Is_Current__c=false;existing.Completed_At__c=System.now();existing.Progress_Phase__c='Abandoned scan recovered';existing.Errors__c='The scan had no heartbeat for more than two hours and was marked failed so a new scan could start.';update existing;
+            Boolean asyncJobStillActive=false;
+            if(!String.isBlank(existing.Job_Id__c)){
+                try{
+                    Id asyncJobId=(Id)existing.Job_Id__c;
+                    List<AsyncApexJob> jobs=[SELECT Id,Status FROM AsyncApexJob WHERE Id=:asyncJobId LIMIT 1];
+                    asyncJobStillActive=!jobs.isEmpty() && new Set<String>{'Holding','Queued','Preparing','Processing'}.contains(jobs[0].Status);
+                }catch(Exception ignored){
+                    asyncJobStillActive=false;
+                }
+            }
+            // A manually aborted/deleted async job must not leave the durable
+            // run record blocking every future manual scan for two hours.
+            if(stale || !asyncJobStillActive){
+                existing.Status__c='Failed';existing.Is_Current__c=false;existing.Completed_At__c=System.now();existing.Progress_Phase__c=stale?'Abandoned scan recovered':'Aborted scan recovered';existing.Errors__c=stale?'The scan had no heartbeat for more than two hours and was marked failed so a new scan could start.':'The asynchronous scan job is no longer active. The stale run was marked failed so a new scan could start.';update existing;
             }else throw new ScanAlreadyRunningException('A field usage scan is already running. Please wait for it to finish.');
         }
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
