@@ -9,8 +9,12 @@ public with sharing class FieldUsageOrchestrator {
     @TestVisible private static Boolean asyncJobActiveOverride;
 
     public static Id start(String runType) {
-        ensureNoActiveRun();
+        // Callouts must happen before any DML in this transaction. The
+        // concurrency guard may recover a stale/aborted run by updating it,
+        // which would otherwise make the Named Credential preflight fail with
+        // "uncommitted work pending".
         FieldUsageToolingApiClient.assertConnectionReady();
+        ensureNoActiveRun();
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
         insert run;
         Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
