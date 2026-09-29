@@ -16,4 +16,14 @@
   Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
   System.assertEquals(1,[SELECT Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id].Attempt_Count__c);
  }
+
+ @IsTest static void unknownScannerRetriesOneAttemptAtATime(){
+  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
+  insert new Field_Usage_Work_Unit__c(Run__c=run.Id,Work_Key__c=run.Id+'|Unknown|1',Scanner_Type__c='Unknown',Target_Key__c='bad-target',Status__c='Pending');
+  Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
+  Field_Usage_Work_Unit__c unit=[SELECT Status__c,Attempt_Count__c,Last_Error__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id LIMIT 1];
+  System.assertEquals(3,unit.Attempt_Count__c,'Each failed execution should consume exactly one retry attempt.');
+  System.assertEquals('Failed',unit.Status__c);
+  System.assert(unit.Last_Error__c.contains('Unsupported scanner type'));
+ }
 }
