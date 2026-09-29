@@ -1423,12 +1423,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     get fieldUsageMenuText() { return 'Field Usage Map'; }
+    @track fieldUsageJobTotal = 0;
+    @track fieldUsageJobProcessed = 0;
+    @track fieldUsageJobErrors = 0;
+    @track fieldUsageJobStatus = '';
     get fieldUsageProgress() {
         const value = Number(this.fieldUsageRun?.Progress_Percent__c || 0);
         return Math.max(0, Math.min(100, Math.round(value)));
     }
     get fieldUsagePhase() {
-        return this.fieldUsageRun?.Progress_Phase__c || this.fieldUsageRun?.Status__c || 'Ready';
+        const phase = this.fieldUsageRun?.Progress_Phase__c || this.fieldUsageRun?.Status__c || 'Ready';
+        if (this.fieldUsageRunning && this.fieldUsageJobTotal > 0) {
+            return phase + ' · ' + this.fieldUsageJobProcessed + ' / ' + this.fieldUsageJobTotal + ' batches';
+        }
+        return phase;
     }
     get fieldUsageProgressStyle() { return 'width:' + this.fieldUsageProgress + '%;'; }
     get fieldUsageRunning() {
@@ -1567,6 +1575,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const jobErrors = Number(status?.jobErrors || 0);
         const jobStatus = status?.jobStatus || '';
         const jobType = status?.jobType || '';
+        this.fieldUsageJobTotal = jobTotal;
+        this.fieldUsageJobProcessed = jobProcessed;
+        this.fieldUsageJobErrors = jobErrors;
+        this.fieldUsageJobStatus = jobStatus;
         const lines = [];
         // An empty/partial SObject is not a real run. This can occur after an
         // async job is manually aborted while its tracking record is stale.
