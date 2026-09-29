@@ -19,7 +19,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         }
         updateProgress();
     }
-    private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit){
+    private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit) {
         if (unit.Scanner_Type__c == 'Formula') {
             List<String> parts = unit.Target_Key__c.split('\\|');
             if (parts.size() == 2) {
@@ -27,28 +27,44 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
             }
         }
 
-        if (unit.Scanner_Type__c == 'Apex Class' || unit.Scanner_Type__c == 'Apex Trigger') {
-            List<String> parts = unit.Target_Key__c.split('\\|', 2);
-            if (parts.isEmpty()) {
+        if (
+            unit.Scanner_Type__c == 'Apex Class Bulk' ||
+            unit.Scanner_Type__c == 'Apex Trigger Bulk'
+        ) {
+            Set<String> componentIds = new Set<String>();
+            for (String componentId : unit.Target_Key__c.split(',')) {
+                if (!String.isBlank(componentId)) {
+                    componentIds.add(componentId.trim());
+                }
+            }
+
+            if (componentIds.isEmpty()) {
                 return new List<Field_Usage_Evidence__c>();
             }
 
-            FieldUsageToolingApiClient.SourceComponent component =
-                unit.Scanner_Type__c == 'Apex Class'
-                    ? FieldUsageToolingApiClient.getApexClass(parts[0])
-                    : FieldUsageToolingApiClient.getApexTrigger(parts[0]);
+            List<FieldUsageToolingApiClient.SourceComponent> components =
+                unit.Scanner_Type__c == 'Apex Class Bulk'
+                    ? FieldUsageToolingApiClient.getApexClasses(componentIds)
+                    : FieldUsageToolingApiClient.getApexTriggers(componentIds);
 
-            return FieldUsageApexScanner.scan(
-                runId,
-                component.sourceType,
-                component.name,
-                component.id,
-                component.body
-            );
+            List<Field_Usage_Evidence__c> evidence = new List<Field_Usage_Evidence__c>();
+            for (FieldUsageToolingApiClient.SourceComponent component : components) {
+                evidence.addAll(
+                    FieldUsageApexScanner.scan(
+                        runId,
+                        component.sourceType,
+                        component.name,
+                        component.id,
+                        component.body
+                    )
+                );
+            }
+            return evidence;
         }
 
         return new List<Field_Usage_Evidence__c>();
     }
+
     private Integer insertIdempotent(List<Field_Usage_Evidence__c> rows){
         if(rows.isEmpty())return 0; Set<String> keys=new Set<String>();for(Field_Usage_Evidence__c r:rows)keys.add(r.Field_Key__c+'|'+r.Source_Type__c+'|'+r.Component_Name__c+'|'+r.Location__c);
         Map<String,Field_Usage_Evidence__c> existing=new Map<String,Field_Usage_Evidence__c>();
