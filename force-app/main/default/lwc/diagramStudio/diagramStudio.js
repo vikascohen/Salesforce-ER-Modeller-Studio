@@ -1541,12 +1541,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleFieldImpactBack(){this.clearFieldImpact(false);this.architectureSection='home';}
     async handleFieldImpactRunBatch(){await this.handleOpenFieldUsageConsole();}
     handleFieldImpactZoomIn(){this.fieldImpactZoom=Math.min(1.6,this.fieldImpactZoom+.1);} handleFieldImpactZoomOut(){this.fieldImpactZoom=Math.max(.5,this.fieldImpactZoom-.1);} handleFieldImpactZoomReset(){this.fieldImpactZoom=1;}
-    get fieldImpactHasMap(){return this.fieldImpactEvidence.length>0&&!!this.fieldImpactField;}
+    get fieldImpactHasMap(){return !!this.fieldImpactField;}
     get fieldImpactNoReferences(){return !!this.fieldImpactField&&!this.fieldImpactEvidence.length;}
     rebuildFieldImpactMap(){
         const rows=this.fieldImpactEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind)=>nodes.push({key,label,sub,x,y,kind,style:'left:'+x+'px;top:'+y+'px;'});
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+205,y1:A.y+38,x2:B.x,y2:B.y+38});};let cursor=45;
-        add('field',this.fieldImpactObject+'.'+this.fieldImpactField,'FIELD BEING CHANGED',35,160,'impactfield');
+        add('field',this.fieldImpactObject+'.'+this.fieldImpactField,'FIELD BEING CHANGED',35,160,'impactfield');if(!rows.length){add('no-usage','No usage detected','Current successful snapshot · 0 dependencies',335,160,'impactempty');connect('field','no-usage');return {nodes,edges,width:700,height:600};}
         const types=[...new Set(rows.map(r=>r.Source_Type__c))].sort();types.forEach(type=>{const tr=rows.filter(r=>r.Source_Type__c===type),start=cursor,comps=[...new Set(tr.map(r=>r.Component_Name__c))].sort();
           comps.forEach(name=>{const cr=tr.filter(r=>r.Component_Name__c===name),count=Math.max(1,cr.length),cy=cursor+((count-1)*70)/2,ck='c:'+type+':'+name;add(ck,name,cr.reduce((n,r)=>n+(r.Occurrence_Count__c||1),0)+' usages',600,cy,'impactcomponent');cr.forEach((r,i)=>{const ek=ck+':'+i,ey=cursor+i*70;add(ek,r.Location__c||r.Evidence_Type__c,(r.Occurrence_Count__c||1)+' occurrence(s) · '+(r.Confidence__c||'evidence'),880,ey,'impactevidence');connect(ck,ek);});cursor+=Math.max(88,count*70+18);});
           const ty=(start+Math.max(start+76,cursor-18))/2,tk='t:'+type;add(tk,type,tr.reduce((n,r)=>n+(r.Occurrence_Count__c||1),0)+' usages',335,ty,'impacttype');connect('field',tk);comps.forEach(name=>connect(tk,'c:'+type+':'+name));cursor+=20;});
@@ -4167,7 +4167,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+190,y1:A.y+34,x2:B.x,y2:B.y+34});};
         const fields=this.fieldUsageSelectedFields.length?this.fieldUsageSelectedFields:[...new Set(rows.map(r=>r.Field_API_Name__c))];let cursor=40;const fieldCentres=[];
         fields.forEach(field=>{const fr=rows.filter(r=>r.Field_API_Name__c===field),fieldStart=cursor;const types=[...new Set(fr.map(r=>r.Source_Type__c))].sort();
-            if(!types.length)cursor+=90;
+            if(!types.length){const nk='f:'+field+':no-usage';add(nk,'No usage detected','Current successful snapshot · 0 dependencies',540,cursor,'empty');cursor+=90;}
             types.forEach(type=>{const tr=fr.filter(r=>r.Source_Type__c===type),typeStart=cursor;const comps=[...new Set(tr.map(r=>r.Component_Name__c))].sort();
                 comps.forEach(name=>{const cr=tr.filter(r=>r.Component_Name__c===name),leafCount=Math.max(1,cr.length),componentY=cursor+((leafCount-1)*62)/2,ck='f:'+field+':t:'+type+':c:'+name;
                     add(ck,name,cr.reduce((s,r)=>s+(r.Occurrence_Count__c||1),0)+' usages',800,componentY,'component');
@@ -4176,7 +4176,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 });
                 const typeEnd=Math.max(typeStart+68,cursor-16),typeY=(typeStart+typeEnd)/2,tk='f:'+field+':t:'+type;add(tk,type,tr.reduce((s,r)=>s+(r.Occurrence_Count__c||1),0)+' usages',540,typeY,'type');comps.forEach(name=>connect(tk,'f:'+field+':t:'+type+':c:'+name));
             });
-            const fieldEnd=Math.max(fieldStart+68,cursor-16),fy=(fieldStart+fieldEnd)/2,fk='f:'+field;add(fk,field,fr.reduce((s,r)=>s+(r.Occurrence_Count__c||1),0)+' usages',280,fy,'field');types.forEach(type=>connect(fk,fk+':t:'+type));fieldCentres.push(fy);cursor+=34;
+            const fieldEnd=Math.max(fieldStart+68,cursor-16),fy=(fieldStart+fieldEnd)/2,fk='f:'+field;add(fk,field,fr.reduce((s,r)=>s+(r.Occurrence_Count__c||1),0)+' usages',280,fy,'field');types.forEach(type=>connect(fk,fk+':t:'+type));if(!types.length)connect(fk,fk+':no-usage');fieldCentres.push(fy);cursor+=34;
         });
         const objectY=fieldCentres.length?fieldCentres.reduce((a,b)=>a+b,0)/fieldCentres.length:40;add('object',this.fieldUsageObject||'Object','Selected object',30,objectY,'object');fields.forEach(field=>connect('object','f:'+field));
         return {nodes,edges,width:1320,height:Math.max(650,cursor+80)};
