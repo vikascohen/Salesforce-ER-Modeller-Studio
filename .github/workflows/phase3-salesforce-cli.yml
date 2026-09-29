@@ -46,5 +46,14 @@ jobs:
           sf project deploy validate \
             --source-dir force-app \
             --target-org phase3-ci \
-            --test-level RunLocalTests \
+            --test-level RunSpecifiedTests \
+            --tests FieldUsageApexScannerTest \
+            --tests FieldUsageControllerTest \
+            --tests FieldUsageFlowScannerTest \
+            --tests FieldUsageFormulaScannerTest \
+            --tests FieldUsageOrchestratorTest \
+            --tests FieldUsageScheduleServiceTest \
+            --tests FieldUsageSnapshotFinalizerTest \
+            --tests FieldUsageToolingApiClientTest \
+            --tests FieldUsageWorkUnitBatchTest \
             --wait 40
