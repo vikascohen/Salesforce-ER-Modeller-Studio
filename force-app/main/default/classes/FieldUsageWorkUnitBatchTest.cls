@@ -35,7 +35,8 @@
   insert new Field_Usage_Work_Unit__c(Run__c=run.Id,Work_Key__c=run.Id+'|Apex|1',Scanner_Type__c='Apex Class Bulk',Target_Key__c='01p000000000001',Status__c='Pending');
   Test.setMock(HttpCalloutMock.class,new ApexBodyMock());
   Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
+  Field_Usage_Work_Unit__c unit=[SELECT Status__c,Last_Error__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id LIMIT 1];
+  System.assertEquals('Completed',unit.Status__c,'Apex work unit failed: '+unit.Last_Error__c);
   System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:run.Id AND Field_Key__c='Account.Name']);
-  System.assertEquals('Completed',[SELECT Status__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id LIMIT 1].Status__c);
  }
 }
