@@ -288,6 +288,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._heatmapRequestToken++;
         this._dictionaryRequestToken++;
         [this.renderTimer, this._sharingFetchTimer, this._heatmapFetchTimer, this._hoverTimer, this._relScanTimer].forEach((timer) => clearTimeout(timer));
+        this.stopFieldUsagePolling();
         clearInterval(this.fieldUsagePollTimer);
         window.removeEventListener('keydown', this._handleKeyDown);
         window.removeEventListener('click',   this._handleGlobalClick);
@@ -1307,6 +1308,97 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         objs.forEach(o=>{const fs=o.fields.filter(f=>!f.locked&&this.normaliseMimicApiBase(f.name)&&!['Lookup','Master Detail','Polymorphic'].includes(f.type)).map(f=>this.mimicCustomApiName(f.name)+(f.type&&f.type!=='Text'?' ['+f.type+']':''));lines.push('entity '+this.mimicCustomApiName(o.name)+(fs.length?' : '+fs.join(', '):''));});
         objs.forEach(o=>o.fields.filter(f=>!f.locked&&this.normaliseMimicApiBase(f.name)&&['Lookup','Master Detail','Polymorphic'].includes(f.type)).forEach(f=>{const target=byId.get(f.target),op=f.type==='Master Detail'?'=>':f.type==='Polymorphic'?'~>':'->';lines.push(this.mimicCustomApiName(o.name)+'.'+this.mimicCustomApiName(f.name)+' '+op+' '+this.mimicCustomApiName(target.name));}));
         this.openNewUnsaved();this.currentModelIsMimic=true;this.fileName=(this.mimicModelName||'Mimicked Model').trim()||'Mimicked Model';this.sourceText=lines.join('\n');this.isDirty=true;this._markTabDirty(this.activeTabId,true);this.mimicOpen=false;this.resetMimicDraft();this.renderDiagram();
+    }
+
+    get fieldUsageMenuText() { return 'Field Usage Map'; }
+    get fieldUsageProgress() {
+        const value = Number(this.fieldUsageRun?.Progress_Percent__c || 0);
+        return Math.max(0, Math.min(100, Math.round(value)));
+    }
+    get fieldUsagePhase() {
+        return this.fieldUsageRun?.Progress_Phase__c || this.fieldUsageRun?.Status__c || 'Ready';
+    }
+    get fieldUsageProgressStyle() { return 'width:' + this.fieldUsageProgress + '%;'; }
+    get fieldUsageRunning() {
+        return ['Queued', 'Running'].includes(this.fieldUsageRun?.Status__c || '');
+    }
+    get fieldUsageNoConsoleLines() { return !(this.fieldUsageConsoleLines || []).length; }
+    get fieldUsageCanCleanConsole() {
+        return !this.fieldUsageRunning && (this.fieldUsageConsoleLines || []).length > 0;
+    }
+
+    async handleOpenFieldUsageConsole() {
+        this.openMenu = null;
+        this.fieldUsageConsoleOpen = true;
+        try {
+            await fieldUsageBootstrap();
+            await this.refreshFieldUsageConsole();
+            this.startFieldUsagePolling();
+        } catch (e) {
+            this.errorMessage = 'Field Usage console: ' + this.reduceError(e);
+        }
+    }
+
+    handleCloseFieldUsageConsole() {
+        this.fieldUsageConsoleOpen = false;
+        this.stopFieldUsagePolling();
+    }
+
+    async handleLaunchFieldUsageScan() {
+        if (this.fieldUsageRunning) return;
+        try {
+            await fieldUsageRunNow();
+            await this.refreshFieldUsageConsole();
+            this.startFieldUsagePolling();
+        } catch (e) {
+            this.errorMessage = 'Field Usage scan: ' + this.reduceError(e);
+            await this.refreshFieldUsageConsole();
+        }
+    }
+
+    handleCleanFieldUsageConsole() {
+        this.fieldUsageConsoleLines = [];
+    }
+
+    async refreshFieldUsageConsole() {
+        const status = await fieldUsageGetStatus();
+        this.fieldUsageRun = status?.run || null;
+        this.fieldUsageBatchRunning = this.fieldUsageRunning;
+        const run = this.fieldUsageRun;
+        const lines = [];
+        if (run) {
+            const log = run.Progress_Log__c || '';
+            log.split(/\r?\n/).filter(Boolean).forEach((text, i) => lines.push({ key: 'log-' + i, text }));
+            const state = run.Status__c || 'Unknown';
+            const phase = run.Progress_Phase__c ? ' · ' + run.Progress_Phase__c : '';
+            lines.push({ key: 'status-' + (run.Id || state), text: '[' + state + ']' + phase });
+        }
+        this.fieldUsageConsoleLines = lines;
+        if (!this.fieldUsageRunning) this.stopFieldUsagePolling();
+    }
+
+    startFieldUsagePolling() {
+        this.stopFieldUsagePolling();
+        if (!this.fieldUsageConsoleOpen || !this.fieldUsageRunning) return;
+        this.fieldUsagePollTimer = window.setInterval(async () => {
+            if (!this.fieldUsageConsoleOpen) {
+                this.stopFieldUsagePolling();
+                return;
+            }
+            try {
+                await this.refreshFieldUsageConsole();
+            } catch (e) {
+                this.errorMessage = 'Field Usage status: ' + this.reduceError(e);
+                this.stopFieldUsagePolling();
+            }
+        }, 3000);
+    }
+
+    stopFieldUsagePolling() {
+        if (this.fieldUsagePollTimer) {
+            window.clearInterval(this.fieldUsagePollTimer);
+            this.fieldUsagePollTimer = null;
+        }
     }
 
     handleMenuCompareOrg()     { this.openMenu = null; this.handleOpenDriftCheck(); }
