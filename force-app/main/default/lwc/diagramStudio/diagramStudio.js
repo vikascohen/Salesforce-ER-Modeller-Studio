@@ -222,7 +222,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     // Phase 3 — Field Usage Intelligence
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
-    @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; fieldUsagePollTimer=null;
+    @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
     @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null; @track _fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};
@@ -3975,7 +3975,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (err.body && typeof err.body.message === 'string') return err.body.message;
         return err.message ? err.message : JSON.stringify(err);
     }
-    get fieldUsageMap(){
+    rebuildFieldUsageMap(){
         const rows=this.fieldUsageEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind)=>nodes.push({key,label,sub,x,y,kind,style:'left:'+x+'px;top:'+y+'px;'});
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+190,y1:A.y+34,x2:B.x,y2:B.y+34});};
         const fields=this.fieldUsageSelectedFields.length?this.fieldUsageSelectedFields:[...new Set(rows.map(r=>r.Field_API_Name__c))];let cursor=40;const fieldCentres=[];
