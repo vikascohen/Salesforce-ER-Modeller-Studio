@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public without sharing class FieldUsageDiscoveryBatch implements Database.Batchable<String> {
  private final Id runId; public FieldUsageDiscoveryBatch(Id runId){this.runId=runId;}
  public Iterable<String> start(Database.BatchableContext bc){update new Field_Usage_Run__c(Id=runId,Status__c='Running',Started_At__c=System.now(),Heartbeat_At__c=System.now(),Progress_Percent__c=1,Progress_Phase__c='Discovering scan work');List<String> names=new List<String>(Schema.getGlobalDescribe().keySet());names.sort();return names;}
