@@ -1601,6 +1601,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             else if (state === 'Failed') lines.push({ key: 'failed-' + run.Id, text: '[failed] Scan failed. Review the run error details.' });
         }
         if (run && !run.Status__c) this.fieldUsageRun = null;
+        // If Apex found the live AsyncApexJob without a durable run Id, still
+        // render the job itself. "No scan activity yet" must never be shown
+        // while Salesforce reports one of our Field Usage batches as active.
+        if (jobStatus && lines.length === 0) {
+            lines.push({ key: 'job-' + jobStatus + '-' + jobProcessed, text: '[apex job] ' + jobStatus + (jobType ? ' · ' + jobType : '') + (jobTotal > 0 ? ' · ' + jobProcessed + ' / ' + jobTotal + ' batches processed' : '') + (jobErrors > 0 ? ' · ' + jobErrors + ' errors' : '') });
+        }
         if (!this.fieldUsageConsoleCleared) this.fieldUsageConsoleLines = lines;
         // The actual AsyncApexJob state is authoritative. Keep polling while
         // Salesforce says the current stage is active, even if a durable run
