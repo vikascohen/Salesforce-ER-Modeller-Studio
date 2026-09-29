@@ -1773,3 +1773,22 @@
 .settings-schedule-row label{display:grid;gap:5px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--surface-text-muted)}.settings-schedule-row input[type="text"],.settings-schedule-row input[type="number"]{width:100%;box-sizing:border-box;border:1px solid var(--surface-border-strong);border-radius:5px;background:var(--surface-bg-alt);color:var(--surface-text-strong);padding:7px 8px}.settings-check{display:flex!important;grid-auto-flow:column;justify-content:start;align-items:center;gap:7px!important;min-height:32px}.settings-time-sep{align-self:center;font-weight:800}.settings-delete{border:0;background:transparent;color:#e05252;cursor:pointer;padding:7px}.settings-actions{display:flex;justify-content:flex-end;margin-top:16px}
 .settings-job-table{border:1px solid var(--surface-border);border-radius:7px;overflow:hidden}.settings-job-header,.settings-job-row{display:grid;grid-template-columns:minmax(190px,1.4fr) 80px 100px minmax(160px,1fr) 190px;gap:10px;align-items:center;padding:10px 12px}.settings-job-header{background:var(--surface-bg-alt);font-size:9px;font-weight:800;text-transform:uppercase;color:var(--surface-text-muted)}.settings-job-row{border-top:1px solid var(--surface-border);font-size:11px}.settings-job-row strong,.settings-job-row small{display:block;overflow-wrap:anywhere}.settings-job-row small{margin-top:3px;color:var(--surface-text-muted);font-size:9px}.settings-job-actions{display:flex;gap:6px;justify-content:flex-end}.settings-job-actions button{border:1px solid var(--surface-border-strong);border-radius:5px;background:var(--surface-bg-alt);color:var(--surface-text);padding:5px 8px;cursor:pointer}.settings-job-actions .settings-delete{color:#e05252}
 @media(max-width:900px){.settings-shell{grid-template-columns:170px minmax(0,1fr)}.settings-content{padding:18px}.settings-schedule-row{grid-template-columns:1fr 1fr}.settings-time-sep{display:none}.settings-job-header{display:none}.settings-job-row{grid-template-columns:1fr}.settings-job-actions{justify-content:flex-start}}
+
+
+/* Settings viewport: keep the workspace usable on smaller windows and large configurations.
+   The shell scrolls vertically and horizontally instead of compressing controls until they break. */
+.settings-page{overflow:auto}
+.settings-head{position:sticky;top:0;z-index:4;min-width:920px}
+.settings-shell{min-width:920px;min-height:560px;overflow:visible}
+.settings-nav{position:sticky;left:0;z-index:3;min-height:100%;align-self:stretch}
+.settings-content{overflow:auto;min-width:690px;max-width:none}
+.settings-panel{min-width:650px;overflow:auto}
+.settings-schedule-row{min-width:760px}
+.settings-job-table{min-width:900px;overflow:auto}
+.settings-job-header,.settings-job-row{min-width:875px}
+.settings-page,.settings-content,.settings-panel,.settings-job-table{scrollbar-width:thin;scrollbar-color:var(--surface-border-strong) var(--surface-bg-alt)}
+.settings-page::-webkit-scrollbar,.settings-content::-webkit-scrollbar,.settings-panel::-webkit-scrollbar,.settings-job-table::-webkit-scrollbar{width:11px;height:11px}
+.settings-page::-webkit-scrollbar-track,.settings-content::-webkit-scrollbar-track,.settings-panel::-webkit-scrollbar-track,.settings-job-table::-webkit-scrollbar-track{background:var(--surface-bg-alt)}
+.settings-page::-webkit-scrollbar-thumb,.settings-content::-webkit-scrollbar-thumb,.settings-panel::-webkit-scrollbar-thumb,.settings-job-table::-webkit-scrollbar-thumb{background:var(--surface-border-strong);border:2px solid var(--surface-bg-alt);border-radius:8px}
+.settings-page::-webkit-scrollbar-corner,.settings-content::-webkit-scrollbar-corner,.settings-panel::-webkit-scrollbar-corner,.settings-job-table::-webkit-scrollbar-corner{background:var(--surface-bg-alt)}
+@media(max-width:900px){.settings-shell{grid-template-columns:170px minmax(690px,1fr)}.settings-content{padding:18px}.settings-schedule-row{grid-template-columns:90px minmax(180px,1fr) 82px 10px 82px 65px}.settings-time-sep{display:block}.settings-job-header{display:grid}.settings-job-row{grid-template-columns:minmax(190px,1.4fr) 80px 100px minmax(160px,1fr) 190px}.settings-job-actions{justify-content:flex-end}}
