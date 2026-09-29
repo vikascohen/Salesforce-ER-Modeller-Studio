@@ -257,7 +257,16 @@ It must authenticate to the Salesforce org whose metadata is being scanned and p
 
 Do **not** hard-code access tokens, session IDs, client secrets or user credentials in Apex, LWC, repository files or Custom Metadata. OAuth authentication is deliberately owned by the target Salesforce org.
 
-#### Administrator setup — Tooling API OAuth connection
+## 🛡️ ADMINISTRATOR SETUP — REQUIRED FOR FIELD USAGE
+
+> [!IMPORTANT]
+> **ADMIN ACTION REQUIRED — COMPLETE THIS ENTIRE SECTION BEFORE USING FIELD USAGE**  
+> Phase 3 requires an authenticated Salesforce Tooling API connection in every target org. The steps inside this highlighted block are the complete administrator setup for Developer Edition, sandboxes, SIT/UAT and production.  
+> **Do not skip the principal-access step. Do not copy OAuth tokens or secrets between environments.**
+
+<div style="border: 3px solid #0176d3; border-radius: 10px; padding: 18px; background-color: #eef7ff;">
+
+### 🔧 Tooling API OAuth connection — administrator instructions
 
 Complete the following setup in **each target org** after deploying Phase 3. The OAuth application, authenticated principal and endpoint are environment-specific. A Developer Edition, sandbox, SIT/UAT environment and production org should authenticate locally rather than sharing another org's token or secret.
 
@@ -395,7 +404,7 @@ Open **Field Usage** and choose **Run Scan Now**. Phase 3 performs a fail-fast T
 
 A successful connection allows the asynchronous discovery pipeline to proceed. Administrators should verify that Tooling discovery and the subsequent work-unit batches complete successfully before treating the resulting snapshot as authoritative.
 
-#### Environment guidance
+### 🌐 Environment guidance
 
 Do not copy OAuth tokens or secrets between environments. Repeat the authentication/configuration step in each target org:
 
@@ -408,6 +417,12 @@ Production                                   → the production My Domain
 The Phase 3 Apex code remains the same across environments; the endpoint, OAuth client configuration and authenticated principal belong to the target environment. In enterprise environments, use an organisation-controlled integration identity and the organisation's normal credential-governance process rather than a developer's personal identity where policy requires it.
 
 If the Named Credential is absent, the principal is not authorised, or the Tooling API connection cannot be established, Phase 3 intentionally fails the preflight and does not start a new Field Usage scan.
+
+
+</div>
+
+> [!TIP]
+> **Admin completion check:** External Client App → External Auth Identity Provider → External Credential → authenticated Named Principal → Named Credential `Salesforce_Tooling_API` → External Credential Principal Access → successful Field Usage preflight.
 
 ### Testing and CI
 
