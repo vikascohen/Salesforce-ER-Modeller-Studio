@@ -161,7 +161,7 @@ public with sharing class FieldUsageController {
 
             if(dto.run==null){
                 List<Field_Usage_Run__c> active=Database.query(
-                    'SELECT '+fields+' FROM Field_Usage_Run__c WHERE Status__c IN (\\'Queued\\',\\'Running\\') ORDER BY CreatedDate DESC LIMIT 1'
+                    'SELECT '+fields+' FROM Field_Usage_Run__c WHERE Status__c IN (\'Queued\',\'Running\') ORDER BY CreatedDate DESC LIMIT 1'
                 );
                 if(!active.isEmpty()) dto.run=active[0];
                 else{
