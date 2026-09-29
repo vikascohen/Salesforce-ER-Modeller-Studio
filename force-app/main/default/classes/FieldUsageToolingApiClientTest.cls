@@ -93,10 +93,9 @@ private class FieldUsageToolingApiClientTest {
         }
     }
     @IsTest static void flowIndexAndMetadataAreParsed(){
-        Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
         Test.setMock(HttpCalloutMock.class,new FlowMetadataMock());
         System.assertEquals(1,FieldUsageToolingApiClient.getFlowIndex().size());
-        List<Field_Usage_Evidence__c> evidence=FieldUsageToolingApiClient.scanFlow(run.Id,'301000000000001');
+        List<Field_Usage_Evidence__c> evidence=FieldUsageToolingApiClient.scanFlow(null,'301000000000001');
         System.assertEquals(1,evidence.size());System.assertEquals('Account.Name',evidence[0].Field_Key__c);
     }
     private class ErrorMock implements HttpCalloutMock {
