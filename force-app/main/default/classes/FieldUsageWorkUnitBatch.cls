@@ -17,7 +17,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         updateProgress();
     }
     private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit){
-        if(unit.Scanner_Type__c=='Formula')return FieldUsageFormulaScanner.scan(runId,unit.Target_Key__c);
+        if(unit.Scanner_Type__c=='Formula'){List<String> parts=unit.Target_Key__c.split('\\|');if(parts.size()==2)return FieldUsageFormulaScanner.scanField(runId,parts[0],parts[1]);}
         return new List<Field_Usage_Evidence__c>();
     }
     private Integer insertIdempotent(List<Field_Usage_Evidence__c> rows){
@@ -31,7 +31,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
     private static List<String> rowsFieldKeys(List<Field_Usage_Evidence__c> rows){List<String> out=new List<String>();for(Field_Usage_Evidence__c r:rows)out.add(r.Field_Key__c);return out;}
     private void updateProgress(){Integer total=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];Integer done=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Completed'];Integer pct=total==0?95:Math.min(95,5+(done*90/total));Integer evidence=[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:runId];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Objects_Processed__c=done,Objects_Total__c=total,Dependency_Count__c=evidence,Error_Count__c=failures,Progress_Percent__c=pct,Progress_Phase__c='Processing resumable work units');}
     public void finish(Database.BatchableContext bc){
-        Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
-        FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
+        Integer remaining=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
+        if(remaining>0){Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);return;}FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
     }
 }
