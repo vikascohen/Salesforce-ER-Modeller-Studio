@@ -1346,8 +1346,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async handleLaunchFieldUsageScan() {
         if (this.fieldUsageRunning) return;
+        this.fieldUsageConsoleOpen = true;
+        this.errorMessage = '';
+        this.fieldUsageRun = { Status__c: 'Queued', Progress_Percent__c: 0, Progress_Phase__c: 'Starting Field Usage scan' };
+        this.fieldUsageConsoleLines = [{ key: 'client-start', text: '[starting] Field Usage scan requested…' }];
         try {
-            await fieldUsageRunNow();
+            const runId = await fieldUsageRunNow();
+            this.fieldUsageConsoleLines = [
+                { key: 'client-started', text: '[queued] Scan started successfully' },
+                { key: 'client-run', text: '[run] ' + runId }
+            ];
             await this.refreshFieldUsageConsole();
             this.startFieldUsagePolling();
         } catch (e) {
@@ -1376,11 +1384,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const run = this.fieldUsageRun;
         const lines = [];
         if (run) {
+            const state = run.Status__c || 'Unknown';
+            const phase = run.Progress_Phase__c || '';
+            const processed = Number(run.Objects_Processed__c || 0);
+            const total = Number(run.Objects_Total__c || 0);
+            const dependencies = Number(run.Dependency_Count__c || 0);
+            const errors = Number(run.Error_Count__c || 0);
+            lines.push({ key: 'run-' + (run.Id || state), text: '[run] ' + state + (phase ? ' · ' + phase : '') });
+            if (total > 0) lines.push({ key: 'work-' + processed + '-' + total, text: '[work] ' + processed + ' / ' + total + ' work units processed' });
+            lines.push({ key: 'evidence-' + dependencies, text: '[evidence] ' + dependencies + ' dependency records discovered' });
+            if (errors > 0) lines.push({ key: 'errors-' + errors, text: '[errors] ' + errors + ' work item(s) reported errors' });
             const log = run.Progress_Log__c || '';
             log.split(/\r?\n/).filter(Boolean).forEach((text, i) => lines.push({ key: 'log-' + i, text }));
-            const state = run.Status__c || 'Unknown';
-            const phase = run.Progress_Phase__c ? ' · ' + run.Progress_Phase__c : '';
-            lines.push({ key: 'status-' + (run.Id || state), text: '[' + state + ']' + phase });
+            if (state === 'Completed') lines.push({ key: 'complete-' + run.Id, text: '[complete] Snapshot ready for Field Usage Map' });
+            else if (state === 'Completed With Errors') lines.push({ key: 'complete-errors-' + run.Id, text: '[complete] Scan finished with errors; snapshot was not promoted' });
+            else if (state === 'Failed') lines.push({ key: 'failed-' + run.Id, text: '[failed] Scan failed. Review the run error details.' });
         }
         this.fieldUsageConsoleLines = lines;
         if (!this.fieldUsageRunning) this.stopFieldUsagePolling();
