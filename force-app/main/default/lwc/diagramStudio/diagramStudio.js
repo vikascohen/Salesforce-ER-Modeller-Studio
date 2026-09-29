@@ -254,6 +254,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track dictionaryExportAllProgress = '';
     @track openMenu = null; // 'file' | 'diagram' | 'view' | 'settings' | null
     @track settingsOpen = false;
+    @track helpOpen = false;
+    @track helpSection = 'configuration';
     @track settingsSection = 'field-usage-schedule';
     @track settingsTab = 'configuration';
     @track settingsSchedules = [];
@@ -1233,6 +1235,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get diagramMenuClass() { return this.openMenu === 'diagram' ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get viewMenuClass()    { return this.openMenu === 'view'    ? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get settingsMenuClass(){ return this.openMenu === 'settings'? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
+    get helpMenuClass(){ return this.openMenu === 'help'? 'dd-menu-btn dd-menu-btn-open' : 'dd-menu-btn'; }
     get rootClass() { return 'er-studio ' + this.currentTheme; }
     // Kept as separate, explicitly-named getters (isThemeX) rather than a
     // single value binding on <select> itself -- LWC reliably re-applies a
@@ -1260,6 +1263,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get diagramMenuOpen() { return this.openMenu === 'diagram'; }
     get viewMenuOpen()    { return this.openMenu === 'view'; }
     get settingsMenuOpen(){ return this.openMenu === 'settings'; }
+    get helpMenuOpen(){ return this.openMenu === 'help'; }
+    get helpConfigurationOpen(){ return this.helpSection === 'configuration'; }
+    get helpUserManualOpen(){ return this.helpSection === 'manual'; }
+    get helpConfigurationClass(){ return this.helpConfigurationOpen ? 'help-nav-item help-nav-item-active' : 'help-nav-item'; }
+    get helpUserManualClass(){ return this.helpUserManualOpen ? 'help-nav-item help-nav-item-active' : 'help-nav-item'; }
+    handleMenuHelpConfiguration(){ this.openMenu=null; this.helpOpen=true; this.helpSection='configuration'; }
+    handleMenuHelpUserManual(){ this.openMenu=null; this.helpOpen=true; this.helpSection='manual'; }
+    handleHelpConfiguration(){ this.helpSection='configuration'; }
+    handleHelpUserManual(){ this.helpSection='manual'; }
+    handleCloseHelp(){ this.helpOpen=false; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
     get dictionaryMenuText()  { return this.dictionaryOpen ? 'Data Dictionary \u2713' : 'Data Dictionary'; }
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
