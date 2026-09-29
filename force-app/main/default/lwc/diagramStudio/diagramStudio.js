@@ -1380,7 +1380,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.startFieldUsagePolling();
                 return;
             }
-            this.errorMessage = 'Field Usage scan: ' + message;
+            // Keep scan failures inside the scan console. Do not leak them onto
+            // the ER canvas where they look like diagram/parser failures.
+            this.errorMessage = '';
+            this.fieldUsageConsoleLines = [
+                ...(this.fieldUsageConsoleLines || []),
+                { key: 'launch-error-' + Date.now(), text: '[error] Could not start Field Usage scan: ' + message }
+            ];
         }
     }
 
@@ -1394,8 +1400,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.fieldUsageBatchRunning = this.fieldUsageRunning;
         const run = this.fieldUsageRun;
         const lines = [];
-        if (run) {
-            const state = run.Status__c || 'Unknown';
+        // An empty/partial SObject is not a real run. This can occur after an
+        // async job is manually aborted while its tracking record is stale.
+        if (run && run.Status__c) {
+            const state = run.Status__c;
             const phase = run.Progress_Phase__c || '';
             const processed = Number(run.Objects_Processed__c || 0);
             const total = Number(run.Objects_Total__c || 0);
@@ -1411,6 +1419,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             else if (state === 'Completed With Errors') lines.push({ key: 'complete-errors-' + run.Id, text: '[complete] Scan finished with errors; snapshot was not promoted' });
             else if (state === 'Failed') lines.push({ key: 'failed-' + run.Id, text: '[failed] Scan failed. Review the run error details.' });
         }
+        if (run && !run.Status__c) this.fieldUsageRun = null;
         this.fieldUsageConsoleLines = lines;
         if (!this.fieldUsageRunning) this.stopFieldUsagePolling();
     }
