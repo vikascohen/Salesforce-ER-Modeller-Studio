@@ -2,6 +2,7 @@
  * @author Vikas Cohen
  */
 public without sharing class FieldUsageWorkUnitBatch implements Database.Batchable<SObject>, Database.Stateful, Database.AllowsCallouts {
+    private static final Integer MAX_ATTEMPTS = 3;
     private final Id runId; private Integer completed=0, failed=0, dependencies=0; private List<String> errors=new List<String>();
     public FieldUsageWorkUnitBatch(Id runId){this.runId=runId;}
     public Database.QueryLocator start(Database.BatchableContext bc){
@@ -14,7 +15,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
                 List<Field_Usage_Evidence__c> rows=scan(unit); Integer inserted=insertIdempotent(rows);dependencies+=inserted;
                 unit.Status__c='Completed';unit.Completed_At__c=System.now();unit.Last_Error__c=null;update unit;completed++;
             }catch(Exception ex){
-                unit.Status__c='Failed';unit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000);update unit;failed++;if(errors.size()<100)errors.add(unit.Target_Key__c+': '+unit.Last_Error__c.left(500));
+                unit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000); if(unit.Attempt_Count__c < MAX_ATTEMPTS){unit.Status__c='Pending';}else{unit.Status__c='Failed';failed++;if(errors.size()<100)errors.add(unit.Target_Key__c+': '+unit.Last_Error__c.left(500));} update unit;
             }
         }
         updateProgress();
