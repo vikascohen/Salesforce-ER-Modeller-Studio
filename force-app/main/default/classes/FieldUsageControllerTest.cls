@@ -12,6 +12,8 @@
   FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();System.assertEquals(true,snapshot.available);
   System.assertEquals(new List<String>{'Account'},FieldUsageController.getSnapshotObjects());
   System.assertEquals(new List<String>{'Name'},FieldUsageController.getSnapshotFields('Account'));
+  System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
+  System.assertEquals(new List<String>{'Formula Field'},FieldUsageController.getSourceTypes());
  }
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
