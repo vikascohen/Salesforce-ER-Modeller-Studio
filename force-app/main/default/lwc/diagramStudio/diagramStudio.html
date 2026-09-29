@@ -360,7 +360,7 @@
             <div class="dsl-panel-head">
                 <span>DSL EDITOR</span>
                 <div class="dsl-panel-head-actions">
-                    <button class="dsl-head-btn" onclick={handleToggleDslMaximise} title="Maximise or restore the editor without changing the DSL">{dslMaximiseLabel}</button>
+                    <button class="dsl-head-btn" onclick={handleToggleDslWrap} title="Toggle editor word wrapping without changing the DSL">{dslWrapLabel}</button>\n                    <button class="dsl-head-btn" onclick={handleToggleDslMaximise} title="Maximise or restore the editor without changing the DSL">{dslMaximiseLabel}</button>
                     <button class="dsl-head-btn" onclick={handleImportDslClick} title="Import a .dsl file from your computer and draw it">Import</button>
                     <button class="dsl-head-btn" onclick={handleExportDsl} title="Export this DSL as a .dsl file">Export</button>
                     <button class="dsl-head-btn dsl-head-btn-danger" onclick={handleClearCanvas} title="Clear the DSL editor and the canvas">Clear</button>
@@ -388,9 +388,14 @@
             </template>
 
             <div class="dsl-editor-wrap">
-                <textarea class="code-editor"
+                <div class="dsl-line-numbers" aria-hidden="true" style={dslLineNumberStyle}>
+                    <template for:each={dslLineNumbers} for:item="line">
+                        <span key={line.key}>{line.number}</span>
+                    </template>
+                </div>
+                <textarea class={dslEditorClass}
                           spellcheck="false"
-                          wrap="off"
+                          wrap={dslWrapAttribute}
                           placeholder="entity Account : Name, Industry&#10;&#10;Contact.AccountId => Account"
                           value={sourceText}
                           oninput={handleTextChange}
