@@ -108,7 +108,7 @@ public with sharing class FieldUsageController {
     @AuraEnabled(cacheable=true) public static List<String> getSourceTypes(){
         return new List<String>{'Apex Class','Apex Trigger','Flow','Formula Field'};
     }
-    @AuraEnabled public static Id runNow(){ try{return FieldUsageOrchestrator.start('Manual');}catch(FieldUsageOrchestrator.ScanAlreadyRunningException ex){throw new AuraHandledException(ex.getMessage());} }
+    @AuraEnabled public static Id runNow(){ try{return FieldUsageOrchestrator.start('Manual');}catch(FieldUsageOrchestrator.ScanAlreadyRunningException ex){throw new AuraHandledException(ex.getMessage());}catch(FieldUsageToolingApiClient.ToolingApiException ex){throw new AuraHandledException(ex.getMessage());} }
     @AuraEnabled public static void bootstrap(){ FieldUsageScheduleService.ensureDefaults(); }
     @AuraEnabled public static StatusDTO getStatus(){
         StatusDTO dto=new StatusDTO();
