@@ -1,4 +1,65 @@
-# Salesforce ER Modeller Studio — Version 2 Stable
+# Salesforce ER Modeller Studio — Phase 3 Field Usage Intelligence
+
+> **Phase 3 development branch:** `version-3-field-usage-intelligence`  
+> **Understand where Salesforce fields are used from a persisted, asynchronous org snapshot.**
+
+[![Deploy Phase 3 to Salesforce](https://img.shields.io/badge/Deploy%20Phase%203-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=version-3-field-usage-intelligence&continue)
+
+> Phase 3 is isolated from `main`, `version-1-stable` and `version-2-stable`. The deploy button above targets only the Phase 3 branch.
+
+## Phase 3 — Field Usage Intelligence
+
+Phase 3 introduces a Salesforce-native asynchronous field-dependency index. The LWC never performs an expensive live org scan. Scheduled or manually started Batch Apex builds a persisted snapshot and the UI queries that snapshot by object and selected fields.
+
+### Snapshot safety
+
+Each scan owns its own `Field_Usage_Run__c` and `Field_Usage_Evidence__c` records. The last successful snapshot remains authoritative while a new scan is running. A new run is promoted only from the batch finish path. If a scan fails before promotion, the previous snapshot remains available. After successful promotion, the previous snapshot and its child evidence are removed so the dependency table represents the org at the latest successful scan rather than accumulating daily history.
+
+Runs record status, start/completion/heartbeat times, job id, dependency count, error count and bounded error details. Evidence records deliberately contain extensible source/component/evidence/confidence fields so future scanners can add new dependency categories without replacing the persistence model.
+
+### Scheduling without CRON knowledge
+
+On first use, Phase 3 bootstraps two default daily schedules: **03:00** and **21:00** in the scheduling user's Salesforce timezone. Admins can add, edit, enable, disable or remove additional daily scan times in the Field Usage Intelligence component. Apex generates and manages the CRON expressions. There is no two-run limit.
+
+The scheduler calls the same orchestration service as **Run Scan Now**. A persisted run lock prevents a manual or scheduled invocation from starting a second scan while one is already queued or running.
+
+### Error handling and performance
+
+Phase 3 is designed around governor-limit-safe asynchronous processing. Scanner work is divided across Batch Apex transactions. Database writes are collected and executed outside processing loops, evidence inserts use partial DML, individual object/scanner failures are captured without intentionally terminating unrelated work, and the LWC reads only persisted evidence for the selected fields. The field key is an External ID to support selective snapshot queries.
+
+The UI continues to show the last successful results while a refresh is running and gives an explicit running/wait state. A failed refresh does not intentionally clear the current snapshot.
+
+### Scanner coverage and the no-Tooling-API boundary
+
+Phase 3 does **not use the Tooling API**. The first native scanner included on this branch indexes field references in formula fields using Schema Describe and records high-confidence evidence. The scanner/persistence architecture is deliberately source-agnostic so Apex, Trigger, Flow, OmniStudio and other adapters can write to the same evidence model.
+
+There is an important Salesforce platform boundary: Apex class and trigger source bodies are development metadata and are not exposed to ordinary Apex SOQL/Schema Describe. Salesforce documents source-code access through development metadata interfaces such as Tooling API. Because this project explicitly prohibits Tooling API, Phase 3 must not pretend that ordinary Batch Apex can discover Apex/Trigger source references that Salesforce has not exposed to it. A future non-Tooling metadata-source adapter can be added behind the batch layer without changing the LWC or snapshot schema.
+
+### Main Phase 3 components
+
+- `FieldUsageController` — thin LWC-facing controller.
+- `FieldUsageOrchestrator` — run locking and batch launch.
+- `FieldUsageSnapshotBatch` — asynchronous snapshot construction, error aggregation and promotion.
+- `FieldUsageFormulaScanner` — native formula dependency scanner.
+- `FieldUsageScheduler` and `FieldUsageScheduleService` — arbitrary daily schedules managed without exposing CRON.
+- `Field_Usage_Run__c` — snapshot/run lifecycle and audit record.
+- `Field_Usage_Evidence__c` — extensible dependency evidence index.
+- `Field_Usage_Schedule__c` — human-readable scan-time configuration.
+- `fieldUsageIntelligence` — object/field selection, persisted dependency tree, scan status, Run Now and schedule administration.
+
+### Deployment and first use
+
+Deploy with the Phase 3 button above, add **Field Usage Intelligence** to a Lightning App/Home page or Lightning tab, and open it as an administrator. The first component initialisation creates the two default schedule records and corresponding Salesforce scheduled jobs if they do not already exist. This first-use bootstrap is idempotent because normal Salesforce source deployment does not execute arbitrary Apex automatically.
+
+Use **Run Scan Now** for an immediate snapshot. While it runs, the prior successful snapshot remains queryable. Use the schedule editor to add more daily scans or change the defaults without writing a CRON expression.
+
+### Apex engineering standards
+
+Phase 3 follows Salesforce bulk-processing patterns: no intentional SOQL or DML inside record-processing loops, collection-oriented DML, bounded UI queries, Batch Apex for large asynchronous work, thin controllers, separated orchestration/services/scanners, defensive null/error handling and testable helper logic.
+
+---
+
+## Version 2 foundation
 
 > **Salesforce Data Architecture Intelligence & ER Modelling**  
 > **Understand your Salesforce data architecture before you change it.**
