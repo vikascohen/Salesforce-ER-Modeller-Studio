@@ -7,7 +7,7 @@
 public without sharing class FieldUsageToolingDiscoveryBatch
     implements Database.Batchable<String>, Database.AllowsCallouts {
 
-    private static final Integer CHUNK_SIZE = 50;
+    // 12 x 18-character Salesforce IDs plus commas stays within Target_Key__c (255).\n    private static final Integer CHUNK_SIZE = 12;
 
     private final Id runId;
 
