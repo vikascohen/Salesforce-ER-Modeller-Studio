@@ -1496,7 +1496,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     handleFieldUsageFields(event) {
-        this.fieldUsageSelectedFields = Array.from(event.target.selectedOptions || [])
+        this.fieldUsageSelectedFields = Array.from(event.target.options || [])
+            .filter((option) => option.selected)
             .map((option) => option.value);
     }
 
