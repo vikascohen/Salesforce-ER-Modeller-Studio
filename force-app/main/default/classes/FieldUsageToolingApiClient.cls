@@ -18,6 +18,26 @@ public without sharing class FieldUsageToolingApiClient {
     private static final String API_VERSION = 'v60.0';
     private static final String NAMED_CREDENTIAL = 'callout:Salesforce_Tooling_API';
 
+    /**
+     * Verifies that this org can authenticate through the stable
+     * Salesforce_Tooling_API Named Credential before a scan is queued.
+     * This deliberately performs no DML so callers can fail fast before
+     * creating a durable run or thousands of batch executions.
+     */
+    public static void assertConnectionReady() {
+        String soql = 'SELECT Id FROM Organization LIMIT 1';
+        try {
+            send('/services/data/' + API_VERSION + '/tooling/query/?q=' +
+                EncodingUtil.urlEncode(soql, 'UTF-8'));
+        } catch (Exception ex) {
+            throw new ToolingApiException(
+                'Field Usage requires the Salesforce_Tooling_API Named Credential to be configured and authenticated in this org. ' +
+                'Ask a Salesforce administrator or authorised developer to configure the Tooling API connection, then run the scan again. ' +
+                'Connection check: ' + ex.getMessage()
+            );
+        }
+    }
+
     public static List<SourceComponent> getApexClassIndex() {
         return queryComponents('ApexClass', 'Apex Class', false, null);
     }
