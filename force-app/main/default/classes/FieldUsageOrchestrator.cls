@@ -4,7 +4,7 @@
 public with sharing class FieldUsageOrchestrator {
     public class ScanAlreadyRunningException extends Exception {}
     public static Id start(String runType) {
-        List<Field_Usage_Run__c> active = [SELECT Id,Status__c,Heartbeat_At__c,Started_At__c,CreatedDate,Job_Id__c FROM Field_Usage_Run__c WHERE Status__c IN ('Queued','Running') ORDER BY CreatedDate DESC LIMIT 1 FOR UPDATE];
+        List<Field_Usage_Run__c> active = [SELECT Id,Status__c,Heartbeat_At__c,Started_At__c,CreatedDate,Job_Id__c FROM Field_Usage_Run__c WHERE Status__c IN ('Queued','Running') LIMIT 1 FOR UPDATE];
         if(!active.isEmpty()){
             Field_Usage_Run__c existing=active[0];
             Datetime lastActivity=existing.Heartbeat_At__c!=null?existing.Heartbeat_At__c:(existing.Started_At__c!=null?existing.Started_At__c:existing.CreatedDate);
