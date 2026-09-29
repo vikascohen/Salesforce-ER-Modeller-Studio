@@ -1,5 +1,5 @@
 /**
- * Tooling API client used only by the asynchronous Field Usage scanner.
+ * Bulk Tooling API client used only by the asynchronous Field Usage scanner.
  * The Named Credential must be configured as Salesforce_Tooling_API.
  *
  * @author Vikas Cohen
@@ -17,59 +17,42 @@ public without sharing class FieldUsageToolingApiClient {
     private static final String API_VERSION = 'v60.0';
     private static final String NAMED_CREDENTIAL = 'callout:Salesforce_Tooling_API';
 
-    public static List<SourceComponent> getApexClasses() {
-        return querySource('ApexClass', 'Apex Class');
+    public static List<SourceComponent> getApexClassIndex() {
+        return queryComponents('ApexClass', 'Apex Class', false, null);
     }
 
-    public static List<SourceComponent> getApexTriggers() {
-        return querySource('ApexTrigger', 'Apex Trigger');
+    public static List<SourceComponent> getApexTriggerIndex() {
+        return queryComponents('ApexTrigger', 'Apex Trigger', false, null);
     }
 
-    public static SourceComponent getApexClass(String componentId) {
-        return getSource('ApexClass', 'Apex Class', componentId);
+    public static List<SourceComponent> getApexClasses(Set<String> componentIds) {
+        return queryComponents('ApexClass', 'Apex Class', true, componentIds);
     }
 
-    public static SourceComponent getApexTrigger(String componentId) {
-        return getSource('ApexTrigger', 'Apex Trigger', componentId);
+    public static List<SourceComponent> getApexTriggers(Set<String> componentIds) {
+        return queryComponents('ApexTrigger', 'Apex Trigger', true, componentIds);
     }
 
-    private static SourceComponent getSource(
+    private static List<SourceComponent> queryComponents(
         String toolingObject,
         String sourceType,
-        String componentId
+        Boolean includeBody,
+        Set<String> componentIds
     ) {
-        HttpRequest request = new HttpRequest();
-        request.setEndpoint(
-            NAMED_CREDENTIAL + '/services/data/' + API_VERSION +
-            '/tooling/sobjects/' + toolingObject + '/' +
-            EncodingUtil.urlEncode(componentId, 'UTF-8')
-        );
-        request.setMethod('GET');
-        request.setHeader('Accept', 'application/json');
-        request.setTimeout(120000);
+        String fields = includeBody ? 'Id, Name, Body' : 'Id, Name';
+        String whereClause = 'NamespacePrefix = null';
 
-        HttpResponse response = new Http().send(request);
-        if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
-            throw new ToolingApiException(
-                'Tooling API source read failed with HTTP ' +
-                response.getStatusCode() + ': ' + response.getBody().left(1000)
-            );
+        if (componentIds != null && !componentIds.isEmpty()) {
+            List<String> escapedIds = new List<String>();
+            for (String componentId : componentIds) {
+                escapedIds.add('\'' + String.escapeSingleQuotes(componentId) + '\'');
+            }
+            whereClause += ' AND Id IN (' + String.join(escapedIds, ',') + ')';
         }
 
-        Map<String, Object> record =
-            (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
-        SourceComponent component = new SourceComponent();
-        component.id = (String) record.get('Id');
-        component.name = (String) record.get('Name');
-        component.body = (String) record.get('Body');
-        component.sourceType = sourceType;
-        return component;
-    }
-
-    private static List<SourceComponent> querySource(String toolingObject, String sourceType) {
         String soql =
-            'SELECT Id, Name, Body FROM ' + toolingObject +
-            ' WHERE NamespacePrefix = null ORDER BY Name';
+            'SELECT ' + fields + ' FROM ' + toolingObject +
+            ' WHERE ' + whereClause + ' ORDER BY Name';
 
         String nextUrl =
             '/services/data/' + API_VERSION + '/tooling/query/?q=' +
@@ -100,7 +83,7 @@ public without sharing class FieldUsageToolingApiClient {
                 SourceComponent component = new SourceComponent();
                 component.id = (String) record.get('Id');
                 component.name = (String) record.get('Name');
-                component.body = (String) record.get('Body');
+                component.body = includeBody ? (String) record.get('Body') : null;
                 component.sourceType = sourceType;
                 components.add(component);
             }
