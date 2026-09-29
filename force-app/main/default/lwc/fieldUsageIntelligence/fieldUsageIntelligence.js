@@ -1,0 +1,15 @@
+import {LightningElement,track} from 'lwc'; import {ShowToastEvent} from 'lightning/platformShowToastEvent';
+import getObjects from '@salesforce/apex/FieldUsageController.getObjects'; import getFields from '@salesforce/apex/FieldUsageController.getFields'; import getEvidence from '@salesforce/apex/FieldUsageController.getEvidence'; import runScan from '@salesforce/apex/FieldUsageController.runNow'; import bootstrap from '@salesforce/apex/FieldUsageController.bootstrap'; import getStatus from '@salesforce/apex/FieldUsageController.getStatus';
+export default class FieldUsageIntelligence extends LightningElement {
+ @track objectOptions=[]; @track fieldOptions=[]; @track selectedFields=[]; @track groups=[]; @track schedules=[]; selectedObject; running=false; message;
+ connectedCallback(){this.initialise();}
+ async initialise(){try{await bootstrap(); const [objects,status]=await Promise.all([getObjects(),getStatus()]); this.objectOptions=objects.map(v=>({label:v,value:v})); this.applyStatus(status);}catch(e){this.error(e);}}
+ async handleObject(e){this.selectedObject=e.detail.value;this.selectedFields=[];this.groups=[];try{const fs=await getFields({objectApiName:this.selectedObject});this.fieldOptions=fs.map(v=>({label:v,value:v}));}catch(e2){this.error(e2);}}
+ handleFields(e){this.selectedFields=e.detail.value;}
+ get disableAnalyse(){return !this.selectedObject||!this.selectedFields.length;}
+ async loadEvidence(){try{const rows=await getEvidence({objectApiName:this.selectedObject,fieldApiNames:this.selectedFields});const by={};rows.forEach((r,i)=>{(by[r.Field_API_Name__c]??=[]).push({key:r.Field_Key__c+'-'+i,source:r.Source_Type__c,component:r.Component_Name__c,type:r.Evidence_Type__c,confidence:r.Confidence__c});});this.groups=Object.keys(by).sort().map(f=>({key:f,field:f,items:by[f]}));if(!rows.length)this.message='No persisted dependency evidence was found for the selected fields in the current snapshot.';}catch(e){this.error(e);}}
+ async runNow(){try{this.running=true;this.message='Starting field usage scan…';await runScan();this.message='Field usage scan is running. Please wait. The last successful snapshot remains available.';}catch(e){this.error(e);await this.refreshStatus();}}
+ async refreshStatus(){try{this.applyStatus(await getStatus());}catch(e){this.error(e);}}
+ applyStatus(s){this.schedules=(s.schedules||[]).map(x=>({...x,minuteDisplay:String(x.Minute__c||0).padStart(2,'0')}));this.running=!!s.run&&['Queued','Running'].includes(s.run.Status__c);if(s.run)this.message='Latest scan: '+s.run.Status__c+(s.run.Completed_At__c?' · '+new Date(s.run.Completed_At__c).toLocaleString():'');}
+ error(e){this.running=false;const m=e?.body?.message||e?.message||'Unexpected error';this.message=m;this.dispatchEvent(new ShowToastEvent({title:'Field Usage Intelligence',message:m,variant:'error'}));}
+}
