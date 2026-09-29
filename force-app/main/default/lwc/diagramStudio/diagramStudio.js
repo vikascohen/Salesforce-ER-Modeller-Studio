@@ -351,6 +351,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (usageSelect && usageSelect.value !== (this.architectureSelectedObject || '')) {
             usageSelect.value = this.architectureSelectedObject || '';
         }
+        // Native <select> can keep a stale DOM value when Calculate Usage
+        // replaces dictionaryRow.fields and causes the field table/tools to
+        // rerender. Keep the Data Dictionary filter controlled by its tracked
+        // state so the picklist remains usable after usage calculation.
+        const dictionaryFilter = this.template.querySelector('.dict-field-filter');
+        if (dictionaryFilter && dictionaryFilter.value !== (this.dictionaryFieldFilter || 'all')) {
+            dictionaryFilter.value = this.dictionaryFieldFilter || 'all';
+        }
     }
 
     // ────────────────────────────────────────────────────────
