@@ -10,6 +10,7 @@ public with sharing class FieldUsageOrchestrator {
 
     public static Id start(String runType) {
         ensureNoActiveRun();
+        FieldUsageToolingApiClient.assertConnectionReady();
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
         insert run;
         Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
@@ -58,5 +59,6 @@ public with sharing class FieldUsageOrchestrator {
     public static void startScheduled() {
         try { start('Scheduled'); }
         catch (ScanAlreadyRunningException ex) { System.debug(LoggingLevel.INFO, ex.getMessage()); }
+        catch (FieldUsageToolingApiClient.ToolingApiException ex) { System.debug(LoggingLevel.ERROR, ex.getMessage()); }
     }
 }
