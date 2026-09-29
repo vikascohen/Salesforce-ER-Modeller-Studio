@@ -39,19 +39,19 @@ public without sharing class FieldUsageToolingApiClient {
         return queryFlowIndex(soql);
     }
 
-    public static List<SourceComponent> getFlows(Set<String> componentIds) {
-        List<SourceComponent> out = new List<SourceComponent>();
-        for (String componentId : componentIds) {
-            HttpResponse response = send('/services/data/' + API_VERSION + '/tooling/sobjects/Flow/' + EncodingUtil.urlEncode(componentId, 'UTF-8'));
-            Map<String,Object> record=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());
-            SourceComponent component=new SourceComponent();
-            component.id=(String)record.get('Id');
-            component.name=(String)record.get('MasterLabel');
-            component.sourceType='Flow';
-            component.metadata=record.get('Metadata');
-            out.add(component);
-        }
-        return out;
+    public static List<Field_Usage_Evidence__c> scanFlow(Id runId,String componentId) {
+        HttpResponse response=send('/services/data/'+API_VERSION+'/tooling/sobjects/Flow/'+EncodingUtil.urlEncode(componentId,'UTF-8'));
+        String responseBody=response.getBody();
+        response=null;
+        Map<String,Object> record=(Map<String,Object>)JSON.deserializeUntyped(responseBody);
+        responseBody=null;
+        String flowId=(String)record.get('Id');
+        String flowName=(String)record.get('MasterLabel');
+        Object metadata=record.get('Metadata');
+        record=null;
+        List<Field_Usage_Evidence__c> evidence=FieldUsageFlowScanner.scan(runId,flowName,flowId,metadata);
+        metadata=null;
+        return evidence;
     }
 
     private static List<SourceComponent> queryFlowIndex(String soql) {
