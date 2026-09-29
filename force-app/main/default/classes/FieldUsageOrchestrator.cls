@@ -4,6 +4,10 @@
 public with sharing class FieldUsageOrchestrator {
     public class ScanAlreadyRunningException extends Exception {}
 
+    // Test seam for the AsyncApexJob status lookup. This avoids starting a
+    // real batch merely to exercise the concurrency guard in an Apex test.
+    @TestVisible private static Boolean asyncJobActiveOverride;
+
     public static Id start(String runType) {
         ensureNoActiveRun();
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
@@ -23,7 +27,9 @@ public with sharing class FieldUsageOrchestrator {
         Datetime lastActivity=existing.Heartbeat_At__c!=null?existing.Heartbeat_At__c:(existing.Started_At__c!=null?existing.Started_At__c:existing.CreatedDate);
         Boolean stale=lastActivity<System.now().addHours(-2);
         Boolean asyncJobStillActive=false;
-        if(!String.isBlank(existing.Job_Id__c)){
+        if(asyncJobActiveOverride!=null && Test.isRunningTest()){
+            asyncJobStillActive=asyncJobActiveOverride;
+        }else if(!String.isBlank(existing.Job_Id__c)){
             try{
                 Id asyncJobId=(Id)existing.Job_Id__c;
                 List<AsyncApexJob> jobs=[SELECT Id,Status FROM AsyncApexJob WHERE Id=:asyncJobId LIMIT 1];
