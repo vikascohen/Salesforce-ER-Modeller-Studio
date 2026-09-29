@@ -1343,7 +1343,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // Status comes first so opening the console attaches immediately to
             // an existing run rather than presenting a launch-first experience.
             await this.refreshFieldUsageConsole();
-            if (!this.fieldUsageRunning) await fieldUsageBootstrap();
+            // Opening the manual scan console must never create scheduled Apex jobs.
+            // Scheduling is an explicit configuration concern, not a side effect of viewing scan status.
             this.startFieldUsagePolling();
         } catch (e) {
             this.errorMessage = 'Field Usage console: ' + this.reduceError(e);
