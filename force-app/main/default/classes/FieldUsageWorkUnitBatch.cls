@@ -33,12 +33,10 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
         }
 
         if (unit.Scanner_Type__c == 'Flow Bulk') {
-            Set<String> flowIds=new Set<String>();
-            for(String componentId:unit.Target_Key__c.split(','))if(!String.isBlank(componentId))flowIds.add(componentId.trim());
-            List<Field_Usage_Evidence__c> evidence=new List<Field_Usage_Evidence__c>();
-            for(FieldUsageToolingApiClient.SourceComponent component:FieldUsageToolingApiClient.getFlows(flowIds))
-                evidence.addAll(FieldUsageFlowScanner.scan(runId,component.name,component.id,component.metadata));
-            return evidence;
+            String flowId=unit.Target_Key__c==null?null:unit.Target_Key__c.trim();
+            return String.isBlank(flowId)
+                ? new List<Field_Usage_Evidence__c>()
+                : FieldUsageToolingApiClient.scanFlow(runId,flowId);
         }
 
         if (
