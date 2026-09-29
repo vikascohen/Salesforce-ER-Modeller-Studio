@@ -28,6 +28,9 @@ import fieldUsageGetEvidence from '@salesforce/apex/FieldUsageController.getEvid
 import fieldUsageRunNow from '@salesforce/apex/FieldUsageController.runNow';
 import fieldUsageBootstrap from '@salesforce/apex/FieldUsageController.bootstrap';
 import fieldUsageGetStatus from '@salesforce/apex/FieldUsageController.getStatus';
+import fieldImpactSnapshot from '@salesforce/apex/FieldUsageController.getSnapshotAvailability';
+import fieldImpactObjects from '@salesforce/apex/FieldUsageController.getSnapshotObjects';
+import fieldImpactFields from '@salesforce/apex/FieldUsageController.getSnapshotFields';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
@@ -219,6 +222,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null;
     @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; fieldUsagePollTimer=null;
+    @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactObject=''; @track fieldImpactField='';
+    @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
+    @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null;
     @track dictionaryOpen       = false;
     @track dictionaryFullScreen = true;
     @track dictionarySearch     = '';
@@ -1316,11 +1322,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.architectureSection='map';
     }
     handleArchitectureDrillClose() { this.architectureSelectedObject=''; this.architectureSection='overview'; }
-    handleArchitectureSection(event){ this.architectureSection=event.currentTarget.dataset.section||'overview'; }
+    handleArchitectureSection(event){ this.architectureSection=event.currentTarget.dataset.section||'overview'; if(this.architectureSection==='fieldimpact') this.initialiseFieldImpact(); }
     get architectureHomeTiles(){
         return [
             {key:'overview',title:'Architecture Overview',question:'What does this model look like at a glance?',detail:'See model shape, relationship mix and the areas that deserve attention first.',action:'Open Overview'},
             {key:'paths',title:'Relationship Path Finder',question:'How are two objects connected?',detail:'Choose two objects and trace the shortest relationship route between them. Object impact remains inside Object Map.',action:'Open Path Finder'},
+            {key:'fieldimpact',title:'Field Change Impact',question:'What could a field change affect in the current org?',detail:'Select an object and field from the latest Field Usage snapshot, then visualise the metadata and components that reference it.',action:'Open Field Change Impact'},
             {key:'usage',title:'Object Usage & Change Readiness',question:'What does this model tell me about changing an object?',detail:'Inspect modelled usage, dependency direction and change exposure without pretending the ER file contains live org usage data.',action:'Open Object Usage'},
             {key:'relationships',title:'Relationship Insights',question:'What relationship design deserves review?',detail:'See relationship patterns, why they matter and what an architect may want to inspect or improve.',action:'Open Relationship Insights'}
         ];
@@ -1348,8 +1355,36 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureShowPaths(){return this.architectureSection==='paths';}
     get architectureShowDomains(){return this.architectureSection==='domains';}
     get architectureShowUsage(){return this.architectureSection==='usage';}
+    get architectureShowFieldImpact(){return this.architectureSection==='fieldimpact';}
     get architectureShowMetrics(){return this.architectureSection==='metrics';}
     get architectureShowObject(){return this.architectureSection==='object';}
+    async initialiseFieldImpact(){this.fieldImpactLoading=true;this.clearFieldImpact(false);try{const info=await fieldImpactSnapshot();this.fieldImpactSnapshotInfo=info;this.fieldImpactAvailable=!!info?.available;if(this.fieldImpactAvailable)this.fieldImpactObjects=await fieldImpactObjects();}catch(e){this.architectureError='Field Change Impact: '+this.reduceError(e);}finally{this.fieldImpactLoading=false;}}
+    get fieldImpactEmpty(){return !this.fieldImpactLoading&&!this.fieldImpactAvailable;}
+    get fieldImpactReady(){return !this.fieldImpactLoading&&this.fieldImpactAvailable;}
+    get fieldImpactFilteredObjects(){const q=(this.fieldImpactObjectSearch||'').toLowerCase();return this.fieldImpactObjects.filter(x=>!q||x.toLowerCase().includes(q)).map(x=>({label:x,value:x}));}
+    get fieldImpactFilteredFields(){const q=(this.fieldImpactFieldSearch||'').toLowerCase();return this.fieldImpactFields.filter(x=>!q||x.toLowerCase().includes(q)).map(x=>({label:x,value:x}));}
+    handleFieldImpactObjectSearch(e){this.fieldImpactObjectSearch=e.target.value||'';} handleFieldImpactFieldSearch(e){this.fieldImpactFieldSearch=e.target.value||'';}
+    async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldImpactFields({objectApiName:this.fieldImpactObject}):[];}
+    async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidence({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];}
+    clearFieldImpact(clearAvailability=true){this.fieldImpactObject='';this.fieldImpactField='';this.fieldImpactObjectSearch='';this.fieldImpactFieldSearch='';this.fieldImpactFields=[];this.fieldImpactEvidence=[];this.fieldImpactZoom=1;if(clearAvailability){this.fieldImpactAvailable=false;this.fieldImpactObjects=[];this.fieldImpactSnapshotInfo=null;}}
+    handleFieldImpactClear(){this.clearFieldImpact(false);}
+    handleFieldImpactBack(){this.clearFieldImpact(false);this.architectureSection='home';}
+    async handleFieldImpactRunBatch(){await this.handleOpenFieldUsageConsole();}
+    handleFieldImpactZoomIn(){this.fieldImpactZoom=Math.min(1.6,this.fieldImpactZoom+.1);} handleFieldImpactZoomOut(){this.fieldImpactZoom=Math.max(.5,this.fieldImpactZoom-.1);} handleFieldImpactZoomReset(){this.fieldImpactZoom=1;}
+    get fieldImpactHasMap(){return this.fieldImpactEvidence.length>0&&!!this.fieldImpactField;}
+    get fieldImpactNoReferences(){return !!this.fieldImpactField&&!this.fieldImpactEvidence.length;}
+    get fieldImpactMap(){
+        const rows=this.fieldImpactEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind)=>nodes.push({key,label,sub,x,y,kind,style:'left:'+x+'px;top:'+y+'px;'});
+        const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+205,y1:A.y+38,x2:B.x,y2:B.y+38});};let cursor=45;
+        add('field',this.fieldImpactObject+'.'+this.fieldImpactField,'FIELD BEING CHANGED',35,160,'impactfield');
+        const types=[...new Set(rows.map(r=>r.Source_Type__c))].sort();types.forEach(type=>{const tr=rows.filter(r=>r.Source_Type__c===type),start=cursor,comps=[...new Set(tr.map(r=>r.Component_Name__c))].sort();
+          comps.forEach(name=>{const cr=tr.filter(r=>r.Component_Name__c===name),count=Math.max(1,cr.length),cy=cursor+((count-1)*70)/2,ck='c:'+type+':'+name;add(ck,name,cr.reduce((n,r)=>n+(r.Occurrence_Count__c||1),0)+' usages',600,cy,'impactcomponent');cr.forEach((r,i)=>{const ek=ck+':'+i,ey=cursor+i*70;add(ek,r.Location__c||r.Evidence_Type__c,(r.Occurrence_Count__c||1)+' occurrence(s) · '+(r.Confidence__c||'evidence'),880,ey,'impactevidence');connect(ck,ek);});cursor+=Math.max(88,count*70+18);});
+          const ty=(start+Math.max(start+76,cursor-18))/2,tk='t:'+type;add(tk,type,tr.reduce((n,r)=>n+(r.Occurrence_Count__c||1),0)+' usages',335,ty,'impacttype');connect('field',tk);comps.forEach(name=>connect(tk,'c:'+type+':'+name));cursor+=20;});
+        const focus=nodes.find(n=>n.key==='field');if(focus&&types.length){const ys=nodes.filter(n=>n.kind==='impacttype').map(n=>n.y);focus.y=(Math.min(...ys)+Math.max(...ys))/2;focus.style='left:'+focus.x+'px;top:'+focus.y+'px;edges.length=0;types.forEach(type=>{connect('field','t:'+type);[...new Set(rows.filter(r=>r.Source_Type__c===type).map(r=>r.Component_Name__c))].forEach(name=>{connect('t:'+type,'c:'+type+':'+name);rows.filter(r=>r.Source_Type__c===type&&r.Component_Name__c===name).forEach((r,i)=>connect('c:'+type+':'+name,'c:'+type+':'+name+':'+i));});});}
+        return {nodes,edges,width:1160,height:Math.max(600,cursor+60)};
+    }
+    get fieldImpactNodes(){return this.fieldImpactMap.nodes;} get fieldImpactEdges(){return this.fieldImpactMap.edges;}
+    get fieldImpactCanvasStyle(){const m=this.fieldImpactMap;return 'width:'+m.width+'px;height:'+m.height+'px;transform:scale('+this.fieldImpactZoom+');transform-origin:0 0;';}
     get architecturePathVisual(){
         const r=this.architecturePathResult;if(!r?.found)return [];
         const relationships=this.architectureAnalysis?.relationships||[];
