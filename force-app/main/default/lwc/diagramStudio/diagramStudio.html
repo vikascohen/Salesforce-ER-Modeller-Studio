@@ -817,6 +817,22 @@
                 </section>
                 
 
+                <template if:true={architectureShowFieldImpact}>
+                    <section class="arch-field-impact">
+                        <div class="afi-head"><div><div class="arch-brief-label">FIELD CHANGE IMPACT</div><h2>Visualise what a field change could affect</h2><p>Objects are scoped to the current ER model. Dependency evidence comes from the latest successful Field Usage snapshot.</p></div><div class="afi-head-actions"><button class="arch-action-btn" onclick={handleFieldImpactClear}>Clear</button><button class="arch-action-btn" onclick={handleFieldImpactBack}>Back to Architecture Intelligence</button></div></div>
+                        <template if:true={fieldImpactLoading}><div class="afi-empty"><strong>Checking Field Usage snapshot…</strong><p>Please wait while Architecture Intelligence checks the persisted dependency index.</p></div></template>
+                        <template if:true={fieldImpactEmpty}><div class="afi-empty afi-empty-warning"><strong>No Field Usage snapshot is available yet.</strong><p>Field Change Impact reads the persisted Field Usage table. Run the Field Usage batch first, wait for it to complete successfully, then return here. The last successful snapshot will be used for impact analysis.</p><button class="arch-action-btn arch-export-btn" onclick={handleFieldImpactRunBatch}>Open Batch Console</button></div></template>
+                        <template if:true={fieldImpactReady}>
+                            <div class="afi-picker">
+                                <div><label>Search object</label><input type="search" value={fieldImpactObjectSearch} oninput={handleFieldImpactObjectSearch} placeholder="Search objects in current ER model…"/><label>Select object</label><select onchange={handleFieldImpactObject}><option value="">Choose object…</option><template for:each={fieldImpactFilteredObjects} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
+                                <div><label>Search field</label><input type="search" value={fieldImpactFieldSearch} oninput={handleFieldImpactFieldSearch} placeholder="Search fields…"/><label>Select field</label><select onchange={handleFieldImpactField}><option value="">Choose field…</option><template for:each={fieldImpactFilteredFields} for:item="o"><option key={o.value} value={o.value}>{o.label}</option></template></select></div>
+                                <div class="afi-zoom"><span>Map zoom</span><button class="arch-action-btn" onclick={handleFieldImpactZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldImpactZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldImpactZoomIn}>+</button></div>
+                            </div>
+                            <template if:true={fieldImpactNoReferences}><div class="afi-empty"><strong>No indexed references found for this field.</strong><p>The selected field exists in the current snapshot, but the successful scan did not persist any dependency evidence for it.</p></div></template>
+                            <template if:true={fieldImpactHasMap}><div class="afi-map-scroll"><div class="afi-map-canvas" style={fieldImpactCanvasStyle}><svg class="afi-map-edges"><template for:each={fieldImpactEdges} for:item="e"><line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}></line></template></svg><template for:each={fieldImpactNodes} for:item="n"><article key={n.key} class="afi-node" data-kind={n.kind} style={n.style}><strong>{n.label}</strong><span>{n.sub}</span></article></template></div></div></template>
+                        </template>
+                    </section>
+                </template>
                 <div class="arch-boundary"><strong>Scope:</strong> data-model architecture only. Permissions, CRUD/FLS, vulnerability and security-posture analysis remain outside ER Modeller Studio.</div>
             </template>
             <template if:true={architectureShowEmpty}><div class="arch-empty">Add or import objects to the diagram to analyse its architecture.</div></template>
