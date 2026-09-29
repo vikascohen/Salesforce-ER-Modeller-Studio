@@ -27,6 +27,7 @@ public with sharing class FieldUsageController {
     @AuraEnabled(cacheable=true) public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
         List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>(); if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
         Set<String> keys=new Set<String>();for(String f:fieldApiNames)if(!String.isBlank(f))keys.add(objectApiName+'.'+f);if(keys.isEmpty())return out;
+        if(keys.size()>100)throw new AuraHandledException('Select no more than 100 fields at a time for Field Usage analysis.');
         Id currentRunId=getCurrentRunId();if(currentRunId==null)return out;
         Map<String,EvidenceSummaryDTO> summaries=new Map<String,EvidenceSummaryDTO>();
         Id afterId=null;
@@ -43,6 +44,7 @@ public with sharing class FieldUsageController {
                 dto.occurrences+=(row.Occurrence_Count__c==null?0:row.Occurrence_Count__c);
             }
             afterId=page[page.size()-1].Id;
+            if(Limits.getHeapSize()>(Limits.getLimitHeapSize()*75/100))throw new AuraHandledException('The selected fields contain too much dependency evidence to summarise safely in one request. Select fewer fields.');
             if(page.size()<2000)break;
         }
         out.addAll(summaries.values());
