@@ -225,7 +225,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; fieldUsagePollTimer=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
-    @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null;
+    @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null; @track _fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};
     @track fieldImpactUsageSearch=''; @track fieldImpactSourceType=''; @track fieldImpactSourceTypes=[]; @track fieldImpactSearchResults=[]; @track fieldImpactSearchBusy=false;
     @track dictionaryOpen       = false;
     @track dictionaryFullScreen = true;
@@ -1373,15 +1373,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get fieldImpactFilteredFields(){const q=(this.fieldImpactFieldSearch||'').toLowerCase();return this.fieldImpactFields.filter(x=>!q||x.toLowerCase().includes(q)).map(x=>({label:x,value:x}));}
     handleFieldImpactObjectSearch(e){this.fieldImpactObjectSearch=e.target.value||'';} handleFieldImpactFieldSearch(e){this.fieldImpactFieldSearch=e.target.value||'';}
     async handleFieldImpactObject(e){this.fieldImpactObject=e.target.value||'';this.fieldImpactField='';this.fieldImpactEvidence=[];this.fieldImpactFieldSearch='';this.fieldImpactFields=this.fieldImpactObject?await fieldUsageGetFields({objectApiName:this.fieldImpactObject}):[];}
-    async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidence({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];}
-    clearFieldImpact(clearAvailability=true){this.fieldImpactObject='';this.fieldImpactField='';this.fieldImpactObjectSearch='';this.fieldImpactFieldSearch='';this.fieldImpactFields=[];this.fieldImpactEvidence=[];this.fieldImpactZoom=1;this.fieldImpactUsageSearch='';this.fieldImpactSourceType='';this.fieldImpactSearchResults=[];if(clearAvailability){this.fieldImpactAvailable=false;this.fieldImpactObjects=[];this.fieldImpactSnapshotInfo=null;}}
+    async handleFieldImpactField(e){this.fieldImpactField=e.target.value||'';this.fieldImpactEvidence=this.fieldImpactField?await fieldUsageGetEvidence({objectApiName:this.fieldImpactObject,fieldApiNames:[this.fieldImpactField]}):[];this.rebuildFieldImpactMap();}
+    clearFieldImpact(clearAvailability=true){this.fieldImpactObject='';this.fieldImpactField='';this.fieldImpactObjectSearch='';this.fieldImpactFieldSearch='';this.fieldImpactFields=[];this.fieldImpactEvidence=[];this._fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};this.fieldImpactZoom=1;this.fieldImpactUsageSearch='';this.fieldImpactSourceType='';this.fieldImpactSearchResults=[];if(clearAvailability){this.fieldImpactAvailable=false;this.fieldImpactObjects=[];this.fieldImpactSnapshotInfo=null;}}
     handleFieldImpactClear(){this.clearFieldImpact(false);}
     handleFieldImpactBack(){this.clearFieldImpact(false);this.architectureSection='home';}
     async handleFieldImpactRunBatch(){await this.handleOpenFieldUsageConsole();}
     handleFieldImpactZoomIn(){this.fieldImpactZoom=Math.min(1.6,this.fieldImpactZoom+.1);} handleFieldImpactZoomOut(){this.fieldImpactZoom=Math.max(.5,this.fieldImpactZoom-.1);} handleFieldImpactZoomReset(){this.fieldImpactZoom=1;}
     get fieldImpactHasMap(){return this.fieldImpactEvidence.length>0&&!!this.fieldImpactField;}
     get fieldImpactNoReferences(){return !!this.fieldImpactField&&!this.fieldImpactEvidence.length;}
-    get fieldImpactMap(){
+    rebuildFieldImpactMap(){
         const rows=this.fieldImpactEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind)=>nodes.push({key,label,sub,x,y,kind,style:'left:'+x+'px;top:'+y+'px;'});
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+205,y1:A.y+38,x2:B.x,y2:B.y+38});};let cursor=45;
         add('field',this.fieldImpactObject+'.'+this.fieldImpactField,'FIELD BEING CHANGED',35,160,'impactfield');
@@ -1391,8 +1391,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const focus=nodes.find(n=>n.key==='field');if(focus&&types.length){const ys=nodes.filter(n=>n.kind==='impacttype').map(n=>n.y);focus.y=(Math.min(...ys)+Math.max(...ys))/2;focus.style='left:'+focus.x+'px;top:'+focus.y+'px;edges.length=0;types.forEach(type=>{connect('field','t:'+type);[...new Set(rows.filter(r=>r.Source_Type__c===type).map(r=>r.Component_Name__c))].forEach(name=>{connect('t:'+type,'c:'+type+':'+name);rows.filter(r=>r.Source_Type__c===type&&r.Component_Name__c===name).forEach((r,i)=>connect('c:'+type+':'+name,'c:'+type+':'+name+':'+i));});});}
         return {nodes,edges,width:1160,height:Math.max(600,cursor+60)};
     }
-    get fieldImpactNodes(){return this.fieldImpactMap.nodes;} get fieldImpactEdges(){return this.fieldImpactMap.edges;}
-    get fieldImpactCanvasStyle(){const m=this.fieldImpactMap;return 'width:'+m.width+'px;height:'+m.height+'px;transform:scale('+this.fieldImpactZoom+');transform-origin:0 0;';}
+    get fieldImpactNodes(){return this._fieldImpactMapCache.nodes;} get fieldImpactEdges(){return this._fieldImpactMapCache.edges;}
+    get fieldImpactCanvasStyle(){const m=this._fieldImpactMapCache;return 'width:'+m.width+'px;height:'+m.height+'px;transform:scale('+this.fieldImpactZoom+');transform-origin:0 0;';}
     get architecturePathVisual(){
         const r=this.architecturePathResult;if(!r?.found)return [];
         const relationships=this.architectureAnalysis?.relationships||[];
