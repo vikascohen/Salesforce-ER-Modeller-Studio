@@ -1,20 +1,211 @@
-import {LightningElement,track} from 'lwc'; import {ShowToastEvent} from 'lightning/platformShowToastEvent';
-import saveSchedules from '@salesforce/apex/FieldUsageController.saveSchedules'; import deleteSchedule from '@salesforce/apex/FieldUsageController.deleteSchedule';
-import getObjects from '@salesforce/apex/FieldUsageController.getObjects'; import getFields from '@salesforce/apex/FieldUsageController.getFields'; import getEvidence from '@salesforce/apex/FieldUsageController.getEvidence'; import runScan from '@salesforce/apex/FieldUsageController.runNow'; import bootstrap from '@salesforce/apex/FieldUsageController.bootstrap'; import getStatus from '@salesforce/apex/FieldUsageController.getStatus';
+/**
+ * Field Usage Intelligence
+ *
+ * @author Vikas Cohen
+ */
+import { LightningElement, track } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+import saveSchedules from '@salesforce/apex/FieldUsageController.saveSchedules';
+import deleteSchedule from '@salesforce/apex/FieldUsageController.deleteSchedule';
+import getObjects from '@salesforce/apex/FieldUsageController.getObjects';
+import getFields from '@salesforce/apex/FieldUsageController.getFields';
+import getEvidence from '@salesforce/apex/FieldUsageController.getEvidence';
+import runScan from '@salesforce/apex/FieldUsageController.runNow';
+import bootstrap from '@salesforce/apex/FieldUsageController.bootstrap';
+import getStatus from '@salesforce/apex/FieldUsageController.getStatus';
+
 export default class FieldUsageIntelligence extends LightningElement {
- @track objectOptions=[]; @track fieldOptions=[]; @track selectedFields=[]; @track groups=[]; @track schedules=[]; selectedObject; running=false; message;
- connectedCallback(){this.initialise();}
- async initialise(){try{await bootstrap(); const [objects,status]=await Promise.all([getObjects(),getStatus()]); this.objectOptions=objects.map(v=>({label:v,value:v})); this.applyStatus(status);}catch(e){this.error(e);}}
- async handleObject(e){this.selectedObject=e.detail.value;this.selectedFields=[];this.groups=[];try{const fs=await getFields({objectApiName:this.selectedObject});this.fieldOptions=fs.map(v=>({label:v,value:v}));}catch(e2){this.error(e2);}}
- handleFields(e){this.selectedFields=e.detail.value;}
- get disableAnalyse(){return !this.selectedObject||!this.selectedFields.length;}
- async loadEvidence(){try{const rows=await getEvidence({objectApiName:this.selectedObject,fieldApiNames:this.selectedFields});const by={};rows.forEach((r,i)=>{(by[r.Field_API_Name__c]??=[]).push({key:r.Field_Key__c+'-'+i,source:r.Source_Type__c,component:r.Component_Name__c,type:r.Evidence_Type__c,confidence:r.Confidence__c});});this.groups=Object.keys(by).sort().map(f=>({key:f,field:f,items:by[f]}));if(!rows.length)this.message='No persisted dependency evidence was found for the selected fields in the current snapshot.';}catch(e){this.error(e);}}
- async runNow(){try{this.running=true;this.message='Starting field usage scan…';await runScan();this.message='Field usage scan is running. Please wait. The last successful snapshot remains available.';}catch(e){this.error(e);await this.refreshStatus();}}
- async refreshStatus(){try{this.applyStatus(await getStatus());}catch(e){this.error(e);}}
- scheduleChange(e){const i=Number(e.target.dataset.index),field=e.target.dataset.field;const rows=this.schedules.map(x=>({...x}));rows[i][field]=field==='Enabled__c'?e.target.checked:(field==='Name'?e.target.value:Number(e.target.value));this.schedules=rows;}
- addSchedule(){this.schedules=[...this.schedules,{key:'new-'+Date.now(),Name:'Additional Scan',Hour__c:12,Minute__c:0,Enabled__c:true}];}
- async removeSchedule(e){const i=Number(e.currentTarget.dataset.index),row=this.schedules[i];try{if(row.Id)await deleteSchedule({scheduleId:row.Id});this.schedules=this.schedules.filter((_,x)=>x!==i);this.message='Schedule removed.';}catch(err){this.error(err);}}
- async saveSchedule(){try{await saveSchedules({rows:this.schedules.map(({key,minuteDisplay,...x})=>x)});this.message='Automatic scan schedule saved.';await this.refreshStatus();}catch(err){this.error(err);}}
- applyStatus(s){this.schedules=(s.schedules||[]).map(x=>({...x,key:x.Id,minuteDisplay:String(x.Minute__c||0).padStart(2,'0')}));this.running=!!s.run&&['Queued','Running'].includes(s.run.Status__c);if(s.run)this.message='Latest scan: '+s.run.Status__c+(s.run.Completed_At__c?' · '+new Date(s.run.Completed_At__c).toLocaleString():'');}
- error(e){this.running=false;const m=e?.body?.message||e?.message||'Unexpected error';this.message=m;this.dispatchEvent(new ShowToastEvent({title:'Field Usage Intelligence',message:m,variant:'error'}));}
+    @track objectOptions = [];
+    @track fieldOptions = [];
+    @track selectedFields = [];
+    @track groups = [];
+    @track schedules = [];
+
+    selectedObject;
+    running = false;
+    message;
+
+    connectedCallback() {
+        this.initialise();
+    }
+
+    async initialise() {
+        try {
+            await bootstrap();
+            const [objects, status] = await Promise.all([getObjects(), getStatus()]);
+            this.objectOptions = objects.map((value) => ({ label: value, value }));
+            this.applyStatus(status);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async handleObject(event) {
+        this.selectedObject = event.detail.value;
+        this.selectedFields = [];
+        this.groups = [];
+
+        try {
+            const fields = await getFields({ objectApiName: this.selectedObject });
+            this.fieldOptions = fields.map((value) => ({ label: value, value }));
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    handleFields(event) {
+        this.selectedFields = event.detail.value;
+    }
+
+    get disableAnalyse() {
+        return !this.selectedObject || !this.selectedFields.length;
+    }
+
+    async loadEvidence() {
+        try {
+            const rows = await getEvidence({
+                objectApiName: this.selectedObject,
+                fieldApiNames: this.selectedFields
+            });
+            const byField = {};
+
+            rows.forEach((row, index) => {
+                if (!byField[row.Field_API_Name__c]) {
+                    byField[row.Field_API_Name__c] = [];
+                }
+
+                byField[row.Field_API_Name__c].push({
+                    key: `${row.Field_Key__c}-${index}`,
+                    source: row.Source_Type__c,
+                    component: row.Component_Name__c,
+                    type: row.Evidence_Type__c,
+                    confidence: row.Confidence__c
+                });
+            });
+
+            this.groups = Object.keys(byField)
+                .sort()
+                .map((field) => ({
+                    key: field,
+                    field,
+                    items: byField[field]
+                }));
+
+            this.message = rows.length
+                ? undefined
+                : 'No persisted dependency evidence was found for the selected fields in the current snapshot.';
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async runNow() {
+        try {
+            this.running = true;
+            this.message = 'Starting field usage scan…';
+            await runScan();
+            this.message =
+                'Field usage scan is running. Please wait. The last successful snapshot remains available.';
+        } catch (error) {
+            this.handleError(error);
+            await this.refreshStatus();
+        }
+    }
+
+    async refreshStatus() {
+        try {
+            this.applyStatus(await getStatus());
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    scheduleChange(event) {
+        const index = Number(event.target.dataset.index);
+        const field = event.target.dataset.field;
+        const rows = this.schedules.map((row) => ({ ...row }));
+
+        rows[index][field] =
+            field === 'Enabled__c'
+                ? event.target.checked
+                : field === 'Name'
+                  ? event.target.value
+                  : Number(event.target.value);
+
+        this.schedules = rows;
+    }
+
+    addSchedule() {
+        this.schedules = [
+            ...this.schedules,
+            {
+                key: `new-${Date.now()}`,
+                Name: 'Additional Scan',
+                Hour__c: 12,
+                Minute__c: 0,
+                Enabled__c: true
+            }
+        ];
+    }
+
+    async removeSchedule(event) {
+        const index = Number(event.currentTarget.dataset.index);
+        const row = this.schedules[index];
+
+        try {
+            if (row.Id) {
+                await deleteSchedule({ scheduleId: row.Id });
+            }
+            this.schedules = this.schedules.filter((_, rowIndex) => rowIndex !== index);
+            this.message = 'Schedule removed.';
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    async saveSchedule() {
+        try {
+            await saveSchedules({
+                rows: this.schedules.map(({ key, minuteDisplay, ...row }) => row)
+            });
+            this.message = 'Automatic scan schedule saved.';
+            await this.refreshStatus();
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    applyStatus(status) {
+        this.schedules = (status.schedules || []).map((row) => ({
+            ...row,
+            key: row.Id,
+            minuteDisplay: String(row.Minute__c || 0).padStart(2, '0')
+        }));
+
+        this.running =
+            !!status.run && ['Queued', 'Running'].includes(status.run.Status__c);
+
+        if (status.run) {
+            this.message =
+                'Latest scan: ' +
+                status.run.Status__c +
+                (status.run.Completed_At__c
+                    ? ' · ' + new Date(status.run.Completed_At__c).toLocaleString()
+                    : '');
+        }
+    }
+
+    handleError(error) {
+        this.running = false;
+        const message = error?.body?.message || error?.message || 'Unexpected error';
+        this.message = message;
+        this.dispatchEvent(
+            new ShowToastEvent({
+                title: 'Field Usage Intelligence',
+                message,
+                variant: 'error'
+            })
+        );
+    }
 }
