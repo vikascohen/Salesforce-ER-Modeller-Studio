@@ -13,12 +13,12 @@ public without sharing class FieldUsageFormulaScanner {
                 if(containsToken(formula,candidate)) out.add(new Field_Usage_Evidence__c(
                     Run__c=runId,Field_Key__c=objectName+'.'+candidate,Object_API_Name__c=objectName,Field_API_Name__c=candidate,
                     Source_Type__c='Formula Field',Component_Name__c=formulaField,Evidence_Type__c='Formula Reference',
-                    Evidence__c=formula.left(32000),Confidence__c='High',Observed_At__c=System.now()));
+                    Evidence__c=formula.left(32000),Confidence__c='High',Observed_At__c=System.now(),Occurrence_Count__c=countToken(formula,candidate),Location__c=objectName+'.'+formulaField));
             }
         }
         return out;
     }
-    @TestVisible private static Boolean containsToken(String source,String token) {
+    @TestVisible private static Integer countToken(String source,String token) { Matcher m=Pattern.compile('(?i)(^|[^A-Za-z0-9_])'+Pattern.quote(token)+'([^A-Za-z0-9_]|$)').matcher(source); Integer count=0; while(m.find()) count++; return count; }\n    @TestVisible private static Boolean containsToken(String source,String token) {
         return Pattern.compile('(?i)(^|[^A-Za-z0-9_])'+Pattern.quote(token)+'([^A-Za-z0-9_]|$)').matcher(source).find();
     }
 }
