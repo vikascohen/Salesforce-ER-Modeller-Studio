@@ -26,6 +26,8 @@ jest.mock('@salesforce/apex/SchemaMetadataController.getFieldUsageStats', () => 
 jest.mock('@salesforce/apex/SchemaMetadataController.getSchemaReferences', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.getTheme', () => ({ default: jest.fn(() => Promise.resolve(null)) }), { virtual: true });
 jest.mock('@salesforce/apex/DiagramPreferenceController.saveTheme', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/StudioDiagnosticsController.getSystemInfo', () => ({ default: jest.fn(() => Promise.resolve({ studioVersion: '3', toolingApiVersion: 'v60.0', salesforceApiVersion: '60.0', environmentType: 'Developer Edition' })) }), { virtual: true });
+jest.mock('@salesforce/apex/StudioDiagnosticsController.runDiagnostics', () => ({ default: jest.fn(() => Promise.resolve({ overallStatus: 'Application Ready', summary: 'All required diagnostic checks passed.', completedAt: 'now', checks: [{ key: 'runtime', label: 'Studio Runtime', status: 'Passed', detail: 'Ready' }] })) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getObjects', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getFields', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/FieldUsageController.getEvidence', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
@@ -338,13 +340,18 @@ describe('c-diagram-studio', () => {
         const el = createStudio();
         await flushPromises(); // loadSavedTheme()'s await resolves here, after the first render
 
+        // Theme is intentionally no longer exposed in the main toolbar.
+        expect(el.shadowRoot.querySelector('.theme-select')).toBeNull();
+        el.shadowRoot.querySelector('[data-menu="settings"]').click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.dd-menu-item')).find((i) => i.textContent.includes('Open Settings')).click();
+        await flushPromises();
+        Array.from(el.shadowRoot.querySelectorAll('.settings-nav-item')).find((i) => i.textContent === 'Theme').click();
+        await flushPromises();
+
         const options = el.shadowRoot.querySelectorAll('.theme-select option');
         const selected = Array.from(options).find((o) => o.selected);
         expect(selected.value).toBe('theme-monokai');
-
-        // The root class (drives the actual colors) must agree with the
-        // dropdown -- this is the exact bug being guarded against: colors
-        // apply correctly while the dropdown silently keeps showing Dark+.
         expect(el.shadowRoot.querySelector('.er-studio').className).toContain('theme-monokai');
     });
 
