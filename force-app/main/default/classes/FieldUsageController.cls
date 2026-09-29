@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public with sharing class FieldUsageController {
     public class StatusDTO { @AuraEnabled public Field_Usage_Run__c run; @AuraEnabled public List<Field_Usage_Schedule__c> schedules; }
     public class SnapshotDTO { @AuraEnabled public Boolean available; @AuraEnabled public Datetime completedAt; @AuraEnabled public Integer dependencyCount; }
