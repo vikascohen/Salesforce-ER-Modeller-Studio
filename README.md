@@ -300,6 +300,13 @@ Leave **User Info Endpoint URL** blank unless your organisation has a specific r
 
 **2. Create an External Client App**
 
+> [!NOTE]
+> **Why is an External Client App needed?** Phase 3 needs an OAuth trust relationship so Salesforce can authorise the Named Credential to call the **same Salesforce org's Tooling API** for Apex Class, Apex Trigger and active Flow dependency discovery. The External Client App supplies that OAuth client identity; the External Auth Identity Provider, External Credential and Named Credential then let Salesforce manage the authenticated callout without placing access tokens, session IDs or client secrets in Apex or LWC.
+>
+> **This does not expose the org to an external application or send Salesforce metadata outside Salesforce.** In the documented Phase 3 configuration, the OAuth authorisation endpoint, token endpoint and Named Credential endpoint all point to the **target Salesforce org's own My Domain**. The callout is Salesforce Apex → Salesforce Named Credential → that same Salesforce org's Salesforce API. Apex/Trigger/Flow metadata retrieved by the scanner is processed server-side in Salesforce and the resulting Field Usage evidence is persisted in Salesforce custom objects. The browser/LWC does not receive Apex source bodies from the Tooling API.
+>
+> The External Client App is therefore an **authentication mechanism for an internal Salesforce-to-Salesforce API call**, not an integration that publishes the org or its metadata to a third-party service. Administrators should still apply their organisation's normal OAuth, integration-user and credential-governance policies.
+
 Go to **Setup → External Client App Manager** and create a local External Client App:
 
 ~~~text
