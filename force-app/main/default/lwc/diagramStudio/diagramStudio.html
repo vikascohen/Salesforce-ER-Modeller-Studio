@@ -842,7 +842,7 @@
         <div class="fu-console-backdrop"><section class="fu-console">
             <header><div><div class="arch-kicker">FIELD USAGE BATCH</div><h2>Org Snapshot Activity</h2></div><button class="modal-close" onclick={handleCloseFieldUsageConsole}>x</button></header>
             <div class="fu-progress-head"><strong>{fieldUsagePhase}</strong><span>{fieldUsageProgress}%</span></div><div class="fu-progress"><div style={fieldUsageProgressStyle}></div></div>
-            <div class="fu-terminal" role="log"><template for:each={fieldUsageConsoleLines} for:item="line"><div key={line.key}>{line.text}</div></template><template if:false={fieldUsageConsoleLines.length}><div>[ready] No scan activity yet. Launch a scan or wait for the next automatic schedule.</div></template></div>
+            <div class="fu-terminal" role="log"><template for:each={fieldUsageConsoleLines} for:item="line"><div key={line.key}>{line.text}</div></template><template if:true={fieldUsageNoConsoleLines}><div>[ready] No scan activity yet. Launch a scan or wait for the next automatic schedule.</div></template></div>
             <footer><button class="arch-action-btn" onclick={handleCleanFieldUsageConsole} disabled={fieldUsageRunning}>Clean Console</button><button class="arch-action-btn" onclick={handleCloseFieldUsageConsole}>Close</button><button class="arch-action-btn" onclick={handleCloseFieldUsageConsole}>Back to Diagram</button><button class="arch-action-btn arch-export-btn" onclick={handleLaunchFieldUsageScan} disabled={fieldUsageRunning}>Launch Batch Now</button></footer>
         </section></div>
     </template>
