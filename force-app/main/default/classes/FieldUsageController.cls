@@ -37,13 +37,15 @@ public with sharing class FieldUsageController {
         return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c
                 FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys ORDER BY Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT 5000];
     }
-    public class EvidenceDetailPageDTO { @AuraEnabled public List<Field_Usage_Evidence__c> rows; @AuraEnabled public Boolean hasMore; @AuraEnabled public Integer nextOffset; }
-    @AuraEnabled(cacheable=true) public static EvidenceDetailPageDTO getEvidenceDetail(String objectApiName,String fieldApiName,String sourceType,Integer rowLimit,Integer rowOffset){
-        EvidenceDetailPageDTO dto=new EvidenceDetailPageDTO();dto.rows=new List<Field_Usage_Evidence__c>();dto.hasMore=false;dto.nextOffset=0;
+    public class EvidenceDetailPageDTO { @AuraEnabled public List<Field_Usage_Evidence__c> rows; @AuraEnabled public Boolean hasMore; @AuraEnabled public Id nextCursor; }
+    @AuraEnabled(cacheable=true) public static EvidenceDetailPageDTO getEvidenceDetail(String objectApiName,String fieldApiName,String sourceType,Integer rowLimit,Id afterId){
+        EvidenceDetailPageDTO dto=new EvidenceDetailPageDTO();dto.rows=new List<Field_Usage_Evidence__c>();dto.hasMore=false;dto.nextCursor=null;
         if(String.isBlank(objectApiName)||String.isBlank(fieldApiName)||String.isBlank(sourceType))return dto;
-        Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));Integer off=Math.max(0,Math.min(rowOffset==null?0:rowOffset,1950));String key=objectApiName+'.'+fieldApiName;
-        List<Field_Usage_Evidence__c> page=[SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType ORDER BY Component_Name__c,Location__c,Id LIMIT :lim+1 OFFSET :off];
-        dto.hasMore=page.size()>lim;if(dto.hasMore)page.remove(page.size()-1);dto.rows=page;dto.nextOffset=off+page.size();return dto;
+        Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));String key=objectApiName+'.'+fieldApiName;
+        List<Field_Usage_Evidence__c> page;
+        if(afterId==null)page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType ORDER BY Id LIMIT :lim+1];
+        else page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType AND Id>:afterId ORDER BY Id LIMIT :lim+1];
+        dto.hasMore=page.size()>lim;if(dto.hasMore)page.remove(page.size()-1);dto.rows=page;if(!page.isEmpty())dto.nextCursor=page[page.size()-1].Id;return dto;
     }
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
         String raw=String.isBlank(searchText)?null:searchText.trim(); Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));
