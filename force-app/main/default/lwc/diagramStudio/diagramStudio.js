@@ -1252,6 +1252,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get isThemeSolarizedLight() { return this.currentTheme === 'theme-solarized-light'; }
     handleThemeChange(event) {
         this.currentTheme = event.target.value;
+    }
+    async handleSaveTheme() {
+        this.settingsMessage = '';
+        try {
+            await saveTheme({ theme: this.currentTheme });
+            this.settingsMessage = 'Theme saved. It will be used across ER Modeller Studio when you return.';
+        } catch (e) {
+            this.settingsMessage = 'Theme is previewed, but could not be saved: ' + this.reduceError(e);
+        }
+    }
+    handleThemeChangeAndSaveLegacy(event) {
+        this.currentTheme = event.target.value;
         saveTheme({ theme: this.currentTheme }).catch((e) => {
             // The theme still applies for this session either way — but
             // surface the failure rather than swallowing it silently, since
@@ -1292,6 +1304,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
     get architectureMenuText(){ return this.architectureOpen ? 'Architecture Intelligence \u2713' : 'Architecture Intelligence'; }
 
+    get settingsScheduleSectionOpen(){return this.settingsSection==='field-usage-schedule';}
+    get settingsThemeSectionOpen(){return this.settingsSection==='theme';}
+    get settingsScheduleNavClass(){return this.settingsScheduleSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
+    get settingsThemeNavClass(){return this.settingsThemeSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
+    handleSettingsScheduleSection(){this.settingsSection='field-usage-schedule';this.settingsMessage='';}
+    handleSettingsThemeSection(){this.settingsSection='theme';this.settingsMessage='';}
     get settingsConfigurationTabClass(){return this.settingsTab==='configuration'?'settings-tab settings-tab-active':'settings-tab';}
     get settingsJobsTabClass(){return this.settingsTab==='jobs'?'settings-tab settings-tab-active':'settings-tab';}
     get settingsConfigurationOpen(){return this.settingsTab==='configuration';}
