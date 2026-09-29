@@ -16,7 +16,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
     }
 
     public Iterable<String> start(Database.BatchableContext context) {
-        return new List<String>{ 'ApexClass', 'ApexTrigger' };
+        return new List<String>{ 'ApexClass', 'ApexTrigger', 'Flow' };
     }
 
     public void execute(Database.BatchableContext context, List<String> sourceTypes) {
@@ -24,10 +24,13 @@ public without sharing class FieldUsageToolingDiscoveryBatch
             List<FieldUsageToolingApiClient.SourceComponent> components =
                 sourceType == 'ApexClass'
                     ? FieldUsageToolingApiClient.getApexClassIndex()
-                    : FieldUsageToolingApiClient.getApexTriggerIndex();
+                    : sourceType == 'ApexTrigger'
+                        ? FieldUsageToolingApiClient.getApexTriggerIndex()
+                        : FieldUsageToolingApiClient.getFlowIndex();
 
             String scannerType =
-                sourceType == 'ApexClass' ? 'Apex Class Bulk' : 'Apex Trigger Bulk';
+                sourceType == 'ApexClass' ? 'Apex Class Bulk' :
+                sourceType == 'ApexTrigger' ? 'Apex Trigger Bulk' : 'Flow Bulk';
 
             List<Field_Usage_Work_Unit__c> units = new List<Field_Usage_Work_Unit__c>();
             for (Integer offset = 0; offset < components.size(); offset += CHUNK_SIZE) {
@@ -67,7 +70,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch
         update new Field_Usage_Run__c(
             Id = runId,
             Heartbeat_At__c = System.now(),
-            Progress_Phase__c = 'Discovered bulk Apex and Trigger work'
+            Progress_Phase__c = 'Discovered Apex, Trigger and Flow work'
         );
     }
 
