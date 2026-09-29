@@ -1467,15 +1467,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.fieldUsageConsoleLines = [{ key: 'client-start', text: '[starting] Field Usage scan requested…' }];
         try {
             const runId = await fieldUsageRunNow();
+            // Keep a durable local representation of the run returned by Apex.
+            // The first getStatus() can race the just-committed transaction and
+            // temporarily return no run; without the Id the UI fell back to
+            // "Run Scan" even though the Batch Apex job was already running.
+            this.fieldUsageRun = {
+                Id: runId,
+                Status__c: 'Queued',
+                Progress_Percent__c: 0,
+                Progress_Phase__c: 'Waiting for background scan to start'
+            };
+            this.fieldUsageBatchRunning = true;
             this.fieldUsageConsoleLines = [
                 { key: 'client-started', text: '[queued] Scan started successfully' },
                 { key: 'client-run', text: '[run] ' + runId }
             ];
-            await this.refreshFieldUsageConsole();
-            // Start polling even if the first status read is briefly empty.
-            // The scan transaction has already returned a run id, so an empty
-            // status response must not reset the console to Ready.
+            // Start the timer before the first refresh. A transient/failed
+            // refresh must never prevent the console from following the job.
             this.startFieldUsagePolling(true);
+            try {
+                await this.refreshFieldUsageConsole();
+            } catch (statusError) {
+                // The launch succeeded. Treat status retrieval independently;
+                // the next poll will retry instead of turning a successful
+                // launch into an idle console.
+                this.errorMessage = '';
+            }
         } catch (e) {
             const message = this.reduceError(e);
             await this.refreshFieldUsageConsole();
