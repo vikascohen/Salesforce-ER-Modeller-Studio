@@ -59,12 +59,14 @@ jobs:
             --target-org phase3-ci \
             --tests FieldUsageApexScannerTest \
             --tests FieldUsageControllerTest \
+            --tests FieldUsageDiscoveryBatchTest \
             --tests FieldUsageFlowScannerTest \
             --tests FieldUsageFormulaScannerTest \
             --tests FieldUsageOrchestratorTest \
             --tests FieldUsageScheduleServiceTest \
             --tests FieldUsageSnapshotFinalizerTest \
             --tests FieldUsageToolingApiClientTest \
+            --tests FieldUsageToolingDiscoveryBatchTest \
             --tests FieldUsageWorkUnitBatchTest \
             --code-coverage \
             --result-format human \
