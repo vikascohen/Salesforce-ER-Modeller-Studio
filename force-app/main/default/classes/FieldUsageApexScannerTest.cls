@@ -36,8 +36,8 @@ private class FieldUsageApexScannerTest {
         String source =
             'Account acc = new Account(); ' +
             'acc.Name = \'Test\'; ' +
-            'String industry = acc.Industry; ' +
-            'List<Account> rows = [SELECT Name, Industry FROM Account WHERE Id != null];';
+            'Id owner = acc.OwnerId; ' +
+            'List<Account> rows = [SELECT Name, OwnerId FROM Account WHERE Id != null];';
 
         List<Field_Usage_Evidence__c> rows = FieldUsageApexScanner.scan(
             null, 'Apex Class', 'AccountRepository', '01p000000000002', source
@@ -46,9 +46,9 @@ private class FieldUsageApexScannerTest {
         Map<String,Integer> counts=new Map<String,Integer>();
         for(Field_Usage_Evidence__c row:rows)counts.put(row.Field_Key__c,Integer.valueOf(row.Occurrence_Count__c));
         System.assert(counts.containsKey('Account.Name'),'Typed variable/SOQL Name reference should be detected.');
-        System.assert(counts.containsKey('Account.Industry'),'Typed variable/SOQL Industry reference should be detected.');
+        System.assert(counts.containsKey('Account.OwnerId'),'Typed variable/SOQL OwnerId reference should be detected.');
         System.assert(counts.get('Account.Name')>=2,'Name should be detected from both variable access and SOQL.');
-        System.assert(counts.get('Account.Industry')>=2,'Industry should be detected from both variable access and SOQL.');
+        System.assert(counts.get('Account.Industry')>=2,'OwnerId should be detected from both variable access and SOQL.');
     }
 
     @IsTest
