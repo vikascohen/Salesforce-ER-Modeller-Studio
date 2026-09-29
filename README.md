@@ -67,34 +67,55 @@ In short:
 
 ### Scan pipeline
 
-The implemented pipeline is:
+The architecture diagram above explains **why** Phase 3 separates background discovery from the LWC. The following execution flow shows **how** an individual scan moves through that architecture.
 
-~~~text
-Manual Run / Scheduler
-        ↓
-FieldUsageOrchestrator
-        ↓
-FieldUsageDiscoveryBatch
-        ├─ Schema discovery of calculated formula fields
-        └─ durable Formula work units
-        ↓
-FieldUsageToolingDiscoveryBatch
-        ├─ Tooling API ApexClass index
-        ├─ Tooling API ApexTrigger index
-        └─ durable bulk source work units
-        ↓
-FieldUsageWorkUnitBatch
-        ├─ Formula scanner
-        ├─ Tooling source retrieval
-        ├─ Apex/Trigger source scanner
-        └─ sparse Field_Usage_Evidence__c persistence
-        ↓
-FieldUsageSnapshotFinalizer
-        ↓
-Current successful snapshot
-        ↓
-Field Usage Map / Field Change Impact
-~~~
+```mermaid
+flowchart TD
+    START["Manual Run / Scheduler"]
+    ORCH["FieldUsageOrchestrator<br/>Run locking and asynchronous launch"]
+
+    DISC["FieldUsageDiscoveryBatch"]
+    FORMULA["Schema discovery<br/>Calculated formula fields"]
+    FWORK["Create durable<br/>Formula work units"]
+
+    TDISC["FieldUsageToolingDiscoveryBatch"]
+    APEXIDX["Tooling API<br/>ApexClass index"]
+    TRIGGERIDX["Tooling API<br/>ApexTrigger index"]
+    TWORK["Create durable<br/>bulk source work units"]
+
+    WORKER["FieldUsageWorkUnitBatch"]
+    FSCAN["Formula scanner"]
+    SOURCE["Tooling source retrieval"]
+    ASCAN["Apex / Trigger source scanner"]
+    EVIDENCE[("Sparse dependency evidence<br/>Field_Usage_Evidence__c")]
+
+    FINAL["FieldUsageSnapshotFinalizer<br/>Validate scan completion"]
+    DECISION{"All required work<br/>completed successfully?"}
+    ERROR["Completed With Errors<br/>Keep previous successful snapshot"]
+    CURRENT[("Promote current<br/>successful snapshot")]
+    UI["Field Usage Map<br/>Field Change Impact"]
+
+    START --> ORCH --> DISC
+    DISC --> FORMULA --> FWORK
+    FWORK --> TDISC
+    TDISC --> APEXIDX
+    TDISC --> TRIGGERIDX
+    APEXIDX --> TWORK
+    TRIGGERIDX --> TWORK
+    TWORK --> WORKER
+
+    WORKER --> FSCAN
+    WORKER --> SOURCE --> ASCAN
+
+    FSCAN --> EVIDENCE
+    ASCAN --> EVIDENCE
+
+    EVIDENCE --> FINAL --> DECISION
+    DECISION -->|"Yes"| CURRENT --> UI
+    DECISION -->|"No"| ERROR
+```
+
+This separation is important: the **architecture diagram** describes the system boundary and scalability rationale, while the **execution flow** describes orchestration, discovery, durable work, scanning, persistence and safe snapshot promotion.
 
 Apex/Trigger Tooling work is chunked into groups of **12 component IDs** so the durable `Target_Key__c` value remains within its 255-character field limit. Worker execution uses a batch scope of one work unit per transaction, giving each checkpoint a fresh asynchronous governor-limit budget.
 
