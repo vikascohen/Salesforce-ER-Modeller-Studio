@@ -1602,12 +1602,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
         if (run && !run.Status__c) this.fieldUsageRun = null;
         if (!this.fieldUsageConsoleCleared) this.fieldUsageConsoleLines = lines;
-        if (!this.fieldUsageRunning) this.stopFieldUsagePolling();
+        // The actual AsyncApexJob state is authoritative. Keep polling while
+        // Salesforce says the current stage is active, even if a durable run
+        // lifecycle update is momentarily behind.
+        const apexJobActive = ['Holding', 'Queued', 'Preparing', 'Processing'].includes(jobStatus);
+        this.fieldUsageBatchRunning = this.fieldUsageRunning || apexJobActive;
+        if (!this.fieldUsageRunning && !apexJobActive) this.stopFieldUsagePolling();
     }
 
     startFieldUsagePolling(force = false) {
         this.stopFieldUsagePolling();
-        if (!this.fieldUsageConsoleOpen || (!force && !this.fieldUsageRunning)) return;
+        const apexJobActive = ['Holding', 'Queued', 'Preparing', 'Processing'].includes(this.fieldUsageJobStatus || '');
+        if (!this.fieldUsageConsoleOpen || (!force && !this.fieldUsageRunning && !apexJobActive)) return;
         this.fieldUsagePollTimer = window.setInterval(async () => {
             if (!this.fieldUsageConsoleOpen) {
                 this.stopFieldUsagePolling();
