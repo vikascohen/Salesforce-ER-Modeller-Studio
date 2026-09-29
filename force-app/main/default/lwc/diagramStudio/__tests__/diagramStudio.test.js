@@ -132,7 +132,7 @@ describe('c-diagram-studio', () => {
 
         const objectSelect = el.shadowRoot.querySelector('.fu-controls select');
         objectSelect.value = 'Account';
-        objectSelect.dispatchEvent(new CustomEvent('change'));
+        objectSelect.dispatchEvent(new Event('change', { bubbles: true }));
         await flushPromises();
 
         const fieldSelect = el.shadowRoot.querySelector('.fu-controls select[multiple]');
@@ -143,7 +143,7 @@ describe('c-diagram-studio', () => {
             configurable: true,
             value: [selectedFieldOption]
         });
-        fieldSelect.dispatchEvent(new CustomEvent('change'));
+        fieldSelect.dispatchEvent(new Event('change', { bubbles: true }));
         await flushPromises();
 
         el.shadowRoot.querySelector('.fu-control-actions .arch-export-btn').click();
