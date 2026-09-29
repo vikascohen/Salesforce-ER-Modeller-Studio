@@ -32,7 +32,7 @@ public without sharing class FieldUsageSnapshotBatch implements Database.Batchab
         try {
             AsyncApexJob job=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:bc.getJobId()];
             Integer totalErrors=errorCount+Integer.valueOf(job.NumberOfErrors);
-            Field_Usage_Run__c run=[SELECT Id FROM Field_Usage_Run__c WHERE Id=:runId FOR UPDATE];
+            Field_Usage_Run__c run=[SELECT Id,Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId FOR UPDATE];
             if(totalErrors>0) {
                 run.Status__c='Completed With Errors'; run.Completed_At__c=System.now(); run.Progress_Percent__c=100; run.Progress_Phase__c='Scan completed with errors'; run.Progress_Log__c=appendLog(run.Progress_Log__c,stamp('Scan completed with errors. Previous successful snapshot remains active.')); run.Heartbeat_At__c=System.now();
                 run.Is_Current__c=false; run.Error_Count__c=totalErrors; run.Dependency_Count__c=dependencyCount;
