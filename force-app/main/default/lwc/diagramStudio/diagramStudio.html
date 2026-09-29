@@ -204,7 +204,7 @@
                     <template for:each={diagnosticsChecks} for:item="check">
                         <article class={check.cssClass} key={check.key}>
                             <div class="diag-status-mark">{check.status}</div>
-                            <div><h3>{check.label}</h3><p>{check.detail}</p><template if:true={check.remediation}><div class="diag-remediation"><strong>What to do</strong><span>{check.remediation}</span></div></template></div>
+                            <div><h3>{check.label}</h3><p>{check.detail}</p><template if:true={check.likelyCause}><div class="diag-likely-cause"><strong>Likely cause</strong><span>{check.likelyCause}</span></div></template><template if:true={check.remediation}><div class="diag-remediation"><strong>Recommended action</strong><span>{check.remediation}</span><template if:true={check.remediationSteps}><ul class="diag-remediation-list"><template for:each={check.remediationSteps} for:item="step"><li key={step}>{step}</li></template></ul></template></div></template></div>
                         </article>
                     </template>
                 </div>
