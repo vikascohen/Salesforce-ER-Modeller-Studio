@@ -325,6 +325,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             try { ta.setSelectionRange(this._pendingCaretPos, this._pendingCaretPos); } catch (_) { /* ignore */ }
             this._pendingCaretPos = null;
         }
+        if (ta && this._pendingDslSelection) {
+            const selection = this._pendingDslSelection;
+            try {
+                ta.setSelectionRange(selection.start, selection.end, selection.direction);
+                ta.focus();
+            } catch (_) { /* ignore */ }
+            this._pendingDslSelection = null;
+        }
         const nameInput = this.template.querySelector('.diag-name-input');
         if (nameInput && nameInput.value !== (this.fileName || '') && this.template.activeElement !== nameInput) {
             nameInput.value = this.fileName || '';
@@ -813,7 +821,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return Array.from({length:count},(_,index)=>({key:'dsl-line-'+(index+1),number:index+1}));
     }
     get dslLineNumberStyle(){ return `transform:translateY(-${this.dslScrollTop}px)`; }
+    preserveDslCaretForRender() {
+        const ta = this.template.querySelector('.code-editor');
+        if (!ta) return;
+        this._pendingDslSelection = {
+            start: ta.selectionStart,
+            end: ta.selectionEnd,
+            direction: ta.selectionDirection || 'none'
+        };
+    }
     handleToggleDslWrap(){
+        this.preserveDslCaretForRender();
         this.dslWordWrap=!this.dslWordWrap;
         this.dslSuggestOpen=false;
         requestAnimationFrame(()=>{
@@ -860,7 +878,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get canvasSummaryToggleLabel(){ return this.canvasSummaryVisible?'Hide Summary':'Show Summary'; }
     handleToggleCanvasSummary(){ this.canvasSummaryVisible=!this.canvasSummaryVisible; }
     get showCanvasFitExport(){ return this.canvasFitActive && this.canvasMaximised; }
-    handleToggleDslMaximise(){ this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
+    handleToggleDslMaximise(){ this.preserveDslCaretForRender(); this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
     handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; else this.canvasFitActive=false; }
     handleFitModel(){
         this.canvasFitActive=true;
