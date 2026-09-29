@@ -41,12 +41,18 @@ jobs:
           sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias phase3-ci --set-default
           rm -f /tmp/sfdx-auth-url.txt
 
-      - name: Validate Phase 3 source and run Apex tests
+      - name: Compile and deploy source to disposable CI org
         run: |
-          sf project deploy validate \
+          sf project deploy start \
             --source-dir force-app \
             --target-org phase3-ci \
-            --test-level RunSpecifiedTests \
+            --test-level NoTestRun \
+            --wait 40
+
+      - name: Run Phase 3 Apex tests with coverage
+        run: |
+          sf apex run test \
+            --target-org phase3-ci \
             --tests FieldUsageApexScannerTest \
             --tests FieldUsageControllerTest \
             --tests FieldUsageFlowScannerTest \
@@ -56,4 +62,6 @@ jobs:
             --tests FieldUsageSnapshotFinalizerTest \
             --tests FieldUsageToolingApiClientTest \
             --tests FieldUsageWorkUnitBatchTest \
-            --wait 40
+            --code-coverage \
+            --result-format human \
+            --wait 30
