@@ -11,7 +11,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
     public void execute(Database.BatchableContext bc,List<SObject> scope){
         for(SObject raw:scope){
             Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;
-            Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c)+1;
+            Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c.intValue())+1;
             List<Field_Usage_Evidence__c> rows;
             try{
                 // Callout-capable scanning must happen before any DML or savepoint in this transaction.
