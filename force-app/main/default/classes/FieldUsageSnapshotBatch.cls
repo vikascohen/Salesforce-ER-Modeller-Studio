@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public without sharing class FieldUsageSnapshotBatch implements Database.Batchable<String>, Database.Stateful {
     @TestVisible private static final Integer MAX_EVIDENCE_BUFFER=1500;
     @TestVisible private static final Integer CPU_RESERVE_MS=2500;
