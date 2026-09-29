@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - version-2-stable
+      - version-3-field-usage-intelligence
   pull_request:
     branches:
       - version-2-stable
+      - version-3-field-usage-intelligence
   workflow_dispatch:
 
 permissions:
@@ -32,4 +34,4 @@ jobs:
         run: npm ci
 
       - name: Run all LWC Jest tests
-        run: npm run test:unit -- -- --runInBand
+        run: npm run test:unit -- --runInBand
