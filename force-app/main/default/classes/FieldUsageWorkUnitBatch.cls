@@ -4,8 +4,8 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
     public Database.QueryLocator start(Database.BatchableContext bc){
         return Database.getQueryLocator([SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running') ORDER BY CreatedDate]);
     }
-    public void execute(Database.BatchableContext bc,List<Field_Usage_Work_Unit__c> scope){
-        for(Field_Usage_Work_Unit__c unit:scope){
+    public void execute(Database.BatchableContext bc,List<SObject> scope){
+        for(SObject raw:scope){ Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;
             unit.Status__c='Running';unit.Attempt_Count__c=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c)+1;update unit;
             try{
                 List<Field_Usage_Evidence__c> rows=scan(unit); Integer inserted=insertIdempotent(rows);dependencies+=inserted;
