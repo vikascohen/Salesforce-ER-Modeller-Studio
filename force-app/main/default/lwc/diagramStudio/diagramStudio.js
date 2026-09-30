@@ -44,6 +44,7 @@ import fieldUsageGetSourceTypes from '@salesforce/apex/FieldUsageController.getS
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
+import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle } from 'c/fieldUsageMapLogic';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -4660,46 +4661,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
     rebuildFieldUsageMap(){
-        const rows=this.fieldUsageEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind,extra={})=>nodes.push({key,label,sub,x,y,kind,...extra,style:'left:'+x+'px;top:'+y+'px;'});
-        const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+190,y1:A.y+34,x2:B.x,y2:B.y+34});};
-        const fields=this.fieldUsageSelectedFields||[];let y=40;const centres=[];
-        fields.forEach(field=>{
-            const summaries=rows.filter(r=>!r._detail&&!r._pageState&&r.fieldApiName===field),fy=y,fk='f:'+field;
-            add(fk,field,summaries.reduce((n,r)=>n+(r.occurrences||r.evidenceRows||0),0)+' usages',280,fy,'field');
-            if(!summaries.length){const nk=fk+':none';add(nk,'No dependency detected','Current successful snapshot · 0 dependencies',540,y,'empty');connect(fk,nk);y+=90;}
-            else summaries.forEach(r=>{
-                const tk=fk+':'+r.sourceType,details=rows.filter(d=>d._detail&&d.fieldApiName===field&&d.sourceType===r.sourceType),pageState=rows.find(d=>d._pageState&&d.fieldApiName===field&&d.sourceType===r.sourceType);
-                add(tk,r.sourceType,(r.occurrences||r.evidenceRows||0)+' usages · '+(!details.length?'click to expand':pageState?.hasMore?'click to load more':details.length+' components loaded'),540,y,'type',{field,source:r.sourceType,expandable:true});connect(fk,tk);
-                if(details.length){
-                    const names=[...new Set(details.map(d=>d.componentName||'Unknown component'))];
-                    names.forEach((name,i)=>{
-                        const ck=tk+':component:'+i,componentRows=details.filter(d=>(d.componentName||'Unknown component')===name),cy=y+i*132;
-                        add(ck,name,componentRows.reduce((n,d)=>n+(Number(d.occurrenceCount)||1),0)+' usages',800,cy,'component');connect(tk,ck);
-                        const detailLines=componentRows.flatMap(d=>{
-                            const ev=(d.evidence||'').split('\n').map(x=>x.trim()).filter(Boolean);
-                            if(ev.length)return ev;
-                            return [d.location||d.evidenceType||'Usage detected'];
-                        }).slice(0,12);
-                        detailLines.forEach((line,j)=>{
-                            const dk=ck+':detail:'+j;
-                            const isUsage=line.startsWith('Line ')||line.startsWith('Flow ·');
-                            const label=line.length>96?line.slice(0,93)+'…':line;
-                            add(dk,label,isUsage?'FIELD USED HERE':(r.sourceType==='Flow'?'Flow metadata location':'Usage context'),1080,cy+j*82,isUsage?'usage':'evidence');
-                            connect(ck,dk);
-                        });
-                    });
-                    const detailCount=names.reduce((n,name)=>n+Math.max(1,details.filter(d=>(d.componentName||'Unknown component')===name).flatMap(d=>(d.evidence||d.location||'').split('\n').filter(Boolean)).length),0);
-                    y+=Math.max(110,detailCount*82+20);
-                }else y+=90;
-            });
-            centres.push(fy);y+=24;
+        return buildFieldUsageMap({
+            evidence: this.fieldUsageEvidence,
+            selectedFields: this.fieldUsageSelectedFields,
+            objectApiName: this.fieldUsageObject
         });
-        const oy=centres.length?centres.reduce((a,b)=>a+b,0)/centres.length:40;add('object',this.fieldUsageObject||'Object','Selected object',30,oy,'object');fields.forEach(field=>connect('object','f:'+field));
-        return {nodes,edges,width:1360,height:Math.max(650,y+80)};
     }
+    handleFieldUsageZoomOut(){ this.fieldUsageZoom=clampFieldUsageZoom(this.fieldUsageZoom-0.1); }
+    handleFieldUsageZoomReset(){ this.fieldUsageZoom=1; }
+    handleFieldUsageZoomIn(){ this.fieldUsageZoom=clampFieldUsageZoom(this.fieldUsageZoom+0.1); }
+
     get fieldUsageNodes(){return this._fieldUsageMapCache.nodes;}
     get fieldUsageEdges(){return this._fieldUsageMapCache.edges;}
-    get fieldUsageCanvasStyle(){const m=this._fieldUsageMapCache;return 'width:'+m.width+'px;height:'+m.height+'px;transform:scale('+this.fieldUsageZoom+');transform-origin:0 0;';}
+    get fieldUsageCanvasStyle(){return buildFieldUsageViewportStyle(this._fieldUsageMapCache,this.fieldUsageZoom).canvasStyle;}
+    get fieldUsageStageStyle(){return buildFieldUsageViewportStyle(this._fieldUsageMapCache,this.fieldUsageZoom).stageStyle;}
+    get fieldUsageZoomLabel(){return Math.round(this.fieldUsageZoom*100)+'%';}
 
 
 
