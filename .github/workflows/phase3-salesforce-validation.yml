@@ -39,7 +39,7 @@ jobs:
         run: npm ci
 
       - name: Run all LWC Jest tests
-        run: npm run test:unit -- --runInBand
+        run: npm run test:unit -- -- --runInBand
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
@@ -64,26 +64,10 @@ jobs:
           rm -f /tmp/sfdx-auth-url.txt
           sf org display --target-org phase3-validation
 
-      - name: Validate V3 metadata with ER Modeller Apex tests
+      - name: Validate V3 metadata with all local Apex tests
         run: |
           sf project deploy validate \
             --source-dir force-app \
             --target-org phase3-validation \
-            --test-level RunSpecifiedTests \
-            --tests DiagramFileControllerTest \
-            --tests DiagramPreferenceControllerTest \
-            --tests FieldUsageApexScannerTest \
-            --tests FieldUsageControllerTest \
-            --tests FieldUsageDiscoveryBatchTest \
-            --tests FieldUsageFlowScannerTest \
-            --tests FieldUsageFormulaScannerTest \
-            --tests FieldUsageOrchestratorTest \
-            --tests FieldUsageScheduleServiceTest \
-            --tests FieldUsageSnapshotFinalizerTest \
-            --tests FieldUsageToolingApiClientTest \
-            --tests FieldUsageToolingCredentialDiagnosticTest \
-            --tests FieldUsageToolingDiscoveryBatchTest \
-            --tests FieldUsageWorkUnitBatchTest \
-            --tests SchemaMetadataControllerTest \
-            --tests StudioDiagnosticsControllerTest \
+            --test-level RunLocalTests \
             --wait 25
