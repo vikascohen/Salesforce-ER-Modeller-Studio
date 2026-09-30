@@ -26,6 +26,7 @@ public without sharing class FieldUsageApexScanner {
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
         Map<String, Integer> occurrences = new Map<String, Integer>();
+        Map<String, List<Integer>> linesByKey = new Map<String, List<Integer>>();
         String cleanedBody=stripCommentsAndStrings(body);
         Matcher matcher = QUALIFIED_FIELD_PATTERN.matcher(cleanedBody);
 
@@ -43,10 +44,8 @@ public without sharing class FieldUsageApexScanner {
             }
 
             String key = objectName + '.' + fieldName;
-            occurrences.put(
-                key,
-                (occurrences.containsKey(key) ? occurrences.get(key) : 0) + 1
-            );
+            occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);
+            rememberLine(linesByKey,key,lineNumber(cleanedBody,matcher.start()));
         }
 
         Map<String,String> variableTypes=new Map<String,String>();
@@ -61,7 +60,7 @@ public without sharing class FieldUsageApexScanner {
             Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();
             while(variableReference.find()){
                 String fieldName=canonicalFieldName(fields,variableReference.group(1));if(fieldName==null)continue;
-                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);
+                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);rememberLine(linesByKey,key,lineNumber(cleanedBody,soql.start()));rememberLine(linesByKey,key,lineNumber(cleanedBody,variableReference.start()));
             }
         }
         Matcher soql=SOQL_PATTERN.matcher(cleanedBody);
@@ -94,11 +93,33 @@ public without sharing class FieldUsageApexScanner {
                 Confidence__c = 'High',
                 Observed_At__c = System.now(),
                 Occurrence_Count__c = occurrences.get(fieldKey),
-                Location__c = sourceType + ': ' + componentName
+                Location__c = sourceType + ': ' + componentName + formatLines(linesByKey.get(fieldKey)),
+                Evidence__c = buildEvidence(body, linesByKey.get(fieldKey))
             ));
         }
 
         return evidence;
+    }
+
+    private static Integer lineNumber(String source,Integer offset){
+        Integer line=1;for(Integer i=0;i<offset&&i<source.length();i++)if(source.substring(i,i+1)=='\n')line++;return line;
+    }
+    private static void rememberLine(Map<String,List<Integer>> byKey,String key,Integer line){
+        if(!byKey.containsKey(key))byKey.put(key,new List<Integer>());
+        if(!byKey.get(key).contains(line))byKey.get(key).add(line);
+    }
+    private static String formatLines(List<Integer> lines){
+        if(lines==null||lines.isEmpty())return '';
+        List<String> values=new List<String>();for(Integer n:lines)values.add(String.valueOf(n));
+        return ' · line'+(lines.size()>1?'s ':' ')+String.join(values,', ');
+    }
+    private static String buildEvidence(String body,List<Integer> lines){
+        if(String.isBlank(body)||lines==null||lines.isEmpty())return null;
+        List<String> sourceLines=body.split('\\n',-1),snippets=new List<String>();
+        Integer max=Math.min(8,lines.size());
+        for(Integer i=0;i<max;i++){Integer n=lines[i];if(n>0&&n<=sourceLines.size())snippets.add('Line '+n+': '+sourceLines[n-1].trim());}
+        if(lines.size()>max)snippets.add('… '+(lines.size()-max)+' more occurrence line(s)');
+        return String.join(snippets,'\n').left(32000);
     }
 
     @TestVisible
