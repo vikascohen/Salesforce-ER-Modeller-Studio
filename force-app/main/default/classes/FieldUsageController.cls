@@ -30,7 +30,18 @@ public with sharing class FieldUsageController {
         dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c.intValue();} return dto;
     }
     @AuraEnabled public static List<String> getSnapshotObjects(){
-        return getObjects();
+        List<String> names=new List<String>();
+        for(AggregateResult row:[
+            SELECT Object_API_Name__c objectName
+            FROM Field_Usage_Evidence__c
+            WHERE Run__r.Is_Current__c=true
+            GROUP BY Object_API_Name__c
+            ORDER BY Object_API_Name__c
+        ]){
+            String objectName=(String)row.get('objectName');
+            if(!String.isBlank(objectName))names.add(objectName);
+        }
+        return names.isEmpty()?getObjects():names;
     }
     @AuraEnabled(cacheable=true) public static List<String> getSnapshotFields(String objectApiName){
         return String.isBlank(objectApiName)?new List<String>():getFields(objectApiName);
