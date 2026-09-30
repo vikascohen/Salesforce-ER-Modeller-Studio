@@ -25,11 +25,11 @@ public with sharing class FieldUsageController {
         @AuraEnabled public Datetime previousFireTime;
         @AuraEnabled public String cronExpression;
     }
-    @AuraEnabled(cacheable=true) public static SnapshotDTO getSnapshotAvailability(){
+    @AuraEnabled public static SnapshotDTO getSnapshotAvailability(){
         SnapshotDTO dto=new SnapshotDTO(); List<Field_Usage_Run__c> rows=[SELECT Completed_At__c,Dependency_Count__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
         dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c.intValue();} return dto;
     }
-    @AuraEnabled(cacheable=true) public static List<String> getSnapshotObjects(){
+    @AuraEnabled public static List<String> getSnapshotObjects(){
         return getObjects();
     }
     @AuraEnabled(cacheable=true) public static List<String> getSnapshotFields(String objectApiName){
@@ -45,7 +45,7 @@ public with sharing class FieldUsageController {
         List<String> names=new List<String>();for(Schema.SObjectField field:t.getDescribe().fields.getMap().values())names.add(field.getDescribe().getName());names.sort();return names;
     }
     public class EvidenceSummaryDTO { @AuraEnabled public String fieldApiName; @AuraEnabled public String sourceType; @AuraEnabled public Integer evidenceRows; @AuraEnabled public Decimal occurrences; }
-    @AuraEnabled(cacheable=true) public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
+    @AuraEnabled public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
         List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>(); if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
         Set<String> keys=new Set<String>();for(String f:fieldApiNames)if(!String.isBlank(f))keys.add(objectApiName+'.'+f);if(keys.isEmpty())return out;
         if(keys.size()>100)throw new AuraHandledException('Select no more than 100 fields at a time for Field Usage analysis.');
@@ -74,14 +74,14 @@ public with sharing class FieldUsageController {
     }
     private static Id getCurrentRunId(){List<Field_Usage_Run__c> runs=[SELECT Id FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];return runs.isEmpty()?null:runs[0].Id;}
     public class EvidenceSummaryComparator implements Comparator<EvidenceSummaryDTO>{public Integer compare(EvidenceSummaryDTO a,EvidenceSummaryDTO b){String ak=(a.fieldApiName==null?'':a.fieldApiName)+'|'+(a.sourceType==null?'':a.sourceType);String bk=(b.fieldApiName==null?'':b.fieldApiName)+'|'+(b.sourceType==null?'':b.sourceType);return ak.compareTo(bk);}}
-    @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> getEvidence(String objectApiName,List<String> fieldApiNames){
+    @AuraEnabled public static List<Field_Usage_Evidence__c> getEvidence(String objectApiName,List<String> fieldApiNames){
         if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty()) return new List<Field_Usage_Evidence__c>();
         Set<String> keys=new Set<String>(); for(String f:fieldApiNames) keys.add(objectApiName+'.'+f);
         return [SELECT Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c
                 FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c IN :keys ORDER BY Field_API_Name__c,Source_Type__c,Component_Name__c LIMIT 5000];
     }
     public class EvidenceDetailPageDTO { @AuraEnabled public List<Field_Usage_Evidence__c> rows; @AuraEnabled public Boolean hasMore; @AuraEnabled public Id nextCursor; }
-    @AuraEnabled(cacheable=true) public static EvidenceDetailPageDTO getEvidenceDetail(String objectApiName,String fieldApiName,String sourceType,Integer rowLimit,Id afterId){
+    @AuraEnabled public static EvidenceDetailPageDTO getEvidenceDetail(String objectApiName,String fieldApiName,String sourceType,Integer rowLimit,Id afterId){
         EvidenceDetailPageDTO dto=new EvidenceDetailPageDTO();dto.rows=new List<Field_Usage_Evidence__c>();dto.hasMore=false;dto.nextCursor=null;
         if(String.isBlank(objectApiName)||String.isBlank(fieldApiName)||String.isBlank(sourceType))return dto;
         Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));String key=objectApiName+'.'+fieldApiName;
@@ -90,7 +90,7 @@ public with sharing class FieldUsageController {
         else page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType AND Id>:afterId ORDER BY Id LIMIT :lim+1];
         dto.hasMore=page.size()>lim;if(dto.hasMore)page.remove(page.size()-1);dto.rows=page;if(!page.isEmpty())dto.nextCursor=page[page.size()-1].Id;return dto;
     }
-    @AuraEnabled(cacheable=true) public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
+    @AuraEnabled public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
         String raw=String.isBlank(searchText)?null:searchText.trim();Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));
         String exactKey=raw!=null&&raw.contains('.')?raw:null;String prefix=raw==null?null:raw+'%';
         if(exactKey!=null&&!String.isBlank(sourceType))
