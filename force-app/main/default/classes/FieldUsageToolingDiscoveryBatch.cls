@@ -1,6 +1,7 @@
 /** Discovers Tooling metadata and checkpoints durable Field Usage work units. @author Vikas Cohen */
 public without sharing class FieldUsageToolingDiscoveryBatch implements Database.Batchable<String>, Database.AllowsCallouts {
     private static final Integer CHUNK_SIZE=12;
+    private static final Integer FLOW_CHUNK_SIZE=4;
     private static final Integer VALIDATION_CHUNK_SIZE=20;
     @TestVisible private static Boolean suppressWorkerChainForTest=false;
     private final Id runId;
@@ -26,7 +27,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
                 List<FieldUsageToolingApiClient.SourceComponent> components=sourceType=='ApexClass'?FieldUsageToolingApiClient.getApexClassIndex():sourceType=='ApexTrigger'?FieldUsageToolingApiClient.getApexTriggerIndex():FieldUsageToolingApiClient.getFlowIndex();
                 for(FieldUsageToolingApiClient.SourceComponent c:components)ids.add(c.id);
                 scannerType=sourceType=='ApexClass'?'Apex Class Bulk':sourceType=='ApexTrigger'?'Apex Trigger Bulk':'Flow Bulk';
-                if(sourceType=='Flow')chunkSize=1;
+                if(sourceType=='Flow')chunkSize=FLOW_CHUNK_SIZE;
             }
             for(Integer offset=0;offset<ids.size();offset+=chunkSize){
                 Integer chunkEnd=Math.min(offset+chunkSize,ids.size()); List<String> chunkIds=new List<String>();
