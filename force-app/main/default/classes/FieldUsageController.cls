@@ -100,8 +100,8 @@ public with sharing class FieldUsageController {
         if(String.isBlank(objectApiName)||String.isBlank(fieldApiName)||String.isBlank(sourceType))return dto;
         Integer lim=Math.max(1,Math.min(rowLimit==null?250:rowLimit,500));String key=objectApiName+'.'+fieldApiName;
         List<Field_Usage_Evidence__c> page;
-        if(afterId==null)page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType ORDER BY Id LIMIT :lim+1];
-        else page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType AND Id>:afterId ORDER BY Id LIMIT :lim+1];
+        if(afterId==null)page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c,Evidence__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType ORDER BY Id LIMIT :lim+1];
+        else page=[SELECT Id,Field_Key__c,Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Observed_At__c,Occurrence_Count__c,Location__c,Evidence__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Field_Key__c=:key AND Source_Type__c=:sourceType AND Id>:afterId ORDER BY Id LIMIT :lim+1];
         dto.hasMore=page.size()>lim;if(dto.hasMore)page.remove(page.size()-1);dto.rows=page;if(!page.isEmpty())dto.nextCursor=page[page.size()-1].Id;return dto;
     }
     @AuraEnabled public static List<Field_Usage_Evidence__c> searchEvidence(String searchText,String sourceType,Integer rowLimit){
