@@ -1,5 +1,8 @@
 # Salesforce ER Modeller Studio V3 — Field Usage Architecture
 
+**Author:** Vikas Cohen  
+**Role:** Lead Architect
+
 ## Purpose
 
 This document is the developer architecture guide for V3 Field Usage Intelligence. It summarises the main Apex classes and LWC modules, how the scan pipeline works, the coding philosophy used in V3, the standards that future changes should follow, and the main areas for improvement.
@@ -606,7 +609,7 @@ Before adding code, ask:
 
 > Is this orchestration, discovery, API transport, source-specific scanning, persistence, querying, caching or presentation?
 
-Put it in the layer that owns that responsibility.
+Put the code in the layer that owns that responsibility.
 
 Then ask:
 
