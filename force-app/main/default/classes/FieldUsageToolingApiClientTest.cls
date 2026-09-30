@@ -35,6 +35,24 @@ private class FieldUsageToolingApiClientTest {
         System.assertEquals(null, components[0].body);
     }
 
+    private class NamespaceQueryMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request) {
+            System.assertEquals(false, request.getEndpoint().contains('NamespacePrefix+%3D+null'), 'Tooling discovery must not exclude namespaced Apex.');
+            System.assertEquals(false, request.getEndpoint().contains('NamespacePrefix%20%3D%20null'), 'Tooling discovery must not exclude namespaced Apex.');
+            HttpResponse response=new HttpResponse();response.setStatusCode(200);
+            response.setBody('{"totalSize":1,"done":true,"records":[{"Id":"01p000000000003","Name":"ERModel__PackagedScanner"}]}');
+            return response;
+        }
+    }
+
+    @IsTest
+    static void discoveryIsNamespaceNeutral() {
+        Test.setMock(HttpCalloutMock.class,new NamespaceQueryMock());
+        List<FieldUsageToolingApiClient.SourceComponent> rows=FieldUsageToolingApiClient.getApexClassIndex();
+        System.assertEquals(1,rows.size());
+        System.assertEquals('ERModel__PackagedScanner',rows[0].name);
+    }
+
     @IsTest
     static void bulkSourceQueryReturnsMultipleComponentsInOneCall() {
         Test.setMock(HttpCalloutMock.class, new ToolingMock());
