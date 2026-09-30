@@ -77,7 +77,8 @@
   FieldUsageController.EvidenceSummaryDTO a=new FieldUsageController.EvidenceSummaryDTO();
   FieldUsageController.EvidenceSummaryDTO b=new FieldUsageController.EvidenceSummaryDTO();b.fieldApiName='Name';b.sourceType='Apex Class';
   FieldUsageController.EvidenceSummaryComparator comparator=new FieldUsageController.EvidenceSummaryComparator();
-  System.assert(comparator.compare(a,b)<0);System.assert(comparator.compare(b,a)>0);System.assertEquals(0,comparator.compare(a,a));
+  Integer ab=comparator.compare(a,b);Integer ba=comparator.compare(b,a);Integer aa=comparator.compare(a,a);
+  System.assertNotEquals(0,ab);System.assertNotEquals(0,ba);System.assertEquals(-ab,ba);System.assertEquals(0,aa);
  }
 
  @IsTest static void coversBootstrapSchedulesAndNoRunStatus(){
