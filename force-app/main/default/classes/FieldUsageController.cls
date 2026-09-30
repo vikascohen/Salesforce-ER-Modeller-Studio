@@ -57,29 +57,32 @@ public with sharing class FieldUsageController {
     }
     public class EvidenceSummaryDTO { @AuraEnabled public String fieldApiName; @AuraEnabled public String sourceType; @AuraEnabled public Integer evidenceRows; @AuraEnabled public Decimal occurrences; }
     @AuraEnabled public static List<EvidenceSummaryDTO> getEvidenceSummary(String objectApiName,List<String> fieldApiNames){
-        List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>(); if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
-        Set<String> keys=new Set<String>();for(String f:fieldApiNames)if(!String.isBlank(f))keys.add(objectApiName+'.'+f);if(keys.isEmpty())return out;
+        List<EvidenceSummaryDTO> out=new List<EvidenceSummaryDTO>();
+        if(String.isBlank(objectApiName)||fieldApiNames==null||fieldApiNames.isEmpty())return out;
+        Set<String> keys=new Set<String>();
+        for(String f:fieldApiNames)if(!String.isBlank(f))keys.add(objectApiName+'.'+f);
+        if(keys.isEmpty())return out;
         if(keys.size()>100)throw new AuraHandledException('Select no more than 100 fields at a time for Field Usage analysis.');
         Id currentRunId=getCurrentRunId();if(currentRunId==null)return out;
-        Map<String,EvidenceSummaryDTO> summaries=new Map<String,EvidenceSummaryDTO>();
-        Id afterId=null;
-        while(true){
-            List<Field_Usage_Evidence__c> page=afterId==null
-                ? [SELECT Id,Field_API_Name__c,Source_Type__c,Occurrence_Count__c FROM Field_Usage_Evidence__c WHERE Run__c=:currentRunId AND Field_Key__c IN :keys ORDER BY Id LIMIT 2000]
-                : [SELECT Id,Field_API_Name__c,Source_Type__c,Occurrence_Count__c FROM Field_Usage_Evidence__c WHERE Run__c=:currentRunId AND Field_Key__c IN :keys AND Id>:afterId ORDER BY Id LIMIT 2000];
-            if(page.isEmpty())break;
-            for(Field_Usage_Evidence__c row:page){
-                String summaryKey=row.Field_API_Name__c+'|'+row.Source_Type__c;
-                EvidenceSummaryDTO dto=summaries.get(summaryKey);
-                if(dto==null){dto=new EvidenceSummaryDTO();dto.fieldApiName=row.Field_API_Name__c;dto.sourceType=row.Source_Type__c;dto.evidenceRows=0;dto.occurrences=0;summaries.put(summaryKey,dto);}
-                dto.evidenceRows++;
-                dto.occurrences+=(row.Occurrence_Count__c==null?0:row.Occurrence_Count__c);
-            }
-            afterId=page[page.size()-1].Id;
-            if(Limits.getHeapSize()>(Limits.getLimitHeapSize()*75/100))throw new AuraHandledException('The selected fields contain too much dependency evidence to summarise safely in one request. Select fewer fields.');
-            if(page.size()<2000)break;
+
+        // Let the database aggregate instead of paging every evidence row into Apex.
+        // This keeps map construction fast and heap usage essentially constant even
+        // when the current snapshot contains thousands of evidence records.
+        for(AggregateResult row:[
+            SELECT Field_API_Name__c fieldName,Source_Type__c sourceType,
+                   COUNT(Id) evidenceRows,SUM(Occurrence_Count__c) occurrences
+            FROM Field_Usage_Evidence__c
+            WHERE Run__c=:currentRunId AND Field_Key__c IN :keys
+            GROUP BY Field_API_Name__c,Source_Type__c
+        ]){
+            EvidenceSummaryDTO dto=new EvidenceSummaryDTO();
+            dto.fieldApiName=(String)row.get('fieldName');
+            dto.sourceType=(String)row.get('sourceType');
+            dto.evidenceRows=(Integer)row.get('evidenceRows');
+            Object total=row.get('occurrences');
+            dto.occurrences=total==null?0:(Decimal)total;
+            out.add(dto);
         }
-        out.addAll(summaries.values());
         out.sort(new EvidenceSummaryComparator());
         return out;
     }
