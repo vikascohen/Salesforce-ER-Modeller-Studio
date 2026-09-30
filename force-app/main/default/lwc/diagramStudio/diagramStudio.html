@@ -1123,9 +1123,9 @@
 
     <!-- FIELD USAGE INTELLIGENCE -->
     <template if:true={fieldUsageOpen}>
-        <div class="fu-workspace">
+        <div class={fieldUsageWorkspaceClass}>
             <header class="fu-header"><div><div class="arch-kicker">ORG SNAPSHOT INTELLIGENCE</div><h1>Field Usage Map</h1><p>Explore persisted field dependency evidence from the latest successful org snapshot.</p></div>
-                <div class="fu-actions"><button class="arch-action-btn" onclick={handleFieldUsageClear}>Clear Map</button><button class="arch-action-btn" onclick={handleOpenFieldUsageConsole}>Scan Console</button><button class="arch-action-btn" onclick={handleCloseFieldUsage}>Back to Diagram</button></div></header>
+                <div class="fu-actions"><button class="arch-action-btn" onclick={handleToggleFieldUsageFullScreen}>{fieldUsageFullScreenLabel}</button><button class="arch-action-btn" onclick={handleFieldUsageClear}>Clear Map</button><button class="arch-action-btn" onclick={handleOpenFieldUsageConsole}>Scan Console</button><button class="arch-action-btn" onclick={handleCloseFieldUsage}>Back to Diagram</button></div></header>
             <template if:true={fieldUsageLoading}>
                 <div class="afi-empty"><strong>Loading Field Usage snapshot…</strong><p>Please wait while the latest successful dependency snapshot is prepared. Large orgs can take a few moments to load.</p></div>
             </template>
@@ -1153,7 +1153,7 @@
                         </div>
                     </aside>
                     <main class="fu-map-pane">
-                        <div class="fu-map-toolbar"><div><strong>Dependency Map</strong><span>Choose one or more fields, then build the persisted dependency view.</span></div><div class="fu-control-actions"><button class="arch-action-btn arch-export-btn" onclick={handleFieldUsageAnalyse}>Build Map</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button></div></div>
+                        <div class="fu-map-toolbar"><div><strong>Dependency Map</strong><span>Choose one or more fields, then build the persisted dependency view.</span></div><div class="fu-control-actions"><button class="arch-action-btn arch-export-btn" onclick={handleFieldUsageAnalyse} disabled={fieldUsageMapBusy}>{fieldUsageBuildLabel}</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>100%</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button></div></div>
                         <div class="fu-scroll"><div class="fu-canvas" style={fieldUsageCanvasStyle}>
                             <svg class="fu-edges"><template for:each={fieldUsageEdges} for:item="e"><line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}></line></template></svg>
                             <template for:each={fieldUsageNodes} for:item="n"><article key={n.key} class="fu-node" data-kind={n.kind} data-field={n.field} data-source={n.source} style={n.style} onclick={handleFieldUsageNodeClick}><strong>{n.label}</strong><span>{n.sub}</span></article></template>
