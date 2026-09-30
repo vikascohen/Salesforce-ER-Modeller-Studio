@@ -2,6 +2,8 @@ const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 1.8;
 const ZOOM_STEP = 0.1;
 const NODE_W = 190;
+const NODE_H = 68;
+const MAP_PAD = 72;
 const X = { object: 30, field: 290, type: 560, component: 850, detail: 1160 };
 
 export function clampFieldUsageZoom(value) {
@@ -9,7 +11,7 @@ export function clampFieldUsageZoom(value) {
     return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(rounded.toFixed(1))));
 }
 
-export function calculateFieldUsageFitZoom(map, viewportWidth, viewportHeight, padding = 36) {
+export function calculateFieldUsageFitZoom(map, viewportWidth, viewportHeight, padding = 72) {
     const width = Math.max(1, Number(map?.width) || 1320);
     const height = Math.max(1, Number(map?.height) || 650);
     const availableWidth = Math.max(1, Number(viewportWidth || width) - padding * 2);
@@ -21,14 +23,16 @@ export function buildFieldUsageViewportStyle(map, zoom) {
     const width = Math.max(1, Number(map?.width) || 1320);
     const height = Math.max(1, Number(map?.height) || 650);
     const scale = clampFieldUsageZoom(zoom);
+    const scaledW = Math.ceil(width * scale);
+    const scaledH = Math.ceil(height * scale);
     return {
-        stageStyle: `width:${Math.ceil(width * scale)}px;height:${Math.ceil(height * scale)}px;`,
+        stageStyle: `width:${scaledW + MAP_PAD * 2}px;height:${scaledH + MAP_PAD * 2}px;padding:${MAP_PAD}px;`,
         canvasStyle: `width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0;`
     };
 }
 
 function evidenceLines(row) {
-    const raw = String(row?.evidence || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const raw = String(row?.evidence || '').split('\\n').map(x => x.trim()).filter(Boolean);
     return raw.length ? raw : [row?.location || row?.evidenceType || 'Usage detected'];
 }
 
@@ -40,16 +44,48 @@ function sourceKind(sourceType) {
     return 'type';
 }
 
-export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectApiName = '' } = {}) {
+function nodeWidth(node) {
+    if (node?.kind === 'component') return 250;
+    if (node?.kind === 'usage') return 280;
+    if (node?.kind === 'evidence-more') return 210;
+    if (node?.kind === 'evidence') return 210;
+    return NODE_W;
+}
+
+function addSharedBranches(nodes, edges, parentKey, childKeys) {
+    const parent = nodes.find(n => n.key === parentKey);
+    const children = childKeys.map(k => nodes.find(n => n.key === k)).filter(Boolean);
+    if (!parent || !children.length) return;
+    const x1 = parent.x + nodeWidth(parent);
+    const y1 = parent.y + NODE_H / 2;
+    if (children.length === 1) {
+        const child = children[0], x2 = child.x, y2 = child.y + NODE_H / 2;
+        const mid = Math.round((x1 + x2) / 2);
+        edges.push({ key: `${parentKey}>${child.key}`, path: `M ${x1} ${y1} H ${mid} V ${y2} H ${x2}` });
+        return;
+    }
+    const trunkX = Math.round(x1 + Math.max(42, (children[0].x - x1) * 0.48));
+    const ys = children.map(n => n.y + NODE_H / 2);
+    edges.push({ key: `${parentKey}:trunk-in`, path: `M ${x1} ${y1} H ${trunkX}` });
+    edges.push({ key: `${parentKey}:trunk`, path: `M ${trunkX} ${Math.min(...ys)} V ${Math.max(...ys)}` });
+    children.forEach(child => {
+        const y = child.y + NODE_H / 2;
+        edges.push({ key: `${parentKey}>${child.key}`, path: `M ${trunkX} ${y} H ${child.x}` });
+    });
+}
+
+export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectApiName = '', expandedEvidence = [] } = {}) {
     const rows = evidence || [];
+    const expanded = new Set(expandedEvidence || []);
     const nodes = [];
     const edges = [];
+    const branchRequests = [];
     const add = (key, label, sub, x, y, kind, extra = {}) => nodes.push({ key, label, sub, x, y, kind, ...extra, style: `left:${x}px;top:${y}px;` });
     const connect = (a, b) => {
         const A = nodes.find(n => n.key === a), B = nodes.find(n => n.key === b);
         if (!A || !B) return;
-        const x1 = A.x + (A.kind === 'component' ? 250 : A.kind === 'usage' ? 280 : NODE_W);
-        const y1 = A.y + 34, x2 = B.x, y2 = B.y + 34, mid = Math.round((x1 + x2) / 2);
+        const x1 = A.x + nodeWidth(A), y1 = A.y + NODE_H / 2, x2 = B.x, y2 = B.y + NODE_H / 2;
+        const mid = Math.round((x1 + x2) / 2);
         edges.push({ key: `${a}>${b}`, path: `M ${x1} ${y1} H ${mid} V ${y2} H ${x2}` });
     };
 
@@ -60,17 +96,19 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
         const fieldTop = cursorY;
         const fk = `f:${field}`;
         add(fk, field, `${summaries.reduce((n,r)=>n+(r.occurrences||r.evidenceRows||0),0)} usages`, X.field, fieldTop, 'field');
+        const typeKeys = [];
         if (!summaries.length) {
-            add(`${fk}:none`, 'No dependency detected', 'Current successful snapshot · 0 dependencies', X.type, cursorY, 'empty');
-            connect(fk, `${fk}:none`); cursorY += 104;
+            const emptyKey = `${fk}:none`;
+            add(emptyKey, 'No dependency detected', 'Current successful snapshot · 0 dependencies', X.type, cursorY, 'empty');
+            typeKeys.push(emptyKey); cursorY += 104;
         } else {
             summaries.forEach(r => {
                 const tk = `${fk}:${r.sourceType}`;
+                typeKeys.push(tk);
                 const details = rows.filter(d => d._detail && d.fieldApiName === field && d.sourceType === r.sourceType);
                 const pageState = rows.find(d => d._pageState && d.fieldApiName === field && d.sourceType === r.sourceType);
                 const typeY = cursorY;
                 add(tk, r.sourceType, `${r.occurrences||r.evidenceRows||0} usages · ${!details.length?'click to expand':pageState?.hasMore?'click to load more':`${details.length} components loaded`}`, X.type, typeY, sourceKind(r.sourceType), { field, source:r.sourceType, expandable:true });
-                connect(fk, tk);
                 if (!details.length) { cursorY += 96; return; }
 
                 const names = [...new Set(details.map(d => d.componentName || 'Unknown component'))];
@@ -78,37 +116,50 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
                     const componentRows = details.filter(d => (d.componentName || 'Unknown component') === name);
                     const ck = `${tk}:component:${name}`;
                     const componentY = cursorY;
-                    const allLines = componentRows.flatMap(evidenceLines).slice(0, 16);
+                    const allLines = componentRows.flatMap(evidenceLines).slice(0, 24);
                     const source = String(r.sourceType || '');
                     const componentSub = source.toLowerCase().includes('flow') ? `${componentRows.length} evidence record${componentRows.length===1?'':'s'} · Flow element evidence` : `${componentRows.reduce((n,d)=>n+(Number(d.occurrenceCount)||1),0)} usages`;
                     add(ck, name, componentSub, X.component, componentY, 'component', { source:r.sourceType });
                     connect(tk, ck);
-                    allLines.forEach((line,j) => {
+                    const evidenceKey = `${field}|${r.sourceType}|${name}`;
+                    const limit = expanded.has(evidenceKey) ? allLines.length : 5;
+                    const visibleLines = allLines.slice(0, limit);
+                    const detailKeys = [];
+                    visibleLines.forEach((line,j) => {
                         const dk = `${ck}:detail:${j}`;
+                        detailKeys.push(dk);
                         const isUsage = /^Line\s+/i.test(line) || /^Flow\s*·/i.test(line) || /\$Record\./i.test(line);
                         const label = line.length > 118 ? `${line.slice(0,115)}…` : line;
                         const sub = isUsage ? 'FIELD USED HERE' : (source.toLowerCase().includes('flow') ? 'FLOW ELEMENT / METADATA LOCATION' : 'USAGE CONTEXT');
                         add(dk, label, sub, X.detail, componentY + j * 92, isUsage ? 'usage' : 'evidence', { source:r.sourceType });
-                        connect(ck, dk);
                     });
-                    cursorY += Math.max(112, allLines.length * 92 + 18);
+                    if (allLines.length > 5) {
+                        const moreKey = `${ck}:more`;
+                        const isExpanded = expanded.has(evidenceKey);
+                        detailKeys.push(moreKey);
+                        add(moreKey, isExpanded ? 'Show less evidence' : `Show ${allLines.length - 5} more evidence item${allLines.length-5===1?'':'s'}`, isExpanded ? 'Collapse this evidence branch' : 'Keep the dependency map compact', X.detail, componentY + visibleLines.length * 92, 'evidence-more', { evidenceKey, toggleEvidence:true });
+                    }
+                    branchRequests.push([ck, detailKeys]);
+                    cursorY += Math.max(112, (visibleLines.length + (allLines.length > 5 ? 1 : 0)) * 92 + 18);
                 });
                 cursorY += 18;
             });
         }
-        const fieldBottom = Math.max(fieldTop + 68, cursorY - 18);
+        branchRequests.push([fk, typeKeys]);
+        const fieldBottom = Math.max(fieldTop + NODE_H, cursorY - 18);
         const fieldCentre = Math.round((fieldTop + fieldBottom) / 2);
         const fieldNode = nodes.find(n => n.key === fk);
-        if (fieldNode) { fieldNode.y = fieldCentre - 34; fieldNode.style = `left:${fieldNode.x}px;top:${fieldNode.y}px;`; }
+        if (fieldNode) { fieldNode.y = fieldCentre - NODE_H / 2; fieldNode.style = `left:${fieldNode.x}px;top:${fieldNode.y}px;`; }
         fieldCentres.push(fieldCentre);
         cursorY += 30;
     });
 
     const objectCentre = fieldCentres.length ? fieldCentres.reduce((a,b)=>a+b,0)/fieldCentres.length : 76;
-    add('object', objectApiName || 'Object', 'Selected object', X.object, Math.max(42,objectCentre-34), 'object');
-    (selectedFields || []).forEach(field => connect('object', `f:${field}`));
+    add('object', objectApiName || 'Object', 'Selected object', X.object, Math.max(42,objectCentre-NODE_H/2), 'object');
+    branchRequests.push(['object', (selectedFields || []).map(field => `f:${field}`)]);
+    branchRequests.forEach(([parent, children]) => addSharedBranches(nodes, edges, parent, children));
 
-    const maxX = nodes.reduce((m,n)=>Math.max(m,n.x+(n.kind==='usage'?280:n.kind==='component'?250:210)),1320);
-    const maxY = nodes.reduce((m,n)=>Math.max(m,n.y+100),650);
-    return { nodes, edges, width: maxX + 70, height: maxY + 70 };
+    const maxX = nodes.reduce((m,n)=>Math.max(m,n.x+nodeWidth(n)),1320);
+    const maxY = nodes.reduce((m,n)=>Math.max(m,n.y+110),650);
+    return { nodes, edges, width: maxX + 90, height: maxY + 90 };
 }

@@ -45,6 +45,7 @@ import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReport
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
 import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle, calculateFieldUsageFitZoom } from 'c/fieldUsageMapLogic';
+import { exportFieldUsageMapAsPng } from 'c/fieldUsageMapExport';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -233,7 +234,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageLoading=false; @track fieldUsageSnapshotAvailable=false; @track fieldUsageBatchRunning=false; @track fieldUsageEntryMessage='';
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null; @track fieldUsageObjectSearch=''; @track fieldUsageFieldSearch='';
-    @track fieldUsageZoom=1; @track fieldUsageFullScreen=false; @track fieldUsageMapBusy=false; @track fieldUsageConsoleLines=[]; @track fieldUsageConsoleCleared=false; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
+    @track fieldUsageZoom=1; @track fieldUsageFullScreen=false; @track fieldUsageMapBusy=false; @track fieldUsageConsoleLines=[]; @track fieldUsageConsoleCleared=false; @track fieldUsageExpandedEvidence=[]; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null; fieldUsagePan=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactBatchRunning=false; @track fieldImpactBatchStatus=''; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
     @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null; @track _fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};
@@ -4641,6 +4642,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return err.message ? err.message : JSON.stringify(err);
     }
     async handleFieldUsageNodeClick(e){
+        if(e.currentTarget.dataset.evidenceKey){this.handleFieldUsageEvidenceToggle(e);return;}
         const field=e.currentTarget.dataset.field,source=e.currentTarget.dataset.source;if(!field||!source)return;
         const node=e.currentTarget;node.setAttribute('aria-busy','true');
         try{
@@ -4664,7 +4666,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return buildFieldUsageMap({
             evidence: this.fieldUsageEvidence,
             selectedFields: this.fieldUsageSelectedFields,
-            objectApiName: this.fieldUsageObject
+            objectApiName: this.fieldUsageObject,
+            expandedEvidence: this.fieldUsageExpandedEvidence
         });
     }
     handleFieldUsageZoomOut(){ this.fieldUsageZoom=clampFieldUsageZoom(this.fieldUsageZoom-0.1); }
@@ -4674,7 +4677,42 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const viewport=this.template.querySelector('.fu-scroll');
         if(!viewport)return;
         this.fieldUsageZoom=calculateFieldUsageFitZoom(this._fieldUsageMapCache,viewport.clientWidth,viewport.clientHeight);
-        requestAnimationFrame(()=>{viewport.scrollLeft=0;viewport.scrollTop=0;});
+        requestAnimationFrame(()=>{
+            viewport.scrollLeft=Math.max(0,(viewport.scrollWidth-viewport.clientWidth)/2);
+            viewport.scrollTop=Math.max(0,(viewport.scrollHeight-viewport.clientHeight)/2);
+        });
+    }
+    handleFieldUsagePanStart(event){
+        if(event.button!==0 || event.target.closest('.fu-node'))return;
+        const viewport=this.template.querySelector('.fu-scroll'); if(!viewport)return;
+        this.fieldUsagePan={x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};
+        viewport.classList.add('fu-panning');
+    }
+    handleFieldUsagePanMove(event){
+        if(!this.fieldUsagePan)return;
+        const viewport=this.template.querySelector('.fu-scroll'); if(!viewport)return;
+        viewport.scrollLeft=this.fieldUsagePan.left-(event.clientX-this.fieldUsagePan.x);
+        viewport.scrollTop=this.fieldUsagePan.top-(event.clientY-this.fieldUsagePan.y);
+    }
+    handleFieldUsagePanEnd(){
+        this.fieldUsagePan=null;
+        const viewport=this.template.querySelector('.fu-scroll'); if(viewport)viewport.classList.remove('fu-panning');
+    }
+    handleFieldUsageEvidenceToggle(event){
+        const key=event.currentTarget.dataset.evidenceKey; if(!key)return;
+        const next=new Set(this.fieldUsageExpandedEvidence||[]);
+        if(next.has(key))next.delete(key);else next.add(key);
+        this.fieldUsageExpandedEvidence=[...next];
+        this._fieldUsageMapCache=this.rebuildFieldUsageMap();
+    }
+    async handleFieldUsageExport(){
+        try{
+            const base64=await exportFieldUsageMapAsPng(this._fieldUsageMapCache,`${this.fieldUsageObject||'Object'} Field Usage Map`);
+            const anchor=document.createElement('a');
+            anchor.href='data:image/png;base64,'+base64;
+            anchor.download=((this.fieldUsageObject||'field_usage').replace(/[^a-z0-9_-]+/gi,'_'))+'_Field_Usage_Map.png';
+            anchor.click();
+        }catch(err){this.errorMessage='Field Usage PNG export failed: '+this.reduceError(err);}
     }
 
     get fieldUsageNodes(){return this._fieldUsageMapCache.nodes;}
