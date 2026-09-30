@@ -1,35 +1,21 @@
-/**
- * Tooling API access for UI metadata and validation-rule field-usage scanning.
- * Kept separate from the Apex/Flow client so these metadata scanners can evolve independently.
- * @author Vikas Cohen
- */
+/** Tooling API access for UI metadata and validation-rule scanning. @author Vikas Cohen */
 public without sharing class FieldUsageUiToolingClient {
-    private static final String API_VERSION='v60.0';
-    private static final String NAMED_CREDENTIAL='callout:Salesforce_Tooling_API';
+    private static final String API_VERSION='v60.0'; private static final String NAMED_CREDENTIAL='callout:Salesforce_Tooling_API';
     public class UiComponent { public String id; public String name; public String body; public String sourceType; public String objectName; public Boolean active; }
     public static List<UiComponent> getLwcBundleIndex(){return queryIndex('LightningComponentBundle','DeveloperName','LWC');}
     public static List<UiComponent> getAuraBundleIndex(){return queryIndex('AuraDefinitionBundle','DeveloperName','Aura');}
     public static List<UiComponent> getLwcResources(Set<String> bundleIds){return queryResources('LightningComponentResource','LightningComponentBundleId','FilePath','LightningComponentBundle.DeveloperName','LWC',bundleIds);}
     public static List<UiComponent> getAuraResources(Set<String> bundleIds){return queryResources('AuraDefinition','AuraDefinitionBundleId','DefType','AuraDefinitionBundle.DeveloperName','Aura',bundleIds);}
-    public static List<UiComponent> getValidationRuleIndex(){
-        List<UiComponent> out=new List<UiComponent>();
-        for(Map<String,Object> record:queryAll('SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName FROM ValidationRule ORDER BY EntityDefinition.QualifiedApiName,ValidationName')){
-            UiComponent c=new UiComponent();c.id=(String)record.get('Id');c.name=(String)record.get('ValidationName');c.active=(Boolean)record.get('Active');
-            Object entity=record.get('EntityDefinition');if(entity instanceof Map<String,Object>)c.objectName=String.valueOf(((Map<String,Object>)entity).get('QualifiedApiName'));
-            c.sourceType='Validation Rule';out.add(c);
-        }return out;
-    }
-    /** Fetch full ValidationRule metadata through REST Composite: up to 25 rules in one HTTP callout. */
+    public static List<UiComponent> getValidationRuleIndex(){List<UiComponent> out=new List<UiComponent>();for(Map<String,Object> record:queryAll('SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName FROM ValidationRule ORDER BY EntityDefinition.QualifiedApiName,ValidationName')){UiComponent c=new UiComponent();c.id=(String)record.get('Id');c.name=(String)record.get('ValidationName');c.active=(Boolean)record.get('Active');Object entity=record.get('EntityDefinition');if(entity instanceof Map<String,Object>)c.objectName=String.valueOf(((Map<String,Object>)entity).get('QualifiedApiName'));c.sourceType='Validation Rule';out.add(c);}return out;}
+    /** Up to 25 single-record Tooling queries are sent in one REST Composite callout. */
     public static List<UiComponent> getValidationRules(Set<String> ids){
-        List<UiComponent> out=new List<UiComponent>();if(ids==null||ids.isEmpty())return out;
-        List<String> ordered=new List<String>(ids);Integer cursor=0;
+        List<UiComponent> out=new List<UiComponent>();if(ids==null||ids.isEmpty())return out;List<String> ordered=new List<String>(ids);Integer cursor=0;
         while(cursor<ordered.size()){
-            List<Object> requests=new List<Object>();Map<String,String> refs=new Map<String,String>();Integer end=Math.min(cursor+25,ordered.size());
-            for(Integer i=cursor;i<end;i++){String ref='vr'+String.valueOf(i-cursor);String id=ordered[i];refs.put(ref,id);requests.add(new Map<String,Object>{'method'=>'GET','url'=>'/services/data/'+API_VERSION+'/tooling/sobjects/ValidationRule/'+id,'referenceId'=>ref});}
-            HttpRequest req=new HttpRequest();req.setEndpoint(NAMED_CREDENTIAL+'/services/data/'+API_VERSION+'/composite');req.setMethod('POST');req.setHeader('Content-Type','application/json');req.setHeader('Accept','application/json');req.setTimeout(120000);req.setBody(JSON.serialize(new Map<String,Object>{'allOrNone'=>false,'compositeRequest'=>requests}));
-            HttpResponse response=new Http().send(req);if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new FieldUsageUiToolingException('Validation Rule composite request failed with HTTP '+response.getStatusCode()+': '+String.valueOf(response.getBody()).left(1000));
+            List<Object> requests=new List<Object>();Integer end=Math.min(cursor+25,ordered.size());
+            for(Integer i=cursor;i<end;i++){String id=ordered[i];String soql='SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName,Metadata FROM ValidationRule WHERE Id=\''+String.escapeSingleQuotes(id)+'\'';requests.add(new Map<String,Object>{'method'=>'GET','url'=>'/services/data/'+API_VERSION+'/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8'),'referenceId'=>'vr'+String.valueOf(i-cursor)});}
+            HttpRequest req=new HttpRequest();req.setEndpoint(NAMED_CREDENTIAL+'/services/data/'+API_VERSION+'/composite');req.setMethod('POST');req.setHeader('Content-Type','application/json');req.setHeader('Accept','application/json');req.setTimeout(120000);req.setBody(JSON.serialize(new Map<String,Object>{'allOrNone'=>false,'compositeRequest'=>requests}));HttpResponse response=new Http().send(req);if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new FieldUsageUiToolingException('Validation Rule composite request failed with HTTP '+response.getStatusCode()+': '+String.valueOf(response.getBody()).left(1000));
             Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());List<Object> responses=(List<Object>)payload.get('compositeResponse');
-            for(Object raw:responses){Map<String,Object> item=(Map<String,Object>)raw;Integer status=Integer.valueOf(String.valueOf(item.get('httpStatusCode')));if(status<200||status>=300)continue;Map<String,Object> body=(Map<String,Object>)item.get('body');UiComponent c=new UiComponent();c.id=refs.get(String.valueOf(item.get('referenceId')));c.name=String.valueOf(body.get('ValidationName'));c.active=(Boolean)body.get('Active');Object entity=body.get('EntityDefinition');if(entity instanceof Map<String,Object>)c.objectName=String.valueOf(((Map<String,Object>)entity).get('QualifiedApiName'));Object metadata=body.get('Metadata');if(metadata instanceof Map<String,Object>){Map<String,Object> md=(Map<String,Object>)metadata;c.body=md.get('errorConditionFormula')==null?null:String.valueOf(md.get('errorConditionFormula'));if(String.isBlank(c.name)&&md.get('fullName')!=null)c.name=String.valueOf(md.get('fullName'));}c.sourceType='Validation Rule';out.add(c);}
+            for(Object raw:responses){Map<String,Object> item=(Map<String,Object>)raw;Integer status=Integer.valueOf(String.valueOf(item.get('httpStatusCode')));if(status<200||status>=300)continue;Map<String,Object> queryBody=(Map<String,Object>)item.get('body');List<Object> records=queryBody.get('records') instanceof List<Object>?(List<Object>)queryBody.get('records'):new List<Object>();if(records.isEmpty())continue;Map<String,Object> body=(Map<String,Object>)records[0];UiComponent c=new UiComponent();c.id=(String)body.get('Id');c.name=(String)body.get('ValidationName');c.active=(Boolean)body.get('Active');Object entity=body.get('EntityDefinition');if(entity instanceof Map<String,Object>)c.objectName=String.valueOf(((Map<String,Object>)entity).get('QualifiedApiName'));Object metadata=body.get('Metadata');if(metadata instanceof Map<String,Object>){Map<String,Object> md=(Map<String,Object>)metadata;c.body=md.get('errorConditionFormula')==null?null:String.valueOf(md.get('errorConditionFormula'));}c.sourceType='Validation Rule';out.add(c);}
             cursor=end;
         }return out;
     }
