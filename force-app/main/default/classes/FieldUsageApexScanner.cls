@@ -61,7 +61,7 @@ public without sharing class FieldUsageApexScanner {
             Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();
             while(variableReference.find()){
                 String fieldName=canonicalFieldName(fields,variableReference.group(1));if(fieldName==null)continue;
-                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);rememberLine(linesByKey,key,lineNumber(cleanedBody,soql.start()));rememberUsage(usageTypesByKey,key,'SOQL SELECT');rememberLine(linesByKey,key,lineNumber(cleanedBody,variableReference.start()));rememberUsage(usageTypesByKey,key,classifyVariableUsage(cleanedBody,variableReference.start(),variableReference.end()));
+                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);rememberLine(linesByKey,key,lineNumber(cleanedBody,variableReference.start()));rememberUsage(usageTypesByKey,key,classifyVariableUsage(cleanedBody,variableReference.start(),variableReference.end()));
             }
         }
         Matcher soql=SOQL_PATTERN.matcher(cleanedBody);
@@ -73,7 +73,7 @@ public without sharing class FieldUsageApexScanner {
                 if(candidate.contains(' '))candidate=candidate.substringBefore(' ');
                 if(candidate.contains('.'))candidate=candidate.substringBefore('.');
                 String fieldName=canonicalFieldName(fields,candidate);if(fieldName==null)continue;
-                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);
+                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);rememberLine(linesByKey,key,lineNumber(cleanedBody,soql.start()));rememberUsage(usageTypesByKey,key,'SOQL SELECT');
             }
         }
 
@@ -115,9 +115,9 @@ public without sharing class FieldUsageApexScanner {
         return ' · line'+(lines.size()>1?'s ':' ')+String.join(values,', ');
     }
     private static void rememberUsage(Map<String,Set<String>> byKey,String key,String usage){if(!byKey.containsKey(key))byKey.put(key,new Set<String>());byKey.get(key).add(usage);}
-    private static String classifyVariableUsage(String source,Integer start,Integer end){
-        Integer lineStart=source.lastIndexOf('\n',Math.max(0,start-1))+1;Integer lineEnd=source.indexOf('\n',end);if(lineEnd<0)lineEnd=source.length();String line=source.substring(lineStart,lineEnd);
-        Integer localStart=start-lineStart,localEnd=end-lineStart;String before=line.substring(0,Math.max(0,localStart)),after=line.substring(Math.min(line.length(),localEnd));
+    private static String classifyVariableUsage(String source,Integer start,Integer endOffset){
+        Integer lineStart=source.lastIndexOf('\n',Math.max(0,start-1))+1;Integer lineEnd=source.indexOf('\n',endOffset);if(lineEnd<0)lineEnd=source.length();String line=source.substring(lineStart,lineEnd);
+        Integer localStart=start-lineStart,localEnd=endOffset-lineStart;String before=line.substring(0,Math.max(0,localStart)),after=line.substring(Math.min(line.length(),localEnd));
         if(after.trim().startsWith('='))return 'Assignment';if(before.toUpperCase().contains('WHERE '))return 'SOQL WHERE';return 'Expression';
     }
     private static String enclosingMethod(String body,Integer lineNumber){
