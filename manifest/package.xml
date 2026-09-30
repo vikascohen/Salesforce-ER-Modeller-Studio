@@ -8,5 +8,12 @@
         <members>*</members>
         <name>LightningComponentBundle</name>
     </types>
+    <types>
+        <members>Field_Usage_Evidence__c</members>
+        <members>Field_Usage_Run__c</members>
+        <members>Field_Usage_Schedule__c</members>
+        <members>Field_Usage_Work_Unit__c</members>
+        <name>CustomObject</name>
+    </types>
     <version>60.0</version>
 </Package>
