@@ -4664,7 +4664,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                             if(ev.length)return ev;
                             return [d.location||d.evidenceType||'Usage detected'];
                         }).slice(0,12);
-                        detailLines.forEach((line,j)=>{const dk=ck+':detail:'+j;add(dk,line.length>72?line.slice(0,69)+'…':line,d.sourceType==='Flow'?'Flow metadata location':'Usage location',1080,cy+j*82,'evidence');connect(ck,dk);});
+                        detailLines.forEach((line,j)=>{const dk=ck+':detail:'+j;add(dk,line.length>72?line.slice(0,69)+'…':line,r.sourceType==='Flow'?'Flow metadata location':'Usage location',1080,cy+j*82,'evidence');connect(ck,dk);});
                     });
                     const detailCount=names.reduce((n,name)=>n+Math.max(1,details.filter(d=>(d.componentName||'Unknown component')===name).flatMap(d=>(d.evidence||d.location||'').split('\n').filter(Boolean)).length),0);
                     y+=Math.max(110,detailCount*82+20);
