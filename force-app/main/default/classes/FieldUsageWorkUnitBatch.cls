@@ -1,141 +1,32 @@
-/**
- * @author Vikas Cohen
- */
-public without sharing class FieldUsageWorkUnitBatch implements Database.Batchable<SObject>, Database.Stateful, Database.AllowsCallouts {
-    private static final Integer MAX_ATTEMPTS = 3;
-    private final Id runId; private Integer completed=0, failed=0, dependencies=0; private List<String> errors=new List<String>();
+/** @author Vikas Cohen */
+public without sharing class FieldUsageWorkUnitBatch implements Database.Batchable<SObject>,Database.Stateful,Database.AllowsCallouts {
+    private static final Integer MAX_ATTEMPTS=3; private final Id runId; private Integer completed=0,failed=0,dependencies=0; private List<String> errors=new List<String>();
     public FieldUsageWorkUnitBatch(Id runId){this.runId=runId;}
-    public Database.QueryLocator start(Database.BatchableContext bc){
-        update new Field_Usage_Run__c(
-            Id=runId,
-            Status__c='Running',
-            Heartbeat_At__c=System.now(),
-            Job_Id__c=String.valueOf(bc.getJobId()),
-            Progress_Phase__c='Processing resumable work units'
-        );
-        return Database.getQueryLocator([SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running') ORDER BY CreatedDate]);
-    }
-    public void execute(Database.BatchableContext bc,List<SObject> scope){
-        for(SObject raw:scope){
-            Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;
-            Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c.intValue())+1;
-            List<Field_Usage_Evidence__c> rows;
-            try{
-                // Callout-capable scanning must happen before any DML or savepoint in this transaction.
-                rows=scan(unit);
-            }catch(Exception scanEx){
-                checkpointFailure(unit.Id,nextAttempt,scanEx);
-                continue;
-            }
+    public Database.QueryLocator start(Database.BatchableContext bc){update new Field_Usage_Run__c(Id=runId,Status__c='Running',Heartbeat_At__c=System.now(),Job_Id__c=String.valueOf(bc.getJobId()),Progress_Phase__c='Processing resumable work units');return Database.getQueryLocator([SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running') ORDER BY CreatedDate]);}
+    public void execute(Database.BatchableContext bc,List<SObject> scope){for(SObject raw:scope){Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c.intValue())+1;List<Field_Usage_Evidence__c> rows;try{rows=scan(unit);}catch(Exception scanEx){checkpointFailure(unit.Id,nextAttempt,scanEx);continue;}Savepoint sp=Database.setSavepoint();try{unit.Attempt_Count__c=nextAttempt;unit.Status__c='Running';update unit;Integer inserted=insertIdempotent(rows);dependencies+=inserted;unit.Status__c='Completed';unit.Completed_At__c=System.now();unit.Last_Error__c=null;update unit;completed++;}catch(Exception persistenceEx){Database.rollback(sp);checkpointFailure(unit.Id,nextAttempt,persistenceEx);}}updateProgress();}
+    private void checkpointFailure(Id unitId,Integer attempt,Exception ex){Field_Usage_Work_Unit__c u=[SELECT Id,Target_Key__c FROM Field_Usage_Work_Unit__c WHERE Id=:unitId];u.Attempt_Count__c=attempt;u.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000);if(attempt<MAX_ATTEMPTS)u.Status__c='Pending';else{u.Status__c='Failed';failed++;if(errors.size()<100)errors.add(u.Target_Key__c+': '+u.Last_Error__c.left(500));}update u;}
 
-            Savepoint persistenceSavepoint=Database.setSavepoint();
-            try{
-                unit.Attempt_Count__c=nextAttempt;
-                unit.Status__c='Running';
-                update unit;
-                Integer inserted=insertIdempotent(rows);
-                dependencies+=inserted;
-                unit.Status__c='Completed';
-                unit.Completed_At__c=System.now();
-                unit.Last_Error__c=null;
-                update unit;
-                completed++;
-            }catch(Exception persistenceEx){
-                Database.rollback(persistenceSavepoint);
-                checkpointFailure(unit.Id,nextAttempt,persistenceEx);
-            }
+    private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit){
+        if(unit.Scanner_Type__c=='Formula'){List<String> parts=unit.Target_Key__c.split('\\|');if(parts.size()==2)return FieldUsageFormulaScanner.scanField(runId,parts[0],parts[1]);}
+        if(unit.Scanner_Type__c=='Flow Bulk'){String id=unit.Target_Key__c==null?null:unit.Target_Key__c.trim();return String.isBlank(id)?new List<Field_Usage_Evidence__c>():FieldUsageToolingApiClient.scanFlow(runId,id);}
+        Set<String> ids=parseIds(unit.Target_Key__c);if(ids.isEmpty())return new List<Field_Usage_Evidence__c>();
+        if(unit.Scanner_Type__c=='LWC Bulk'||unit.Scanner_Type__c=='Aura Bulk')return scanUi(unit.Scanner_Type__c,ids);
+        if(unit.Scanner_Type__c=='Apex Class Bulk'||unit.Scanner_Type__c=='Apex Trigger Bulk'){
+            List<FieldUsageToolingApiClient.SourceComponent> components=unit.Scanner_Type__c=='Apex Class Bulk'?FieldUsageToolingApiClient.getApexClasses(ids):FieldUsageToolingApiClient.getApexTriggers(ids);List<Field_Usage_Evidence__c> evidence=new List<Field_Usage_Evidence__c>();Integer heapLimit=Limits.getLimitHeapSize();
+            for(FieldUsageToolingApiClient.SourceComponent component:components){assertHeap(heapLimit);evidence.addAll(FieldUsageApexScanner.scan(runId,component.sourceType,component.name,component.id,component.body));component.body=null;}return evidence;
         }
-        updateProgress();
-    }
-
-    private void checkpointFailure(Id unitId,Integer attempt,Exception ex){
-        Field_Usage_Work_Unit__c failedUnit=[SELECT Id,Target_Key__c FROM Field_Usage_Work_Unit__c WHERE Id=:unitId];
-        failedUnit.Attempt_Count__c=attempt;
-        failedUnit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000);
-        if(attempt<MAX_ATTEMPTS){
-            failedUnit.Status__c='Pending';
-        }else{
-            failedUnit.Status__c='Failed';
-            failed++;
-            if(errors.size()<100)errors.add(failedUnit.Target_Key__c+': '+failedUnit.Last_Error__c.left(500));
-        }
-        update failedUnit;
-    }
-
-    private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit) {
-        if (unit.Scanner_Type__c == 'Formula') {
-            List<String> parts = unit.Target_Key__c.split('\\|');
-            if (parts.size() == 2) {
-                return FieldUsageFormulaScanner.scanField(runId, parts[0], parts[1]);
-            }
-        }
-
-        if (unit.Scanner_Type__c == 'Flow Bulk') {
-            String flowId=unit.Target_Key__c==null?null:unit.Target_Key__c.trim();
-            return String.isBlank(flowId)
-                ? new List<Field_Usage_Evidence__c>()
-                : FieldUsageToolingApiClient.scanFlow(runId,flowId);
-        }
-
-        if (
-            unit.Scanner_Type__c == 'Apex Class Bulk' ||
-            unit.Scanner_Type__c == 'Apex Trigger Bulk'
-        ) {
-            Set<String> componentIds = new Set<String>();
-            for (String componentId : unit.Target_Key__c.split(',')) {
-                if (!String.isBlank(componentId)) {
-                    componentIds.add(componentId.trim());
-                }
-            }
-
-            if (componentIds.isEmpty()) {
-                return new List<Field_Usage_Evidence__c>();
-            }
-
-            List<FieldUsageToolingApiClient.SourceComponent> components =
-                unit.Scanner_Type__c == 'Apex Class Bulk'
-                    ? FieldUsageToolingApiClient.getApexClasses(componentIds)
-                    : FieldUsageToolingApiClient.getApexTriggers(componentIds);
-
-            List<Field_Usage_Evidence__c> evidence = new List<Field_Usage_Evidence__c>();
-            Integer heapLimit=Limits.getLimitHeapSize();
-            for (FieldUsageToolingApiClient.SourceComponent component : components) {
-                if(Limits.getHeapSize() > (heapLimit*80/100))
-                    throw new FieldUsageWorkUnitException('Heap safety threshold reached before scanning all source components. Reduce the Tooling source chunk size.');
-                evidence.addAll(
-                    FieldUsageApexScanner.scan(
-                        runId,
-                        component.sourceType,
-                        component.name,
-                        component.id,
-                        component.body
-                    )
-                );
-                component.body=null;
-            }
-            components=null;
-            return evidence;
-        }
-
         throw new FieldUsageWorkUnitException('Unsupported scanner type: '+String.valueOf(unit.Scanner_Type__c));
     }
-
-    private Integer insertIdempotent(List<Field_Usage_Evidence__c> rows){
-        if(rows.isEmpty())return 0; Set<String> keys=new Set<String>();for(Field_Usage_Evidence__c r:rows)keys.add(r.Field_Key__c+'|'+r.Source_Type__c+'|'+r.Component_Name__c+'|'+r.Location__c);
-        Map<String,Field_Usage_Evidence__c> existing=new Map<String,Field_Usage_Evidence__c>();
-        for(Field_Usage_Evidence__c r:[SELECT Id,Field_Key__c,Source_Type__c,Component_Name__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Field_Key__c IN :new Set<String>(rowsFieldKeys(rows))])
-            existing.put(r.Field_Key__c+'|'+r.Source_Type__c+'|'+r.Component_Name__c+'|'+r.Location__c,r);
-        List<Field_Usage_Evidence__c> fresh=new List<Field_Usage_Evidence__c>();Set<String> seen=new Set<String>();for(Field_Usage_Evidence__c r:rows){String k=r.Field_Key__c+'|'+r.Source_Type__c+'|'+r.Component_Name__c+'|'+r.Location__c;if(!existing.containsKey(k)&&!seen.contains(k)){fresh.add(r);seen.add(k);}}
-        if(fresh.isEmpty())return 0;Database.SaveResult[] results=Database.insert(fresh,false);Integer n=0;List<String> insertErrors=new List<String>();for(Database.SaveResult sr:results)if(sr.isSuccess())n++;else insertErrors.add(sr.getErrors()[0].getMessage());if(!insertErrors.isEmpty())throw new FieldUsageWorkUnitException('Evidence persistence failed: '+String.join(insertErrors,' | ').left(3500));return n;
+    private List<Field_Usage_Evidence__c> scanUi(String scannerType,Set<String> bundleIds){
+        List<FieldUsageUiToolingClient.UiComponent> resources=scannerType=='LWC Bulk'?FieldUsageUiToolingClient.getLwcResources(bundleIds):FieldUsageUiToolingClient.getAuraResources(bundleIds);List<Field_Usage_Evidence__c> evidence=new List<Field_Usage_Evidence__c>();Integer heapLimit=Limits.getLimitHeapSize();
+        for(FieldUsageUiToolingClient.UiComponent resource:resources){assertHeap(heapLimit);evidence.addAll(scannerType=='LWC Bulk'?FieldUsageLwcScanner.scan(runId,resource.name,resource.id,resource.body):FieldUsageAuraScanner.scan(runId,resource.name,resource.id,resource.body));resource.body=null;}return evidence;
     }
+    private static Set<String> parseIds(String value){Set<String> out=new Set<String>();if(String.isBlank(value))return out;for(String id:value.split(','))if(!String.isBlank(id))out.add(id.trim());return out;}
+    private static void assertHeap(Integer heapLimit){if(Limits.getHeapSize()>(heapLimit*80/100))throw new FieldUsageWorkUnitException('Heap safety threshold reached before scanning all source components. Reduce the Tooling source chunk size.');}
+
+    private Integer insertIdempotent(List<Field_Usage_Evidence__c> rows){if(rows.isEmpty())return 0;Map<String,Field_Usage_Evidence__c> existing=new Map<String,Field_Usage_Evidence__c>();for(Field_Usage_Evidence__c r:[SELECT Id,Field_Key__c,Source_Type__c,Component_Name__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND Field_Key__c IN :new Set<String>(rowsFieldKeys(rows))])existing.put(r.Field_Key__c+'|'+r.Source_Type__c+'|'+r.Component_Name__c+'|'+r.Location__c,r);List<Field_Usage_Evidence__c> fresh=new List<Field_Usage_Evidence__c>();Set<String> seen=new Set<String>();for(Field_Usage_Evidence__c r:rows){String k=r.Field_Key__c+'|'+r.Source_Type__c+'|'+r.Component_Name__c+'|'+r.Location__c;if(!existing.containsKey(k)&&!seen.contains(k)){fresh.add(r);seen.add(k);}}if(fresh.isEmpty())return 0;Database.SaveResult[] results=Database.insert(fresh,false);Integer n=0;List<String> insertErrors=new List<String>();for(Database.SaveResult sr:results)if(sr.isSuccess())n++;else insertErrors.add(sr.getErrors()[0].getMessage());if(!insertErrors.isEmpty())throw new FieldUsageWorkUnitException('Evidence persistence failed: '+String.join(insertErrors,' | ').left(3500));return n;}
     public class FieldUsageWorkUnitException extends Exception {}
     private static List<String> rowsFieldKeys(List<Field_Usage_Evidence__c> rows){List<String> out=new List<String>();for(Field_Usage_Evidence__c r:rows)out.add(r.Field_Key__c);return out;}
     private void updateProgress(){Integer total=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];Integer done=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Completed'];Integer pct=total==0?95:Math.min(95,5+(done*90/total));Integer evidence=[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:runId];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Objects_Processed__c=done,Objects_Total__c=total,Dependency_Count__c=evidence,Error_Count__c=failures,Progress_Percent__c=pct,Progress_Phase__c='Processing resumable work units');}
-    public void finish(Database.BatchableContext bc){
-        List<Field_Usage_Work_Unit__c> remaining=[SELECT Id,Status__c,Last_Error__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];
-        AsyncApexJob job=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:bc.getJobId()];
-        if(!remaining.isEmpty()&&job.NumberOfErrors>0){for(Field_Usage_Work_Unit__c unit:remaining){unit.Status__c='Failed';unit.Last_Error__c='Worker transaction rolled back before checkpoint completion. Review the scanner target and rerun after correction.';}update remaining;failures+=remaining.size();errors.add('One or more worker transactions were rolled back by the platform; the incomplete work units were retained and marked Failed.');}
-        else if(!remaining.isEmpty()){Id retryJobId=Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);update new Field_Usage_Run__c(Id=runId,Job_Id__c=String.valueOf(retryJobId),Heartbeat_At__c=System.now(),Progress_Phase__c='Queued remaining resumable work units');return;}
-        FieldUsageSnapshotFinalizer.finish(runId,failures,errors);
-    }
+    public void finish(Database.BatchableContext bc){List<Field_Usage_Work_Unit__c> remaining=[SELECT Id,Status__c,Last_Error__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running')];Integer failures=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Failed'];AsyncApexJob job=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:bc.getJobId()];if(!remaining.isEmpty()&&job.NumberOfErrors>0){for(Field_Usage_Work_Unit__c unit:remaining){unit.Status__c='Failed';unit.Last_Error__c='Worker transaction rolled back before checkpoint completion. Review the scanner target and rerun after correction.';}update remaining;failures+=remaining.size();errors.add('One or more worker transactions were rolled back by the platform; the incomplete work units were retained and marked Failed.');}else if(!remaining.isEmpty()){Id retryJobId=Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);update new Field_Usage_Run__c(Id=runId,Job_Id__c=String.valueOf(retryJobId),Heartbeat_At__c=System.now(),Progress_Phase__c='Queued remaining resumable work units');return;}FieldUsageSnapshotFinalizer.finish(runId,failures,errors);}
 }
