@@ -25,6 +25,57 @@
   System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
   System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','Formula Field'},FieldUsageController.getSourceTypes());
  }
+
+ @IsTest static void coversSearchPagingAndEmptyInputBranches(){
+  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100);insert run;
+  insert new List<Field_Usage_Evidence__c>{
+   new Field_Usage_Evidence__c(Run__c=run.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='AlphaService',Occurrence_Count__c=1,Location__c='Alpha line'),
+   new Field_Usage_Evidence__c(Run__c=run.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='BetaService',Occurrence_Count__c=2,Location__c='Beta line'),
+   new Field_Usage_Evidence__c(Run__c=run.Id,Field_Key__c='Account.Industry',Object_API_Name__c='Account',Field_API_Name__c='Industry',Source_Type__c='Flow',Component_Name__c='AccountFlow',Occurrence_Count__c=1,Location__c='Flow node')
+  };
+
+  System.assertEquals(0,FieldUsageController.getEvidence(null,new List<String>{'Name'}).size());
+  System.assertEquals(0,FieldUsageController.getEvidence('Account',null).size());
+  System.assertEquals(0,FieldUsageController.getEvidenceSummary('',new List<String>{'Name'}).size());
+  System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>()).size());
+  System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>{'',null}).size());
+  System.assertEquals(0,FieldUsageController.getSnapshotFields('').size());
+
+  FieldUsageController.EvidenceDetailPageDTO blank=FieldUsageController.getEvidenceDetail('','','',null,null);
+  System.assertEquals(0,blank.rows.size());
+  FieldUsageController.EvidenceDetailPageDTO page=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',1,null);
+  System.assertEquals(1,page.rows.size());System.assertEquals(true,page.hasMore);System.assertNotEquals(null,page.nextCursor);
+  FieldUsageController.EvidenceDetailPageDTO page2=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',1,page.nextCursor);
+  System.assertEquals(1,page2.rows.size());
+
+  System.assertEquals(2,FieldUsageController.searchEvidence('Account.Name','Apex Class',null).size());
+  System.assertEquals(2,FieldUsageController.searchEvidence('Account.Name',null,500).size());
+  System.assertEquals(2,FieldUsageController.searchEvidence('Account','Apex Class',500).size());
+  System.assertEquals(3,FieldUsageController.searchEvidence('Account',null,500).size());
+  System.assertEquals(1,FieldUsageController.searchEvidence(null,'Flow',500).size());
+  System.assertEquals(3,FieldUsageController.searchEvidence(null,null,500).size());
+ }
+
+ @IsTest static void coversSnapshotWithoutCurrentRunAndSummaryLimit(){
+  FieldUsageController.SnapshotDTO empty=FieldUsageController.getSnapshotAvailability();
+  System.assertEquals(false,empty.available);
+  System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>{'Name'}).size());
+  System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
+
+  List<String> tooMany=new List<String>();for(Integer i=0;i<101;i++)tooMany.add('Field'+i);
+  try{FieldUsageController.getEvidenceSummary('Account',tooMany);System.assert(false,'Expected selection limit exception');}
+  catch(AuraHandledException e){System.assert(true);}
+ }
+
+ @IsTest static void coversBootstrapSchedulesAndNoRunStatus(){
+  FieldUsageController.bootstrap();
+  FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);
+  System.assertEquals(null,status.run);
+  System.assertNotEquals(null,status.schedules);
+  List<FieldUsageController.ScheduledJobDTO> jobs=FieldUsageController.getScheduledJobs();
+  System.assertNotEquals(null,jobs);
+ }
+
  @IsTest static void sparseSnapshotTreatsSchemaFieldWithoutEvidenceAsNoDependency(){
   Field_Usage_Run__c currentRun=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert currentRun;
   insert new Field_Usage_Evidence__c(Run__c=currentRun.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='AccountService',Occurrence_Count__c=1);
