@@ -1958,21 +1958,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this._fieldUsageMapCache=this.rebuildFieldUsageMap();
         } finally { this.fieldUsageMapBusy=false; }
     }
-    async handleToggleFieldUsageFullScreen(){
-        const workspace=this.template.querySelector('.fu-workspace');
-        try{
-            if(!this.fieldUsageFullScreen){
-                this.fieldUsageFullScreen=true;
-                if(workspace?.requestFullscreen)await workspace.requestFullscreen();
-            }else{
-                if(document.fullscreenElement&&document.exitFullscreen)await document.exitFullscreen();
-                this.fieldUsageFullScreen=false;
-            }
-        }catch(_){
-            // Salesforce/browser policy can reject the Fullscreen API. Keep the
-            // fixed-viewport focus mode as the safe fallback.
-            this.fieldUsageFullScreen=!this.fieldUsageFullScreen;
-        }
+    handleToggleFieldUsageFullScreen(){
+        // Do not depend on the browser Fullscreen API here. Lightning Web
+        // Security/browser policy can reject requestFullscreen(), which made
+        // the button appear dead. The workspace already has a viewport-level
+        // fixed overlay mode, so toggling that state is deterministic in LWC.
+        this.fieldUsageFullScreen=!this.fieldUsageFullScreen;
     }
     get fieldUsageWorkspaceClass(){return 'fu-workspace'+(this.fieldUsageFullScreen?' fu-workspace-fullscreen':'');}
     get fieldUsageFullScreenLabel(){return this.fieldUsageFullScreen?'Restore':'Maximise';}
