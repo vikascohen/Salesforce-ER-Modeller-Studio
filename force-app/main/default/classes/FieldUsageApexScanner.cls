@@ -27,6 +27,7 @@ public without sharing class FieldUsageApexScanner {
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
         Map<String, Integer> occurrences = new Map<String, Integer>();
         Map<String, List<Integer>> linesByKey = new Map<String, List<Integer>>();
+        Map<String, Set<String>> usageTypesByKey = new Map<String, Set<String>>();
         String cleanedBody=stripCommentsAndStrings(body);
         Matcher matcher = QUALIFIED_FIELD_PATTERN.matcher(cleanedBody);
 
@@ -45,7 +46,7 @@ public without sharing class FieldUsageApexScanner {
 
             String key = objectName + '.' + fieldName;
             occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);
-            rememberLine(linesByKey,key,lineNumber(cleanedBody,matcher.start()));
+            rememberLine(linesByKey,key,lineNumber(cleanedBody,matcher.start()));rememberUsage(usageTypesByKey,key,'Field reference');
         }
 
         Map<String,String> variableTypes=new Map<String,String>();
@@ -60,7 +61,7 @@ public without sharing class FieldUsageApexScanner {
             Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();
             while(variableReference.find()){
                 String fieldName=canonicalFieldName(fields,variableReference.group(1));if(fieldName==null)continue;
-                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);rememberLine(linesByKey,key,lineNumber(cleanedBody,soql.start()));rememberLine(linesByKey,key,lineNumber(cleanedBody,variableReference.start()));
+                String key=objectName+'.'+fieldName;occurrences.put(key,(occurrences.containsKey(key)?occurrences.get(key):0)+1);rememberLine(linesByKey,key,lineNumber(cleanedBody,soql.start()));rememberUsage(usageTypesByKey,key,'SOQL SELECT');rememberLine(linesByKey,key,lineNumber(cleanedBody,variableReference.start()));rememberUsage(usageTypesByKey,key,classifyVariableUsage(cleanedBody,variableReference.start(),variableReference.end()));
             }
         }
         Matcher soql=SOQL_PATTERN.matcher(cleanedBody);
@@ -94,7 +95,7 @@ public without sharing class FieldUsageApexScanner {
                 Observed_At__c = System.now(),
                 Occurrence_Count__c = occurrences.get(fieldKey),
                 Location__c = sourceType + ': ' + componentName + formatLines(linesByKey.get(fieldKey)),
-                Evidence__c = buildEvidence(body, linesByKey.get(fieldKey))
+                Evidence__c = buildEvidence(body, linesByKey.get(fieldKey), usageTypesByKey.get(fieldKey))
             ));
         }
 
@@ -113,13 +114,24 @@ public without sharing class FieldUsageApexScanner {
         List<String> values=new List<String>();for(Integer n:lines)values.add(String.valueOf(n));
         return ' · line'+(lines.size()>1?'s ':' ')+String.join(values,', ');
     }
-    private static String buildEvidence(String body,List<Integer> lines){
+    private static void rememberUsage(Map<String,Set<String>> byKey,String key,String usage){if(!byKey.containsKey(key))byKey.put(key,new Set<String>());byKey.get(key).add(usage);}
+    private static String classifyVariableUsage(String source,Integer start,Integer end){
+        Integer lineStart=source.lastIndexOf('\n',Math.max(0,start-1))+1;Integer lineEnd=source.indexOf('\n',end);if(lineEnd<0)lineEnd=source.length();String line=source.substring(lineStart,lineEnd);
+        Integer localStart=start-lineStart,localEnd=end-lineStart;String before=line.substring(0,Math.max(0,localStart)),after=line.substring(Math.min(line.length(),localEnd));
+        if(after.trim().startsWith('='))return 'Assignment';if(before.toUpperCase().contains('WHERE '))return 'SOQL WHERE';return 'Expression';
+    }
+    private static String enclosingMethod(String body,Integer lineNumber){
+        List<String> ls=body.split('\\n',-1);Pattern p=Pattern.compile('(?i)(?:public|private|protected|global|static|virtual|override|testmethod|webservice|final|transient|\\s)+[A-Za-z0-9_<>,\\[\\].?]+\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\([^;]*\\)\\s*\\{?');
+        for(Integer i=Math.min(lineNumber-1,ls.size()-1);i>=0;i--){Matcher m=p.matcher(ls[i]);if(m.find())return m.group(1);}return null;
+    }
+    private static String buildEvidence(String body,List<Integer> lines,Set<String> usageTypes){
         if(String.isBlank(body)||lines==null||lines.isEmpty())return null;
         List<String> sourceLines=body.split('\\n',-1),snippets=new List<String>();
         Integer max=Math.min(8,lines.size());
-        for(Integer i=0;i<max;i++){Integer n=lines[i];if(n>0&&n<=sourceLines.size())snippets.add('Line '+n+': '+sourceLines[n-1].trim());}
+        for(Integer i=0;i<max;i++){Integer n=lines[i];if(n>0&&n<=sourceLines.size()){String method=enclosingMethod(body,n);snippets.add('Line '+n+(String.isBlank(method)?'':' · '+method+'()')+': '+sourceLines[n-1].trim());}}
         if(lines.size()>max)snippets.add('… '+(lines.size()-max)+' more occurrence line(s)');
-        return String.join(snippets,'\n').left(32000);
+        String types=usageTypes==null||usageTypes.isEmpty()?'':('Usage: '+String.join(new List<String>(usageTypes),', ')+'\n');
+        return (types+String.join(snippets,'\n')).left(32000);
     }
 
     @TestVisible
