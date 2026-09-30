@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Jest + Salesforce Validation
+    name: Salesforce Validation + Jest
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -37,9 +37,6 @@ jobs:
 
       - name: Install project dependencies
         run: npm ci
-
-      - name: Run all LWC Jest tests
-        run: npm run test:unit -- -- --runInBand
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
@@ -87,3 +84,6 @@ jobs:
             --tests FieldUsageWorkUnitBatchTest \
             --tests StudioDiagnosticsControllerTest \
             --wait 25
+
+      - name: Run all LWC Jest tests
+        run: npm run test:unit -- -- --runInBand
