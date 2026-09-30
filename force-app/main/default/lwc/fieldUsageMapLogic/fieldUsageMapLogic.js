@@ -115,9 +115,21 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
                 typeKeys.push(tk);
                 const details = rows.filter(d => d._detail && d.fieldApiName === field && d.sourceType === r.sourceType);
                 const pageState = rows.find(d => d._pageState && d.fieldApiName === field && d.sourceType === r.sourceType);
+                const collapseKey = `source-collapse|${field}|${r.sourceType}`;
+                const sourceCollapsed = details.length > 0 && expanded.has(collapseKey);
                 const typeY = cursorY;
-                add(tk, r.sourceType, `${r.occurrences||r.evidenceRows||0} usages · ${!details.length?'click to expand':pageState?.hasMore?'click to load more':`${details.length} components loaded`}`, X.type, typeY, sourceKind(r.sourceType), { field, source:r.sourceType, expandable:true });
-                if (!details.length) { cursorY += 96; return; }
+                const sourceSub = !details.length
+                    ? `${r.occurrences||r.evidenceRows||0} usages · click to expand`
+                    : sourceCollapsed
+                        ? `${r.occurrences||r.evidenceRows||0} usages · click to expand`
+                        : `${r.occurrences||r.evidenceRows||0} usages · ${pageState?.hasMore?'click to load more':`${details.length} components loaded`} · click to collapse`;
+                add(tk, r.sourceType, sourceSub, X.type, typeY, sourceKind(r.sourceType), {
+                    field,
+                    source:r.sourceType,
+                    expandable:true,
+                    ...(details.length ? { evidenceKey:collapseKey, toggleEvidence:true } : {})
+                });
+                if (!details.length || sourceCollapsed) { cursorY += 96; return; }
 
                 const names = [...new Set(details.map(d => d.componentName || 'Unknown component'))];
                 names.forEach(name => {
