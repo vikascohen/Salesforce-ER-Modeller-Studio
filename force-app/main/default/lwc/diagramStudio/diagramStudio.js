@@ -232,7 +232,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageLoading=false; @track fieldUsageSnapshotAvailable=false; @track fieldUsageBatchRunning=false; @track fieldUsageEntryMessage='';
     @track fieldUsageObject=''; @track fieldUsageSelectedFields=[]; @track fieldUsageEvidence=[]; @track fieldUsageRun=null; @track fieldUsageObjectSearch=''; @track fieldUsageFieldSearch='';
-    @track fieldUsageZoom=1; @track fieldUsageConsoleLines=[]; @track fieldUsageConsoleCleared=false; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
+    @track fieldUsageZoom=1; @track fieldUsageFullScreen=false; @track fieldUsageMapBusy=false; @track fieldUsageConsoleLines=[]; @track fieldUsageConsoleCleared=false; @track _fieldUsageMapCache={nodes:[],edges:[],width:1320,height:650}; fieldUsagePollTimer=null;
     @track fieldImpactAvailable=false; @track fieldImpactLoading=false; @track fieldImpactBatchRunning=false; @track fieldImpactBatchStatus=''; @track fieldImpactObject=''; @track fieldImpactField='';
     @track fieldImpactObjectSearch=''; @track fieldImpactFieldSearch=''; @track fieldImpactObjects=[]; @track fieldImpactFields=[];
     @track fieldImpactEvidence=[]; @track fieldImpactZoom=1; @track fieldImpactSnapshotInfo=null; @track _fieldImpactMapCache={nodes:[],edges:[],width:1160,height:600};
@@ -1948,15 +1948,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async handleFieldUsageAnalyse() {
-        if (!this.fieldUsageReady || !this.fieldUsageObject || !this.fieldUsageSelectedFields.length) {
-            return;
-        }
-        this.fieldUsageEvidence = await fieldUsageGetEvidenceSummary({
-            objectApiName: this.fieldUsageObject,
-            fieldApiNames: this.fieldUsageSelectedFields
-        });
-        this._fieldUsageMapCache=this.rebuildFieldUsageMap();
+        if (!this.fieldUsageReady || !this.fieldUsageObject || !this.fieldUsageSelectedFields.length || this.fieldUsageMapBusy) return;
+        this.fieldUsageMapBusy=true;
+        try {
+            this.fieldUsageEvidence = await fieldUsageGetEvidenceSummary({
+                objectApiName: this.fieldUsageObject,
+                fieldApiNames: this.fieldUsageSelectedFields
+            });
+            this._fieldUsageMapCache=this.rebuildFieldUsageMap();
+        } finally { this.fieldUsageMapBusy=false; }
     }
+    handleToggleFieldUsageFullScreen(){this.fieldUsageFullScreen=!this.fieldUsageFullScreen;}
+    get fieldUsageWorkspaceClass(){return 'fu-workspace'+(this.fieldUsageFullScreen?' fu-workspace-fullscreen':'');}
+    get fieldUsageFullScreenLabel(){return this.fieldUsageFullScreen?'Restore':'Maximise';}
+    get fieldUsageBuildLabel(){return this.fieldUsageMapBusy?'Building…':'Build Map';}
 
     handleCloseFieldUsage() {
         this.fieldUsageOpen = false;
@@ -4620,6 +4625,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     async handleFieldUsageNodeClick(e){
         const field=e.currentTarget.dataset.field,source=e.currentTarget.dataset.source;if(!field||!source)return;
+        e.currentTarget.setAttribute('aria-busy','true');
         const existing=this.fieldUsageEvidence.filter(r=>r._detail&&r.Field_API_Name__c===field&&r.Source_Type__c===source),last=existing.length?existing[existing.length-1]:null;
         const page=await fieldUsageGetEvidenceDetail({objectApiName:this.fieldUsageObject,fieldApiName:field,sourceType:source,rowLimit:500,afterId:last?.Id||null});
         this.fieldUsageEvidence=[...this.fieldUsageEvidence.filter(r=>!(r._pageState&&r.Field_API_Name__c===field&&r.Source_Type__c===source)),...(page.rows||[]).map(r=>({...r,_detail:true})),{_pageState:true,Field_API_Name__c:field,Source_Type__c:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}];this._fieldUsageMapCache=this.rebuildFieldUsageMap();
