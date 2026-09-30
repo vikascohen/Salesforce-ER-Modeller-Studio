@@ -81,6 +81,7 @@ jobs:
             --tests FieldUsageScheduleServiceTest \
             --tests FieldUsageSnapshotFinalizerTest \
             --tests FieldUsageToolingApiClientTest \
+            --tests FieldUsageToolingCredentialDiagnosticTest \
             --tests FieldUsageToolingDiscoveryBatchTest \
             --tests FieldUsageWorkUnitBatchTest \
             --tests SchemaMetadataControllerTest \
