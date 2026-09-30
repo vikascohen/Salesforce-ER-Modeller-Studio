@@ -18,18 +18,9 @@ public without sharing class FieldUsageToolingApiClient {
     private static final String API_VERSION = 'v60.0';
     private static final String NAMED_CREDENTIAL = 'callout:Salesforce_Tooling_API';
 
-    /**
-     * Verifies that this org can authenticate through the stable
-     * Salesforce_Tooling_API Named Credential before a scan is queued.
-     * This deliberately performs no DML so callers can fail fast before
-     * creating a durable run or thousands of batch executions.
-     */
     public static void assertConnectionReady() {
         String soql = 'SELECT Id FROM ApexClass LIMIT 1';
         try {
-            // Keep the preflight request deliberately identical to the proven
-            // Named Credential diagnostic path. This avoids routing the health
-            // check through scanner helper logic before a scan has started.
             HttpRequest request = new HttpRequest();
             request.setEndpoint(
                 NAMED_CREDENTIAL +
@@ -75,20 +66,41 @@ public without sharing class FieldUsageToolingApiClient {
         return queryFlowIndex(soql);
     }
 
+    /**
+     * Retrieves the complete Tooling Flow record through a SOQL query that
+     * explicitly requests Metadata. The generic sObject GET endpoint does not
+     * reliably return the Metadata field, which caused active Flows to be
+     * discovered but then scanned with null metadata and therefore produce no
+     * field-usage evidence.
+     */
     public static List<Field_Usage_Evidence__c> scanFlow(Id runId,String componentId) {
-        HttpResponse response=sendAllowNotFound('/services/data/'+API_VERSION+'/tooling/sobjects/Flow/'+EncodingUtil.urlEncode(componentId,'UTF-8'));
-        if(response.getStatusCode()==404)return new List<Field_Usage_Evidence__c>();
-        String responseBody=response.getBody();
-        response=null;
-        Map<String,Object> record=(Map<String,Object>)JSON.deserializeUntyped(responseBody);
-        responseBody=null;
+        if(String.isBlank(componentId))return new List<Field_Usage_Evidence__c>();
+
+        String soql =
+            'SELECT Id, MasterLabel, Metadata FROM Flow WHERE Id = \' +
+            String.escapeSingleQuotes(componentId) + '\' LIMIT 1';
+        String relativeUrl =
+            '/services/data/' + API_VERSION + '/tooling/query/?q=' +
+            EncodingUtil.urlEncode(soql,'UTF-8');
+
+        HttpResponse response=send(relativeUrl);
+        Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());
+        List<Object> records=payload.get('records') instanceof List<Object>
+            ? (List<Object>)payload.get('records')
+            : new List<Object>();
+        if(records.isEmpty())return new List<Field_Usage_Evidence__c>();
+
+        Map<String,Object> record=(Map<String,Object>)records[0];
         String flowId=(String)record.get('Id');
         String flowName=(String)record.get('MasterLabel');
         Object metadata=record.get('Metadata');
-        record=null;
-        List<Field_Usage_Evidence__c> evidence=FieldUsageFlowScanner.scan(runId,flowName,flowId,metadata);
-        metadata=null;
-        return evidence;
+        if(metadata==null){
+            throw new ToolingApiException(
+                'Tooling API returned active Flow ' + String.valueOf(flowName) +
+                ' without Metadata. The Flow cannot be scanned for field usage.'
+            );
+        }
+        return FieldUsageFlowScanner.scan(runId,flowName,flowId,metadata);
     }
 
     private static List<SourceComponent> queryFlowIndex(String soql) {
@@ -125,12 +137,6 @@ public without sharing class FieldUsageToolingApiClient {
         Set<String> componentIds
     ) {
         String fields = includeBody ? 'Id, Name, Body' : 'Id, Name';
-        // Do not filter by NamespacePrefix. In an unmanaged org our source
-        // components normally have no namespace, while in a managed-package
-        // installation the same components carry the package namespace.
-        // Filtering to null made packaged installs silently discover zero of
-        // the package's Apex classes/triggers. IDs supplied by discovery keep
-        // the subsequent bulk body query scoped to exactly those components.
         String whereClause = 'Id != null';
 
         if (componentIds != null && !componentIds.isEmpty()) {
@@ -155,7 +161,7 @@ public without sharing class FieldUsageToolingApiClient {
             HttpRequest request = new HttpRequest();
             request.setEndpoint(NAMED_CREDENTIAL + nextUrl);
             request.setMethod('GET');
-            request.setHeader('Accept', 'application/json');
+            request.setHeader('Accept','application/json');
             request.setTimeout(120000);
 
             HttpResponse response = new Http().send(request);
@@ -166,23 +172,19 @@ public without sharing class FieldUsageToolingApiClient {
                 );
             }
 
-            Map<String, Object> payload =
-                (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
-
+            Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());
             List<Object> records=payload.get('records') instanceof List<Object>?(List<Object>)payload.get('records'):new List<Object>();
-            for (Object rawRecord : records) {
-                Map<String, Object> record = (Map<String, Object>) rawRecord;
-                SourceComponent component = new SourceComponent();
-                component.id = (String) record.get('Id');
-                component.name = (String) record.get('Name');
-                component.body = includeBody ? (String) record.get('Body') : null;
-                component.sourceType = sourceType;
+            for(Object rawRecord:records){
+                Map<String,Object> record=(Map<String,Object>)rawRecord;
+                SourceComponent component=new SourceComponent();
+                component.id=(String)record.get('Id');
+                component.name=(String)record.get('Name');
+                component.body=includeBody?(String)record.get('Body'):null;
+                component.sourceType=sourceType;
                 components.add(component);
             }
-
-            nextUrl = (String) payload.get('nextRecordsUrl');
+            nextUrl=(String)payload.get('nextRecordsUrl');
         }
-
         return components;
     }
 }
