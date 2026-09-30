@@ -68,4 +68,16 @@ private class FieldUsageApexScannerTest {
 
         System.assertEquals(0, rows.size());
     }
+
+    @IsTest
+    static void capturesLineAndSourceSnippetForDrilldown() {
+        String source='public class Sample {\n  void runIt(){\n    Contact c = new Contact();\n    c.LastName = \'Smith\';\n  }\n}';
+        List<Field_Usage_Evidence__c> rows=FieldUsageApexScanner.scan(null,'Apex Class','Sample','01p000000000003',source);
+        Field_Usage_Evidence__c lastName;
+        for(Field_Usage_Evidence__c row:rows)if(row.Field_Key__c=='Contact.LastName')lastName=row;
+        System.assertNotEquals(null,lastName);
+        System.assert(lastName.Location__c.contains('line 4'),lastName.Location__c);
+        System.assert(lastName.Evidence__c.contains('Line 4:'),lastName.Evidence__c);
+        System.assert(lastName.Evidence__c.contains('c.LastName'),lastName.Evidence__c);
+    }
 }
