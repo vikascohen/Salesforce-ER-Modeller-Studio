@@ -58,12 +58,12 @@ private class DiagramFileControllerTest {
         insert d;
 
         Test.startTest();
-        Diagram_File__c result = DiagramFileController.getFile(d.Id);
+        DiagramFileController.FileDetail result = DiagramFileController.getFile(d.Id);
         Test.stopTest();
 
         Assert.isNotNull(result, 'Should find the record just inserted');
-        Assert.areEqual('My Diagram', result.Name);
-        Assert.areEqual('entity Account : Name', result.Source_Code__c);
+        Assert.areEqual('My Diagram', result.name);
+        Assert.areEqual('entity Account : Name', result.sourceCode);
     }
 
     @isTest
@@ -75,7 +75,7 @@ private class DiagramFileControllerTest {
         delete throwaway;
 
         Test.startTest();
-        Diagram_File__c result = DiagramFileController.getFile(fakeId);
+        DiagramFileController.FileDetail result = DiagramFileController.getFile(fakeId);
         Test.stopTest();
 
         Assert.isNull(result, 'A since-deleted Id should resolve to null, not throw');
@@ -332,7 +332,7 @@ private class DiagramFileControllerTest {
             Assert.isFalse(foundInList, 'Private sharing should hide another users diagram from the file list');
 
             // getFile() must not return a record the outsider cannot see.
-            Diagram_File__c fetched = DiagramFileController.getFile(diagramId);
+            DiagramFileController.FileDetail fetched = DiagramFileController.getFile(diagramId);
             Assert.isNull(fetched, 'Private sharing should block reading another users diagram directly by Id');
 
             // Attempting to update it must fail outright.
@@ -352,9 +352,9 @@ private class DiagramFileControllerTest {
 
         // And confirm the owner themselves is completely unaffected by any of this.
         System.runAs(owner) {
-            Diagram_File__c ownersOwnView = DiagramFileController.getFile(diagramId);
+            DiagramFileController.FileDetail ownersOwnView = DiagramFileController.getFile(diagramId);
             Assert.isNotNull(ownersOwnView, 'The owner must always be able to read their own diagram');
-            Assert.areEqual('Owner Private Diagram', ownersOwnView.Name);
+            Assert.areEqual('Owner Private Diagram', ownersOwnView.name);
         }
     }
 }
