@@ -1963,6 +1963,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleFieldUsageClear() {
         this.fieldUsageObject = '';
+        this.fieldUsageObjectSearch = '';
+        this.fieldUsageFieldSearch = '';
         this.fieldUsageFields = [];
         this.fieldUsageSelectedFields = [];
         this.fieldUsageEvidence = [];
