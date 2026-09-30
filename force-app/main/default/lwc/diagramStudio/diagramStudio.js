@@ -1851,9 +1851,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._fieldUsageMapCache = { nodes: [], edges: [], width: 1320, height: 650 };
 
         try {
-            const [snapshot, status] = await Promise.all([
+            const [snapshot, status, snapshotObjects] = await Promise.all([
                 fieldImpactSnapshot(),
-                fieldUsageGetStatus()
+                fieldUsageGetStatus(),
+                fieldImpactObjects()
             ]);
 
             this.fieldUsageSnapshotAvailable = !!snapshot?.available;
@@ -1861,7 +1862,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.fieldUsageBatchRunning = ['Queued', 'Running'].includes(statusName);
 
             if (this.fieldUsageSnapshotAvailable) {
-                this.fieldUsageObjects = await fieldImpactObjects();
+                this.fieldUsageObjects = snapshotObjects || [];
                 this.fieldUsageEntryMessage = this.fieldUsageBatchRunning
                     ? 'A newer scan is running. Showing the latest successful snapshot.'
                     : '';
