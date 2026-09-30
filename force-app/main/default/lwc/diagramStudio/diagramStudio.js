@@ -2701,9 +2701,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const rec = await getFile({ fileId: id });
             if (myToken !== this._fileLoadToken || this._isDisconnected) return;
             if (rec) {
-                this.currentId  = rec.Id;
-                this.fileName   = rec.Name;
-                this.sourceText = rec.Source_Code__c || '';
+                this.currentId  = rec.id;
+                this.fileName   = rec.name;
+                this.sourceText = rec.sourceCode || '';
                 this.erPositions = {};
                 this.boxHeightOverrides = {};
                 this.boxWidthOverrides  = {};
@@ -2712,8 +2712,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.dismissedSuggestionKeys = new Set();
                 this.focusedEntity = null;
                 this.renderDiagram();
-                this._addTab({ id: rec.Id, name: rec.Name, dirty: false, isUnsaved: false });
-                this._activateTabId(rec.Id);
+                this._addTab({ id: rec.id, name: rec.name, dirty: false, isUnsaved: false });
+                this._activateTabId(rec.id);
                 this.refreshFileList();
             } else {
                 this.errorMessage = `No saved diagram found for Id "${id}".`;
