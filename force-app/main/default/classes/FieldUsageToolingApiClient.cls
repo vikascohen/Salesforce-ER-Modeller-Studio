@@ -125,7 +125,13 @@ public without sharing class FieldUsageToolingApiClient {
         Set<String> componentIds
     ) {
         String fields = includeBody ? 'Id, Name, Body' : 'Id, Name';
-        String whereClause = 'NamespacePrefix = null';
+        // Do not filter by NamespacePrefix. In an unmanaged org our source
+        // components normally have no namespace, while in a managed-package
+        // installation the same components carry the package namespace.
+        // Filtering to null made packaged installs silently discover zero of
+        // the package's Apex classes/triggers. IDs supplied by discovery keep
+        // the subsequent bulk body query scoped to exactly those components.
+        String whereClause = 'Id != null';
 
         if (componentIds != null && !componentIds.isEmpty()) {
             List<String> escapedIds = new List<String>();
