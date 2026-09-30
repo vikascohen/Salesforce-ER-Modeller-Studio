@@ -1845,3 +1845,6 @@
 
 /* Field Usage interaction + maximise/restore */
 .fu-workspace-fullscreen{position:fixed!important;inset:0!important;z-index:1350!important;width:100vw!important;height:100vh!important;max-width:none!important;margin:0!important;padding:0 18px 18px!important;background:var(--surface-bg-alt);box-sizing:border-box}.fu-workspace-fullscreen .fu-browser-shell{flex:1;min-height:0}.fu-node[data-kind="type"]{cursor:pointer}.fu-node[data-kind="type"]:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 6px 18px rgba(0,0,0,.22)}.fu-node[data-kind="type"] span{text-decoration:underline;text-underline-offset:2px}.fu-node[aria-busy="true"]{opacity:.7}
+
+/* Field Usage detailed evidence remains readable without widening initial map payload. */
+.fu-node[data-kind="component"]{width:250px;min-height:82px}.fu-node[data-kind="component"] span{white-space:pre-line;line-height:1.45;max-height:58px;overflow:auto;scrollbar-width:thin}
