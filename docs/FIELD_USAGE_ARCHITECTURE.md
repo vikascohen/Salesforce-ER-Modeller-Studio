@@ -2,17 +2,17 @@
 
 ## Purpose
 
-This document is a concise architectural guide to the V3 Field Usage Intelligence implementation. It explains the responsibility of the main Apex classes and LWC modules, how the scan pipeline fits together, why the design is modular, and where future improvements should go.
+This document is the developer architecture guide for V3 Field Usage Intelligence. It summarises the main Apex classes and LWC modules, how the scan pipeline works, the coding philosophy used in V3, the standards that future changes should follow, and the main areas for improvement.
 
-The core principle is simple:
+The central principle is:
 
-> Discovery, scanning, persistence, querying and visualisation should remain separate concerns.
+> Discovery, scanning, persistence, querying and visualisation are separate concerns.
 
-That separation allows new metadata scanners to be added without turning one Apex class or `diagramStudio.js` into a monolith.
+A developer should be able to change one scanner without having to understand or modify every other scanner.
 
 ---
 
-## Architecture at a glance
+# 1. Complete architecture
 
 ```mermaid
 flowchart TD
@@ -53,436 +53,527 @@ flowchart TD
     FINAL --> CURRENT[Current successful snapshot]
 
     CURRENT --> CTRL[FieldUsageController]
-    CTRL --> SUMMARY[Lightweight summary]
-    SUMMARY --> MAP[Field Usage Map]
+    CTRL --> SUMMARY[Aggregated evidence summary]
+    SUMMARY --> MAP[Fast initial Field Usage map]
     MAP -->|user expands branch| DETAIL[Lazy evidence detail]
-    DETAIL --> CACHE[Client-side branch cache]
+    DETAIL --> CACHE[Snapshot-scoped client cache]
+    CACHE --> MAP
+```
+
+## Runtime sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant LWC as diagramStudio
+    participant Controller as FieldUsageController
+    participant Orchestrator as FieldUsageOrchestrator
+    participant Discovery as Discovery Batches
+    participant Work as WorkUnitBatch
+    participant Scanner as Source Scanner
+    participant DB as Evidence/Snapshot
+
+    User->>LWC: Run Full Scan
+    LWC->>Controller: runNow()
+    Controller->>Orchestrator: start scan
+    Orchestrator->>Discovery: discover work
+    Discovery->>DB: create durable work units
+    Discovery->>Work: start processing
+    Work->>Scanner: route bounded work unit
+    Scanner->>DB: persist normalised evidence
+    Work->>DB: update progress
+    Note over LWC,DB: Existing successful snapshot remains usable while scan runs
+    Work->>DB: finalise successful snapshot
+    LWC->>Controller: polling detects Completed
+    Note over LWC: invalidate old snapshot-scoped UI caches
+    User->>LWC: select object + field and click Map
+    LWC->>Controller: getEvidenceSummary()
+    Controller->>DB: aggregate current snapshot
+    DB-->>LWC: compact summary
+    LWC-->>User: render initial map
+    User->>LWC: expand Apex/Flow/etc.
+    LWC->>Controller: getEvidenceDetail()
+    Controller-->>LWC: paginated detail
+    Note over LWC: cache loaded branch for collapse/re-expand
 ```
 
 ---
 
-## Scan lifecycle
+# 2. Coding philosophy
 
-A normal scan follows this sequence:
+V3 follows a small set of deliberate engineering principles.
 
-1. `FieldUsageOrchestrator` creates and starts a scan run.
-2. `FieldUsageDiscoveryBatch` discovers schema-driven work such as Formula Fields.
-3. `FieldUsageToolingDiscoveryBatch` discovers metadata-driven work such as Apex, Flow, LWC, Aura and Validation Rules.
-4. Discovery creates durable `Field_Usage_Work_Unit__c` records rather than attempting to scan everything in one transaction.
-5. `FieldUsageWorkUnitBatch` processes those work units in controlled chunks.
-6. The appropriate source-specific scanner analyses each work unit.
-7. Evidence is persisted as `Field_Usage_Evidence__c` records.
-8. `FieldUsageSnapshotFinalizer` completes the run and promotes a successful snapshot to current.
-9. `FieldUsageController` exposes lightweight summaries and lazy detail APIs to the LWC.
+## Modular before monolithic
 
-The important architectural point is that **discovery decides what must be scanned, while scanners decide how a particular metadata type is interpreted**.
+A new capability should normally become a focused class/module rather than another large block inside an existing giant file.
 
----
+`diagramStudio.js`, `FieldUsageController` and `FieldUsageWorkUnitBatch` are orchestration boundaries. They should not become dumping grounds for unrelated functionality.
 
-## Main Apex classes
+## Bulk first
 
-### `FieldUsageOrchestrator`
+Salesforce governor limits are an architectural constraint, not an afterthought.
 
-Entry point for a Field Usage scan.
+Prefer:
 
-**Responsibilities**
+- grouped discovery;
+- bounded Batch Apex scopes;
+- durable work units;
+- collection-based SOQL/DML;
+- Composite API where appropriate;
+- aggregated queries;
+- pagination;
+- lazy retrieval.
 
-- Starts manual or scheduled scans.
-- Creates the scan/run context.
-- Prevents conflicting active scans.
-- Starts the discovery pipeline.
+Avoid SOQL, DML or avoidable network requests inside item-by-item loops.
 
-**Should not become:** a metadata parser or scanner implementation.
+## Fast reads, asynchronous heavy work
 
----
+Scanning an enterprise org can legitimately take time. Opening Field Usage and building a map should not.
 
-### `FieldUsageDiscoveryBatch`
+Heavy discovery and analysis belongs in asynchronous scan processing. The UI should consume compact snapshots, summaries and lazy detail.
 
-Schema-based discovery stage.
+## Persist progress, not giant transaction state
 
-**Responsibilities**
+Large operations should be represented by durable run/work-unit records. Do not rely on a single transaction or huge in-memory collection to represent an entire enterprise scan.
 
-- Iterates Salesforce objects safely through Batch Apex.
-- Discovers Formula Field work.
-- Creates durable work units.
-- Chains into Tooling API discovery.
+## One source type, one scanner responsibility
 
-Formula work is grouped so scanning remains bulk-oriented instead of creating unnecessary tiny transactions.
+Apex logic belongs in the Apex scanner. Flow logic belongs in the Flow scanner. The same applies to LWC, Aura, Formula and Validation Rules.
 
----
+All scanners converge into the same normalised evidence model.
 
-### `FieldUsageToolingDiscoveryBatch`
+## Correctness before cleverness
 
-Metadata discovery stage.
+Optimisation must not make field matching unreliable. Prefer understandable parsing/matching logic that can be tested over obscure micro-optimisations.
 
-**Responsibilities**
+## Progressive disclosure
 
-- Discovers Apex Classes and Triggers.
-- Discovers active Flows.
-- Discovers LWC bundles.
-- Discovers Aura bundles.
-- Discovers Validation Rules.
-- Converts discovered metadata into durable work units.
+Do not load information before the user needs it.
 
-This class should remain a **discovery/co-ordination layer**, not contain detailed parsing rules for every metadata type.
+The map should first show a useful lightweight structure. Detailed evidence is loaded when a source/component is expanded.
 
----
+## Cache safely
 
-### `FieldUsageWorkUnitBatch`
+Cache expensive UI detail only within the identity of the current successful snapshot. A newly successful scan invalidates the old snapshot cache.
 
-Execution engine for discovered work.
+## Preserve the last good state
 
-**Responsibilities**
+A failed scan must not destroy the last successful snapshot. Users should continue to have usable data while a replacement scan is running or if it fails.
 
-- Reads pending work units.
-- Processes work in bounded chunks.
-- Routes each work unit to the correct scanner.
-- Records completion/failure state.
-- Maintains scan progress and heartbeat information.
-- Chains further batches when required.
+## Refactor when responsibility changes
 
-This is one of the most important scalability boundaries in V3. New scanners should plug into this execution model rather than introduce an unrelated scan pipeline.
+If a method starts doing discovery + HTTP + parsing + persistence + presentation, split it. File size alone is not the only trigger; mixed responsibility is the stronger warning sign.
 
 ---
 
-### `FieldUsageApexScanner`
+# 3. Coding standards
 
-Analyses Apex source for field references.
+These are the standards future V3 work should follow.
 
-**Typical inputs:** Apex Classes and Apex Triggers.
+## Apex standards
 
-**Output:** normalised Field Usage evidence.
+### Naming
 
-Keep Apex-specific parsing and matching logic here rather than in the batch/orchestration classes.
+- Classes: `PascalCase`.
+- Methods/variables: `camelCase`.
+- Constants: clear immutable names consistent with the existing codebase.
+- Scanner classes: `FieldUsage<Source>Scanner`.
+- API/client classes: describe the external boundary they own.
+- Batch classes: make the batch responsibility explicit in the name.
 
----
+Names should explain intent. Avoid vague names such as `Helper2`, `UtilsNew`, `processStuff()` or `data1`.
 
-### `FieldUsageFlowScanner`
+### Methods
 
-Analyses Flow metadata for field references.
+Methods should have one primary responsibility.
 
-**Responsibilities**
-
-- Understand Flow metadata structure.
-- Identify references to Salesforce fields.
-- Produce normalised evidence for the common persistence layer.
-
-Flow metadata can be large, so future changes should continue to favour chunked retrieval and bounded processing.
-
----
-
-### `FieldUsageLwcScanner`
-
-Analyses Lightning Web Component resources.
-
-**Responsibilities**
-
-- Inspect LWC source resources.
-- Detect field references.
-- Produce evidence using the same model as the other scanners.
-
-The scanner is deliberately separate so JavaScript/HTML-specific analysis can evolve without affecting Apex or Flow scanning.
-
----
-
-### `FieldUsageAuraScanner`
-
-Analyses Aura component resources.
-
-It follows the same scanner contract and persistence approach as LWC while keeping Aura-specific source interpretation isolated.
-
----
-
-### `FieldUsageFormulaScanner`
-
-Analyses calculated Salesforce fields.
-
-**Responsibilities**
-
-- Read Formula Field expressions.
-- Resolve references against the owning object/schema.
-- Identify direct field dependencies.
-- Persist Formula Field evidence.
-
-A future enhancement can extend this into deeper chained-formula and cross-object dependency analysis.
-
----
-
-### `FieldUsageValidationRuleScanner`
-
-Analyses Validation Rule formulas.
-
-**Responsibilities**
-
-- Process Validation Rule metadata in bulk work units.
-- Analyse `errorConditionFormula` expressions.
-- Resolve referenced fields.
-- Persist Validation Rule evidence.
-
-Validation Rule metadata retrieval is designed to be batched rather than issuing one independent callout for every rule.
-
----
-
-### `FieldUsageToolingApiClient`
-
-Shared Tooling API access used by core metadata scanning.
-
-**Importance:** API transport belongs in a client/service layer. Scanners should consume metadata without each reimplementing authentication, HTTP handling and pagination.
-
----
-
-### `FieldUsageUiToolingClient`
-
-Tooling/REST access focused on UI metadata and Validation Rules.
-
-**Responsibilities**
-
-- LWC bundle/resource retrieval.
-- Aura bundle/resource retrieval.
-- Validation Rule discovery.
-- Bulk Validation Rule metadata retrieval through REST Composite.
-
-This keeps UI-oriented metadata retrieval independent from the original Apex/Flow client and gives it room to evolve.
-
----
-
-### `FieldUsageSnapshotFinalizer`
-
-Completes the snapshot lifecycle.
-
-**Responsibilities**
-
-- Finalise successful/failed scans.
-- Record totals/errors.
-- Promote the newly successful snapshot to current.
-- Preserve the last usable successful snapshot when a new scan fails.
-
-The UI should always prefer the **current successful snapshot**, never partially scanned data.
-
----
-
-### `FieldUsageController`
-
-Server-side API used by the LWC.
-
-Important methods/concepts include:
-
-- `runNow()` — starts a manual scan.
-- `getStatus()` — supplies durable scan and Batch Apex progress to the polling console.
-- `getSnapshotAvailability()` — determines whether usable Field Usage data exists.
-- `getSnapshotObjects()` / `getSnapshotFields()` — populate selectors.
-- `getEvidenceSummary()` — returns aggregated data for initial map construction.
-- `getEvidenceDetail()` — returns paginated detailed evidence only when requested.
-- `searchEvidence()` — bounded evidence search.
-- `getSourceTypes()` — exposes supported evidence categories to the UI.
-
-### Performance rule
-
-`getEvidenceSummary()` should remain the normal **Map button** path. Do not replace it with a query that hydrates thousands of evidence rows.
-
-`getEvidenceDetail()` is the deeper lazy-load path and should remain paginated.
-
----
-
-## Persistence model
-
-### `Field_Usage_Run__c`
-
-Represents one complete scan attempt and its lifecycle/progress.
-
-### `Field_Usage_Work_Unit__c`
-
-Durable queue/checkpoint representing a bounded piece of scan work.
-
-This is critical for reliability because large scans are not dependent on one Apex transaction surviving from beginning to end.
-
-### `Field_Usage_Evidence__c`
-
-Normalised output from every scanner.
-
-The common evidence model is what allows the UI to visualise Apex, Flow, LWC, Aura, Formula and Validation Rule usage through one architecture.
-
----
-
-## LWC architecture
-
-### `diagramStudio`
-
-This remains the main application shell and currently owns significant UI orchestration.
-
-For Field Usage it should increasingly act as a **co-ordinator**, not contain every map algorithm, parser and cache implementation directly.
-
-### `fieldUsageMapLogic`
-
-Owns reusable Field Usage map construction/interaction logic.
-
-The map-building path should work from compact indexed summary data rather than repeatedly filtering large evidence arrays.
-
-### Map loading strategy
-
-The desired interaction model is:
+Prefer:
 
 ```text
-Select Object + Fields
-        |
-        v
-      Map
-        |
-        v
-Lightweight source/category graph
-        |
-        +--> click Apex --------> lazy-load Apex detail
-        |
-        +--> click Flow --------> lazy-load Flow detail
-        |
-        +--> click LWC ---------> lazy-load LWC detail
-        |
-        +--> click Aura --------> lazy-load Aura detail
-        |
-        +--> click Formula -----> lazy-load Formula detail
-        |
-        +--> click Validation --> lazy-load Validation detail
-
-Loaded branch -> client cache -> collapse/expand without another server request
+discover metadata
+-> create work units
+-> process work unit
+-> scanner parses source
+-> persist evidence
 ```
 
-This architecture keeps **time-to-first-map** independent from the total volume of detailed evidence wherever possible.
+rather than one method performing the complete lifecycle.
+
+Keep public/global surface area as small as practical. Helper methods should normally be `private` unless another class genuinely requires them.
+
+### SOQL and DML
+
+- Never intentionally place SOQL/DML inside per-record loops.
+- Query only fields needed by the operation.
+- Use Sets and Maps for lookup/indexing.
+- Aggregate in SOQL where the database can do the work more cheaply than Apex.
+- Bulk insert/update evidence and work records.
+- Bound query result sizes for interactive APIs.
+
+### Callouts
+
+- Keep HTTP/Tooling/REST transport in client classes.
+- Do not duplicate endpoint/authentication/error handling across scanners.
+- Batch requests where Salesforce APIs allow it.
+- Respect callout count, response size and heap limits.
+- Do not increase chunk size merely to make a benchmark look faster.
+
+### Batch Apex
+
+- Batch scopes must be intentionally bounded.
+- Batch jobs should be restartable from persisted state where practical.
+- `execute()` should process the supplied scope, not rediscover the entire org.
+- `finish()` should co-ordinate the next stage/finalisation, not perform an unbounded second scan.
+- Progress should be observable through durable run/work-unit state.
+
+### Error handling
+
+- Fail a work unit explicitly when its processing fails.
+- Preserve enough error context to diagnose the source/component.
+- Do not silently swallow exceptions that make a scan appear successful.
+- A partial/failed scan must not replace the current successful snapshot.
+
+### Evidence
+
+Every scanner should emit the common evidence shape rather than invent a scanner-specific persistence model unless there is a strong architectural reason.
+
+Source-specific details belong in the appropriate evidence fields/context, while common object/field/source identity remains consistent.
+
+### Security
+
+- Respect Salesforce sharing/security decisions already established by the application.
+- Avoid dynamically constructing unsafe SOQL from untrusted values.
+- Validate/normalise metadata identifiers used in dynamic operations.
+- Never place credentials, session identifiers or secrets into logs/evidence.
 
 ---
 
-## Batch polling console
+## LWC / JavaScript standards
 
-The Batch Apex polling screen is intentionally separate from map performance work.
+### Keep `diagramStudio.js` as an orchestrator
 
-It uses durable scan state plus `AsyncApexJob` information to display progress while the scan is running.
+New cohesive behaviour should be extracted into modules when practical.
 
-Changes to Field Usage map caching, map rendering or post-scan UI refresh should not alter the polling cadence or progress experience unless specifically required.
+Good module candidates include:
+
+- map construction/layout;
+- evidence/cache handling;
+- scan console behaviour;
+- help/configuration content;
+- export logic;
+- feature-specific calculations.
+
+### Avoid repeated large-array scans
+
+When map construction repeatedly needs the same relationships, build indexes (`Map`/`Set`) once and perform lookups rather than repeatedly calling `filter()`/`find()` across the same large arrays.
+
+### Lazy loading
+
+Initial UI actions should request only what is needed to render the current screen.
+
+Do not retrieve all evidence because the user might click it later.
+
+### Cache behaviour
+
+A branch that has already been expanded may be cached so collapse/re-expand is instant.
+
+Cache keys should include enough identity to prevent evidence from one snapshot/object/field/source from appearing in another context.
+
+### UI state
+
+Do not clear the previous successful Field Usage data when a scan merely starts.
+
+Only invalidate old Field Usage client state when the replacement Full Scan has successfully completed and become current.
+
+### Rendering
+
+Keep expensive calculations outside repeated render/getter paths where possible. Compute/index once when input changes rather than recomputing on every render cycle.
+
+### User experience
+
+Long operations should show state/progress. Fast interactive operations such as Map should not inherit scan-time work.
 
 ---
 
-## Successful scan refresh behaviour
+# 4. Main Apex classes
 
-The intended UI lifecycle is:
+## `FieldUsageOrchestrator`
+
+Entry point/co-ordinator for Field Usage scans.
+
+**Does:** create/start scan context, prevent conflicting scans, begin discovery.
+
+**Does not:** parse individual metadata types.
+
+## `FieldUsageDiscoveryBatch`
+
+Schema-based discovery.
+
+**Does:** iterate objects safely, discover Formula work, create durable work units, chain Tooling discovery.
+
+## `FieldUsageToolingDiscoveryBatch`
+
+Metadata discovery.
+
+**Does:** discover Apex, Flow, LWC, Aura and Validation Rule metadata and convert it into bounded work units.
+
+**Does not:** contain every source parser.
+
+## `FieldUsageWorkUnitBatch`
+
+Common execution engine.
+
+**Does:** read pending work units, process bounded scopes, route by scanner type, maintain progress and completion state.
+
+This is a routing/execution layer, not the correct location for large source-specific parsing implementations.
+
+## `FieldUsageApexScanner`
+
+Parses Apex Classes/Triggers and emits field-use evidence.
+
+## `FieldUsageFlowScanner`
+
+Parses Flow metadata and emits field-use evidence.
+
+## `FieldUsageLwcScanner`
+
+Parses Lightning Web Component resources and emits field-use evidence.
+
+## `FieldUsageAuraScanner`
+
+Parses Aura resources and emits field-use evidence.
+
+## `FieldUsageFormulaScanner`
+
+Parses Formula Field expressions and resolves field dependencies.
+
+Future enhancement: chained formulas and richer cross-object traversal.
+
+## `FieldUsageValidationRuleScanner`
+
+Parses Validation Rule `errorConditionFormula` metadata and emits field-use evidence.
+
+Validation Rule retrieval should remain bulk/chunk oriented.
+
+## `FieldUsageToolingApiClient`
+
+Shared Tooling API transport for core metadata retrieval.
+
+## `FieldUsageUiToolingClient`
+
+UI metadata/REST client used for LWC, Aura and Validation Rule retrieval, including Composite retrieval where appropriate.
+
+## `FieldUsageSnapshotFinalizer`
+
+Finalises run status and promotes a newly successful snapshot to current while protecting the last successful snapshot from failed replacements.
+
+## `FieldUsageController`
+
+LWC-facing service/controller.
+
+Important API concepts:
+
+- `runNow()` — start manual scan.
+- `getStatus()` — polling/progress state.
+- `getSnapshotAvailability()` — usable snapshot check.
+- `getSnapshotObjects()` / `getSnapshotFields()` — selectors.
+- `getEvidenceSummary()` — compact aggregated Map input.
+- `getEvidenceDetail()` — paginated lazy detail.
+- `searchEvidence()` — bounded search.
+- `getSourceTypes()` — supported evidence categories.
+
+**Critical rule:** do not turn `getEvidenceSummary()` into a full evidence hydration API.
+
+---
+
+# 5. Persistence model
+
+## `Field_Usage_Run__c`
+
+One complete scan attempt, including lifecycle/progress.
+
+## `Field_Usage_Work_Unit__c`
+
+Durable bounded unit of scan work. This provides checkpointing, scalability and observability.
+
+## `Field_Usage_Evidence__c`
+
+Common normalised output from all scanners. This shared model is what allows one search/map/impact architecture to work across many metadata types.
+
+---
+
+# 6. Field Usage map architecture
+
+The target read path is:
 
 ```text
-Existing successful snapshot visible
-            |
-       New scan starts
-            |
-Existing results remain usable while scan runs
-            |
-      Scan successful?
-       /          \
-     No            Yes
-     |              |
-Keep old UI     invalidate old client caches
-and snapshot    switch to new current snapshot
-                    |
-               reload on demand
+Object + Field selection
+        |
+        v
+       Map
+        |
+        v
+getEvidenceSummary()
+        |
+        v
+Compact indexed graph
+        |
+        +---- Apex
+        +---- Flow
+        +---- LWC
+        +---- Aura
+        +---- Formula
+        +---- Validation Rule
+                |
+          user expands branch
+                |
+                v
+       getEvidenceDetail()
+                |
+                v
+       paginated evidence
+                |
+                v
+        client-side cache
 ```
 
-A failed scan should not destroy the user's previous usable Field Usage results.
+The Map button should therefore not pay the cost of loading every source snippet or evidence record.
+
+Collapse should hide an already-loaded branch. Re-expand should use cached detail where the snapshot/context is unchanged.
 
 ---
 
-## Adding another scanner in the future
+# 7. Batch polling console boundary
 
-For example, adding a future **Process Builder**, **Email Template**, **Permission metadata** or another dependency source should normally require:
+The Batch Apex polling console is a separate concern from map rendering.
 
-1. Add discovery logic that creates bounded work units.
-2. Create a dedicated scanner class.
-3. Route its scanner type through `FieldUsageWorkUnitBatch`.
-4. Produce the existing normalised evidence format.
-5. Add its source type to the controller/UI.
-6. Add map styling/icon behaviour if required.
-7. Add focused tests for the scanner and orchestration route.
+It should continue to show durable scan progress, Batch Apex status and completion/failure information while scan processing runs.
 
-Do **not** put the new parser directly into `FieldUsageWorkUnitBatch` or `diagramStudio.js` merely because those classes already participate in the workflow.
+Map optimisation, lazy loading and cache invalidation must not accidentally break polling cadence or the scan-console experience.
 
 ---
 
-## Architectural principles to preserve
+# 8. Successful scan refresh rule
 
-### 1. Bulk first
+```text
+Previous successful snapshot
+          |
+     Full Scan starts
+          |
+Keep previous UI usable
+          |
+      Scan result
+      /        \
+   Failed    Successful
+     |           |
+keep old      promote new snapshot
+snapshot          |
+              invalidate old UI cache
+                  |
+              load new data on demand
+```
 
-Salesforce limits should drive the design. Prefer grouped discovery, chunked work units, Composite API where appropriate, aggregation and bounded queries.
-
-### 2. Durable work
-
-Large scans should be restartable/observable through persisted work units rather than relying on large in-memory collections.
-
-### 3. One scanner, one responsibility
-
-Apex parsing belongs in the Apex scanner. Flow parsing belongs in the Flow scanner. The same applies to LWC, Aura, Formula and Validation Rules.
-
-### 4. Common evidence model
-
-Source-specific scanners should converge into one evidence representation. This keeps search, map visualisation and impact analysis generic.
-
-### 5. Lazy read path
-
-Scanning can be expensive because it happens asynchronously. Reading the result should be fast.
-
-Initial UI operations should retrieve summaries and aggregates; expensive evidence should be loaded only when the user asks for it.
-
-### 6. Cache only within a snapshot
-
-Expanded map branches can be cached for fast collapse/re-expand, but cache identity must include the current snapshot/run. A newly successful Full Scan must invalidate evidence from the previous snapshot.
-
-### 7. Keep UI modules small
-
-Continue extracting cohesive logic from `diagramStudio.js`. The long-term goal is for the main component to orchestrate smaller modules rather than become the implementation location for every Studio feature.
+This is intentional. Starting a scan is not permission to remove the user's last good data.
 
 ---
 
-## Areas for improvement
+# 9. How to add a future scanner
 
-### High priority
+Example: adding another metadata dependency source.
 
-**Post-success cache invalidation** — after a Full Scan successfully becomes current, clear stale Field Usage table/map/detail caches without disrupting the Batch Apex polling console.
+1. Decide how the source is discovered efficiently.
+2. Create bounded `Field_Usage_Work_Unit__c` records.
+3. Add a dedicated `FieldUsage<Source>Scanner`.
+4. Add routing in the work-unit execution layer.
+5. Emit the common evidence format.
+6. Add the source type to controller/UI options.
+7. Add map representation if required.
+8. Add scanner-focused tests.
+9. Validate Salesforce metadata/compilation.
+10. Performance-test against realistic metadata volume.
 
-**Map time-to-first-render** — continue measuring the Map button separately from scan performance. Initial graph construction should require summary data only.
-
-**Salesforce metadata validation** — every scanner addition should be compile/metadata validated against a Salesforce org before being considered deployment-ready.
-
-**Large-org performance tests** — test with evidence volumes representative of enterprise organisations, not only small Developer Edition datasets.
-
-### Medium priority
-
-**Formula dependency depth** — support chained Formula Fields and richer cross-object paths.
-
-**Validation Rule intelligence** — distinguish direct field references from more complex dependency expressions and expose active/inactive state clearly.
-
-**Scanner contract/interface** — as scanner count grows, consider introducing a common Apex interface or abstract scanner contract so routing and evidence production become even more consistent.
-
-**Configuration** — eventually move scanner chunk sizes and supported-source behaviour into controlled configuration where doing so improves maintainability without exposing dangerous values.
-
-### Longer term
-
-**Incremental scans** — investigate whether metadata modification timestamps can safely reduce work after an initial full snapshot.
-
-**Observability metrics** — capture scanner duration, work-unit throughput, evidence produced per scanner and API/callout cost so performance regressions are visible.
-
-**Dependency graph intelligence** — use the normalised evidence model for blast radius, transitive dependency paths, hotspots and change-readiness scoring.
+Do not implement the entire new scanner inside `FieldUsageWorkUnitBatch`, `FieldUsageController` or `diagramStudio.js`.
 
 ---
 
-## Why this architecture matters
+# 10. Definition of done for Field Usage changes
 
-V3 is moving beyond a simple ER diagrammer into data architecture intelligence. Field Usage can potentially inspect thousands of fields and many thousands of metadata components.
+A Field Usage change should not be considered complete merely because it works with one record in a Developer Edition org.
 
-A monolithic scanner might work in a small org but becomes difficult to test, tune and extend. The V3 architecture therefore separates:
+Before calling a meaningful scanner change complete, check:
 
-**orchestration → discovery → durable work → source scanner → evidence → snapshot → query API → lazy visualisation**.
-
-That separation is what should allow future capabilities to grow without repeatedly rewriting the core application.
+- Salesforce metadata compiles/deploys.
+- Bulk behaviour is preserved.
+- No SOQL/DML-in-loop regression was introduced.
+- Callout limits are considered.
+- Work units remain bounded.
+- Existing scanner types still route correctly.
+- Failed scans do not replace the last successful snapshot.
+- Map initial load does not hydrate unnecessary detail.
+- Lazy detail remains paginated/bounded.
+- Cache cannot leak between snapshots.
+- Batch polling remains functional.
+- Tests cover important scanner/parser behaviour.
+- Large-org performance implications have been considered.
 
 ---
 
-## Quick developer rule
+# 11. Areas for improvement
 
-When adding something to Field Usage, ask:
+## High priority
 
-> Is this orchestration, discovery, source-specific scanning, persistence, querying, caching or presentation?
+**Post-success client invalidation** — invalidate old Field Usage table/map/detail caches only after a replacement Full Scan successfully becomes current.
 
-Put it in the layer that owns that responsibility. If a change seems to require adding large amounts of unrelated logic to `FieldUsageWorkUnitBatch`, `FieldUsageController` or `diagramStudio.js`, that is usually a signal that another module/class should be created.
+**Map time-to-first-render** — measure Map-button latency independently from scan duration. Keep initial graph construction summary-only.
+
+**Salesforce validation** — metadata compile/deployment validation should be part of the workflow for scanner changes.
+
+**Large-org testing** — test realistic evidence/component volumes and heap/callout behaviour.
+
+## Medium priority
+
+**Formula dependency depth** — chained formulas and richer cross-object paths.
+
+**Validation Rule intelligence** — richer dependency/context representation and active/inactive visibility.
+
+**Formal scanner contract** — as scanner count grows, consider an Apex interface/abstract contract for more uniform routing and evidence creation.
+
+**Configuration** — selectively externalise safe chunk/feature configuration where it improves maintainability.
+
+**Further LWC modularisation** — continue reducing unrelated responsibility in `diagramStudio.js`.
+
+## Longer term
+
+**Incremental scans** — investigate safe metadata-change-based scanning after a baseline snapshot.
+
+**Observability** — scanner duration, work-unit throughput, evidence count, callout/API cost and failure metrics.
+
+**Architecture intelligence** — use the common evidence graph for transitive blast radius, dependency paths, hotspots and change-readiness analysis.
+
+---
+
+# 12. Why the architecture matters
+
+V3 is moving beyond ER drawing into Salesforce data architecture intelligence. A large org can contain thousands of fields and many thousands of metadata components.
+
+The architecture therefore intentionally separates:
+
+**orchestration → discovery → durable work → source scanner → normalised evidence → snapshot → query API → lazy visualisation**.
+
+This gives developers clear extension points and prevents every new feature from increasing coupling across the whole application.
+
+---
+
+# 13. Quick developer decision rule
+
+Before adding code, ask:
+
+> Is this orchestration, discovery, API transport, source-specific scanning, persistence, querying, caching or presentation?
+
+Put the code in the layer that owns that responsibility.
+
+Then ask:
+
+> Will this still behave safely if the org contains 10× or 100× more metadata?
+
+If the answer depends on loading everything into memory, querying inside a loop, making one callout per item, or putting another large unrelated block into `diagramStudio.js`, reconsider the design before committing it.
