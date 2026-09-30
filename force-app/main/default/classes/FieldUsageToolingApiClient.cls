@@ -45,60 +45,35 @@ public without sharing class FieldUsageToolingApiClient {
         }
     }
 
-    public static List<SourceComponent> getApexClassIndex() {
-        return queryComponents('ApexClass', 'Apex Class', false, null);
-    }
-
-    public static List<SourceComponent> getApexTriggerIndex() {
-        return queryComponents('ApexTrigger', 'Apex Trigger', false, null);
-    }
-
-    public static List<SourceComponent> getApexClasses(Set<String> componentIds) {
-        return queryComponents('ApexClass', 'Apex Class', true, componentIds);
-    }
-
-    public static List<SourceComponent> getApexTriggers(Set<String> componentIds) {
-        return queryComponents('ApexTrigger', 'Apex Trigger', true, componentIds);
-    }
+    public static List<SourceComponent> getApexClassIndex() { return queryComponents('ApexClass', 'Apex Class', false, null); }
+    public static List<SourceComponent> getApexTriggerIndex() { return queryComponents('ApexTrigger', 'Apex Trigger', false, null); }
+    public static List<SourceComponent> getApexClasses(Set<String> componentIds) { return queryComponents('ApexClass', 'Apex Class', true, componentIds); }
+    public static List<SourceComponent> getApexTriggers(Set<String> componentIds) { return queryComponents('ApexTrigger', 'Apex Trigger', true, componentIds); }
 
     public static List<SourceComponent> getFlowIndex() {
         String soql = 'SELECT Id, MasterLabel, Status, VersionNumber FROM Flow WHERE Status = \'Active\' ORDER BY MasterLabel';
         return queryFlowIndex(soql);
     }
 
-    /**
-     * Retrieves the complete Tooling Flow record through a SOQL query that
-     * explicitly requests Metadata. The generic sObject GET endpoint does not
-     * reliably return the Metadata field, which caused active Flows to be
-     * discovered but then scanned with null metadata and therefore produce no
-     * field-usage evidence.
-     */
     public static List<Field_Usage_Evidence__c> scanFlow(Id runId,String componentId) {
-        if(String.isBlank(componentId))return new List<Field_Usage_Evidence__c>();
+        if(String.isBlank(componentId)) return new List<Field_Usage_Evidence__c>();
 
-        String soql =
-            'SELECT Id, MasterLabel, Metadata FROM Flow WHERE Id = \' +
-            String.escapeSingleQuotes(componentId) + '\' LIMIT 1';
-        String relativeUrl =
-            '/services/data/' + API_VERSION + '/tooling/query/?q=' +
-            EncodingUtil.urlEncode(soql,'UTF-8');
+        // Build the SOQL literal separately so Apex quoting stays valid and obvious.
+        String quotedId = '\'' + String.escapeSingleQuotes(componentId) + '\'';
+        String soql = 'SELECT Id, MasterLabel, Metadata FROM Flow WHERE Id = ' + quotedId + ' LIMIT 1';
+        String relativeUrl = '/services/data/' + API_VERSION + '/tooling/query/?q=' + EncodingUtil.urlEncode(soql,'UTF-8');
 
         HttpResponse response=send(relativeUrl);
         Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());
-        List<Object> records=payload.get('records') instanceof List<Object>
-            ? (List<Object>)payload.get('records')
-            : new List<Object>();
-        if(records.isEmpty())return new List<Field_Usage_Evidence__c>();
+        List<Object> records=payload.get('records') instanceof List<Object> ? (List<Object>)payload.get('records') : new List<Object>();
+        if(records.isEmpty()) return new List<Field_Usage_Evidence__c>();
 
         Map<String,Object> record=(Map<String,Object>)records[0];
         String flowId=(String)record.get('Id');
         String flowName=(String)record.get('MasterLabel');
         Object metadata=record.get('Metadata');
         if(metadata==null){
-            throw new ToolingApiException(
-                'Tooling API returned active Flow ' + String.valueOf(flowName) +
-                ' without Metadata. The Flow cannot be scanned for field usage.'
-            );
+            throw new ToolingApiException('Tooling API returned active Flow ' + String.valueOf(flowName) + ' without Metadata. The Flow cannot be scanned for field usage.');
         }
         return FieldUsageFlowScanner.scan(runId,flowName,flowId,metadata);
     }
@@ -130,58 +105,27 @@ public without sharing class FieldUsageToolingApiClient {
     }
     private static String safeBody(HttpResponse response){String body=response==null?null:response.getBody();return body==null?'':body;}
 
-    private static List<SourceComponent> queryComponents(
-        String toolingObject,
-        String sourceType,
-        Boolean includeBody,
-        Set<String> componentIds
-    ) {
+    private static List<SourceComponent> queryComponents(String toolingObject,String sourceType,Boolean includeBody,Set<String> componentIds) {
         String fields = includeBody ? 'Id, Name, Body' : 'Id, Name';
         String whereClause = 'Id != null';
-
         if (componentIds != null && !componentIds.isEmpty()) {
             List<String> escapedIds = new List<String>();
-            for (String componentId : componentIds) {
-                escapedIds.add('\'' + String.escapeSingleQuotes(componentId) + '\'');
-            }
+            for (String componentId : componentIds) escapedIds.add('\'' + String.escapeSingleQuotes(componentId) + '\'');
             whereClause += ' AND Id IN (' + String.join(escapedIds, ',') + ')';
         }
-
-        String soql =
-            'SELECT ' + fields + ' FROM ' + toolingObject +
-            ' WHERE ' + whereClause + ' ORDER BY Name';
-
-        String nextUrl =
-            '/services/data/' + API_VERSION + '/tooling/query/?q=' +
-            EncodingUtil.urlEncode(soql, 'UTF-8');
-
+        String soql = 'SELECT ' + fields + ' FROM ' + toolingObject + ' WHERE ' + whereClause + ' ORDER BY Name';
+        String nextUrl = '/services/data/' + API_VERSION + '/tooling/query/?q=' + EncodingUtil.urlEncode(soql, 'UTF-8');
         List<SourceComponent> components = new List<SourceComponent>();
-
         while (nextUrl != null) {
             HttpRequest request = new HttpRequest();
-            request.setEndpoint(NAMED_CREDENTIAL + nextUrl);
-            request.setMethod('GET');
-            request.setHeader('Accept','application/json');
-            request.setTimeout(120000);
-
+            request.setEndpoint(NAMED_CREDENTIAL + nextUrl);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(120000);
             HttpResponse response = new Http().send(request);
-            if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
-                throw new ToolingApiException(
-                    'Tooling API ' + toolingObject + ' query failed with HTTP ' +
-                    response.getStatusCode() + ': ' + response.getBody().left(1000)
-                );
-            }
-
+            if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) throw new ToolingApiException('Tooling API ' + toolingObject + ' query failed with HTTP ' + response.getStatusCode() + ': ' + response.getBody().left(1000));
             Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());
             List<Object> records=payload.get('records') instanceof List<Object>?(List<Object>)payload.get('records'):new List<Object>();
             for(Object rawRecord:records){
                 Map<String,Object> record=(Map<String,Object>)rawRecord;
-                SourceComponent component=new SourceComponent();
-                component.id=(String)record.get('Id');
-                component.name=(String)record.get('Name');
-                component.body=includeBody?(String)record.get('Body'):null;
-                component.sourceType=sourceType;
-                components.add(component);
+                SourceComponent component=new SourceComponent();component.id=(String)record.get('Id');component.name=(String)record.get('Name');component.body=includeBody?(String)record.get('Body'):null;component.sourceType=sourceType;components.add(component);
             }
             nextUrl=(String)payload.get('nextRecordsUrl');
         }
