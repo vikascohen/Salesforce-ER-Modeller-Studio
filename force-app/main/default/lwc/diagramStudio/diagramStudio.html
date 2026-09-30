@@ -1127,7 +1127,7 @@
             <header class="fu-header"><div><div class="arch-kicker">ORG SNAPSHOT INTELLIGENCE</div><h1>Field Usage Map</h1><p>Explore persisted field dependency evidence from the latest successful org snapshot.</p></div>
                 <div class="fu-actions"><button class="arch-action-btn" onclick={handleFieldUsageClear}>Clear Map</button><button class="arch-action-btn" onclick={handleOpenFieldUsageConsole}>Scan Console</button><button class="arch-action-btn" onclick={handleCloseFieldUsage}>Back to Diagram</button></div></header>
             <template if:true={fieldUsageLoading}>
-                <div class="afi-empty"><strong>Loading Field Usage snapshot…</strong><p>Checking for persisted dependency evidence.</p></div>
+                <div class="afi-empty"><strong>Loading Field Usage snapshot…</strong><p>Please wait while the latest successful dependency snapshot is prepared. Large orgs can take a few moments to load.</p></div>
             </template>
             <template if:true={fieldUsageShowEntryMessage}>
                 <div class="afi-empty"><strong>{fieldUsageEntryMessage}</strong>
