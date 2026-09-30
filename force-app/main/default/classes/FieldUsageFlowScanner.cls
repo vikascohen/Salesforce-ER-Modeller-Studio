@@ -24,17 +24,49 @@ public without sharing class FieldUsageFlowScanner {
                 Run__c=runId,Field_Key__c=key,Object_API_Name__c=parts[0],Field_API_Name__c=parts[1],
                 Source_Type__c='Flow',Component_Name__c=flowName,Component_Id__c=flowId,
                 Evidence_Type__c='Flow Metadata',Confidence__c='High',Observed_At__c=System.now(),
-                Occurrence_Count__c=counts.get(key),Location__c='Flow metadata',
-                Evidence__c=formatLocations(locations.get(key))
+                Occurrence_Count__c=counts.get(key),Location__c='Flow metadata',Evidence__c=formatLocations(locations.get(key))
             ));
         }
         return out;
     }
 
     private static String discoverFlowContext(Object node,Map<String,String> variableObjects){
+        // For record-triggered flows the authoritative root object lives on the
+        // start element. Resolve that first instead of requiring every object
+        // mentioned anywhere in the flow to be the same object.
+        String startObject=findStartObject(node);
         Set<String> rootCandidates=new Set<String>();
         discover(node,variableObjects,rootCandidates,false);
+        if(!String.isBlank(startObject))return startObject;
         if(rootCandidates.size()==1)return new List<String>(rootCandidates)[0];
+        return null;
+    }
+
+    private static String findStartObject(Object node){
+        if(node==null)return null;
+        if(node instanceof Map<String,Object>){
+            Map<String,Object> m=(Map<String,Object>)node;
+            if(m.containsKey('start') && m.get('start') instanceof Map<String,Object>){
+                Map<String,Object> start=(Map<String,Object>)m.get('start');
+                String objectName=firstString(start,new List<String>{'object','objectName','sObjectType','recordObject','objectType'});
+                if(isObject(objectName))return canonicalObject(objectName);
+            }
+            // Some API versions/callout serialisations can wrap the start node.
+            String nodeName=firstString(m,new List<String>{'name','developerName'});
+            if(nodeName=='start' || nodeName=='Start'){
+                String objectName=firstString(m,new List<String>{'object','objectName','sObjectType','recordObject','objectType'});
+                if(isObject(objectName))return canonicalObject(objectName);
+            }
+            for(String key:m.keySet()){
+                String found=findStartObject(m.get(key));
+                if(!String.isBlank(found))return found;
+            }
+        }else if(node instanceof List<Object>){
+            for(Object child:(List<Object>)node){
+                String found=findStartObject(child);
+                if(!String.isBlank(found))return found;
+            }
+        }
         return null;
     }
 
@@ -46,9 +78,6 @@ public without sharing class FieldUsageFlowScanner {
             String objectName=firstString(m,new List<String>{'object','objectName','sObjectType','recordObject','objectType'});
             if(isObject(objectName)){
                 if(!String.isBlank(name))variableObjects.put(name,canonicalObject(objectName));
-                // Flow start/record-trigger metadata normally declares the root
-                // object without a variable name. A single candidate is safe to
-                // use for $Record references.
                 if(!insideVariable)rootCandidates.add(canonicalObject(objectName));
             }
             for(String key:m.keySet()){
@@ -90,17 +119,14 @@ public without sharing class FieldUsageFlowScanner {
         if(String.isBlank(value)||value.length()>2000)return;
         String location=flowLocation(path,context);
 
-        // Ordinary Account.Name / Custom__c.Field__c references.
         Matcher qualified=Pattern.compile('\\b([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)\\b').matcher(value);
         while(qualified.find())addIfValid(qualified.group(1),qualified.group(2),counts,locations,location);
 
-        // Record-triggered Flow references are represented as $Record.Field.
         if(!String.isBlank(rootObject)){
-            Matcher recordRef=Pattern.compile('(?:\\$Record|\\{!\\$Record)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)').matcher(value);
+            Matcher recordRef=Pattern.compile('(?:\\{!)?\\$Record\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)').matcher(value);
             while(recordRef.find())addIfValid(rootObject,recordRef.group(1),counts,locations,location+' · $Record.'+recordRef.group(1));
         }
 
-        // Record variables: myContact.LastName or {!myContact.LastName}.
         Matcher variableRef=Pattern.compile('(?:\\{!)?([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)').matcher(value);
         while(variableRef.find()){
             String variableName=variableRef.group(1);
@@ -122,13 +148,8 @@ public without sharing class FieldUsageFlowScanner {
         return String.join(lines,'\n');
     }
 
-    private static Boolean isObject(String objectName){
-        return !String.isBlank(objectName)&&globalDescribe!=null&&globalDescribe.containsKey(objectName);
-    }
-
-    private static String canonicalObject(String objectName){
-        return isObject(objectName)?globalDescribe.get(objectName).getDescribe().getName():objectName;
-    }
+    private static Boolean isObject(String objectName){return !String.isBlank(objectName)&&globalDescribe!=null&&globalDescribe.containsKey(objectName);}
+    private static String canonicalObject(String objectName){return isObject(objectName)?globalDescribe.get(objectName).getDescribe().getName():objectName;}
 
     private static void addIfValid(String objectName,String fieldName,Map<String,Integer> counts,Map<String,Set<String>> locations,String location){
         if(String.isBlank(objectName)||String.isBlank(fieldName))return;
