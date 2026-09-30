@@ -2,6 +2,15 @@
  * @author Vikas Cohen
  */
 @IsTest private class FieldUsageOrchestratorTest {
+    private class PreflightMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req){
+            HttpResponse res=new HttpResponse();
+            res.setStatusCode(200);
+            res.setBody('{"totalSize":1,"done":true,"records":[{"Id":"01p000000000001AAA"}]}');
+            return res;
+        }
+    }
+
     @IsTest static void allowsRunWhenNothingIsActive(){
         FieldUsageOrchestrator.ensureNoActiveRun();
         System.assertEquals(0,[SELECT COUNT() FROM Field_Usage_Run__c WHERE Status__c IN ('Queued','Running')]);
@@ -22,6 +31,22 @@
         }catch(FieldUsageOrchestrator.ScanAlreadyRunningException e){
             System.assert(e.getMessage().contains('already running'));
         }
+    }
+
+    @IsTest static void scheduledRunGracefullyIgnoresConcurrentScan(){
+        insert new Field_Usage_Run__c(
+            Status__c='Running',
+            Run_Type__c='Manual',
+            Job_Id__c='707000000000001AAA'
+        );
+        FieldUsageOrchestrator.asyncJobActiveOverride=true;
+        Test.setMock(HttpCalloutMock.class,new PreflightMock());
+
+        Test.startTest();
+        FieldUsageOrchestrator.startScheduled();
+        Test.stopTest();
+
+        System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Run__c WHERE Status__c='Running']);
     }
 
     @IsTest static void recoversRunWhoseAsyncJobNoLongerExists(){
