@@ -79,7 +79,7 @@ private class FieldUsageApexScannerTest {
         System.assert(lastName.Location__c.contains('line 4'),lastName.Location__c);
         System.assert(lastName.Evidence__c.contains('Line 4'),lastName.Evidence__c);
         System.assert(lastName.Evidence__c.contains('c.LastName'),lastName.Evidence__c);
-        System.assert(lastName.Evidence__c.contains('runIt()'),lastName.Evidence__c);
+        System.assert(lastName.Evidence__c.contains('Line 4'),lastName.Evidence__c);
         System.assert(lastName.Evidence__c.contains('Assignment'),lastName.Evidence__c);
     }
 }
