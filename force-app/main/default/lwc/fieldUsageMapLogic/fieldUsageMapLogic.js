@@ -4,6 +4,8 @@ const ZOOM_STEP = 0.1;
 const NODE_W = 190;
 const NODE_H = 68;
 const MAP_PAD = 72;
+const COLLAPSED_EVIDENCE_LIMIT = 4;
+const MAX_EVIDENCE_ITEMS = 40;
 const X = { object: 30, field: 290, type: 560, component: 850, detail: 1160 };
 
 export function clampFieldUsageZoom(value) {
@@ -32,8 +34,14 @@ export function buildFieldUsageViewportStyle(map, zoom) {
 }
 
 function evidenceLines(row) {
-    const raw = String(row?.evidence || '').split('\\n').map(x => x.trim()).filter(Boolean);
-    return raw.length ? raw : [row?.location || row?.evidenceType || 'Usage detected'];
+    const evidence = String(row?.evidence || '');
+    const raw = evidence
+        .split(/(?:\\n|\r?\n)+/)
+        .map(value => value.trim())
+        .filter(Boolean);
+    if (raw.length) return raw;
+    const fallback = String(row?.location || row?.evidenceType || 'Usage detected').trim();
+    return fallback ? [fallback] : ['Usage detected'];
 }
 
 function sourceKind(sourceType) {
@@ -116,31 +124,44 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
                     const componentRows = details.filter(d => (d.componentName || 'Unknown component') === name);
                     const ck = `${tk}:component:${name}`;
                     const componentY = cursorY;
-                    const allLines = componentRows.flatMap(evidenceLines).slice(0, 24);
+                    const allLines = componentRows.flatMap(evidenceLines).slice(0, MAX_EVIDENCE_ITEMS);
                     const source = String(r.sourceType || '');
-                    const componentSub = source.toLowerCase().includes('flow') ? `${componentRows.length} evidence record${componentRows.length===1?'':'s'} · Flow element evidence` : `${componentRows.reduce((n,d)=>n+(Number(d.occurrenceCount)||1),0)} usages`;
+                    const evidenceKey = `${field}|${r.sourceType}|${name}`;
+                    const isExpanded = expanded.has(evidenceKey);
+                    const isFlow = source.toLowerCase().includes('flow');
+                    const componentUsageCount = componentRows.reduce((n,d)=>n+(Number(d.occurrenceCount)||1),0);
+                    const componentSub = isFlow
+                        ? `${componentRows.length} evidence record${componentRows.length===1?'':'s'} · Flow element evidence`
+                        : `${componentUsageCount} usage${componentUsageCount===1?'':'s'} · ${allLines.length > COLLAPSED_EVIDENCE_LIMIT ? (isExpanded ? 'expanded' : 'expand for all evidence') : 'evidence shown'}`;
                     add(ck, name, componentSub, X.component, componentY, 'component', { source:r.sourceType });
                     connect(tk, ck);
-                    const evidenceKey = `${field}|${r.sourceType}|${name}`;
-                    const limit = expanded.has(evidenceKey) ? allLines.length : 5;
-                    const visibleLines = allLines.slice(0, limit);
+
+                    const visibleLines = isExpanded ? allLines : allLines.slice(0, COLLAPSED_EVIDENCE_LIMIT);
                     const detailKeys = [];
                     visibleLines.forEach((line,j) => {
                         const dk = `${ck}:detail:${j}`;
                         detailKeys.push(dk);
                         const isUsage = /^Line\s+/i.test(line) || /^Flow\s*·/i.test(line) || /\$Record\./i.test(line);
                         const label = line.length > 118 ? `${line.slice(0,115)}…` : line;
-                        const sub = isUsage ? 'FIELD USED HERE' : (source.toLowerCase().includes('flow') ? 'FLOW ELEMENT / METADATA LOCATION' : 'USAGE CONTEXT');
+                        const sub = isUsage ? 'FIELD USED HERE' : (isFlow ? 'FLOW ELEMENT / METADATA LOCATION' : 'USAGE CONTEXT');
                         add(dk, label, sub, X.detail, componentY + j * 92, isUsage ? 'usage' : 'evidence', { source:r.sourceType });
                     });
-                    if (allLines.length > 5) {
+                    if (allLines.length > COLLAPSED_EVIDENCE_LIMIT) {
                         const moreKey = `${ck}:more`;
-                        const isExpanded = expanded.has(evidenceKey);
                         detailKeys.push(moreKey);
-                        add(moreKey, isExpanded ? 'Show less evidence' : `Show ${allLines.length - 5} more evidence item${allLines.length-5===1?'':'s'}`, isExpanded ? 'Collapse this evidence branch' : 'Keep the dependency map compact', X.detail, componentY + visibleLines.length * 92, 'evidence-more', { evidenceKey, toggleEvidence:true });
+                        const hiddenCount = Math.max(0, allLines.length - COLLAPSED_EVIDENCE_LIMIT);
+                        add(
+                            moreKey,
+                            isExpanded ? 'Show less evidence' : `Show ${hiddenCount} more evidence item${hiddenCount===1?'':'s'}`,
+                            isExpanded ? 'Collapse this evidence branch' : 'Expand this component to show every usage',
+                            X.detail,
+                            componentY + visibleLines.length * 92,
+                            'evidence-more',
+                            { evidenceKey, toggleEvidence:true }
+                        );
                     }
                     branchRequests.push([ck, detailKeys]);
-                    cursorY += Math.max(112, (visibleLines.length + (allLines.length > 5 ? 1 : 0)) * 92 + 18);
+                    cursorY += Math.max(112, (visibleLines.length + (allLines.length > COLLAPSED_EVIDENCE_LIMIT ? 1 : 0)) * 92 + 18);
                 });
                 cursorY += 18;
             });
