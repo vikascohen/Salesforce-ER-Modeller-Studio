@@ -4625,17 +4625,55 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     async handleFieldUsageNodeClick(e){
         const field=e.currentTarget.dataset.field,source=e.currentTarget.dataset.source;if(!field||!source)return;
-        e.currentTarget.setAttribute('aria-busy','true');
-        const existing=this.fieldUsageEvidence.filter(r=>r._detail&&r.Field_API_Name__c===field&&r.Source_Type__c===source),last=existing.length?existing[existing.length-1]:null;
-        const page=await fieldUsageGetEvidenceDetail({objectApiName:this.fieldUsageObject,fieldApiName:field,sourceType:source,rowLimit:500,afterId:last?.Id||null});
-        this.fieldUsageEvidence=[...this.fieldUsageEvidence.filter(r=>!(r._pageState&&r.Field_API_Name__c===field&&r.Source_Type__c===source)),...(page.rows||[]).map(r=>({...r,_detail:true})),{_pageState:true,Field_API_Name__c:field,Source_Type__c:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}];this._fieldUsageMapCache=this.rebuildFieldUsageMap();
+        const node=e.currentTarget;node.setAttribute('aria-busy','true');
+        try{
+            const existing=this.fieldUsageEvidence.filter(r=>r._detail&&r.fieldApiName===field&&r.sourceType===source);
+            const last=existing.length?existing[existing.length-1]:null;
+            const page=await fieldUsageGetEvidenceDetail({objectApiName:this.fieldUsageObject,fieldApiName:field,sourceType:source,rowLimit:500,afterId:last?.id||null});
+            this.fieldUsageEvidence=[
+                ...this.fieldUsageEvidence.filter(r=>!(r._pageState&&r.fieldApiName===field&&r.sourceType===source)),
+                ...(page.rows||[]).map(r=>({...r,_detail:true})),
+                {_pageState:true,fieldApiName:field,sourceType:source,hasMore:!!page.hasMore,nextCursor:page.nextCursor}
+            ];
+            this._fieldUsageMapCache=this.rebuildFieldUsageMap();
+            this.errorMessage='';
+        }catch(err){
+            this.errorMessage='Unable to expand '+source+' usage: '+this.reduceError(err);
+        }finally{
+            node.removeAttribute('aria-busy');
+        }
     }
     rebuildFieldUsageMap(){
         const rows=this.fieldUsageEvidence||[],nodes=[],edges=[];const add=(key,label,sub,x,y,kind,extra={})=>nodes.push({key,label,sub,x,y,kind,...extra,style:'left:'+x+'px;top:'+y+'px;'});
         const connect=(a,b)=>{const A=nodes.find(n=>n.key===a),B=nodes.find(n=>n.key===b);if(A&&B)edges.push({key:a+'>'+b,x1:A.x+190,y1:A.y+34,x2:B.x,y2:B.y+34});};
         const fields=this.fieldUsageSelectedFields||[];let y=40;const centres=[];
-        fields.forEach(field=>{const summaries=rows.filter(r=>!r._detail&&r.fieldApiName===field),fy=y,fk='f:'+field;add(fk,field,summaries.reduce((n,r)=>n+(r.occurrences||r.evidenceRows||0),0)+' usages',280,fy,'field');if(!summaries.length){const nk=fk+':none';add(nk,'No dependency detected','Current successful snapshot · 0 dependencies',540,y,'empty');connect(fk,nk);y+=90;}else{summaries.forEach(r=>{const tk=fk+':'+r.sourceType,details=rows.filter(d=>d._detail&&d.Field_API_Name__c===field&&d.Source_Type__c===r.sourceType),pageState=rows.find(d=>d._pageState&&d.Field_API_Name__c===field&&d.Source_Type__c===r.sourceType);add(tk,r.sourceType,(r.occurrences||r.evidenceRows||0)+' usages · '+(!details.length?'click to expand':pageState?.hasMore?'click to load more':details.length+' details loaded'),540,y,'type',{field,source:r.sourceType,expandable:true});connect(fk,tk);if(details.length){[...new Set(details.map(d=>d.Component_Name__c))].forEach((name,i)=>{const ck=tk+':'+i,componentRows=details.filter(d=>d.Component_Name__c===name),detail=componentRows.map(d=>[d.Location__c,d.Evidence__c].filter(Boolean).join(' · ')).filter(Boolean).join(' | ');add(ck,name,detail||componentRows.reduce((n,d)=>n+(d.Occurrence_Count__c||1),0)+' usages',800,y+i*96,'component');connect(tk,ck);});y+=Math.max(90,[...new Set(details.map(d=>d.Component_Name__c))].length*96);}else y+=90;});}centres.push(fy);y+=24;});
-        const oy=centres.length?centres.reduce((a,b)=>a+b,0)/centres.length:40;add('object',this.fieldUsageObject||'Object','Selected object',30,oy,'object');fields.forEach(field=>connect('object','f:'+field));return {nodes,edges,width:1080,height:Math.max(650,y+80)};
+        fields.forEach(field=>{
+            const summaries=rows.filter(r=>!r._detail&&!r._pageState&&r.fieldApiName===field),fy=y,fk='f:'+field;
+            add(fk,field,summaries.reduce((n,r)=>n+(r.occurrences||r.evidenceRows||0),0)+' usages',280,fy,'field');
+            if(!summaries.length){const nk=fk+':none';add(nk,'No dependency detected','Current successful snapshot · 0 dependencies',540,y,'empty');connect(fk,nk);y+=90;}
+            else summaries.forEach(r=>{
+                const tk=fk+':'+r.sourceType,details=rows.filter(d=>d._detail&&d.fieldApiName===field&&d.sourceType===r.sourceType),pageState=rows.find(d=>d._pageState&&d.fieldApiName===field&&d.sourceType===r.sourceType);
+                add(tk,r.sourceType,(r.occurrences||r.evidenceRows||0)+' usages · '+(!details.length?'click to expand':pageState?.hasMore?'click to load more':details.length+' components loaded'),540,y,'type',{field,source:r.sourceType,expandable:true});connect(fk,tk);
+                if(details.length){
+                    const names=[...new Set(details.map(d=>d.componentName||'Unknown component'))];
+                    names.forEach((name,i)=>{
+                        const ck=tk+':component:'+i,componentRows=details.filter(d=>(d.componentName||'Unknown component')===name),cy=y+i*132;
+                        add(ck,name,componentRows.reduce((n,d)=>n+(Number(d.occurrenceCount)||1),0)+' usages',800,cy,'component');connect(tk,ck);
+                        const detailLines=componentRows.flatMap(d=>{
+                            const ev=(d.evidence||'').split('\n').map(x=>x.trim()).filter(Boolean);
+                            if(ev.length)return ev;
+                            return [d.location||d.evidenceType||'Usage detected'];
+                        }).slice(0,12);
+                        detailLines.forEach((line,j)=>{const dk=ck+':detail:'+j;add(dk,line.length>72?line.slice(0,69)+'…':line,d.sourceType==='Flow'?'Flow metadata location':'Usage location',1080,cy+j*82,'evidence');connect(ck,dk);});
+                    });
+                    const detailCount=names.reduce((n,name)=>n+Math.max(1,details.filter(d=>(d.componentName||'Unknown component')===name).flatMap(d=>(d.evidence||d.location||'').split('\n').filter(Boolean)).length),0);
+                    y+=Math.max(110,detailCount*82+20);
+                }else y+=90;
+            });
+            centres.push(fy);y+=24;
+        });
+        const oy=centres.length?centres.reduce((a,b)=>a+b,0)/centres.length:40;add('object',this.fieldUsageObject||'Object','Selected object',30,oy,'object');fields.forEach(field=>connect('object','f:'+field));
+        return {nodes,edges,width:1360,height:Math.max(650,y+80)};
     }
     get fieldUsageNodes(){return this._fieldUsageMapCache.nodes;}
     get fieldUsageEdges(){return this._fieldUsageMapCache.edges;}
