@@ -18,6 +18,16 @@ public with sharing class DiagramFileController {
         @AuraEnabled public String lastModified; // ISO string
     }
 
+    // Namespace-neutral transport object. Never expose custom-object field API
+    // names across the Apex/LWC boundary: managed packages namespace those
+    // names during serialisation while unmanaged orgs do not.
+    public class FileDetail {
+        @AuraEnabled public Id id;
+        @AuraEnabled public String name;
+        @AuraEnabled public String diagramType;
+        @AuraEnabled public String sourceCode;
+    }
+
     // ── list ──
 
     @AuraEnabled(cacheable=true)
@@ -43,7 +53,7 @@ public with sharing class DiagramFileController {
     // ── get single ──
 
     @AuraEnabled(cacheable=true)
-    public static Diagram_File__c getFile(Id fileId) {
+    public static FileDetail getFile(Id fileId) {
         List<Diagram_File__c> r = [
             SELECT Id, Name, Diagram_Type__c, Source_Code__c
             FROM   Diagram_File__c
@@ -51,7 +61,14 @@ public with sharing class DiagramFileController {
             WITH   USER_MODE
             LIMIT  1
         ];
-        return r.isEmpty() ? null : r[0];
+        if (r.isEmpty()) return null;
+        Diagram_File__c row = r[0];
+        FileDetail out = new FileDetail();
+        out.id = row.Id;
+        out.name = row.Name;
+        out.diagramType = row.Diagram_Type__c;
+        out.sourceCode = row.Source_Code__c;
+        return out;
     }
 
     // ── save DSL source ──
