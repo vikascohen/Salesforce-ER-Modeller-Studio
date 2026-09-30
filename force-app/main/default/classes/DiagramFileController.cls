@@ -7,6 +7,20 @@
  */
 public with sharing class DiagramFileController {
 
+    // Dynamic schema access keeps save/open working in unmanaged orgs and under
+    // any managed-package namespace without ever hard-coding a prefix.
+    private static String diagramObjectApiName(){
+        Map<String,Schema.SObjectType> gd=Schema.getGlobalDescribe();
+        if(gd.containsKey('Diagram_File__c'))return 'Diagram_File__c';
+        for(String n:gd.keySet())if(n.endsWith('__Diagram_File__c'))return n;
+        throw new AuraHandledException('Diagram storage object is not installed or is not accessible.');
+    }
+    private static String fieldApi(Schema.DescribeSObjectResult d,String localName){
+        Map<String,Schema.SObjectField> fm=d.fields.getMap();if(fm.containsKey(localName))return localName;
+        for(String n:fm.keySet())if(n.endsWith('__'+localName))return n;
+        throw new AuraHandledException('Diagram storage field '+localName+' is not available.');
+    }
+
     public class FileSummary {
         @AuraEnabled public Id     id;
         @AuraEnabled public String name;
@@ -80,24 +94,12 @@ public with sharing class DiagramFileController {
     @AuraEnabled
     public static Id saveFile(Id fileId, String fileName, String diagramType, String sourceCode) {
         assertNameIsUnique(fileId, fileName);
-
-        Diagram_File__c f = fileId != null ? new Diagram_File__c(Id = fileId) : new Diagram_File__c();
-        f.Name            = fileName;
-        f.Diagram_Type__c = diagramType;
-        f.Source_Code__c  = sourceCode;
-
-        if (fileId != null) {
-            if (!Schema.sObjectType.Diagram_File__c.isUpdateable()) {
-                throw new AuraHandledException('You do not have permission to update diagram files.');
-            }
-            update f;
-        } else {
-            if (!Schema.sObjectType.Diagram_File__c.isCreateable()) {
-                throw new AuraHandledException('You do not have permission to create diagram files.');
-            }
-            insert f;
-        }
-        return f.Id;
+        String objectApi=diagramObjectApiName();Schema.SObjectType t=Schema.getGlobalDescribe().get(objectApi);Schema.DescribeSObjectResult d=t.getDescribe();
+        SObject row=fileId==null?t.newSObject():t.newSObject(fileId);
+        row.put('Name',fileName);row.put(fieldApi(d,'Diagram_Type__c'),diagramType);row.put(fieldApi(d,'Source_Code__c'),sourceCode);
+        if(fileId==null){if(!d.isCreateable())throw new AuraHandledException('You do not have permission to create diagram files.');insert row;}
+        else{if(!d.isUpdateable())throw new AuraHandledException('You do not have permission to update diagram files.');update row;}
+        return (Id)row.get('Id');
     }
 
     // ── rename ──
