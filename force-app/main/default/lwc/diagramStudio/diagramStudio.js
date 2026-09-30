@@ -44,7 +44,7 @@ import fieldUsageGetSourceTypes from '@salesforce/apex/FieldUsageController.getS
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
 import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
-import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle } from 'c/fieldUsageMapLogic';
+import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle, calculateFieldUsageFitZoom } from 'c/fieldUsageMapLogic';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -4670,6 +4670,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleFieldUsageZoomOut(){ this.fieldUsageZoom=clampFieldUsageZoom(this.fieldUsageZoom-0.1); }
     handleFieldUsageZoomReset(){ this.fieldUsageZoom=1; }
     handleFieldUsageZoomIn(){ this.fieldUsageZoom=clampFieldUsageZoom(this.fieldUsageZoom+0.1); }
+    handleFieldUsageFit(){
+        const viewport=this.template.querySelector('.fu-scroll');
+        if(!viewport)return;
+        this.fieldUsageZoom=calculateFieldUsageFitZoom(this._fieldUsageMapCache,viewport.clientWidth,viewport.clientHeight);
+        requestAnimationFrame(()=>{viewport.scrollLeft=0;viewport.scrollTop=0;});
+    }
 
     get fieldUsageNodes(){return this._fieldUsageMapCache.nodes;}
     get fieldUsageEdges(){return this._fieldUsageMapCache.edges;}
