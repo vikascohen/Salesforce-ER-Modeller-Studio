@@ -64,26 +64,10 @@ jobs:
           rm -f /tmp/sfdx-auth-url.txt
           sf org display --target-org phase3-validation
 
-      - name: Validate V3 metadata with ER Modeller Apex tests only
+      - name: Validate V3 metadata with complete ER Modeller Apex tests
         run: |
           sf project deploy validate \
             --source-dir force-app \
             --target-org phase3-validation \
-            --test-level RunSpecifiedTests \
-            --tests ArchitectureIntelligenceServiceTest \
-            --tests DataDictionaryControllerTest \
-            --tests DiagramFileControllerTest \
-            --tests ERDiagramControllerTest \
-            --tests FieldUsageApexScannerTest \
-            --tests FieldUsageControllerTest \
-            --tests FieldUsageFlowScannerTest \
-            --tests FieldUsageMetadataScannerTest \
-            --tests FieldUsageOrchestratorTest \
-            --tests FieldUsageRunBatchTest \
-            --tests FieldUsageRunSchedulerTest \
-            --tests FieldUsageScannerTest \
-            --tests FieldUsageSnapshotServiceTest \
-            --tests FieldUsageToolingCredentialDiagnosticTest \
-            --tests FieldUsageToolingGatewayTest \
-            --tests SchemaSnapshotServiceTest \
+            --test-level RunLocalTests \
             --wait 25
