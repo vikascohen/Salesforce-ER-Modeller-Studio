@@ -1,16 +1,14 @@
-/**
- * Discovers Tooling metadata and checkpoints durable Field Usage work units.
- * @author Vikas Cohen
- */
+/** Discovers Tooling metadata and checkpoints durable Field Usage work units. @author Vikas Cohen */
 public without sharing class FieldUsageToolingDiscoveryBatch implements Database.Batchable<String>, Database.AllowsCallouts {
     private static final Integer CHUNK_SIZE=12;
+    private static final Integer VALIDATION_CHUNK_SIZE=20;
     @TestVisible private static Boolean suppressWorkerChainForTest=false;
     private final Id runId;
     public FieldUsageToolingDiscoveryBatch(Id runId){this.runId=runId;}
 
     public Iterable<String> start(Database.BatchableContext context){
-        update new Field_Usage_Run__c(Id=runId,Status__c='Running',Heartbeat_At__c=System.now(),Job_Id__c=context==null?null:String.valueOf(context.getJobId()),Progress_Phase__c='Discovering Apex, Flow, LWC and Aura metadata');
-        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura'};
+        update new Field_Usage_Run__c(Id=runId,Status__c='Running',Heartbeat_At__c=System.now(),Job_Id__c=context==null?null:String.valueOf(context.getJobId()),Progress_Phase__c='Discovering Tooling metadata');
+        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule'};
     }
 
     public void execute(Database.BatchableContext context,List<String> sourceTypes){
@@ -21,23 +19,23 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
                 List<FieldUsageUiToolingClient.UiComponent> components=sourceType=='LWC'?FieldUsageUiToolingClient.getLwcBundleIndex():FieldUsageUiToolingClient.getAuraBundleIndex();
                 for(FieldUsageUiToolingClient.UiComponent c:components)ids.add(c.id);
                 scannerType=sourceType=='LWC'?'LWC Bulk':'Aura Bulk';
-            }else{
+            } else if(sourceType=='ValidationRule'){
+                for(FieldUsageUiToolingClient.UiComponent c:FieldUsageUiToolingClient.getValidationRuleIndex())ids.add(c.id);
+                scannerType='Validation Rule Bulk'; chunkSize=VALIDATION_CHUNK_SIZE;
+            } else {
                 List<FieldUsageToolingApiClient.SourceComponent> components=sourceType=='ApexClass'?FieldUsageToolingApiClient.getApexClassIndex():sourceType=='ApexTrigger'?FieldUsageToolingApiClient.getApexTriggerIndex():FieldUsageToolingApiClient.getFlowIndex();
                 for(FieldUsageToolingApiClient.SourceComponent c:components)ids.add(c.id);
                 scannerType=sourceType=='ApexClass'?'Apex Class Bulk':sourceType=='ApexTrigger'?'Apex Trigger Bulk':'Flow Bulk';
                 if(sourceType=='Flow')chunkSize=1;
             }
             for(Integer offset=0;offset<ids.size();offset+=chunkSize){
-                Integer chunkEnd=Math.min(offset+chunkSize,ids.size());List<String> chunkIds=new List<String>();
+                Integer chunkEnd=Math.min(offset+chunkSize,ids.size()); List<String> chunkIds=new List<String>();
                 for(Integer i=offset;i<chunkEnd;i++)chunkIds.add(ids[i]);
                 allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|'+scannerType+'|'+String.valueOf(offset/chunkSize),Scanner_Type__c=scannerType,Target_Key__c=String.join(chunkIds,','),Status__c='Pending'));
             }
         }
-        if(!allUnits.isEmpty()){
-            Database.SaveResult[] results=Database.insert(allUnits,false);
-            for(Database.SaveResult result:results)if(!result.isSuccess())throw new FieldUsageToolingApiClient.ToolingApiException('Could not checkpoint bulk Tooling API discovery: '+result.getErrors()[0].getMessage());
-        }
-        update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered Apex, Flow, LWC and Aura work');
+        if(!allUnits.isEmpty()){Database.SaveResult[] results=Database.insert(allUnits,false);for(Database.SaveResult result:results)if(!result.isSuccess())throw new FieldUsageToolingApiClient.ToolingApiException('Could not checkpoint bulk Tooling API discovery: '+result.getErrors()[0].getMessage());}
+        update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered Tooling work');
     }
 
     public void finish(Database.BatchableContext context){
