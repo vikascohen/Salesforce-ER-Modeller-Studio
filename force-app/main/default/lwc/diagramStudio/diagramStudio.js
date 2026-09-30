@@ -46,6 +46,7 @@ import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDi
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
 import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle, calculateFieldUsageFitZoom } from 'c/fieldUsageMapLogic';
 import { exportFieldUsageMapAsPng } from 'c/fieldUsageMapExport';
+import { getHelpConfigurationOpen, getHelpUserManualOpen, getHelpConfigurationClass, getHelpUserManualClass, applyHelpManualSearch, clearHelpManualSearch } from './helpConfig';
 
 // ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
@@ -1278,26 +1279,20 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get viewMenuOpen()    { return this.openMenu === 'view'; }
     get settingsMenuOpen(){ return this.openMenu === 'settings'; }
     get helpMenuOpen(){ return this.openMenu === 'help'; }
-    get helpConfigurationOpen(){ return this.helpSection === 'configuration'; }
-    get helpUserManualOpen(){ return this.helpSection === 'manual'; }
-    get helpConfigurationClass(){ return this.helpConfigurationOpen ? 'help-nav-item help-nav-item-active' : 'help-nav-item'; }
-    get helpUserManualClass(){ return this.helpUserManualOpen ? 'help-nav-item help-nav-item-active' : 'help-nav-item'; }
+    get helpConfigurationOpen(){ return getHelpConfigurationOpen(this.helpSection); }
+    get helpUserManualOpen(){ return getHelpUserManualOpen(this.helpSection); }
+    get helpConfigurationClass(){ return getHelpConfigurationClass(this.helpSection); }
+    get helpUserManualClass(){ return getHelpUserManualClass(this.helpSection); }
     handleMenuHelpConfiguration(){ this.openMenu=null; this.helpOpen=true; this.helpSection='configuration'; }
     handleMenuHelpUserManual(){ this.openMenu=null; this.helpOpen=true; this.helpSection='manual'; }
     handleHelpConfiguration(){ this.helpSection='configuration'; }
     handleHelpUserManual(){ this.helpSection='manual'; }
     handleHelpManualSearch(event){
-        this.helpManualSearch=(event.target.value||'').trim().toLowerCase();
-        const query=this.helpManualSearch;
-        this.template.querySelectorAll('.help-manual-section').forEach(section=>{
-            const haystack=((section.dataset.search||'')+' '+(section.textContent||'')).toLowerCase();
-            section.hidden=!!query && !haystack.includes(query);
-        });
+        this.helpManualSearch = applyHelpManualSearch(this.template, event.target.value);
     }
     handleClearHelpManualSearch(){
-        this.helpManualSearch='';
-        const input=this.template.querySelector('.help-manual-search'); if(input) input.value='';
-        this.template.querySelectorAll('.help-manual-section').forEach(section=>{section.hidden=false;});
+        this.helpManualSearch = '';
+        clearHelpManualSearch(this.template);
     }
     handleCloseHelp(){ this.helpOpen=false; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
@@ -1450,7 +1445,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleMenuSave()           { this.openMenu = null; this.handleSave(); }
     handleMenuImport()         { this.openMenu = null; this.handleToggleImport(); }
     handleMenuExport()         { this.openMenu = null; this.handleOpenExport(); }
-    handleMenuAutoLayout()     { this.openMenu = null; this.handleAutoLayout(); }
     resetMimicDraft() {
         this.mimicModelName = 'Mimicked Model';
         this.mimicObjects = [];
