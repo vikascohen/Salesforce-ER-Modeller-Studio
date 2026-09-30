@@ -1814,8 +1814,8 @@ describe('Phase 2 async hardening',()=> {
         listFilesAdapter.emit([{id:'a01',name:'A',diagramType:'ER'},{id:'a02',name:'B',diagramType:'ER'}]); await flushPromises();
         const rows=el.shadowRoot.querySelectorAll('.file-row');
         rows[0].dispatchEvent(new CustomEvent('click',{bubbles:true})); rows[1].dispatchEvent(new CustomEvent('click',{bubbles:true}));
-        resolveB({Id:'a02',Name:'B',Source_Code__c:'entity Contact : Name'}); await flushPromises();
-        resolveA({Id:'a01',Name:'A',Source_Code__c:'entity Account : Name'}); await flushPromises();
+        resolveB({id:'a02',name:'B',sourceCode:'entity Contact : Name'}); await flushPromises();
+        resolveA({id:'a01',name:'A',sourceCode:'entity Account : Name'}); await flushPromises();
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('B');
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('Contact');
     });
