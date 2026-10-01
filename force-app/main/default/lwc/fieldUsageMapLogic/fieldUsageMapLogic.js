@@ -68,9 +68,6 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
     const detailsByBranch = new Map();
     const pageStateByBranch = new Map();
 
-    // One indexing pass replaces repeated Array.filter/find scans during layout.
-    // Initial Map render now touches summary rows only; detail indexes are used
-    // only for branches already lazy-loaded by the caller.
     rows.forEach(row => {
         const field = row.fieldApiName || '';
         if (row._detail) {
@@ -144,13 +141,29 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
                     for (const line of evidenceLines(row)) { allLines.push(line); if (allLines.length>=MAX_EVIDENCE_ITEMS) break; }
                     if (allLines.length>=MAX_EVIDENCE_ITEMS) break;
                 }
-                const source=String(r.sourceType||''), evidenceKey=`${field}|${r.sourceType}|${name}`;
+                const source=String(r.sourceType||'');
+                const evidenceKey=`${field}|${r.sourceType}|${name}`;
+                const componentCollapseKey=`component-collapse|${field}|${r.sourceType}|${name}`;
+                const componentCollapsed=expanded.has(componentCollapseKey);
                 const isExpanded=expanded.has(evidenceKey), isFlow=source.toLowerCase().includes('flow');
                 const componentUsageCount=componentRows.reduce((n,d)=>n+(Number(d.occurrenceCount)||1),0);
-                const componentSub=isFlow
-                    ? `${componentRows.length} evidence record${componentRows.length===1?'':'s'} · Flow element evidence`
-                    : `${componentUsageCount} usage${componentUsageCount===1?'':'s'} · ${allLines.length>COLLAPSED_EVIDENCE_LIMIT?(isExpanded?'expanded':'expand for all evidence'):'evidence shown'}`;
-                add(ck,name,componentSub,X.component,componentY,'component',{source:r.sourceType}); connect(tk,ck);
+                const componentSub=componentCollapsed
+                    ? `${componentUsageCount} usage${componentUsageCount===1?'':'s'} · click to expand`
+                    : isFlow
+                        ? `${componentRows.length} evidence record${componentRows.length===1?'':'s'} · click to minimise`
+                        : `${componentUsageCount} usage${componentUsageCount===1?'':'s'} · ${allLines.length>COLLAPSED_EVIDENCE_LIMIT?(isExpanded?'all evidence shown':'expand for all evidence'):'evidence shown'} · click to minimise`;
+                add(ck,name,componentSub,X.component,componentY,'component',{
+                    source:r.sourceType,
+                    evidenceKey:componentCollapseKey,
+                    toggleEvidence:true
+                });
+                connect(tk,ck);
+
+                if (componentCollapsed) {
+                    cursorY+=112;
+                    return;
+                }
+
                 const visibleLines=isExpanded?allLines:allLines.slice(0,COLLAPSED_EVIDENCE_LIMIT), detailKeys=[];
                 visibleLines.forEach((line,j)=>{
                     const dk=`${ck}:detail:${j}`; detailKeys.push(dk);
@@ -159,7 +172,7 @@ export function buildFieldUsageMap({ evidence = [], selectedFields = [], objectA
                 });
                 if (allLines.length>COLLAPSED_EVIDENCE_LIMIT) {
                     const moreKey=`${ck}:more`, hiddenCount=Math.max(0,allLines.length-COLLAPSED_EVIDENCE_LIMIT); detailKeys.push(moreKey);
-                    add(moreKey,isExpanded?'Show less evidence':`Show ${hiddenCount} more evidence item${hiddenCount===1?'':'s'}`,isExpanded?'Collapse this evidence branch':'Expand this component to show every usage',X.detail,componentY+visibleLines.length*92,'evidence-more',{evidenceKey,toggleEvidence:true});
+                    add(moreKey,isExpanded?'Show less evidence':`Show ${hiddenCount} more evidence item${hiddenCount===1?'':'s'}`,isExpanded?'Show the first evidence items only':'Expand this component to show every usage',X.detail,componentY+visibleLines.length*92,'evidence-more',{evidenceKey,toggleEvidence:true});
                 }
                 branchRequests.push([ck,detailKeys]);
                 cursorY+=Math.max(112,(visibleLines.length+(allLines.length>COLLAPSED_EVIDENCE_LIMIT?1:0))*92+18);
