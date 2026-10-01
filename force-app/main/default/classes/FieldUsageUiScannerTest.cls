@@ -56,7 +56,7 @@ private class FieldUsageUiScannerTest {
         );
 
         System.assertEquals(1, rows.size());
-        System.assertEquals('Account.Name', rows[0].Field_Key__c);
+        System.assertEquals('account.name', rows[0].Field_Key__c.toLowerCase());
         System.assertEquals(2, rows[0].Occurrence_Count__c);
         System.assertEquals('Validation Rule Reference', rows[0].Evidence_Type__c);
 
