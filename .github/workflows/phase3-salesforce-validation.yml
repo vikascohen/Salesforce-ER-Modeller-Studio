@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - version-3-field-usage-intelligence
+      - architecture-intelligence-refactor
     paths:
       - 'force-app/**'
       - 'package.json'
@@ -25,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout V3
+      - name: Checkout branch
         uses: actions/checkout@v4
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -54,7 +55,7 @@ jobs:
           sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias phase3-validation --set-default
           rm -f /tmp/sfdx-auth-url.txt
           sf org display --target-org phase3-validation
-      - name: Validate V3 metadata with ER Modeller Apex tests only
+      - name: Validate metadata with ER Modeller Apex tests only
         run: |
           sf project deploy validate \
             --source-dir force-app \
