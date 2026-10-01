@@ -231,67 +231,7 @@
                 </nav>
                 <main class="help-content">
                     <template if:true={helpConfigurationOpen}>
-                        <article class="help-doc">
-                            <h2>Field Usage Configuration</h2>
-                            <p class="help-lead">Field Usage scans formula fields directly and use Salesforce Tooling API for Apex classes, Apex triggers and active Flows. Complete the Tooling API connection once in every org where Field Usage will run.</p>
-                            <div class="help-warning"><strong>If a scan says the Named Credential is missing, unauthenticated or inaccessible</strong><span>Do not repeatedly launch the scan. Complete the configuration below, verify principal access, then run the scan again.</span></div>
-
-                            <section><h3>Before you start</h3><p>You need Salesforce Setup access appropriate to create OAuth and Named Credential configuration. Use the target org's own My Domain. Do not copy a Developer Edition, sandbox or production hostname, OAuth token or secret into another environment.</p></section>
-
-                            <section><div class="help-step">1</div><h3>Create the External Auth Identity Provider</h3>
-                                <p>Go to <strong>Setup → Named Credentials → External Auth Identity Providers → New</strong>.</p>
-                                <div class="help-values"><span><b>Label</b> Salesforce Tooling API Provider</span><span><b>Name</b> Salesforce_Tooling_API_Provider</span><span><b>Authentication Protocol</b> OAuth 2.0</span><span><b>Authentication Flow Type</b> Authorization Code (Browser Flow)</span></div>
-                                <p>Use the target org's My Domain for both endpoints:</p><code>https://&lt;your-my-domain&gt;.my.salesforce.com/services/oauth2/authorize</code><code>https://&lt;your-my-domain&gt;.my.salesforce.com/services/oauth2/token</code>
-                                <p>Leave User Info Endpoint blank unless your organisation requires it. If Salesforce requires values before it will save the provider, use temporary Client ID and Client Secret placeholders only long enough to obtain the Salesforce-generated Callback URL. Copy that Callback URL exactly.</p>
-                            </section>
-
-                            <section><div class="help-step">2</div><h3>Create the External Client App</h3>
-                                <p>Go to <strong>Setup → External Client App Manager → New External Client App</strong>.</p>
-                                <div class="help-values"><span><b>External Client App Name</b> Salesforce Tooling API</span><span><b>API Name</b> Salesforce_Tooling_API</span><span><b>Distribution State</b> Local</span></div>
-                                <p>Enable OAuth. Paste the Callback URL generated in step 1. Add these OAuth scopes:</p>
-                                <code>Manage user data via APIs (api)</code><code>Perform requests at any time (refresh_token, offline_access)</code>
-                                <p>Enable Authorization Code and Credentials Flow. If PKCE is enabled or required here, enable <strong>Use Proof Key for Code Exchange (PKCE) Extension</strong> on the External Auth Identity Provider too. Save the app and obtain its Consumer Key and Consumer Secret. Never place the secret in source control.</p>
-                                <p>Return to the External Auth Identity Provider and replace the temporary Client ID and Client Secret with the External Client App's real Consumer Key and Consumer Secret.</p>
-                            </section>
-
-                            <section><div class="help-step">3</div><h3>Create the External Credential</h3>
-                                <p>Go to <strong>Setup → Named Credentials → External Credentials → New</strong>.</p>
-                                <div class="help-values"><span><b>Label</b> Salesforce Tooling API</span><span><b>Name</b> Salesforce_Tooling_API</span><span><b>Authentication Protocol</b> OAuth 2.0</span><span><b>Authentication Flow Type</b> Browser Flow</span><span><b>Identity Provider</b> Salesforce Tooling API Provider</span><span><b>Scope</b> api refresh_token</span></div>
-                                <p>Leave Additional Status Codes for Token Refresh blank unless your organisation specifically requires another value.</p>
-                            </section>
-
-                            <section><div class="help-step">4</div><h3>Create and authenticate the Named Principal</h3>
-                                <p>Open the External Credential. Under <strong>Principals</strong>, create:</p>
-                                <div class="help-values"><span><b>Parameter Name</b> ToolingAPIPrincipal</span><span><b>Sequence Number</b> 1</span><span><b>Identity Type</b> Named Principal</span><span><b>Scope</b> leave blank</span></div>
-                                <p>Save it, choose <strong>Authenticate</strong> from the principal's Actions menu, sign in to this target Salesforce org and approve access. Authentication Status should become <strong>Configured</strong>.</p>
-                                <p>If Salesforce returns <strong>invalid_scope</strong>, confirm the External Client App has the API and refresh-token scopes above and that the External Credential scope is exactly <code>api refresh_token</code>.</p>
-                            </section>
-
-                            <section><div class="help-step">5</div><h3>Create the Named Credential</h3>
-                                <p>Go to <strong>Setup → Named Credentials → Named Credentials → New</strong>.</p>
-                                <div class="help-values"><span><b>Label</b> Salesforce Tooling API</span><span><b>Name</b> Salesforce_Tooling_API</span><span><b>URL</b> https://&lt;target-org-my-domain&gt;.my.salesforce.com</span><span><b>External Credential</b> Salesforce Tooling API</span><span><b>Enabled for Callouts</b> On</span><span><b>Generate Authorization Header</b> On</span></div>
-                                <p>Leave Client Certificate blank unless required by your organisation. The Apex code deliberately uses the logical name <code>callout:Salesforce_Tooling_API</code>; do not change the credential name.</p>
-                                <p>If this Studio's package namespace appears under the Named Credential, add that namespace to <strong>Allowed Namespaces for Callouts</strong>. Do not hard-code a namespace into the credential name used by the Apex code.</p>
-                            </section>
-
-                            <section><div class="help-step">6</div><h3>Grant External Credential Principal Access</h3>
-                                <p>Open the permission set assigned to the user who runs Field Usage, normally <strong>Diagram Studio User</strong>. Open <strong>External Credential Principal Access → Edit</strong>, move <strong>Salesforce_Tooling_API - ToolingAPIPrincipal</strong> to Enabled External Credential Principals and save.</p>
-                                <div class="help-warning"><strong>This is separate from Authentication Status = Configured.</strong><span>The principal can be authenticated while the user still has no permission to use it. Reopen External Credential Principal Access after deployment/configuration and verify the principal is still enabled.</span></div>
-                                <p>Also verify the permission set has the Salesforce-required access to <strong>Object Settings → User External Credentials</strong>. Scheduled scans must run under a user who retains the same required credential/principal access.</p>
-                            </section>
-
-                            <section><div class="help-step">7</div><h3>Verify the connection</h3>
-                                <p>Return to the Studio and choose <strong>Diagram → Run Field Usage Scan</strong>. Before a run is created, the Studio checks <code>Salesforce_Tooling_API</code>. If it cannot use the connection, the scan is stopped and the configuration error is shown instead of deliberately starting a broken Tooling API scan.</p>
-                                <p>When configured correctly, the scan runs in Batch Apex in the background. Keep the activity window open to watch progress, or close it and return later. The scan itself continues independently of the browser.</p>
-                            </section>
-
-                            <section><h3>Common configuration errors</h3>
-                                <div class="help-troubleshoot"><strong>Named Credential does not exist / could not access endpoint</strong><span>Verify the Named Credential name is Salesforce_Tooling_API, Enabled for Callouts is on, the URL is this org's My Domain and the External Credential is selected.</span></div>
-                                <div class="help-troubleshoot"><strong>Could not access credential(s) / external credential might not exist</strong><span>Verify the Named Principal is Configured and, separately, that Salesforce_Tooling_API - ToolingAPIPrincipal is enabled under the running user's permission set.</span></div>
-                                <div class="help-troubleshoot"><strong>invalid_scope</strong><span>External Client App: api plus refresh_token/offline_access. External Credential: api refresh_token.</span></div>
-                                <div class="help-troubleshoot"><strong>Works until a permission-set deployment</strong><span>Recheck External Credential Principal Access. Authentication and principal authorisation are org-specific security configuration and should be verified after deployment.</span></div>
-                            </section>
-                        </article>
+                        <c-tooling-api-configuration-help></c-tooling-api-configuration-help>
                     </template>
 
                     <template if:true={helpUserManualOpen}>
