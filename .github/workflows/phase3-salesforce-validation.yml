@@ -72,7 +72,7 @@ jobs:
             --tests FieldUsageScheduleServiceTest \
             --tests FieldUsageSnapshotFinalizerTest \
             --tests FieldUsageToolingApiClientTest \
-            --tests FieldUsageToolingCredentialDiagnosticTest \
+            --tests FieldUsageCredentialDiagTest \
             --tests FieldUsageToolingDiscoveryBatchTest \
             --tests FieldUsageUiScannerTest \
             --tests FieldUsageUiToolingClientTest \
