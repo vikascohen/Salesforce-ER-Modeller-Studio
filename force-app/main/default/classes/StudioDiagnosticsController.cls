@@ -22,7 +22,9 @@ public with sharing class StudioDiagnosticsController {
     }
     public class DiagnosticDTO {@AuraEnabled public String overallStatus;@AuraEnabled public String summary;@AuraEnabled public String completedAt;@AuraEnabled public List<CheckDTO> checks=new List<CheckDTO>();}
 
-    @AuraEnabled(cacheable=true)
+    // Deliberately NOT cacheable. System Information is a live operational view and
+    // must not return a stale scan percentage/status when the LWC refreshes it.
+    @AuraEnabled
     public static SystemInfoDTO getSystemInfo(){
         SystemInfoDTO d=new SystemInfoDTO();
         d.studioVersion=STUDIO_VERSION;
@@ -37,19 +39,13 @@ public with sharing class StudioDiagnosticsController {
             Organization o=[SELECT Name,IsSandbox,OrganizationType,InstanceName FROM Organization LIMIT 1];
             d.organisationName=o.Name; d.organisationType=String.valueOf(o.OrganizationType); d.instanceName=o.InstanceName; d.sandbox=o.IsSandbox;
             d.environmentType=o.IsSandbox?'Sandbox':String.valueOf(o.OrganizationType);
-        } catch(Exception ignored) {
-            d.environmentType='Salesforce';
-        }
+        } catch(Exception ignored) { d.environmentType='Salesforce'; }
 
         try {
             User u=[SELECT Name,UserType,TimeZoneSidKey,LocaleSidKey,LanguageLocaleKey,Profile.Name FROM User WHERE Id=:UserInfo.getUserId() LIMIT 1];
             d.runningUserName=u.Name; d.userType=u.UserType; d.profileName=u.Profile==null?null:u.Profile.Name; d.timeZone=u.TimeZoneSidKey; d.locale=u.LocaleSidKey; d.language=u.LanguageLocaleKey;
         } catch(Exception ignored) {}
 
-        // Keep this request deliberately lightweight. The previous implementation described
-        // every field on every accessible object synchronously, which can make Settings appear
-        // permanently stuck in larger orgs. Object inventory is cheap; detailed field inventory
-        // belongs in the dedicated schema/data-dictionary workflows.
         d.accessibleObjects=0; d.standardObjects=0; d.customObjects=0;
         d.accessibleFields=null; d.customFields=null; d.relationshipFields=null; d.formulaFields=null;
         try {
@@ -63,13 +59,40 @@ public with sharing class StudioDiagnosticsController {
 
         d.snapshotAvailable=false; d.snapshotStatus='Not scanned'; d.dependencyCount=0; d.snapshotErrors=0; d.scanRunning=false; d.scanProgressPercent=0; d.enabledSchedules=0;
         try {
-            List<Field_Usage_Run__c> runs=[SELECT Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Percent__c,Progress_Phase__c,Is_Current__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
+            List<Field_Usage_Run__c> runs=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Percent__c,Progress_Phase__c,Is_Current__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
             if(!runs.isEmpty()){
                 Field_Usage_Run__c r=runs[0];
                 d.snapshotStatus=r.Status__c; d.snapshotCompletedAt=r.Completed_At__c; d.dependencyCount=r.Dependency_Count__c==null?0:r.Dependency_Count__c.intValue(); d.snapshotErrors=r.Error_Count__c==null?0:r.Error_Count__c.intValue();
                 d.snapshotAvailable=r.Is_Current__c==true&&r.Status__c=='Completed';
                 d.scanRunning=new Set<String>{'Queued','Preparing','Processing','Running'}.contains(r.Status__c);
                 d.scanProgressPercent=r.Progress_Percent__c==null?0:r.Progress_Percent__c.intValue(); d.scanPhase=r.Progress_Phase__c;
+
+                // While a chained Batch Apex stage is active, use Salesforce's real
+                // AsyncApexJob counters rather than a hard-coded checkpoint such as 1%.
+                // Once durable work units exist, their processed/total counters remain
+                // the authoritative whole-scan progress stored by the worker.
+                if(d.scanRunning && !String.isBlank(r.Job_Id__c)){
+                    try {
+                        Id jobId=(Id)r.Job_Id__c;
+                        List<AsyncApexJob> jobs=[SELECT Status,TotalJobItems,JobItemsProcessed,NumberOfErrors,ApexClass.Name FROM AsyncApexJob WHERE Id=:jobId LIMIT 1];
+                        if(!jobs.isEmpty()){
+                            AsyncApexJob j=jobs[0];
+                            Boolean active=new Set<String>{'Holding','Queued','Preparing','Processing'}.contains(j.Status);
+                            if(active){
+                                Integer total=j.TotalJobItems==null?0:j.TotalJobItems;
+                                Integer processed=j.JobItemsProcessed==null?0:j.JobItemsProcessed;
+                                if(total>0){
+                                    Integer livePct=Math.max(0,Math.min(100,(processed*100)/total));
+                                    // Discovery/Tooling are stage progress; worker progress is already
+                                    // represented by the durable run's 5-95% whole-scan calculation.
+                                    if(r.Objects_Total__c==null || r.Objects_Total__c==0) d.scanProgressPercent=livePct;
+                                }
+                                String className=j.ApexClass==null?'Batch Apex':j.ApexClass.Name;
+                                d.scanPhase=className+' · '+j.Status+(total>0?' · '+processed+' / '+total+' batches processed':'');
+                            }
+                        }
+                    } catch(Exception ignoredJob) {}
+                }
             }
         } catch(Exception ignored) {}
         try { d.enabledSchedules=[SELECT count() FROM Field_Usage_Schedule__c WHERE Enabled__c=true]; } catch(Exception ignored) {}
