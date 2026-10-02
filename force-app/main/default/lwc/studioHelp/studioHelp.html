@@ -1,0 +1,32 @@
+<template>
+    <section class="help-page">
+        <header class="help-head">
+            <div><div class="kicker">ER MODELLER STUDIO HELP</div><h1>Help and Documentation</h1><p>Configuration and day-to-day guidance for ER Modeller Studio.</p></div>
+            <button class="back" onclick={close}>Back to Diagram</button>
+        </header>
+        <div class="help-shell">
+            <nav class="help-nav">
+                <div class="nav-group">HELP</div>
+                <button class={configurationClass} onclick={showConfiguration}>Configuration</button>
+                <button class={manualClass} onclick={showManual}>User Manual</button>
+            </nav>
+            <main class="help-content">
+                <template if:true={configurationOpen}>
+                    <h2>Configuration</h2>
+                    <p class="lead">Operational configuration belongs in Settings so the modelling and analysis workspaces stay focused.</p>
+                    <article><h3>Field Usage</h3><p>Open <strong>Settings → Field Usage</strong> to inspect snapshot health, run a scan, manage automatic scans, review scan jobs/history and see scanner coverage.</p></article>
+                    <article><h3>Architecture Intelligence</h3><p>Open <strong>Architecture Intelligence → Field Usage</strong> to analyse the persisted dependency snapshot. Analysis should remain fast because opening a map does not start a fresh metadata scan.</p></article>
+                    <article><h3>Scanner coverage</h3><p>Coverage is reported independently for Apex Classes, Apex Triggers, Flows, LWC, Aura, Validation Rules and Formula Fields. Partial failures must remain visible rather than being presented as a fully successful snapshot.</p></article>
+                    <article><h3>System and diagnostics</h3><p>Use Settings → System Information for Studio/environment details and Settings → Diagnostics for installation health checks.</p></article>
+                </template>
+                <template if:true={manualOpen}>
+                    <div class="manual-title"><div><h2>User Manual</h2><p class="lead">Search the built-in guide without leaving the Studio.</p></div><div class="search"><input type="search" value={searchText} oninput={handleSearch} placeholder="Search the manual"/><button onclick={clearSearch}>Clear</button></div></div>
+                    <template for:each={manualSections} for:item="item">
+                        <article key={item.key}><h3>{item.title}</h3><p>{item.text}</p></article>
+                    </template>
+                    <template if:true={noManualResults}><div class="empty">No manual sections match this search.</div></template>
+                </template>
+            </main>
+        </div>
+    </section>
+</template>
