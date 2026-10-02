@@ -316,6 +316,28 @@
         </template>
     </div>
 
+    <!-- FIELD USAGE WORKSPACE -->
+    <template if:true={fieldUsageOpen}>
+        <section class={fieldUsageWorkspaceClass}>
+            <header class="fu-header">
+                <div><span class="settings-kicker">FIELD USAGE INTELLIGENCE</span><h1>Field Usage Map</h1><p>Select an object and one or more fields to visualise where they are used across the latest successful scan.</p></div>
+                <div class="fu-actions"><button class="arch-action-btn" onclick={handleFieldUsageClear}>Clear</button><button class="arch-action-btn" onclick={handleToggleFieldUsageFullScreen}>{fieldUsageFullScreenLabel}</button><button class="mimic-close" onclick={handleCloseFieldUsage}>Back to Diagram</button></div>
+            </header>
+            <template if:true={fieldUsageLoading}><div class="settings-loading">Loading Field Usage snapshot…</div></template>
+            <template if:true={fieldUsageShowEntryMessage}><div class="afi-empty"><strong>Field Usage status</strong><p>{fieldUsageEntryMessage}</p></div></template>
+            <template if:true={fieldUsageReady}>
+                <div class="fu-browser-shell">
+                    <aside class="fu-picker-pane"><div class="settings-panel-head"><div><h3>Objects</h3><p>Choose an indexed object</p></div></div><input class="fu-picker-search" type="search" placeholder="Search objects" value={fieldUsageObjectSearch} oninput={handleFieldUsageObjectSearch}/><div class="fu-picker-list"><template for:each={fieldUsageObjectOptions} for:item="o"><button key={o.value} class={o.rowClass} data-value={o.value} onclick={handleFieldUsageObject}>{o.label}</button></template></div></aside>
+                    <aside class="fu-picker-pane"><div class="settings-panel-head"><div><h3>Fields</h3><p>Select one or more fields</p></div></div><input class="fu-picker-search" type="search" placeholder="Search fields" value={fieldUsageFieldSearch} oninput={handleFieldUsageFieldSearch}/><div class="fu-picker-list"><template if:true={fieldUsageHasObject}><template for:each={fieldUsageFieldOptions} for:item="f"><button key={f.value} class={f.rowClass} data-value={f.value} onclick={handleFieldUsageFields}>{f.label}</button></template></template><template if:false={fieldUsageHasObject}><div class="fu-picker-empty">Select an object first.</div></template></div></aside>
+                    <main class="fu-map-pane">
+                        <div class="fu-map-toolbar"><div><strong>Dependency Map</strong><span>Object → Field → Source → Component → Evidence</span></div><div class="fu-actions"><button class="arch-action-btn" onclick={handleFieldUsageAnalyse}>{fieldUsageBuildLabel}</button><button class="arch-action-btn" onclick={handleFieldUsageZoomOut}>−</button><button class="arch-action-btn" onclick={handleFieldUsageZoomReset}>{fieldUsageZoomLabel}</button><button class="arch-action-btn" onclick={handleFieldUsageZoomIn}>+</button><button class="arch-action-btn" onclick={handleFieldUsageFit}>Fit</button><button class="arch-action-btn" onclick={handleFieldUsageExport}>Export PNG</button></div></div>
+                        <div class="fu-scroll" onmousedown={handleFieldUsagePanStart} onmousemove={handleFieldUsagePanMove} onmouseup={handleFieldUsagePanEnd} onmouseleave={handleFieldUsagePanEnd}><div class="fu-stage" style={fieldUsageStageStyle}><div class="fu-canvas" style={fieldUsageCanvasStyle}><svg class="fu-edges"><template for:each={fieldUsageEdges} for:item="edge"><path key={edge.key} d={edge.path}></path></template></svg><template for:each={fieldUsageNodes} for:item="node"><button key={node.key} class="fu-node" style={node.style} data-kind={node.kind} data-field={node.field} data-source={node.source} data-evidence-key={node.evidenceKey} onclick={handleFieldUsageNodeClick}><strong>{node.label}</strong><span>{node.sub}</span></button></template></div></div></div>
+                    </main>
+                </div>
+            </template>
+        </section>
+    </template>
+
     <!-- ACTION TOOLBAR -->
     <div class="toolbar">
         <button class="tb-icon-btn" onclick={handleToggleSidebar} title="Toggle file explorer">|||</button>
@@ -357,6 +379,7 @@
                     <div class="dd-menu-item" onclick={handleMenuSharingView}>{sharingViewMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuHeatmap}>{heatmapMenuText}</div>
                     <div class="dd-menu-item" onclick={handleMenuDataDictionary}>{dictionaryMenuText}</div>
+                    <div class="dd-menu-item" onclick={handleMenuFieldUsage}>{fieldUsageMenuText}</div>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item" onclick={handleMenuArchitecture}>{architectureMenuText}</div>
                 </div>

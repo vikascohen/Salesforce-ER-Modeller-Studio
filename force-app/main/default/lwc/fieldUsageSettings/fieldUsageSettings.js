@@ -138,6 +138,10 @@ export default class FieldUsageSettings extends LightningElement {
     get snapshotState(){return this.run?.Is_Current__c&&this.run?.Status__c==='Completed'?'Current':(this.run?.Status__c||'Not scanned');}
     get healthState(){return this.scanRunning?'Processing':((this.run?.Error_Count__c||0)>0?'Attention':(this.run?.Is_Current__c?'Healthy':'Not scanned'));}
     get dependencyCount(){return this.run?.Dependency_Count__c||0;}
+    get objectsProcessed(){return Number(this.run?.Objects_Processed__c||0);}
+    get objectsTotal(){return Number(this.run?.Objects_Total__c||0);}
+    get progressLog(){return this.run?.Progress_Log__c||'';}
+    get hasProgressLog(){return !!this.progressLog;}
     get errorCount(){return this.run?.Error_Count__c||0;}
     get jobTotal(){return Number(this.status?.jobTotal||0);}
     get jobProcessed(){return Number(this.status?.jobProcessed||0);}
