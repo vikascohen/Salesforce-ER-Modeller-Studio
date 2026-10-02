@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Field_Usage_Test_Contact_Name</fullName>
+    <active>true</active>
+    <description>Dummy validation rule used to test Field Usage Intelligence detection of Contact FirstName and LastName.</description>
+    <errorConditionFormula>AND(ISBLANK(FirstName), ISBLANK(LastName))</errorConditionFormula>
+    <errorMessage>Field Usage test: enter a Contact first name or last name.</errorMessage>
+</ValidationRule>
