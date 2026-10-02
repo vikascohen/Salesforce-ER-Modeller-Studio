@@ -43,10 +43,9 @@ function sourceKind(sourceType) {
     if (value.includes('flow')) return 'flow-type';
     if (value.includes('trigger')) return 'trigger-type';
     if (value.includes('apex')) return 'apex-type';
-    if (value.includes('lwc')) return 'lwc-type';
-    if (value.includes('aura')) return 'aura-type';
-    if (value.includes('formula')) return 'formula-type';
-    if (value.includes('validation')) return 'validation-type';
+    // All other metadata source categories deliberately use the generic source-node
+    // presentation. This keeps LWC, Aura, Formula and Validation Rule headings
+    // visually consistent (accent/bold) instead of silently falling back to white.
     return 'type';
 }
 
