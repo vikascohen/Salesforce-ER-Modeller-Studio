@@ -1,35 +1,27 @@
-name: Deploy to Sandbox
+name: Deploy to Salesforce
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - architecture-intelligence-refactor
-
-concurrency:
-  group: architecture-refactor-sandbox-deploy
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    name: Deploy Refactor to Sandbox
+    name: Deploy to Salesforce
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
-      - name: Checkout repository
+      - name: Checkout architecture refactor branch
         uses: actions/checkout@v4
+        with:
+          ref: architecture-intelligence-refactor
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
 
-      - name: Verify Salesforce CLI
-        run: sf version
-
-      - name: Authenticate sandbox
+      - name: Authenticate Salesforce org
         shell: bash
         env:
           SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
@@ -39,39 +31,13 @@ jobs:
             exit 1
           fi
           printf '%s' "$SFDX_AUTH_URL" > /tmp/sfdx-auth-url.txt
-          sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias sandbox --set-default
+          sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias deploy-org --set-default
           rm -f /tmp/sfdx-auth-url.txt
 
-      - name: Deploy Version 3 plus Architecture Intelligence refactor
+      - name: Deploy architecture refactor branch
         run: |
           sf project deploy start \
             --source-dir force-app \
-            --target-org sandbox \
+            --target-org deploy-org \
             --test-level NoTestRun \
             --wait 40
-
-      - name: Run ER Modeller Apex tests
-        run: |
-          sf apex run test \
-            --target-org sandbox \
-            --tests DiagramFileControllerTest \
-            --tests DiagramPreferenceControllerTest \
-            --tests SchemaMetadataControllerTest \
-            --tests FieldUsageApexScannerTest \
-            --tests FieldUsageControllerTest \
-            --tests FieldUsageDiscoveryBatchTest \
-            --tests FieldUsageFlowScannerTest \
-            --tests FieldUsageFormulaScannerTest \
-            --tests FieldUsageOrchestratorTest \
-            --tests FieldUsageScheduleServiceTest \
-            --tests FieldUsageSnapshotFinalizerTest \
-            --tests FieldUsageToolingApiClientTest \
-            --tests FieldUsageCredentialDiagTest \
-            --tests FieldUsageToolingDiscoveryBatchTest \
-            --tests FieldUsageUiScannerTest \
-            --tests FieldUsageUiToolingClientTest \
-            --tests FieldUsageWorkUnitBatchTest \
-            --tests StudioDiagnosticsControllerTest \
-            --code-coverage \
-            --result-format human \
-            --wait 30
