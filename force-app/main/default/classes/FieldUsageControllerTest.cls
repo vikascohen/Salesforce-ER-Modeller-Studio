@@ -23,7 +23,8 @@
   FieldUsageController.EvidenceDetailPageDTO afterLast=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500,detail.nextCursor);System.assertEquals(0,afterLast.rows.size());
   System.assertEquals(0,FieldUsageController.getEvidenceDetail('Account','Industry','Apex Class',500,null).rows.size());
   System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
-  System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','Formula Field'},FieldUsageController.getSourceTypes());
+  System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','LWC','Aura','Validation Rule','Formula Field'},FieldUsageController.getSourceTypes());
+  System.assertEquals(2,FieldUsageController.getRecentRuns(20).size());
  }
 
  @IsTest static void coversSearchPagingAndEmptyInputBranches(){
