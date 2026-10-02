@@ -1,0 +1,5 @@
+<aura:component implements="flexipage:availableForAllPageTypes,force:hasRecordId" access="global">
+    <aura:attribute name="contact" type="Contact" default="{'sobjectType':'Contact'}" />
+    <lightning:input aura:id="firstName" label="Contact First Name" value="{!v.contact.FirstName}" />
+    <lightning:input aura:id="lastName" label="Contact Last Name" value="{!v.contact.LastName}" />
+</aura:component>
