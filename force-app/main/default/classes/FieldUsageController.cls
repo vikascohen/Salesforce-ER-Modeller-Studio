@@ -23,9 +23,10 @@ public with sharing class FieldUsageController {
         dto.available=!rows.isEmpty(); if(dto.available){dto.completedAt=rows[0].Completed_At__c;dto.dependencyCount=rows[0].Dependency_Count__c==null?0:rows[0].Dependency_Count__c.intValue();} return dto;
     }
     @AuraEnabled public static List<String> getSnapshotObjects(){
-        List<String> names=new List<String>();
-        for(AggregateResult row:[SELECT Object_API_Name__c objectName FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true GROUP BY Object_API_Name__c ORDER BY Object_API_Name__c]){String objectName=(String)row.get('objectName');if(!String.isBlank(objectName))names.add(objectName);}
-        return names.isEmpty()?getObjects():names;
+        // Field Usage is a schema browser as well as an evidence browser. A sparse
+        // snapshot deliberately stores only fields that have dependencies, so
+        // deriving this list from evidence hides perfectly valid zero-usage objects.
+        return getObjects();
     }
     @AuraEnabled(cacheable=true) public static List<String> getSnapshotFields(String objectApiName){return String.isBlank(objectApiName)?new List<String>():getFields(objectApiName);}
     @AuraEnabled(cacheable=true) public static List<String> getObjects(){List<String> names=new List<String>();Map<String,Schema.SObjectType> globalDescribe=Schema.getGlobalDescribe();for(String n:globalDescribe.keySet()){Schema.DescribeSObjectResult describe=globalDescribe.get(n).getDescribe();if(describe.isAccessible())names.add(describe.getName());}names.sort();return names;}
@@ -46,40 +47,18 @@ public with sharing class FieldUsageController {
     @AuraEnabled(cacheable=true)
     public static List<Field_Usage_Run__c> getRecentRuns(Integer rowLimit) {
         Integer lim = rowLimit == null ? 20 : rowLimit;
-
-        if (lim < 1) {
-            lim = 1;
-        } else if (lim > 100) {
-            lim = 100;
-        }
-
-        return [
-            SELECT Id,
-                   Name,
-                   Status__c,
-                   Started_At__c,
-                   Completed_At__c,
-                   Dependency_Count__c,
-                   Error_Count__c,
-                   Is_Current__c,
-                   Progress_Percent__c,
-                   Progress_Phase__c,
-                   Objects_Total__c,
-                   Objects_Processed__c,
-                   Job_Id__c
-            FROM Field_Usage_Run__c
-            ORDER BY CreatedDate DESC
-            LIMIT :lim
-        ];
+        if (lim < 1) lim = 1; else if (lim > 100) lim = 100;
+        return [SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT :lim];
     }
     @AuraEnabled public static Id runNow(){try{return FieldUsageOrchestrator.start('Manual');}catch(FieldUsageOrchestrator.ScanAlreadyRunningException ex){throw new AuraHandledException(ex.getMessage());}catch(FieldUsageToolingApiClient.ToolingApiException ex){throw new AuraHandledException(ex.getMessage());}}
     @AuraEnabled public static void bootstrap(){FieldUsageScheduleService.ensureDefaults();}
     @AuraEnabled public static StatusDTO getStatus(Id runId){StatusDTO dto=new StatusDTO();String fields='Id,Name,Status__c,Started_At__c,Completed_At__c,Heartbeat_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c';if(runId!=null){List<Field_Usage_Run__c> exact=Database.query('SELECT '+fields+' FROM Field_Usage_Run__c WHERE Id=:runId LIMIT 1');dto.run=exact.isEmpty()?null:exact[0];}else{List<Field_Usage_Run__c> active=Database.query('SELECT '+fields+' FROM Field_Usage_Run__c WHERE Status__c IN (\'Queued\',\'Running\') ORDER BY CreatedDate DESC LIMIT 1');if(!active.isEmpty())dto.run=active[0];else{List<Field_Usage_Run__c> latest=Database.query('SELECT '+fields+' FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1');dto.run=latest.isEmpty()?null:latest[0];}}populateJobStatus(dto);if(dto.run==null||String.isBlank(dto.jobStatus)||!new Set<String>{'Holding','Queued','Preparing','Processing'}.contains(dto.jobStatus)){Set<String> fieldUsageBatchClasses=new Set<String>{'FieldUsageDiscoveryBatch','FieldUsageToolingDiscoveryBatch','FieldUsageWorkUnitBatch'};List<AsyncApexJob> liveJobs=[SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors,ExtendedStatus,ApexClass.Name,CreatedDate FROM AsyncApexJob WHERE ApexClass.Name IN :fieldUsageBatchClasses AND Status IN ('Holding','Queued','Preparing','Processing') ORDER BY CreatedDate DESC LIMIT 1];if(!liveJobs.isEmpty()){AsyncApexJob live=liveJobs[0];List<Field_Usage_Run__c> linked=Database.query('SELECT '+fields+' FROM Field_Usage_Run__c WHERE Job_Id__c=:live.Id ORDER BY CreatedDate DESC LIMIT 1');if(!linked.isEmpty())dto.run=linked[0];if(dto.run==null){dto.run=new Field_Usage_Run__c(Status__c='Running',Job_Id__c=String.valueOf(live.Id),Progress_Phase__c='Batch Apex job is '+live.Status);}else{dto.run.Status__c=live.Status=='Queued'||live.Status=='Holding'?'Queued':'Running';if(String.isBlank(dto.run.Progress_Phase__c))dto.run.Progress_Phase__c='Batch Apex job is '+live.Status;}copyJobStatus(dto,live);}}dto.schedules=[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c];return dto;}
     private static void populateJobStatus(StatusDTO dto){if(dto==null||dto.run==null||String.isBlank(dto.run.Job_Id__c))return;try{Id asyncId=(Id)dto.run.Job_Id__c;List<AsyncApexJob> jobs=[SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors,ExtendedStatus FROM AsyncApexJob WHERE Id=:asyncId LIMIT 1];if(!jobs.isEmpty()){copyJobStatus(dto,jobs[0]);if(new Set<String>{'Holding','Queued','Preparing','Processing'}.contains(jobs[0].Status)){dto.run.Status__c=jobs[0].Status=='Queued'||jobs[0].Status=='Holding'?'Queued':'Running';if(String.isBlank(dto.run.Progress_Phase__c))dto.run.Progress_Phase__c='Batch Apex job is '+jobs[0].Status;}}}catch(Exception ignored){}}
-    private static void copyJobStatus(StatusDTO dto,AsyncApexJob job){dto.jobStatus=job.Status;dto.jobType=String.valueOf(job.JobType);dto.jobTotal=job.TotalJobItems;dto.jobProcessed=job.JobItemsProcessed;dto.jobErrors=job.NumberOfErrors;}
-    @AuraEnabled public static void saveSchedules(List<Field_Usage_Schedule__c> rows){FieldUsageScheduleService.save(rows);}
-    @AuraEnabled(cacheable=true) public static List<ScheduledJobDTO> getScheduledJobs(){String pattern=FieldUsageScheduleService.PREFIX+'%';Map<String,CronTrigger> jobsByName=new Map<String,CronTrigger>();for(CronTrigger job:[SELECT Id,State,NextFireTime,PreviousFireTime,CronExpression,CronJobDetail.Name FROM CronTrigger WHERE CronJobDetail.Name LIKE :pattern])jobsByName.put(job.CronJobDetail.Name,job);List<ScheduledJobDTO> out=new List<ScheduledJobDTO>();for(Field_Usage_Schedule__c row:[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c]){ScheduledJobDTO dto=new ScheduledJobDTO();dto.scheduleId=row.Id;dto.scheduleName=row.Name;dto.enabled=row.Enabled__c;dto.hour=row.Hour__c;dto.minute=row.Minute__c;dto.jobName=row.Cron_Job_Name__c;CronTrigger job=String.isBlank(row.Cron_Job_Name__c)?null:jobsByName.get(row.Cron_Job_Name__c);if(job!=null){dto.cronTriggerId=job.Id;dto.state=job.State;dto.nextFireTime=job.NextFireTime;dto.previousFireTime=job.PreviousFireTime;dto.cronExpression=job.CronExpression;}else dto.state=row.Enabled__c?'Not Scheduled':'Paused';out.add(dto);}return out;}
-    @AuraEnabled public static void pauseSchedule(Id scheduleId){FieldUsageScheduleService.setEnabled(scheduleId,false);}
-    @AuraEnabled public static void resumeSchedule(Id scheduleId){FieldUsageScheduleService.setEnabled(scheduleId,true);}
-    @AuraEnabled public static void deleteSchedule(Id scheduleId){if(scheduleId==null)return;delete [SELECT Id FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1];FieldUsageScheduleService.apply();}
+    private static void copyJobStatus(StatusDTO dto,AsyncApexJob job){dto.jobTotal=job.TotalJobItems==null?0:job.TotalJobItems;dto.jobProcessed=job.JobItemsProcessed==null?0:job.JobItemsProcessed;dto.jobErrors=job.NumberOfErrors==null?0:job.NumberOfErrors;dto.jobStatus=job.Status;dto.jobType=job.JobType;}
+    @AuraEnabled public static List<ScheduledJobDTO> getScheduledJobs(){List<ScheduledJobDTO> out=new List<ScheduledJobDTO>();for(Field_Usage_Schedule__c s:[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c]){ScheduledJobDTO d=new ScheduledJobDTO();d.scheduleId=s.Id;d.scheduleName=s.Name;d.enabled=s.Enabled__c;d.hour=s.Hour__c;d.minute=s.Minute__c;d.jobName=s.Cron_Job_Name__c;if(!String.isBlank(s.Cron_Job_Name__c)){List<CronTrigger> jobs=[SELECT Id,State,NextFireTime,PreviousFireTime,CronExpression FROM CronTrigger WHERE CronJobDetail.Name=:s.Cron_Job_Name__c ORDER BY CreatedDate DESC LIMIT 1];if(!jobs.isEmpty()){CronTrigger c=jobs[0];d.cronTriggerId=c.Id;d.state=c.State;d.nextFireTime=c.NextFireTime;d.previousFireTime=c.PreviousFireTime;d.cronExpression=c.CronExpression;}}out.add(d);}return out;}
+    @AuraEnabled public static void saveSchedules(List<Field_Usage_Schedule__c> schedules){if(schedules==null)return;List<Field_Usage_Schedule__c> existing=[SELECT Id,Cron_Job_Name__c FROM Field_Usage_Schedule__c];for(Field_Usage_Schedule__c old:existing)if(!String.isBlank(old.Cron_Job_Name__c))FieldUsageScheduleService.abortJob(old.Cron_Job_Name__c);upsert schedules;FieldUsageScheduleService.rescheduleEnabled();}
+    @AuraEnabled public static void deleteSchedule(Id scheduleId){if(scheduleId==null)return;Field_Usage_Schedule__c row=[SELECT Id,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1];if(!String.isBlank(row.Cron_Job_Name__c))FieldUsageScheduleService.abortJob(row.Cron_Job_Name__c);delete row;}
+    @AuraEnabled public static void pauseSchedule(Id scheduleId){if(scheduleId==null)return;Field_Usage_Schedule__c row=[SELECT Id,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1];if(!String.isBlank(row.Cron_Job_Name__c))FieldUsageScheduleService.abortJob(row.Cron_Job_Name__c);row.Enabled__c=false;update row;}
+    @AuraEnabled public static void resumeSchedule(Id scheduleId){if(scheduleId==null)return;Field_Usage_Schedule__c row=[SELECT Id,Enabled__c FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1];row.Enabled__c=true;update row;FieldUsageScheduleService.rescheduleEnabled();}
+    @AuraEnabled public static void deleteScheduledJob(Id scheduleId){deleteSchedule(scheduleId);}
 }
