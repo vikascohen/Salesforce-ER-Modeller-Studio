@@ -35,25 +35,45 @@ public without sharing class FieldUsageUiToolingClient {
     }
 
     /**
-     * EntityDefinitionId representation varies across Tooling responses/orgs. Avoid
-     * brittle WHERE DurableId IN (...) assumptions: load the lightweight definition
-     * index and match by DurableId, QualifiedApiName, or Salesforce Id form.
+     * EntityDefinition is a special Tooling object: it does not support queryMore().
+     * Resolve only the EntityDefinitionIds actually referenced by validation rules,
+     * in bounded IN-clause chunks, so every query completes in a single response.
      */
     private static Map<String,String> resolveEntityNames(List<Map<String,Object>> records){
-        Map<String,String> out=new Map<String,String>();Set<String> wanted=new Set<String>();for(Map<String,Object> record:records){String value=stringValue(record.get('EntityDefinitionId'));if(!String.isBlank(value))wanted.add(value);}if(wanted.isEmpty())return out;
-        for(Map<String,Object> row:queryAll('SELECT DurableId,QualifiedApiName FROM EntityDefinition','Validation Rule entity-name resolution')){
-            String durable=stringValue(row.get('DurableId'));String api=stringValue(row.get('QualifiedApiName'));if(String.isBlank(api))continue;
-            if(!String.isBlank(durable)){out.put(durable,api);if(durable.length()==18)out.put(durable.substring(0,15),api);}
-            out.put(api,api);
+        Map<String,String> out=new Map<String,String>();
+        Set<String> wanted=new Set<String>();
+        for(Map<String,Object> record:records){String value=stringValue(record.get('EntityDefinitionId'));if(!String.isBlank(value))wanted.add(value);}
+        if(wanted.isEmpty())return out;
+
+        // Some standard-object responses expose the API name directly; resolve those without a callout.
+        Map<String,Schema.SObjectType> globalDescribe=Schema.getGlobalDescribe();
+        Set<String> unresolved=new Set<String>();
+        for(String key:wanted){
+            if(globalDescribe.containsKey(key))out.put(key,globalDescribe.get(key).getDescribe().getName());
+            else unresolved.add(key);
         }
-        // Standard-object responses can occasionally expose the API name directly.
-        for(String key:wanted)if(!out.containsKey(key)&&Schema.getGlobalDescribe().containsKey(key))out.put(key,Schema.getGlobalDescribe().get(key).getDescribe().getName());
+        if(unresolved.isEmpty())return out;
+
+        List<String> ids=new List<String>(unresolved);
+        final Integer ENTITY_CHUNK_SIZE=100;
+        for(Integer offset=0;offset<ids.size();offset+=ENTITY_CHUNK_SIZE){
+            Integer chunkEnd=Math.min(offset+ENTITY_CHUNK_SIZE,ids.size());
+            List<String> quoted=new List<String>();
+            for(Integer i=offset;i<chunkEnd;i++)quoted.add('\''+String.escapeSingleQuotes(ids[i])+'\'');
+            String soql='SELECT DurableId,QualifiedApiName FROM EntityDefinition WHERE DurableId IN ('+String.join(quoted,',')+') LIMIT '+String.valueOf(ENTITY_CHUNK_SIZE);
+            for(Map<String,Object> row:querySinglePage(soql,'Validation Rule entity-name resolution')){
+                String durable=stringValue(row.get('DurableId'));String api=stringValue(row.get('QualifiedApiName'));if(String.isBlank(durable)||String.isBlank(api))continue;
+                out.put(durable,api);
+                if(durable.length()==18)out.put(durable.substring(0,15),api);
+            }
+        }
         return out;
     }
 
     private static String stringValue(Object value){return value==null?null:String.valueOf(value);}
     private static List<UiComponent> queryIndex(String toolingObject,String nameField,String sourceType){String soql='SELECT Id,'+nameField+' FROM '+toolingObject+' ORDER BY '+nameField;List<UiComponent> out=new List<UiComponent>();for(Map<String,Object> record:queryAll(soql,sourceType+' bundle index')){UiComponent c=new UiComponent();c.id=(String)record.get('Id');c.name=(String)record.get(nameField);c.sourceType=sourceType;out.add(c);}return out;}
     private static List<UiComponent> queryResources(String toolingObject,String bundleField,String resourceField,String bundleObject,String sourceType,Set<String> bundleIds){List<UiComponent> out=new List<UiComponent>();if(bundleIds==null||bundleIds.isEmpty())return out;Map<String,String> bundleNames=new Map<String,String>();List<String> quoted=new List<String>();for(String id:bundleIds)quoted.add('\''+String.escapeSingleQuotes(id)+'\'');String parentSoql='SELECT Id,DeveloperName FROM '+bundleObject+' WHERE Id IN ('+String.join(quoted,',')+')';for(Map<String,Object> parent:queryAll(parentSoql,sourceType+' bundle names'))bundleNames.put(String.valueOf(parent.get('Id')),String.valueOf(parent.get('DeveloperName')));for(String bundleId:bundleIds){String soql='SELECT Id,'+bundleField+','+resourceField+',Source FROM '+toolingObject+' WHERE '+bundleField+'=\''+String.escapeSingleQuotes(bundleId)+'\' ORDER BY '+resourceField;for(Map<String,Object> record:queryAll(soql,sourceType+' resources for bundle '+bundleId)){UiComponent c=new UiComponent();c.id=(String)record.get('Id');c.body=(String)record.get('Source');c.sourceType=sourceType;String resourceName=String.valueOf(record.get(resourceField));String bundleName=bundleNames.get(bundleId);c.name=(String.isBlank(bundleName)?bundleId:bundleName)+' / '+resourceName;out.add(c);}}return out;}
+    private static List<Map<String,Object>> querySinglePage(String soql,String operation){HttpResponse response=send('/services/data/'+API_VERSION+'/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8'),operation);Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());List<Map<String,Object>> out=new List<Map<String,Object>>();List<Object> records=payload.get('records') instanceof List<Object>?(List<Object>)payload.get('records'):new List<Object>();for(Object raw:records)out.add((Map<String,Object>)raw);return out;}
     private static List<Map<String,Object>> queryAll(String soql,String operation){List<Map<String,Object>> out=new List<Map<String,Object>>();String nextUrl='/services/data/'+API_VERSION+'/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8');while(nextUrl!=null){HttpResponse response=send(nextUrl,operation);Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());List<Object> records=payload.get('records') instanceof List<Object>?(List<Object>)payload.get('records'):new List<Object>();for(Object raw:records)out.add((Map<String,Object>)raw);nextUrl=(String)payload.get('nextRecordsUrl');}return out;}
     private static HttpResponse send(String relativeUrl,String operation){HttpRequest request=new HttpRequest();request.setEndpoint(NAMED_CREDENTIAL+relativeUrl);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(120000);HttpResponse response=new Http().send(request);if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new FieldUsageUiToolingException(operation+' failed with HTTP '+response.getStatusCode()+': '+String.valueOf(response.getBody()).left(1000));return response;}
     public class FieldUsageUiToolingException extends Exception {}
