@@ -10,20 +10,116 @@ import getSourceTypes from '@salesforce/apex/FieldUsageController.getSourceTypes
 import getRecentRuns from '@salesforce/apex/FieldUsageController.getRecentRuns';
 
 export default class FieldUsageSettings extends LightningElement {
-    status; jobs=[]; sourceTypes=[]; schedules=[]; history=[]; busy=false; message=''; scheduleSeq=0; poller;
-    connectedCallback(){ this.refresh(); this.poller=setInterval(()=>{ if(this.scanRunning) this.refresh(false); },5000); }
-    disconnectedCallback(){ if(this.poller) clearInterval(this.poller); }
+    status;
+    jobs=[];
+    sourceTypes=[];
+    schedules=[];
+    history=[];
+    busy=false;
+    message='';
+    scheduleSeq=0;
+    poller=null;
+    activeRunId=null;
+
+    connectedCallback(){
+        this.refresh();
+        this.startPolling();
+    }
+
+    disconnectedCallback(){
+        this.stopPolling();
+    }
+
+    startPolling(){
+        this.stopPolling();
+        this.poller=window.setInterval(async()=>{
+            if(!this.scanRunning)return;
+            try{await this.refresh(false);}catch(_){/* retry on next poll */}
+        },3000);
+    }
+
+    stopPolling(){
+        if(this.poller){
+            window.clearInterval(this.poller);
+            this.poller=null;
+        }
+    }
+
     async refresh(showBusy=true){
         if(showBusy)this.busy=true;
         try{
-            const [status,jobs,sourceTypes,history]=await Promise.all([getStatus({runId:null}),getScheduledJobs(),getSourceTypes(),getRecentRuns({rowLimit:20})]);
-            this.status=status;this.jobs=jobs||[];this.sourceTypes=sourceTypes||[];this.history=history||[];
+            const [status,jobs,sourceTypes,history]=await Promise.all([
+                getStatus({runId:this.activeRunId}),
+                getScheduledJobs(),
+                getSourceTypes(),
+                getRecentRuns({rowLimit:20})
+            ]);
+
+            if(status?.run){
+                this.activeRunId=status.run.Id||this.activeRunId;
+                this.status=status;
+            }else if(this.status?.run&&this.activeRunId){
+                this.status={...status,run:this.status.run};
+            }else{
+                this.status=status;
+            }
+
+            this.jobs=jobs||[];
+            this.sourceTypes=sourceTypes||[];
+            this.history=history||[];
             this.schedules=(status?.schedules||[]).map(r=>({...r,_key:r.Id||`new-${++this.scheduleSeq}`}));
             if(showBusy)this.message='';
-        }catch(e){this.message=this.errorText(e,'Unable to load Field Usage operations.');}
-        finally{if(showBusy)this.busy=false;}
+        }catch(e){
+            this.message=this.errorText(e,'Unable to load Field Usage operations.');
+        }finally{
+            if(showBusy)this.busy=false;
+        }
     }
-    async handleRunNow(){if(this.scanRunning)return;this.busy=true;try{await runNow();this.message='Field Usage scan queued.';await this.refresh(false);}catch(e){this.message=this.errorText(e,'Unable to start Field Usage scan.');}finally{this.busy=false;}}
+
+    async handleRunNow(){
+        if(this.scanRunning)return;
+        this.busy=true;
+        this.message='Starting Field Usage scan...';
+        this.status={
+            ...(this.status||{}),
+            run:{
+                Status__c:'Queued',
+                Progress_Percent__c:0,
+                Progress_Phase__c:'Waiting for background scan to start',
+                Objects_Processed__c:0,
+                Objects_Total__c:0,
+                Dependency_Count__c:0,
+                Error_Count__c:0
+            },
+            jobStatus:'Queued',jobProcessed:0,jobTotal:0,jobErrors:0
+        };
+        try{
+            const runId=await runNow();
+            this.activeRunId=runId;
+            this.status={
+                ...(this.status||{}),
+                run:{
+                    ...(this.status?.run||{}),
+                    Id:runId,
+                    Status__c:'Queued',
+                    Progress_Percent__c:0,
+                    Progress_Phase__c:'Waiting for background scan to start'
+                }
+            };
+            this.message='Field Usage scan queued.';
+            this.startPolling();
+            try{await this.refresh(false);}catch(_){/* next poll retries */}
+        }catch(e){
+            this.message=this.errorText(e,'Unable to start Field Usage scan.');
+            if(/already running/i.test(this.message)){
+                this.activeRunId=null;
+                await this.refresh(false);
+            }
+        }finally{
+            this.busy=false;
+        }
+    }
+
     handleAddSchedule(){this.schedules=[...this.schedules,{_key:`new-${++this.scheduleSeq}`,Name:'Field Usage Schedule',Enabled__c:true,Hour__c:3,Minute__c:0}];}
     changeSchedule(key,patch){this.schedules=this.schedules.map(r=>r._key===key?{...r,...patch}:r);}
     handleName(e){this.changeSchedule(e.currentTarget.dataset.key,{Name:e.target.value});}
@@ -41,9 +137,30 @@ export default class FieldUsageSettings extends LightningElement {
     get scanRunning(){return ['Queued','Running','Holding','Preparing','Processing'].includes(this.run?.Status__c)||['Holding','Queued','Preparing','Processing'].includes(this.status?.jobStatus);}
     get snapshotState(){return this.run?.Is_Current__c&&this.run?.Status__c==='Completed'?'Current':(this.run?.Status__c||'Not scanned');}
     get healthState(){return this.scanRunning?'Processing':((this.run?.Error_Count__c||0)>0?'Attention':(this.run?.Is_Current__c?'Healthy':'Not scanned'));}
-    get dependencyCount(){return this.run?.Dependency_Count__c||0;} get errorCount(){return this.run?.Error_Count__c||0;}
-    get progress(){return Math.max(0,Math.min(100,Number(this.run?.Progress_Percent__c||0)));} get progressStyle(){return `width:${this.progress}%`;} get phase(){return this.run?.Progress_Phase__c||'Idle';}
-    get lastCompleted(){return this.formatDate(this.run?.Completed_At__c);} get hasJobs(){return this.jobs.length>0;} get hasSchedules(){return this.schedules.length>0;} get hasHistory(){return this.history.length>0;}
+    get dependencyCount(){return this.run?.Dependency_Count__c||0;}
+    get errorCount(){return this.run?.Error_Count__c||0;}
+    get jobTotal(){return Number(this.status?.jobTotal||0);}
+    get jobProcessed(){return Number(this.status?.jobProcessed||0);}
+    get jobErrors(){return Number(this.status?.jobErrors||0);}
+    get jobStatus(){return this.status?.jobStatus||'';}
+    get progress(){
+        const persisted=Number(this.run?.Progress_Percent__c||0);
+        if(persisted>0)return Math.max(0,Math.min(100,persisted));
+        if(this.jobTotal>0)return Math.max(0,Math.min(100,Math.round((this.jobProcessed/this.jobTotal)*100)));
+        return 0;
+    }
+    get progressStyle(){return `width:${this.progress}%;`;}
+    get phase(){
+        if(this.jobStatus){
+            if(this.jobTotal>0)return `${this.jobStatus} · Batch ${this.jobProcessed} / ${this.jobTotal}`;
+            return `Batch ${this.jobStatus}`;
+        }
+        return this.run?.Progress_Phase__c||'Idle';
+    }
+    get lastCompleted(){return this.formatDate(this.run?.Completed_At__c);}
+    get hasJobs(){return this.jobs.length>0;}
+    get hasSchedules(){return this.schedules.length>0;}
+    get hasHistory(){return this.history.length>0;}
     get jobsView(){return this.jobs.map(j=>({...j,key:j.scheduleId||j.cronTriggerId||j.jobName,next:this.formatDate(j.nextFireTime),previous:this.formatDate(j.previousFireTime),state:j.state||(j.enabled?'Scheduled':'Paused'),time:`${String(Math.trunc(Number(j.hour||0))).padStart(2,'0')}:${String(Math.trunc(Number(j.minute||0))).padStart(2,'0')}`,canPause:!!j.enabled,canResume:!j.enabled}));}
     get historyView(){return this.history.map(r=>({...r,key:r.Id,status:r.Status__c||'Unknown',started:this.formatDate(r.Started_At__c),completed:this.formatDate(r.Completed_At__c),dependencies:r.Dependency_Count__c||0,errors:r.Error_Count__c||0,phase:r.Progress_Phase__c||'—'}));}
     get coverageRows(){return this.sourceTypes.map((name,i)=>({key:`coverage-${i}`,name,status:'Supported'}));}
