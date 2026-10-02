@@ -1,24 +1,21 @@
-name: Phase 3 Salesforce CLI Validation
+name: Deploy to Sandbox
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - version-3-field-usage-intelligence
-  pull_request:
-    branches:
-      - version-3-field-usage-intelligence
-  workflow_dispatch:
+      - architecture-intelligence-refactor
 
 concurrency:
-  group: phase3-salesforce-ci
+  group: architecture-refactor-sandbox-deploy
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate Metadata and Apex
+  deploy:
+    name: Deploy Refactor to Sandbox
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -32,7 +29,7 @@ jobs:
       - name: Verify Salesforce CLI
         run: sf version
 
-      - name: Authenticate CI org
+      - name: Authenticate sandbox
         shell: bash
         env:
           SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
@@ -42,21 +39,24 @@ jobs:
             exit 1
           fi
           printf '%s' "$SFDX_AUTH_URL" > /tmp/sfdx-auth-url.txt
-          sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias phase3-ci --set-default
+          sf org login sfdx-url --sfdx-url-file /tmp/sfdx-auth-url.txt --alias sandbox --set-default
           rm -f /tmp/sfdx-auth-url.txt
 
-      - name: Compile and deploy source to disposable CI org
+      - name: Deploy Version 3 plus Architecture Intelligence refactor
         run: |
           sf project deploy start \
             --source-dir force-app \
-            --target-org phase3-ci \
+            --target-org sandbox \
             --test-level NoTestRun \
             --wait 40
 
-      - name: Run Phase 3 Apex tests with coverage
+      - name: Run ER Modeller Apex tests
         run: |
           sf apex run test \
-            --target-org phase3-ci \
+            --target-org sandbox \
+            --tests DiagramFileControllerTest \
+            --tests DiagramPreferenceControllerTest \
+            --tests SchemaMetadataControllerTest \
             --tests FieldUsageApexScannerTest \
             --tests FieldUsageControllerTest \
             --tests FieldUsageDiscoveryBatchTest \
@@ -66,8 +66,12 @@ jobs:
             --tests FieldUsageScheduleServiceTest \
             --tests FieldUsageSnapshotFinalizerTest \
             --tests FieldUsageToolingApiClientTest \
+            --tests FieldUsageCredentialDiagTest \
             --tests FieldUsageToolingDiscoveryBatchTest \
-            --tests FieldUsageWorkUnitBatchTest --tests StudioDiagnosticsControllerTest \
+            --tests FieldUsageUiScannerTest \
+            --tests FieldUsageUiToolingClientTest \
+            --tests FieldUsageWorkUnitBatchTest \
+            --tests StudioDiagnosticsControllerTest \
             --code-coverage \
             --result-format human \
             --wait 30
