@@ -1,23 +1,36 @@
 # ER Modeller Studio — Architecture
 
-**Author: Vikas Cohen**
+**Author: Vikas Cohen**  
+**Lead Architect and System Designer**
 
-This document explains the architecture of ER Modeller Studio as a whole: how the UI, schema model, DSL, Salesforce metadata services, Architecture Intelligence and Version 3 Field Usage pipeline fit together. It is intentionally a **map of the system**, not a duplicate of the specialist documents.
+This is the authoritative technical architecture document for ER Modeller Studio. It explains the product as one system: visual ER modelling, the ER DSL and compiler, Salesforce metadata acquisition, Data Dictionary, Architecture Intelligence, Object Intelligence, Version 3 Field Usage Intelligence, persistence, security boundaries, testing and extension principles.
+
+The product philosophy is simple: **understand the Salesforce data architecture before changing it**.
+
+---
 
 ## 1. Architectural philosophy
 
-ER Modeller Studio is built around a simple idea: **understand the Salesforce data architecture before changing it**.
+ER Modeller Studio separates four responsibilities:
 
-The architecture therefore separates four kinds of responsibility:
+1. **Acquisition** — obtain schema, metadata and dependency evidence from Salesforce.
+2. **Model** — represent objects, fields and relationships in a stable semantic form.
+3. **Intelligence** — derive structural and dependency-oriented insight from evidence.
+4. **Experience** — let a human explore, compare, visualise and export that insight.
 
-- **Acquisition** — obtain schema, metadata and dependency evidence from Salesforce.
-- **Model** — represent objects, fields and relationships in a stable in-memory/DSL form.
-- **Intelligence** — derive structural or dependency-oriented insights from evidence.
-- **Experience** — let a human explore, compare, visualise and export those insights.
+The system follows several rules throughout:
 
-The system deliberately avoids treating an architectural signal as an automatic defect. Graph topology, dependency evidence, field population, record types and metadata counts answer different questions and remain separate until the user interprets them together.
+- Evidence before opinion.
+- Structural signals are review prompts, not automatic defects.
+- Heavy org-wide work is asynchronous; interactive reads should be fast.
+- The last successful dependency snapshot remains trusted until a replacement completes successfully.
+- Meaning is separated from presentation.
+- Acquisition, parsing, persistence, analysis and visualisation are separate concerns.
+- New capability should normally become a focused module rather than another monolithic block.
 
-## 2. Whole-system view
+---
+
+## 2. Whole-system architecture
 
 ```mermaid
 flowchart TB
@@ -27,16 +40,16 @@ flowchart TB
       DS --> ER[ER Canvas + Explorer]
       DS --> DD[Data Dictionary]
       DS --> AI[Architecture Intelligence]
-      DS --> FU[Field Usage UI]
+      DS --> FU[Field Usage Intelligence]
       DS --> ST[Settings / Diagnostics / Help]
     end
 
-    subgraph ClientModel[Client Model & Analysis]
-      DSL[DSL Editor / Parser / Model]
+    subgraph Client[Client Model and Analysis]
+      DSL[ER DSL Compiler]
       ERL[ER Diagram Logic]
-      AIL[Architecture analysis modules]
-      FUL[Field Usage map / change-advisor logic]
-      EXP[Export utilities]
+      AIL[Architecture Analysis Modules]
+      FUL[Field Usage Map Logic]
+      EXP[Export Utilities]
     end
 
     ER <--> DSL
@@ -53,7 +66,7 @@ flowchart TB
       OIC[ObjectIntelligenceController]
       FUC[FieldUsageController]
       DIA[StudioDiagnosticsController]
-      FILE[DiagramFileController / Preferences]
+      FILE[Diagram File / Preference Controllers]
     end
 
     DS --> SMC
@@ -64,10 +77,10 @@ flowchart TB
     DS --> FILE
 
     subgraph Sources[Salesforce Evidence Sources]
-      DESC[Describe / Org schema]
+      DESC[Describe / Org Schema]
       TOOL[Tooling API]
-      ORG[Org metadata & data]
-      SNAP[Current successful Field Usage snapshot]
+      ORG[Org Metadata and Data]
+      SNAP[Current Successful Field Usage Snapshot]
     end
 
     SMC --> DESC
@@ -80,174 +93,360 @@ flowchart TB
     FILE --> ORG
 ```
 
-The large `diagramStudio` component is the application shell/orchestrator, but specialist logic is progressively extracted into focused modules and child components. This is important: the architecture is **modular by responsibility even when the Studio shell coordinates many features**.
+`diagramStudio` is the application shell and cross-feature orchestrator. Specialist behaviour is progressively extracted into focused components and JavaScript modules. The shell coordinates; it should not become a second implementation of every subsystem.
+
+---
 
 ## 3. Core modelling path
 
-The normal modelling path is:
-
 ```mermaid
 flowchart LR
-    A[Salesforce Describe or user-authored DSL] --> B[Normalised object/field model]
-    B --> C[Relationship model]
-    C --> D[ER canvas]
-    D --> E[User edits / layout]
+    A[Salesforce Describe or User-authored DSL] --> B[Normalised Semantic Model]
+    B --> C[Relationship Model]
+    C --> D[ER Canvas]
+    D --> E[User Edits / Layout]
     E --> B
-    B <--> F[DSL text]
+    B <--> F[DSL Text]
     B --> G[Save Diagram]
     B --> H[Exports]
     B --> I[Architecture Intelligence]
 ```
 
-Salesforce schema import and DSL authoring converge on the same conceptual model. That is why the Studio can support a visual workflow and a code-like workflow without maintaining two independent definitions of the diagram.
+Salesforce schema import and DSL authoring converge on the same conceptual model. Visual editing and code-like modelling therefore do not maintain independent meanings of the diagram.
 
-For grammar, syntax and compiler internals, see [DSL.md](DSL.md) and [dsl-compiler-architecture.md](dsl-compiler-architecture.md).
+---
 
-## 4. Schema and metadata acquisition
+## 4. ER DSL compiler architecture
 
-`SchemaMetadataController` is the main server-side schema/metadata boundary for the modelling experience. It supplies Salesforce object information that the Studio normalises into the ER model. Other controllers are deliberately narrower:
+The ER DSL is declarative. It describes entities, fields and relationships rather than an execution sequence. The compiler follows this invariant:
 
-- `DataDictionaryFieldDetailController` serves detailed field-oriented information.
-- `ObjectIntelligenceController` supplies selected-object intelligence such as record types, layouts, triggers, validation rules, Flows and related evidence, using the appropriate Salesforce source.
-- `StudioDiagnosticsController` verifies runtime/configuration conditions.
-- `DiagramFileController` and `DiagramPreferenceController` handle Studio persistence concerns rather than architecture analysis.
+```text
+source text -> semantic model -> optional geometry IR -> target artifact
+```
 
-This separation prevents every UI feature from independently implementing Salesforce metadata access.
+The **semantic model is authoritative**. Canvas geometry, SVG, Mermaid, draw.io XML and PNG are derived representations.
 
-## 5. Architecture Intelligence
+```mermaid
+flowchart TD
+    A[DSL Source Text] --> B[Line Classifier / Recognition]
+    B --> C[Grammar Dispatch]
+    C --> D[Semantic Normalisation]
+    D --> E[Entities / Fields / Relationships]
+    E --> F[Geometry IR]
+    E --> G[Mermaid Generator]
+    F --> H[Canvas / SVG]
+    F --> I[draw.io Generator]
+    H --> J[PNG Rasterisation]
+```
 
-Architecture Intelligence consumes the **model**, not raw UI markup. Its JavaScript modules isolate responsibilities such as framework construction, model scoping, visual-model generation, recommendations, performance handling, progress, map viewport behaviour, impact exploration and relationship-path experience.
+### Compiler responsibilities
+
+`erDiagramLogic.js` owns the core compiler-style logic: parsing, semantic construction, relationship normalisation, geometry generation and target generation. `diagramStudio.js` owns editor state, persisted positions, interaction and compiler invocation.
+
+The current grammar is intentionally line-oriented and flat. Blank lines and comments are ignored; entity and relationship declarations are recognised directly. A parser generator or full AST would add ceremony without improving the current grammar. If the language later gains nesting, expressions, aliases, blocks or multiline declarations, an AST can be inserted without changing the semantic-model contract.
+
+An informal grammar is:
+
+```text
+program      ::= line*
+line         ::= blank | comment | entity | relationship
+entity       ::= "entity" identifier (":" field-list)?
+relationship ::= identifier "." identifier operator identifier
+operator     ::= "->" | "=>" | "~>"
+field-list   ::= field ("," field)*
+```
+
+Entity identity is case-insensitive while display casing is preserved. Relationship targets may be referenced before declaration. Exact duplicate relationships are normalised. Saved coordinates are presentation state, not source semantics.
+
+The compiler deliberately does **not** calculate Salesforce access, execute business logic or query Salesforce. Those concerns belong to other architectural boundaries.
+
+### Compiler extension rule
+
+A language feature is not complete merely because the parser recognises it. Extend from the semantic model outward: syntax → recognition → semantic model → geometry → every relevant backend → diagnostics/tests → documentation.
+
+The language syntax and examples remain in [DSL.md](DSL.md). This architecture document owns the compiler design.
+
+---
+
+## 5. Schema and metadata acquisition
+
+`SchemaMetadataController` is the main server-side schema boundary for modelling. Other controllers remain deliberately narrower:
+
+- `DataDictionaryFieldDetailController` — field-oriented detail.
+- `ObjectIntelligenceController` — selected-object intelligence such as record types, layouts, triggers, validation rules, Flows and related evidence.
+- `StudioDiagnosticsController` — runtime and configuration checks.
+- `DiagramFileController` / `DiagramPreferenceController` — Studio persistence rather than architecture analysis.
+- `FieldUsageController` — current Field Usage snapshot, status, schedules, summaries and bounded evidence detail.
+
+This prevents every UI feature from independently implementing Salesforce metadata access.
+
+---
+
+## 6. Architecture Intelligence
+
+Architecture Intelligence consumes the model rather than raw UI markup.
 
 ```mermaid
 flowchart LR
-    M[Current ER model] --> S[Model scope]
-    S --> F[Architecture framework / graph]
-    F --> T[Topology & metrics]
-    F --> P[Relationship paths]
-    F --> I[Object impact / neighbourhood]
-    T --> R[Review signals]
+    M[Current ER Model] --> S[Model Scope]
+    S --> F[Architecture Graph]
+    F --> T[Topology and Metrics]
+    F --> P[Relationship Paths]
+    F --> I[Object Impact / Neighbourhood]
+    T --> R[Review Signals]
     P --> UI[Architecture Intelligence UI]
     I --> UI
     R --> UI
-    E[Field Usage evidence] --> CI[Field Change Impact]
+    E[Field Usage Evidence] --> CI[Field Change Impact]
     CI --> UI
 ```
 
-A key boundary is that **structural impact** and **field dependency impact** are related but not identical. Structural analysis derives from the ER graph. Field Change Impact uses persisted scanner evidence. Keeping those sources explicit avoids presenting an inferred graph relationship as if it were runtime dependency evidence.
+Structural impact and field dependency impact are related but different. Structural analysis derives from the ER graph. Field-level dependency impact derives from persisted scanner evidence. The UI must not present an inferred structural relationship as if it were runtime/source dependency evidence.
 
-Detailed refactor notes live in [architecture-intelligence-refactor.md](architecture-intelligence-refactor.md); Version 2 history remains in its existing Version 2 documents.
+Architecture Intelligence includes architecture overview, topology/complexity metrics, hotspots, isolated objects, connected components, bounded-cycle analysis, relationship paths, object impact, architecture findings/recommendations and field-change exploration backed by Field Usage evidence.
 
-## 6. Version 3 Field Usage pipeline
+---
 
-Field Usage is an asynchronous evidence pipeline rather than a synchronous page request. At a high level:
+## 7. Object Intelligence and Data Dictionary
+
+The Data Dictionary provides object/field metadata browsing, filtering, detail and export. Object Intelligence adds selected-object context such as custom-field review signals, relationships and metadata/dependency evidence.
+
+Counts such as page layouts or record types are evidence, not defects by themselves. Potential custom-to-standard overlap is presented for human review rather than asserted as a guaranteed duplicate.
+
+Record population percentage and dependency usage are separate concepts and must remain separately labelled.
+
+---
+
+## 8. Version 3 Field Usage architecture
+
+Field Usage is an asynchronous evidence pipeline. Discovery, scanning, persistence, querying and visualisation are separate concerns.
 
 ```mermaid
-flowchart LR
-    M[Manual Run] --> O[FieldUsageOrchestrator]
-    S[Scheduler] --> O
-    O --> D[Discovery Batch]
-    D --> TD[Tooling Discovery Batch]
-    TD --> W[Durable Work Units]
-    W --> SC[Specialised Scanners]
-    SC --> EV[Field_Usage_Evidence__c]
-    W --> FIN[Snapshot Finalizer]
+flowchart TD
+    UI[Diagram Studio / Settings] --> ORCH[FieldUsageOrchestrator]
+    ORCH --> DISC[FieldUsageDiscoveryBatch]
+    DISC --> FORMULA[Formula Work Units]
+    DISC --> TOOLING[FieldUsageToolingDiscoveryBatch]
+    TOOLING --> APEX[Apex Work Units]
+    TOOLING --> FLOW[Flow Work Units]
+    TOOLING --> LWC[LWC Work Units]
+    TOOLING --> AURA[Aura Work Units]
+    TOOLING --> VALID[Validation Rule Work Units]
+    FORMULA --> WORK[FieldUsageWorkUnitBatch]
+    APEX --> WORK
+    FLOW --> WORK
+    LWC --> WORK
+    AURA --> WORK
+    VALID --> WORK
+    WORK --> SCAN[Specialised Scanners]
+    SCAN --> EV[Field_Usage_Evidence__c]
+    WORK --> FIN[FieldUsageSnapshotFinalizer]
     FIN --> CUR[Current Successful Snapshot]
-    CUR --> MAP[Field Usage Map]
-    CUR --> IMP[Field Change Impact]
-    CUR --> OI[Object Intelligence]
+    CUR --> CTRL[FieldUsageController]
+    CTRL --> SUM[Compact Evidence Summary]
+    SUM --> MAP[Field Usage Map]
+    MAP -->|expand branch| DETAIL[Lazy Paginated Detail]
 ```
 
-The specialised scanners are intentionally separate. A scanner knows how to recognise field evidence in one artefact family; orchestration knows how to schedule and progress work; persistence knows how to represent evidence; the UI knows how to visualise it. This is the central modularity rule of Version 3.
+### Main Field Usage responsibilities
 
-The authoritative implementation-level description of this pipeline is [FIELD_USAGE_ARCHITECTURE.md](FIELD_USAGE_ARCHITECTURE.md). This document does not repeat its work-unit, retry, snapshot or scanner algorithms.
+- `FieldUsageOrchestrator` starts scans and prevents conflicting runs.
+- `FieldUsageDiscoveryBatch` performs schema-oriented discovery and formula work discovery.
+- `FieldUsageToolingDiscoveryBatch` discovers source/metadata work for Apex, Flow, LWC, Aura and supported metadata scanners.
+- `FieldUsageWorkUnitBatch` routes bounded durable work and maintains progress.
+- Source scanners detect evidence for one artefact family.
+- Tooling API client classes own authenticated transport rather than duplicating HTTP/authentication logic in scanners.
+- `FieldUsageSnapshotFinalizer` promotes only a successful replacement snapshot.
+- `FieldUsageController` provides the LWC-facing read/operation boundary.
 
-## 7. Persistence model
+### Scanner contract
 
-The Studio uses separate persistence for separate concerns:
+A scanner receives bounded source work plus scan context. It retrieves only required source, parses its own artefact family, resolves candidate references against Salesforce schema, emits normalised evidence and reports meaningful failures. A scanner must not promote snapshots, control UI polling, rediscover the whole org or directly construct the Field Usage map.
+
+Supported evidence families include Apex Classes, Apex Triggers, active Flows, LWC, Aura, Formula Fields and Validation Rules where supported by the current pipeline.
+
+### Canonical field identity
+
+Matching may be case-insensitive internally, but persisted field identity must use the canonical API name returned by Salesforce Describe. This keeps evidence stable across standard fields, custom fields and namespaced/non-namespaced environments.
+
+---
+
+## 9. Field Usage runtime sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant LWC as Studio LWC
+    participant C as FieldUsageController
+    participant O as Orchestrator
+    participant D as Discovery
+    participant W as Work Unit Batch
+    participant S as Scanner
+    participant DB as Snapshot / Evidence
+
+    User->>LWC: Run scan
+    LWC->>C: runNow()
+    C->>O: start
+    O->>D: discover bounded work
+    D->>DB: create durable work units
+    D->>W: process work
+    W->>S: route source work
+    S->>DB: persist normalised evidence
+    W->>DB: update progress / finalise
+    Note over LWC,DB: Previous successful snapshot remains usable
+    LWC->>C: poll status
+    User->>LWC: select object + field
+    LWC->>C: getEvidenceSummary()
+    C-->>LWC: compact current-snapshot summary
+    User->>LWC: expand source branch
+    LWC->>C: getEvidenceDetail()
+    C-->>LWC: bounded / paginated detail
+```
+
+The initial map must not hydrate every evidence row. Summary data builds the first graph; detail is loaded progressively and may be cached only within the current snapshot/context identity.
+
+---
+
+## 10. Persistence model
 
 ```mermaid
 flowchart TB
-    DF[Diagram_File__c] --> A[Saved diagram / DSL source]
-    DP[Diagram_Studio_Pref__c] --> B[User Studio preferences]
-    RUN[Field_Usage_Run__c] --> C[Scan lifecycle / current snapshot marker]
-    WU[Field_Usage_Work_Unit__c] --> D[Durable scan work]
-    EV[Field_Usage_Evidence__c] --> E[Detected dependency evidence]
-    SCH[Field_Usage_Schedule__c] --> F[Configured scan schedules]
+    DF[Diagram_File__c] --> A[Saved Diagram / DSL Source]
+    DP[Diagram_Studio_Pref__c] --> B[User Studio Preferences]
+    RUN[Field_Usage_Run__c] --> C[Scan Lifecycle / Snapshot Identity]
+    WU[Field_Usage_Work_Unit__c] --> D[Durable Bounded Work]
+    EV[Field_Usage_Evidence__c] --> E[Normalised Dependency Evidence]
+    SCH[Field_Usage_Schedule__c] --> F[Configured Scan Schedules]
 ```
 
-This is deliberate. Diagram persistence is not mixed with scanner evidence, and operational work-unit state is not treated as architecture evidence.
+Diagram persistence, operational scan state and dependency evidence are intentionally separate.
 
-## 8. Evidence lifecycle
+---
 
-The Field Usage lifecycle protects users from partially refreshed intelligence:
+## 11. Snapshot and recovery semantics
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Requested
-    Requested --> Discovering
-    Discovering --> Processing
-    Processing --> Finalising
-    Finalising --> Successful
-    Processing --> Failed
-    Finalising --> Failed
-    Successful --> CurrentSnapshot
+    [*] --> Building
+    Building --> Successful: required work finalised
+    Building --> Failed: required work cannot complete
+    Successful --> Current: finalizer promotes snapshot
+    Failed --> ArchivedFailed
+    Current --> PreviousSuccessful: later successful snapshot promoted
 ```
 
-A new run can be processing while the previous successful run remains the current consumable snapshot. Only finalisation promotes successful evidence. This is safer than clearing the user's trusted view at scan start and exposing partial results.
+**Only a successfully finalised snapshot can become current.** Starting a new scan does not remove the last good state. A failed or partial scan must remain observable and must not masquerade as complete intelligence.
 
-## 9. UI modularity
+Work units are durable checkpoints with Pending → Processing → Completed/Failed semantics. Retry behaviour should be explicit and bounded.
 
-The UI is split into a shell plus specialist components/modules:
+---
 
-- `diagramStudio` — application shell, navigation and cross-feature orchestration.
-- `architectureIntelligence` — architecture workspace with extracted analysis modules.
-- `objectArchitectureHealth` — selected-object architecture/metadata intelligence.
+## 12. Performance and governor-limit architecture
+
+Salesforce governor limits are architectural constraints. The project therefore prefers:
+
+- bounded Batch Apex scopes;
+- durable work units instead of giant transaction state;
+- collection-based SOQL/DML;
+- batched API retrieval where safe;
+- aggregation instead of unnecessary hydration;
+- paginated/lazy interactive detail;
+- `Map`/`Set` indexes rather than repeated large-array scans;
+- snapshot-scoped client caching;
+- separate measurement of scan throughput and interactive map latency.
+
+An optimisation is unacceptable if it weakens evidence correctness, provenance or snapshot consistency.
+
+---
+
+## 13. UI modularity
+
+Important UI/component boundaries include:
+
+- `diagramStudio` — application shell and cross-feature orchestration.
+- `architectureIntelligence` — architecture workspace and analysis modules.
+- `objectArchitectureHealth` — selected-object intelligence.
 - `fieldUsageIntelligence` — field dependency exploration.
 - `fieldUsageSettings` — schedules and operational controls.
-- `fieldUsageScannerCoverage` — scanner-coverage presentation.
+- `fieldUsageScannerCoverage` — scanner coverage/status.
 - `dataDictionaryFieldDetail` — field-detail intelligence.
-- `studioHelp` and `toolingApiConfigurationHelp` — embedded guidance/configuration.
-- `diagramViewer`, `diagramExportUtils`, `fieldUsageMapLogic`, `fieldUsageMapExport`, `erDiagramLogic` — focused reusable presentation/logic utilities.
+- `studioHelp` / `toolingApiConfigurationHelp` — embedded user/configuration guidance.
+- `diagramViewer`, `diagramExportUtils`, `fieldUsageMapLogic`, `fieldUsageMapExport`, `erDiagramLogic` — reusable focused logic.
 
-The design direction is to keep extracting cohesive logic from the shell when that logic has its own lifecycle, tests or reuse value. Extraction is preferred over copying.
+Extraction is preferred over copying. A method that begins owning acquisition + parsing + persistence + presentation is a refactoring signal.
 
-## 10. Modularity rules
+---
 
-When extending the project:
+## 14. Security and trust boundaries
 
-1. **Do not duplicate metadata acquisition.** Reuse or extend the appropriate Apex boundary.
-2. **Do not duplicate graph algorithms inside UI handlers.** Put reusable analysis in focused modules.
-3. **Do not make scanners responsible for orchestration.** Scanner code detects evidence; pipeline code manages execution.
-4. **Do not make the UI infer evidence that was not returned.** Preserve provenance and scanner limitations.
-5. **Do not persist presentation state as dependency evidence.** Operational, model and evidence records have different meanings.
-6. **Prefer current-successful-snapshot semantics.** Consumers should not silently mix runs.
-7. **Keep exports downstream of the model/intelligence layer.** Exporters serialise results; they should not become a second analysis engine.
-8. **Keep documentation specialised.** This file owns the whole-system map; specialist files own implementation detail.
+The Studio runs inside Salesforce and relies on the running user's Salesforce access plus configured authenticated callouts for Tooling API operations. Credentials are not embedded in client code. The Named Credential / External Credential configuration is a deliberate trust boundary for source and metadata retrieval.
 
-## 11. Security and trust boundaries
+Dynamic metadata identifiers must be validated; unsafe dynamic SOQL, credential logging and persistence of session identifiers/secrets are prohibited.
 
-The Studio runs inside Salesforce and relies on the running user's Salesforce access plus configured authenticated callouts for Tooling API operations. Credentials must not be embedded in client code. The Tooling API configuration is a trust boundary because it permits metadata/source retrieval required by scanners and object intelligence.
+Detailed security and configuration guidance remains in [SECURITY.md](SECURITY.md) and in-product **Help → Configuration**.
 
-See [SECURITY.md](SECURITY.md) and the in-product **Help → Configuration** instructions for configuration and security details.
+---
 
-## 12. Testing architecture
+## 15. Testing architecture
 
-The repository uses both Apex tests and Jest tests. Apex tests validate controllers, scanner/orchestration behaviour and persistence/service boundaries. Jest tests validate LWC behaviour and extracted JavaScript analysis modules. Architecture Intelligence in particular has focused tests for framework behaviour, recommendations, model scope, performance, progress, exports, visual model, impact exploration and relationship-path experience.
+The repository uses Apex and Jest tests.
 
-This split mirrors the product architecture: server-side evidence acquisition is tested server-side; client analysis and interaction are tested in JavaScript.
+Apex tests cover controllers, scanner behaviour, orchestration, durable work, snapshot finalisation, Tooling API boundaries and persistence/service behaviour. Jest covers LWC behaviour, map logic, architecture-analysis modules, exports, progress, performance and interaction behaviour.
 
-## 13. Documentation ownership — avoiding duplication
+The split mirrors the product: server-side evidence acquisition is tested server-side; client-side analysis and interaction are tested in JavaScript.
 
-Each document has one primary job:
+A beta candidate should be considered green only when the Salesforce CLI validation and the full Jest suite both pass.
 
-- **ARCHITECTURE.md** — whole-product architecture and module boundaries.
-- **VERSION-3-FEATURES.md** — Version 3 user-visible capability catalogue.
-- **FIELD_USAGE_ARCHITECTURE.md** — detailed Field Usage implementation.
-- **dsl-compiler-architecture.md** — DSL compiler internals.
-- **DSL.md** — DSL language reference.
-- **architecture-intelligence-refactor.md** — Architecture Intelligence refactor design/history.
-- **PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md** and **RELEASE-NOTES-V2.md** — Version 2 historical documentation.
-- **SECURITY.md** — security-specific guidance.
-- **In-product Help** — operational/user instructions and configuration steps.
+---
 
-New documentation should link to the owning document instead of copying large sections from it.
+## 16. Extension rules
+
+1. Do not duplicate metadata acquisition.
+2. Do not duplicate graph algorithms inside UI event handlers.
+3. Do not make scanners responsible for orchestration.
+4. Do not let the UI invent evidence that was not returned.
+5. Do not mix presentation state with dependency evidence.
+6. Preserve current-successful-snapshot semantics.
+7. Keep exporters downstream of the semantic/intelligence layer.
+8. Keep source-specific parsing inside the appropriate scanner.
+9. Preserve canonical Salesforce API identity at persistence boundaries.
+10. Extend the DSL from semantic model outward, not renderer inward.
+11. Prefer focused modules over expanding monolithic files.
+12. Treat diagnostics, failure visibility and limitations as part of the product contract.
+
+---
+
+## 17. Documentation model
+
+The documentation is intentionally small:
+
+- **ARCHITECTURE.md** — authoritative technical architecture for the whole product, including the ER DSL compiler and V3 Field Usage architecture.
+- **RELEASE-NOTES-V3.md** — Version 3 beta capabilities, changes, requirements and limitations.
+- **DSL.md** — DSL language syntax, examples and user/developer reference.
+- **SECURITY.md** — security-specific guidance and trust-boundary detail.
+- **RELEASE-NOTES-V2.md** and **PHASE-2-DATA-ARCHITECTURE-INTELLIGENCE.md** — retained historical Version 2 records.
+- **In-product Help** — operational instructions, user manual and configuration steps.
+
+New architecture information belongs here rather than in another overlapping architecture document.
+
+---
+
+## 18. Final architecture summary
+
+ER Modeller Studio is not a collection of unrelated screens. It is one evidence-oriented architecture:
+
+```text
+Salesforce schema / metadata / source
+              ↓
+       acquisition boundaries
+              ↓
+ semantic model + durable evidence
+              ↓
+ modelling / compiler / intelligence
+              ↓
+ human-readable maps, review signals and exports
+```
+
+The visual modeller and DSL share one semantic meaning. Architecture Intelligence reasons over the ER model. Field Usage gathers durable source evidence asynchronously. Object Intelligence combines selected-object metadata with appropriate dependency context. The UI progressively discloses detail without pretending that structural signals are automatic defects.
+
+That separation of **meaning, evidence, analysis and presentation** is the core architectural principle of ER Modeller Studio.
