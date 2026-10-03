@@ -17,8 +17,8 @@
   Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
   String formula='Subject & Subject & Contact.FirstName & Contact.FirstName & Account.Name & Missing__r.Name';
   List<Field_Usage_Evidence__c> rows=FieldUsageFormulaScanner.analyseFormula(run.Id,'Case','SyntheticFormula__c',formula,Schema.SObjectType.Case.fields.getMap());
-  Map<String,Decimal> counts=new Map<String,Decimal>();for(Field_Usage_Evidence__c row:rows){counts.put(row.Object_API_Name__c+'.'+row.Field_API_Name__c,row.Occurrence_Count__c);System.assertEquals('Formula Field',row.Source_Type__c);System.assertEquals('Case.SyntheticFormula__c',row.Component_Name__c);System.assertEquals('High',row.Confidence__c);}
-  System.assertEquals(2,counts.get('Case.Subject'));System.assertEquals(2,counts.get('Contact.FirstName'));System.assertEquals(1,counts.get('Account.Name'));System.assertEquals(false,counts.containsKey('Case.Contact'));
+  Map<String,Decimal> counts=new Map<String,Decimal>();for(Field_Usage_Evidence__c row:rows){counts.put(row.Field_API_Name__c+'|'+row.Component_Name__c,row.Occurrence_Count__c);System.assertEquals('Formula Field',row.Source_Type__c);System.assertEquals('Case.SyntheticFormula__c',row.Component_Name__c);System.assertEquals('High',row.Confidence__c);}
+  System.assertEquals(2,counts.get('Subject|Case.SyntheticFormula__c'));System.assertEquals(2,counts.get('FirstName|Case.SyntheticFormula__c'));System.assertEquals(1,counts.get('Name|Case.SyntheticFormula__c'));System.assertEquals(false,counts.containsKey('Contact|Case.SyntheticFormula__c'));
   System.assertEquals(0,FieldUsageFormulaScanner.analyseFormula(run.Id,'Case','X',null,Schema.SObjectType.Case.fields.getMap()).size());System.assertEquals(0,FieldUsageFormulaScanner.analyseFormula(run.Id,'Case','X','Subject',null).size());
  }
  @IsTest static void scansRealSchemaSafelyAndSkipsNonFormulaField(){
