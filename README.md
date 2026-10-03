@@ -3,7 +3,7 @@
 **Author: Vikas Cohen**
 
 > **Beta testing branch:** `v3-beta-testing`  
-> **Version 3 Field Usage Intelligence plus the Architecture Intelligence refactor.**
+> **Version 3 Field Usage Intelligence plus Architecture Intelligence and the complete ER modelling platform.**
 
 [![Deploy V3 Beta to Salesforce](https://img.shields.io/badge/Deploy%20V3%20Beta-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=v3-beta-testing&continue)
 
@@ -11,19 +11,19 @@
 
 ## What this branch contains
 
-ER Modeller Studio combines visual Salesforce ER modelling, DSL-driven modelling, Data Dictionary/schema exploration, Architecture Intelligence and Version 3 Field Usage dependency intelligence. Version 3 adds asynchronous field-dependency scanning, Field Usage maps, Field Change Impact, scheduling/operations, diagnostics and richer selected-object intelligence.
+ER Modeller Studio combines visual Salesforce ER modelling, DSL-driven modelling, Data Dictionary/schema exploration, Architecture Intelligence and Version 3 Field Usage dependency intelligence. Version 3 carries forward the Version 1 and Version 2 capabilities and adds asynchronous field-dependency scanning, Field Usage maps, Field Change Impact, scheduling/operations, diagnostics and richer selected-object intelligence.
 
 ## Documentation
 
-- [Version 3 Features](docs/VERSION-3-FEATURES.md) — current feature catalogue.
-- [Whole-project Architecture](docs/ARCHITECTURE.md) — end-to-end architecture, diagrams, philosophy and modularity.
-- [Field Usage Architecture](docs/FIELD_USAGE_ARCHITECTURE.md) — detailed Version 3 scanner/batch/snapshot design.
-- [DSL Reference](docs/DSL.md) — modelling language reference.
-- [DSL Compiler Architecture](docs/dsl-compiler-architecture.md) — compiler internals.
-- [Security](docs/SECURITY.md) — current Version 3 security and Tooling API trust boundary.
-- [Architecture Intelligence Refactor](docs/architecture-intelligence-refactor.md) — refactor-specific design notes.
+The Version 3 documentation is intentionally small and avoids overlapping architecture documents.
 
-Historical Version 2 documentation remains under `docs/` and is intentionally not duplicated into the Version 3 documents.
+- [Version 3 Beta Release Notes](docs/RELEASE-NOTES-V3.md) — what V3 contains, what is retained from V1/V2, deployment requirements and the beta validation sequence.
+- [Whole-project Architecture](docs/ARCHITECTURE.md) — the single authoritative architecture document for the complete product, including the ER DSL compiler architecture and V3 Field Usage architecture.
+- [DSL Reference](docs/DSL.md) — DSL syntax, examples and language reference.
+- [Security](docs/SECURITY.md) — security model and Tooling API trust boundary.
+- **In-product Help** — user operation, configuration and troubleshooting.
+
+Historical Version 2 documentation remains under `docs/` and is intentionally not duplicated into Version 3 documentation. Version 1 and Version 2 stable branches remain untouched.
 
 ## Deployment requirement: Tooling API Named Credential
 
