@@ -77,9 +77,12 @@ export default class ObjectArchitectureHealth extends LightningElement {
         if(requiredCustom.length)add('Info','Required custom fields',`${requiredCustom.length} custom fields are marked required.`,'Confirm requiredness is intentional across integrations, automation and record-creation paths.','required');
 
         const status=(key,label,items,loaded)=>({key,label,value:loaded?String(items.length):(this._metadataLoading?'Loading…':'Not loaded'),detail:loaded?(items.length?this.itemNames(items):'None found'):'',css:loaded?'health-evidence health-evidence-verified':'health-evidence health-evidence-unloaded'});
+        // Triggers and validation rules have a durable scan-backed fallback. Tooling enriches
+        // them when available, but a credential problem must never hide a successful scan.
+        const automationLoaded=this._toolingLoaded||this._snapshotLoaded;
         const metadataStatus=[
-            status('triggers','Apex Triggers',this._triggers,this._toolingLoaded),
-            status('validation','Validation Rules',this._validationRules,this._toolingLoaded),
+            status('triggers','Apex Triggers',this._triggers,automationLoaded),
+            status('validation','Validation Rules',this._validationRules,automationLoaded),
             status('flows','Flows (scan evidence)',this._flows,this._snapshotLoaded),
             status('record-types','Record Types',this._recordTypes,true),
             status('layouts','Page Layouts',this._layouts,this._toolingLoaded)
