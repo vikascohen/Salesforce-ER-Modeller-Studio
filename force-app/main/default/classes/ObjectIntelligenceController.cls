@@ -23,6 +23,8 @@ public without sharing class ObjectIntelligenceController {
             if(!info.isAvailable()||info.isMaster())continue;
             result.recordTypes.add(new NamedItem(info.getName(),info.isActive()));
         }
+        // Fast local fallback first. A completed Field Usage snapshot must remain useful even
+        // when the interactive user cannot access the Tooling Named Credential.
         loadSnapshotAutomation(objectApiName,result);
         try{
             List<Map<String,Object>> entities=toolingQuery('SELECT DurableId FROM EntityDefinition WHERE QualifiedApiName = '+quote(objectApiName)+' LIMIT 1');
@@ -30,10 +32,16 @@ public without sharing class ObjectIntelligenceController {
             String durableId=stringValue(entities[0].get('DurableId'));
             for(Map<String,Object> row:toolingQuery('SELECT Id,Name FROM Layout WHERE TableEnumOrId = '+quote(durableId)+' ORDER BY Name'))
                 result.layouts.add(new NamedItem(stringValue(row.get('Name')),true));
+            // Tooling is authoritative for trigger/rule inventory when available. Replace the
+            // scan fallback rather than merging and risking duplicate names.
+            List<NamedItem> toolingTriggers=new List<NamedItem>();
             for(Map<String,Object> row:toolingQuery('SELECT Id,Name,Status FROM ApexTrigger WHERE TableEnumOrId = '+quote(durableId)+' ORDER BY Name'))
-                result.triggers.add(new NamedItem(stringValue(row.get('Name')),'Active'.equalsIgnoreCase(stringValue(row.get('Status')))));
+                toolingTriggers.add(new NamedItem(stringValue(row.get('Name')),'Active'.equalsIgnoreCase(stringValue(row.get('Status')))));
+            List<NamedItem> toolingRules=new List<NamedItem>();
             for(Map<String,Object> row:toolingQuery('SELECT Id,ValidationName,Active FROM ValidationRule WHERE EntityDefinitionId = '+quote(durableId)+' ORDER BY ValidationName'))
-                result.validationRules.add(new NamedItem(stringValue(row.get('ValidationName')),booleanValue(row.get('Active'))));
+                toolingRules.add(new NamedItem(stringValue(row.get('ValidationName')),booleanValue(row.get('Active'))));
+            result.triggers=toolingTriggers;
+            result.validationRules=toolingRules;
             result.toolingLoaded=true;
         }catch(Exception ex){result.toolingMessage=ex.getMessage();}
         return result;
@@ -42,13 +50,26 @@ public without sharing class ObjectIntelligenceController {
         try{
             List<Field_Usage_Run__c> runs=[SELECT Id FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c IN ('Completed','Completed With Errors') ORDER BY Completed_At__c DESC NULLS LAST LIMIT 1];
             if(runs.isEmpty())return;
-            Set<String> names=new Set<String>();
-            for(Field_Usage_Evidence__c e:[SELECT Component_Name__c FROM Field_Usage_Evidence__c WHERE Run__c=:runs[0].Id AND Object_API_Name__c=:objectApiName AND Source_Type__c='Flow' LIMIT 2000])
-                if(!String.isBlank(e.Component_Name__c))names.add(e.Component_Name__c);
-            List<String> ordered=new List<String>(names);ordered.sort();
-            for(String name:ordered)result.flows.add(new NamedItem(name,true));
+            Map<String,Boolean> flowNames=new Map<String,Boolean>();
+            Map<String,Boolean> triggerNames=new Map<String,Boolean>();
+            Map<String,Boolean> ruleNames=new Map<String,Boolean>();
+            for(Field_Usage_Evidence__c e:[SELECT Component_Name__c,Source_Type__c,Evidence_Type__c FROM Field_Usage_Evidence__c WHERE Run__c=:runs[0].Id AND Object_API_Name__c=:objectApiName AND Source_Type__c IN ('Flow','Apex Trigger','Trigger','Validation Rule') LIMIT 5000]){
+                if(String.isBlank(e.Component_Name__c))continue;
+                String source=e.Source_Type__c;
+                Boolean active=String.isBlank(e.Evidence_Type__c)||!e.Evidence_Type__c.toLowerCase().contains('inactive');
+                if(source=='Flow')flowNames.put(e.Component_Name__c,active);
+                else if(source=='Validation Rule')ruleNames.put(e.Component_Name__c,active);
+                else triggerNames.put(e.Component_Name__c,active);
+            }
+            result.flows=toNamedItems(flowNames);
+            result.triggers=toNamedItems(triggerNames);
+            result.validationRules=toNamedItems(ruleNames);
             result.snapshotLoaded=true;
         }catch(Exception ignored){}
+    }
+    private static List<NamedItem> toNamedItems(Map<String,Boolean> names){
+        List<String> ordered=new List<String>(names.keySet());ordered.sort();
+        List<NamedItem> out=new List<NamedItem>();for(String name:ordered)out.add(new NamedItem(name,names.get(name)));return out;
     }
     private static List<Map<String,Object>> toolingQuery(String soql){
         List<Map<String,Object>> out=new List<Map<String,Object>>();
