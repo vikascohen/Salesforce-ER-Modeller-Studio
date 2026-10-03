@@ -62,15 +62,17 @@ export default class ObjectArchitectureHealth extends LightningElement {
     rebuildAnalysis(){
         const rows=Array.isArray(this._fields)?this._fields:[], businessFields=rows.filter(f=>!f.isPrimaryKey), customFields=businessFields.filter(f=>f.isCustom), standardFields=businessFields.filter(f=>!f.isCustom);
         const relationships=businessFields.filter(f=>f.isRelationship), derivedFields=businessFields.filter(f=>String(f.dataType||'').toLowerCase().includes('formula')||f.isRollupSummary), customWithDescription=customFields.filter(f=>String(f.description||'').trim()), missingDescription=customFields.filter(f=>!String(f.description||'').trim()), requiredCustom=customFields.filter(f=>f.required);
+        // Duplicate/semantic-overlap guidance is intentionally custom-field only.
+        // Standard Salesforce fields are platform-owned and are not redesign/removal candidates.
         const possibleOverlapPairs=[];
-        for(let i=0;i<businessFields.length&&possibleOverlapPairs.length<12;i++)for(let j=i+1;j<businessFields.length&&possibleOverlapPairs.length<12;j++){
-            const a=businessFields[i],b=businessFields[j];if(String(a.dataType||'')!==String(b.dataType||''))continue;
+        for(let i=0;i<customFields.length&&possibleOverlapPairs.length<12;i++)for(let j=i+1;j<customFields.length&&possibleOverlapPairs.length<12;j++){
+            const a=customFields[i],b=customFields[j];if(String(a.dataType||'')!==String(b.dataType||''))continue;
             const score=Math.max(this.similarity(a.label||a.apiName,b.label||b.apiName),this.similarity(a.apiName,b.apiName));
             if(score>=.75&&this.normalise(a.apiName)!==this.normalise(b.apiName))possibleOverlapPairs.push(`${a.apiName} ↔ ${b.apiName}`);
         }
         const findings=[],add=(severity,title,evidence,recommendation,key)=>findings.push({key:key||`${severity}-${findings.length}`,severity,title,evidence,recommendation,css:`health-finding health-${severity.toLowerCase()}`});
         if(missingDescription.length)add('Review','Missing custom-field descriptions',`${missingDescription.length} of ${customFields.length} custom fields have no description: ${missingDescription.slice(0,8).map(f=>f.apiName).join(', ')}${missingDescription.length>8?' …':''}`,'Add business-purpose descriptions where they are genuinely missing.','missing-desc');
-        if(possibleOverlapPairs.length)add('Attention','Possible duplicate / semantic overlap',possibleOverlapPairs.join('; '),'These are similarity candidates only. Review field purpose and data type before deciding whether fields are duplicates.','overlap');
+        if(possibleOverlapPairs.length)add('Attention','Possible duplicate / semantic overlap (custom fields)',possibleOverlapPairs.join('; '),'These are custom-field similarity candidates only. Review field purpose and data type before deciding whether fields are duplicates.','overlap');
         if(relationships.length>=10)add('Review','Relationship concentration',`${relationships.length} relationship fields are present on this object.`,'Review whether each relationship still serves a distinct purpose.','relationships');
         if(requiredCustom.length)add('Info','Required custom fields',`${requiredCustom.length} custom fields are marked required.`,'Confirm requiredness is intentional across integrations, automation and record-creation paths.','required');
 
