@@ -12,6 +12,34 @@ Salesforce ER Modeller Studio is intended to make those questions easier to answ
 
 The Studio deals with Salesforce architecture and metadata rather than business data. It is designed to support understanding, planning and decision making.
 
+## Why is this important?
+
+Salesforce is rarely static. Organisations continuously introduce new projects, products, teams, integrations and business processes. Every change can add more configuration and more relationships to an environment that may already have existed for many years.
+
+The challenge is not simply building the next change. The challenge is understanding what already exists before making that change.
+
+When architecture knowledge is spread across documents, individual people's experience and different areas of Salesforce, change can take longer to assess. Important relationships may be discovered late, onboarding can take longer and architecture reviews can depend heavily on a small number of experienced people.
+
+ER Modeller Studio brings architecture information together so teams can see more of the environment in one place. Better visibility can support earlier impact assessment, clearer design conversations, stronger governance and more confident planning.
+
+In simple terms, understanding the environment before changing it can save time, reduce avoidable rework and help teams make better decisions.
+
+## Enterprise capability without a commercial licence
+
+ER Modeller Studio is designed as an enterprise-grade Salesforce architecture tool while remaining free and open source.
+
+It provides capabilities commonly associated with commercial architecture, modelling, documentation and dependency-analysis products, including visual ER modelling, Data Dictionary generation, architecture intelligence, object intelligence, relationship analysis, field usage analysis and change-impact investigation.
+
+The objective is not to claim that every commercial product is identical or that the Studio replaces every specialised product. Different products solve different problems and organisations should choose tools based on their requirements.
+
+The important difference is that ER Modeller Studio does not require a commercial software licence. Organisations can use the available capabilities without paying a licence fee for the Studio itself.
+
+For organisations that would otherwise purchase software to support some of these activities, this can reduce tooling cost while still providing substantial architecture and analysis capability. Because the project is open source, organisations can also inspect how it works rather than treating the product as a closed system.
+
+Free does not mean that the product is intended only for demonstrations or personal projects. The architecture, background processing, security boundaries, testing approach and documentation are designed with real Salesforce environments and enterprise use in mind.
+
+As with any open source or commercial product, an organisation should perform its own security, architecture, operational and suitability assessment before adopting it.
+
 ## Who can benefit from it?
 
 The Studio can be useful to Salesforce architects, administrators, developers, delivery teams, technical leads, consultants, support teams and people responsible for Salesforce governance.
@@ -92,6 +120,14 @@ Teams can model Salesforce structures visually and use the Studio to help reason
 
 This is useful during solution design, architecture workshops, platform modernisation and major programme planning.
 
+## Where can an organisation save money?
+
+The most obvious saving is software licensing. ER Modeller Studio itself is free, so there is no Studio licence fee per user or per organisation.
+
+There can also be indirect value. Giving teams a clearer view of an existing Salesforce environment may reduce time spent manually collecting architecture information, recreating documentation or searching different parts of the platform before a change can be assessed.
+
+The exact saving will be different for every organisation, and the Studio should not be presented as guaranteeing a particular financial return. Its value is that useful architecture capability can be introduced without adding another commercial licence cost.
+
 ## A simple example
 
 Imagine a team wants to change an important Salesforce field.
@@ -112,4 +148,4 @@ The Studio is designed to make the Salesforce architecture easier to see, unders
 
 ## The business value in one sentence
 
-**Salesforce ER Modeller Studio helps teams understand what they have, see how it is connected, and make more informed decisions before they change it.**
+**Salesforce ER Modeller Studio gives organisations enterprise-grade Salesforce architecture and analysis capabilities without a commercial Studio licence, helping teams understand what they have, see how it is connected and make more informed decisions before they change it.**
