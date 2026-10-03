@@ -47,6 +47,18 @@ public with sharing class FieldUsageScheduleService {
         apply();
     }
 
+    // Compatibility helpers used by FieldUsageController. Keep scheduling
+    // mechanics in this service rather than duplicating CronTrigger logic.
+    public static void abortJob(String jobName) {
+        if(String.isBlank(jobName)) return;
+        List<CronTrigger> jobs=[SELECT Id FROM CronTrigger WHERE CronJobDetail.Name=:jobName];
+        for(CronTrigger job:jobs) System.abortJob(job.Id);
+    }
+
+    public static void rescheduleEnabled() {
+        apply();
+    }
+
     private static void validate(Field_Usage_Schedule__c row) {
         if(row.Hour__c==null || row.Hour__c<0 || row.Hour__c>23 || row.Minute__c==null || row.Minute__c<0 || row.Minute__c>59)
             throw new AuraHandledException('Scan time must use an hour from 0 to 23 and minute from 0 to 59.');
