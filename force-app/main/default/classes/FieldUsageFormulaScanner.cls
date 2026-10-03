@@ -7,19 +7,19 @@ public without sharing class FieldUsageFormulaScanner {
 
     public static List<Field_Usage_Evidence__c> scan(Id runId,String objectName) {
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();Schema.SObjectType typ=Schema.getGlobalDescribe().get(objectName);if(typ==null)return out;
-        for(String formulaField:typ.getDescribe().fields.getMap().keySet())out.addAll(scanField(runId,objectName,formulaField));return out;
+        for(Schema.SObjectField field:typ.getDescribe().fields.getMap().values())out.addAll(scanField(runId,objectName,field.getDescribe().getName()));return out;
     }
 
     public static List<Field_Usage_Evidence__c> scanField(Id runId,String objectName,String formulaField){
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();Schema.SObjectType typ=Schema.getGlobalDescribe().get(objectName);if(typ==null)return out;
-        Map<String,Schema.SObjectField> fields=typ.getDescribe().fields.getMap();if(!fields.containsKey(formulaField))return out;
-        String formula=fields.get(formulaField).getDescribe().getCalculatedFormula();if(String.isBlank(formula))return out;
-        return analyseFormula(runId,objectName,formulaField,formula,fields);
+        Map<String,Schema.SObjectField> fields=typ.getDescribe().fields.getMap();Schema.SObjectField formulaFieldToken=fields.get(formulaField);if(formulaFieldToken==null)return out;
+        String canonicalFormulaField=formulaFieldToken.getDescribe().getName();String formula=formulaFieldToken.getDescribe().getCalculatedFormula();if(String.isBlank(formula))return out;
+        return analyseFormula(runId,objectName,canonicalFormulaField,formula,fields);
     }
 
     @TestVisible private static List<Field_Usage_Evidence__c> analyseFormula(Id runId,String objectName,String formulaField,String formula,Map<String,Schema.SObjectField> fields){
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();if(String.isBlank(formula)||fields==null)return out;
-        Map<String,String> canonical=new Map<String,String>();for(String name:fields.keySet())canonical.put(name.toLowerCase(),name);
+        Map<String,String> canonical=new Map<String,String>();for(String name:fields.keySet())canonical.put(name.toLowerCase(),fields.get(name).getDescribe().getName());
         Map<String,Integer> localCounts=tokenCounts(removeQualifiedReferences(formula));
         for(String lowerName:localCounts.keySet()){String candidate=canonical.get(lowerName);if(candidate==null||candidate.equalsIgnoreCase(formulaField))continue;out.add(evidence(runId,objectName,candidate,objectName,formulaField,formula,localCounts.get(lowerName)));}
 
@@ -27,8 +27,8 @@ public without sharing class FieldUsageFormulaScanner {
         while(matcher.find()){
             String targetObject=targets.get(matcher.group(1).toLowerCase());if(String.isBlank(targetObject))continue;
             Schema.SObjectType targetType=Schema.getGlobalDescribe().get(targetObject);if(targetType==null)continue;
-            String referencedField=matcher.group(2),canonicalField=null;for(String name:targetType.getDescribe().fields.getMap().keySet())if(name.equalsIgnoreCase(referencedField)){canonicalField=name;break;}
-            if(canonicalField==null)continue;String key=targetObject+'|'+canonicalField;qualifiedCounts.put(key,(qualifiedCounts.containsKey(key)?qualifiedCounts.get(key):0)+1);
+            String referencedField=matcher.group(2);Schema.SObjectField targetField=targetType.getDescribe().fields.getMap().get(referencedField);if(targetField==null)continue;String canonicalField=targetField.getDescribe().getName();
+            String key=targetObject+'|'+canonicalField;qualifiedCounts.put(key,(qualifiedCounts.containsKey(key)?qualifiedCounts.get(key):0)+1);
         }
         for(String key:qualifiedCounts.keySet()){List<String> parts=key.split('\\|');out.add(evidence(runId,parts[0],parts[1],objectName,formulaField,formula,qualifiedCounts.get(key)));}
         return out;
