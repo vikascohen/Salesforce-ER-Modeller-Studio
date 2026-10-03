@@ -58,27 +58,34 @@ export default class ObjectArchitectureHealth extends LightningElement {
     tokens(v){return new Set(this.normalise(v).split(/\s+/).filter(Boolean));}
     similarity(a,b){const A=this.tokens(a),B=this.tokens(b);if(!A.size||!B.size)return 0;let n=0;A.forEach(x=>{if(B.has(x))n++;});return n/Math.max(A.size,B.size);}
     itemNames(items){return (items||[]).map(x=>x?.name).filter(Boolean).join(', ');}
+    get isCustomObject(){return /__(c|x|b|e)$/i.test(this._objectApiName||'');}
 
     rebuildAnalysis(){
         const rows=Array.isArray(this._fields)?this._fields:[], businessFields=rows.filter(f=>!f.isPrimaryKey), customFields=businessFields.filter(f=>f.isCustom), standardFields=businessFields.filter(f=>!f.isCustom);
         const relationships=businessFields.filter(f=>f.isRelationship), derivedFields=businessFields.filter(f=>String(f.dataType||'').toLowerCase().includes('formula')||f.isRollupSummary), customWithDescription=customFields.filter(f=>String(f.description||'').trim()), missingDescription=customFields.filter(f=>!String(f.description||'').trim()), requiredCustom=customFields.filter(f=>f.required);
-        // Duplicate/semantic-overlap guidance is intentionally custom-field only.
-        // Standard Salesforce fields are platform-owned and are not redesign/removal candidates.
         const possibleOverlapPairs=[];
-        for(let i=0;i<customFields.length&&possibleOverlapPairs.length<12;i++)for(let j=i+1;j<customFields.length&&possibleOverlapPairs.length<12;j++){
-            const a=customFields[i],b=customFields[j];if(String(a.dataType||'')!==String(b.dataType||''))continue;
-            const score=Math.max(this.similarity(a.label||a.apiName,b.label||b.apiName),this.similarity(a.apiName,b.apiName));
-            if(score>=.75&&this.normalise(a.apiName)!==this.normalise(b.apiName))possibleOverlapPairs.push(`${a.apiName} ↔ ${b.apiName}`);
+        // Standard-field overlap is meaningful only when extending a Salesforce standard object.
+        if(!this.isCustomObject){
+            for(let i=0;i<customFields.length&&possibleOverlapPairs.length<12;i++){
+                const custom=customFields[i];
+                let best=null;
+                for(let j=0;j<standardFields.length;j++){
+                    const standard=standardFields[j];
+                    if(String(custom.dataType||'')!==String(standard.dataType||''))continue;
+                    if(custom.isRelationship!==standard.isRelationship)continue;
+                    if(custom.isRelationship&&custom.relatesTo&&standard.relatesTo&&String(custom.relatesTo)!==String(standard.relatesTo))continue;
+                    const score=Math.max(this.similarity(custom.label||custom.apiName,standard.label||standard.apiName),this.similarity(custom.apiName,standard.apiName));
+                    if(score>=.5&&(!best||score>best.score))best={score,standard};
+                }
+                if(best)possibleOverlapPairs.push(`${custom.apiName} → ${best.standard.apiName}`);
+            }
         }
         const findings=[],add=(severity,title,evidence,recommendation,key)=>findings.push({key:key||`${severity}-${findings.length}`,severity,title,evidence,recommendation,css:`health-finding health-${severity.toLowerCase()}`});
-        if(missingDescription.length)add('Review','Missing custom-field descriptions',`${missingDescription.length} of ${customFields.length} custom fields have no description: ${missingDescription.slice(0,8).map(f=>f.apiName).join(', ')}${missingDescription.length>8?' …':''}`,'Add business-purpose descriptions where they are genuinely missing.','missing-desc');
-        if(possibleOverlapPairs.length)add('Attention','Possible duplicate / semantic overlap (custom fields)',possibleOverlapPairs.join('; '),'These are custom-field similarity candidates only. Review field purpose and data type before deciding whether fields are duplicates.','overlap');
-        if(relationships.length>=10)add('Review','Relationship concentration',`${relationships.length} relationship fields are present on this object.`,'Review whether each relationship still serves a distinct purpose.','relationships');
-        if(requiredCustom.length)add('Info','Required custom fields',`${requiredCustom.length} custom fields are marked required.`,'Confirm requiredness is intentional across integrations, automation and record-creation paths.','required');
+        if(!this.isCustomObject&&possibleOverlapPairs.length)add('Attention','Potential standard-field overlap',possibleOverlapPairs.join('; '),'Review business meaning before retaining, replacing or removing a custom field. Similar metadata is a review signal, not proof of duplication.','overlap');
+        if(this.isCustomObject&&relationships.length>=10)add('Review','Relationship concentration',`${relationships.length} relationship fields are present on this custom object.`,'Review whether each relationship still serves a distinct purpose.','relationships');
+        if(!this.isCustomObject&&requiredCustom.length)add('Info','Required custom fields',`${requiredCustom.length} custom fields are marked required.`,'Confirm requiredness is intentional across integrations, automation and record-creation paths.','required');
 
         const status=(key,label,items,loaded)=>({key,label,value:loaded?String(items.length):(this._metadataLoading?'Loading…':'Not loaded'),detail:loaded?(items.length?this.itemNames(items):'None found'):'',css:loaded?'health-evidence health-evidence-verified':'health-evidence health-evidence-unloaded'});
-        // Triggers and validation rules have a durable scan-backed fallback. Tooling enriches
-        // them when available, but a credential problem must never hide a successful scan.
         const automationLoaded=this._toolingLoaded||this._snapshotLoaded;
         const metadataStatus=[
             status('triggers','Apex Triggers',this._triggers,automationLoaded),
@@ -94,5 +101,8 @@ export default class ObjectArchitectureHealth extends LightningElement {
     get descriptionCoverageText(){const total=this.analysis.customFields.length;return total?`${this.analysis.customWithDescription.length}/${total}`:'No custom fields';}
     get missingDescriptionCount(){return this.analysis.missingDescription.length;} get possibleOverlapCount(){return this.analysis.possibleOverlapPairs.length;} get findings(){return this.analysis.findings;} get findingCount(){return this.analysis.findings.length;} get attentionCount(){return this.analysis.findings.filter(f=>f.severity==='Attention').length;} get reviewCount(){return this.analysis.findings.filter(f=>f.severity==='Review').length;} get hasFindings(){return this.analysis.findings.length>0;} get metadataStatus(){return this.analysis.metadataStatus;}
     get metadataMessage(){return this._metadataMessage;} get hasMetadataMessage(){return !!this._metadataMessage;} get metadataLoading(){return this._metadataLoading;}
-    get summary(){return `${this.businessFieldCount} business fields · ${this.standardCount} standard · ${this.customCount} custom · ${this.relationshipCount} relationships`;}
+    get summary(){
+        if(this.isCustomObject)return `${this.businessFieldCount} business fields · custom object schema · ${this.relationshipCount} relationships · ${this.derivedCount} derived fields`;
+        return `${this.businessFieldCount} business fields · ${this.standardCount} standard · ${this.customCount} custom · ${this.relationshipCount} relationships`;
+    }
 }
