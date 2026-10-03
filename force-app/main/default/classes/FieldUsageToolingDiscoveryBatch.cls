@@ -21,15 +21,12 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
                 for(String apiName:gd.keySet()){
                     Schema.SObjectType typ=gd.get(apiName);if(typ==null)continue;
                     Schema.DescribeSObjectResult d=typ.getDescribe();
-                    // Apex DescribeSObjectResult has no isLayoutable(). Restrict layout work
-                    // to accessible, queryable objects; the layout REST resource remains the
-                    // authoritative test and the worker handles unsupported objects safely.
-                    if(d.isAccessible()&&d.isQueryable())objects.add(apiName);
+                    // Describe has no isLayoutable(). Avoid known infrastructure/derived
+                    // entities that cannot own editable page layouts. The REST layout
+                    // resource remains authoritative for the remaining business objects.
+                    if(d.isAccessible()&&d.isQueryable()&&isBusinessLayoutCandidate(apiName,d))objects.add(apiName);
                 }
                 objects.sort();
-                // One object per durable work unit deliberately bounds layout/record-type
-                // callouts and heap. Every field on that object's layouts is extracted from
-                // the returned metadata in-memory; there is never a callout per field.
                 for(Integer offset=0;offset<objects.size();offset++)allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|Page Layout Bulk|'+String.valueOf(offset),Scanner_Type__c='Page Layout Bulk',Target_Key__c=objects[offset],Status__c='Pending'));
                 continue;
             }
@@ -57,11 +54,19 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
         update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered Tooling and layout work');
     }
 
+    @TestVisible private static Boolean isBusinessLayoutCandidate(String apiName,Schema.DescribeSObjectResult d){
+        if(d.isDeprecatedAndHidden()||d.isCustomSetting())return false;
+        String n=apiName==null?'':apiName.toLowerCase();
+        if(n.endsWith('changeevent')||n.endsWith('history')||n.endsWith('share')||n.endsWith('feed'))return false;
+        if(n.endsWith('__mdt')||n.endsWith('__b')||n.endsWith('__x'))return false;
+        return true;
+    }
+
     public void finish(Database.BatchableContext context){
         AsyncApexJob discoveryJob=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:context.getJobId()];
         if(discoveryJob.NumberOfErrors>0){FieldUsageSnapshotFinalizer.finish(runId,Integer.valueOf(discoveryJob.NumberOfErrors),new List<String>{'Tooling discovery batch reported platform or callout errors.'});return;}
         Integer total=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];
-        update new Field_Usage_Run__c(Id=runId,Objects_Total__c=total,Progress_Percent__c=5,Progress_Phase__c='Queued resumable work units');
+        update new Field_Usage_Run__c(Id=runId,Objects_Total__c=total,Objects_Processed__c=0,Progress_Percent__c=5,Progress_Phase__c='Queued resumable work units');
         if(total==0){FieldUsageSnapshotFinalizer.finish(runId,0,new List<String>());return;}
         if(Test.isRunningTest()&&suppressWorkerChainForTest)return;
         Id workerJobId=Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);
