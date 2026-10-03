@@ -8,6 +8,7 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
 
     private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit){
         if(unit.Scanner_Type__c=='Formula Bulk')return String.isBlank(unit.Target_Key__c)?new List<Field_Usage_Evidence__c>():FieldUsageFormulaScanner.scan(runId,unit.Target_Key__c.trim());
+        if(unit.Scanner_Type__c=='Page Layout Bulk')return String.isBlank(unit.Target_Key__c)?new List<Field_Usage_Evidence__c>():FieldUsageLayoutScanner.scan(runId,unit.Target_Key__c.trim());
         if(unit.Scanner_Type__c=='Formula'){List<String> parts=unit.Target_Key__c.split('\\|');if(parts.size()==2)return FieldUsageFormulaScanner.scanField(runId,parts[0],parts[1]);}
         Set<String> ids=parseIds(unit.Target_Key__c);
         if(unit.Scanner_Type__c=='Flow Bulk')return ids.isEmpty()?new List<Field_Usage_Evidence__c>():FieldUsageToolingApiClient.scanFlowVersions(runId,ids);
