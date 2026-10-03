@@ -14,7 +14,9 @@
   Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running');insert run;
   insert new Field_Usage_Work_Unit__c(Run__c=run.Id,Work_Key__c=run.Id+'|Formula|Account',Scanner_Type__c='Formula',Target_Key__c='Account',Status__c='Completed',Attempt_Count__c=1);
   Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
-  System.assertEquals(1,[SELECT Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id].Attempt_Count__c);
+  System.assertEquals(0,[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id],'A completed unit must not be selected for processing and finalisation should release temporary work-unit storage.');
+  Field_Usage_Run__c saved=[SELECT Status__c FROM Field_Usage_Run__c WHERE Id=:run.Id];
+  System.assertEquals('Completed',saved.Status__c);
  }
 
  @IsTest static void unknownScannerRetriesOneAttemptAtATime(){
