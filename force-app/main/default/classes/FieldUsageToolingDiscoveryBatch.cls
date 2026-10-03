@@ -3,7 +3,6 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
     private static final Integer CHUNK_SIZE=12;
     private static final Integer FLOW_CHUNK_SIZE=4;
     private static final Integer VALIDATION_CHUNK_SIZE=20;
-    private static final Integer LAYOUT_OBJECT_CHUNK_SIZE=1;
     @TestVisible private static Boolean suppressWorkerChainForTest=false;
     private final Id runId;
     public FieldUsageToolingDiscoveryBatch(Id runId){this.runId=runId;}
@@ -18,18 +17,17 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
         for(String sourceType:sourceTypes){
             if(sourceType=='Layout'){
                 List<String> objects=new List<String>();
-                for(String apiName:Schema.getGlobalDescribe().keySet()){
-                    Schema.SObjectType typ=Schema.getGlobalDescribe().get(apiName);
-                    if(typ==null)continue;
+                Map<String,Schema.SObjectType> gd=Schema.getGlobalDescribe();
+                for(String apiName:gd.keySet()){
+                    Schema.SObjectType typ=gd.get(apiName);if(typ==null)continue;
                     Schema.DescribeSObjectResult d=typ.getDescribe();
                     if(d.isAccessible()&&d.isLayoutable())objects.add(apiName);
                 }
                 objects.sort();
-                for(Integer offset=0;offset<objects.size();offset+=LAYOUT_OBJECT_CHUNK_SIZE){
-                    Integer chunkEnd=Math.min(offset+LAYOUT_OBJECT_CHUNK_SIZE,objects.size());
-                    List<String> chunk=new List<String>();for(Integer i=offset;i<chunkEnd;i++)chunk.add(objects[i]);
-                    allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|Layout Bulk|'+String.valueOf(offset/LAYOUT_OBJECT_CHUNK_SIZE),Scanner_Type__c='Layout Bulk',Target_Key__c=String.join(chunk,','),Status__c='Pending'));
-                }
+                // One object per durable work unit deliberately bounds layout/record-type
+                // callouts and heap. Every field on that object's layouts is extracted from
+                // the returned metadata in-memory; there is never a callout per field.
+                for(Integer offset=0;offset<objects.size();offset++)allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|Page Layout Bulk|'+String.valueOf(offset),Scanner_Type__c='Page Layout Bulk',Target_Key__c=objects[offset],Status__c='Pending'));
                 continue;
             }
             List<String> ids=new List<String>(); String scannerType; Integer chunkSize=CHUNK_SIZE;
