@@ -1048,7 +1048,6 @@
                                 <span class="dict-detail-sub">{dictionaryRow.label} &middot; {dictionaryObjectTypeText} &middot; {dictionaryFieldCount} fields</span>
                             </div>
                             <div class="dict-detail-actions">
-                                <button class="dsl-head-btn dict-archaeologist-launch" onclick={handleOpenDictionaryArchaeologist}>Explore Object</button>
                                 <button class="dsl-head-btn dict-intelligence-launch" onclick={handleDictionaryIntelligenceToggle}>Expand Intelligence</button>
                                 <button class="dsl-head-btn" onclick={handleClearDictionarySelection} title="Clear this object's field list on the right — does not touch the canvas">Clear Selection</button>
                                 <button class="dsl-head-btn" disabled={dictionaryUsagePending} onclick={handleCalculateUsage}>{dictionaryCalcUsageLabel}</button>
@@ -1103,6 +1102,10 @@
                                     <button class="dsl-head-btn" onclick={handleDictionaryIntelligenceToggle}>Back to Data Dictionary</button>
                                 </div>
                                 <div class="dict-intelligence-workspace-body">
+                                    <c-object-architecture-health
+                                        object-api-name={dictionarySelectedObject}
+                                        fields={dictionaryFieldRows}>
+                                    </c-object-architecture-health>
                                     <section class="dict-wow-hero"><span class="dict-intel-kicker">OBJECT AT A GLANCE</span><h2>{dictionaryIntelligenceHeadline}</h2></section>
                                     <div class="dict-wow-grid">
                                         <section class="dict-wow-card"><div class="dict-wow-title"><strong>Field composition</strong><span>Standard versus custom extension</span></div><template for:each={dictionaryComposition} for:item="row"><div class="dict-wow-bar-row" key={row.key}><div><span>{row.label}</span><strong>{row.count}</strong></div><div class="dict-wow-track"><i style={row.width}></i></div></div></template></section>
@@ -1132,11 +1135,12 @@
                             </section>
                         </template>
                         <template if:true={dictionaryHasFieldDetail}>
-                            <aside class="dict-field-drill">
-                                <div class="dict-field-drill-head"><div><span class="dict-intel-kicker">FIELD PROFILE</span><strong>{dictionaryFieldDetail.apiName}</strong><p>{dictionaryFieldDetail.label}</p></div><button class="arch-inline-close" onclick={handleDictionaryFieldDrillClose}>Close</button></div>
-                                <p class="dict-field-description">{dictionaryFieldDetail.description}</p>
-                                <div class="dict-field-facts"><div><span>Type</span><strong>{dictionaryFieldDetail.dataType}</strong></div><div><span>Required</span><strong>{dictionaryFieldDetail.required}</strong></div><div><span>Custom</span><strong>{dictionaryFieldDetail.custom}</strong></div><div><span>Relationship</span><strong>{dictionaryFieldDetail.relationship}</strong></div><div><span>Target</span><strong>{dictionaryFieldDetail.target}</strong></div><div><span>Population</span><strong>{dictionaryFieldDetail.usage}</strong></div><div><span>Last modified</span><strong>{dictionaryFieldDetail.lastModified}</strong></div></div>
-                            </aside>
+                            <c-data-dictionary-field-detail
+                                object-api-name={dictionarySelectedObject}
+                                field-api-name={dictionaryFieldDetail.apiName}
+                                field={dictionaryFieldDetail}
+                                onclose={handleDictionaryFieldDrillClose}>
+                            </c-data-dictionary-field-detail>
                         </template>
                     </template>
                 </div>
