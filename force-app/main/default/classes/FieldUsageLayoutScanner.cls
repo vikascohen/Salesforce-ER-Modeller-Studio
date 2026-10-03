@@ -13,7 +13,9 @@ public without sharing class FieldUsageLayoutScanner {
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();
         if(runId==null||String.isBlank(objectApiName))return out;
         Schema.SObjectType typ=Schema.getGlobalDescribe().get(objectApiName);
-        if(typ==null||!typ.getDescribe().isLayoutable())return out;
+        if(typ==null)return out;
+        Schema.DescribeSObjectResult describe=typ.getDescribe();
+        if(!describe.isAccessible()||!describe.isQueryable())return out;
         Map<String,Set<String>> layoutFields=new Map<String,Set<String>>();Map<String,String> layoutNames=new Map<String,String>();Map<String,Set<String>> layoutRecordTypes=new Map<String,Set<String>>();
         Map<String,Object> root=get('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/','Page Layout describe for '+objectApiName);
         harvest(root,layoutFields,layoutNames,layoutRecordTypes,null);
