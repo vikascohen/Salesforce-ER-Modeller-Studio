@@ -1,38 +1,21 @@
 <template>
     <aside class="field-detail">
-        <div class="head">
-            <div><span class="kicker">FIELD PROFILE</span><strong>{title}</strong><p>{label}</p></div>
-            <button class="close" onclick={handleClose}>Close</button>
-        </div>
+        <div class="head"><div><span class="kicker">FIELD PROFILE</span><strong>{title}</strong><p>{label}</p></div><button class="close" onclick={handleClose}>Close</button></div>
         <p class="description">{description}</p>
         <div class="facts">
-            <div><span>Type</span><strong>{type}</strong></div>
-            <div><span>Required</span><strong>{required}</strong></div>
-            <div><span>Custom</span><strong>{custom}</strong></div>
-            <div><span>Population</span><strong>{usage}</strong></div>
-            <div><span>Last modified</span><strong>{lastModified}</strong></div>
+            <div><span>Type</span><strong>{type}</strong></div><div><span>Required</span><strong>{required}</strong></div><div><span>Custom</span><strong>{custom}</strong></div><div><span>Population</span><strong>{usage}</strong></div><div><span>Last modified</span><strong>{lastModified}</strong></div>
         </div>
-
         <template if:true={loading}><div class="loading">Loading detailed field metadata…</div></template>
         <template if:true={error}><div class="error">{error}</div></template>
-
-        <template if:true={hasRelationship}>
+        <template if:true={hasRelationship}><section class="special"><span class="kicker">RELATIONSHIP DETAIL</span><div class="facts"><div><span>Relationship type</span><strong>{relationshipType}</strong></div><div><span>Related object</span><strong>{targets}</strong></div><div><span>Relationship name</span><strong>{relationshipName}</strong></div></div><p>{detailMessage}</p></section></template>
+        <template if:true={hasFormula}><section class="special"><span class="kicker">FORMULA DETAIL</span><p>{detailMessage}</p><pre class="code">{detail.formula}</pre></section></template>
+        <template if:true={detail}>
             <section class="special">
-                <span class="kicker">RELATIONSHIP DETAIL</span>
-                <div class="facts">
-                    <div><span>Relationship type</span><strong>{relationshipType}</strong></div>
-                    <div><span>Related object</span><strong>{targets}</strong></div>
-                    <div><span>Relationship name</span><strong>{relationshipName}</strong></div>
-                </div>
-                <p>{detailMessage}</p>
-            </section>
-        </template>
-
-        <template if:true={hasFormula}>
-            <section class="special">
-                <span class="kicker">FORMULA DETAIL</span>
-                <p>{detailMessage}</p>
-                <pre class="code">{detail.formula}</pre>
+                <span class="kicker">SALESFORCE CONFIGURATION</span>
+                <template if:true={hasLayoutMetadata}>
+                    <div class="facts"><div><span>Page layouts containing this field</span><strong>{pageLayouts}</strong></div><div><span>Record types exposed through those layouts</span><strong>{recordTypes}</strong></div></div>
+                </template>
+                <p>{layoutMetadataMessage}</p>
             </section>
         </template>
     </aside>
