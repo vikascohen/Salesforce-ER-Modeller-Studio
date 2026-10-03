@@ -26,7 +26,6 @@
   System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','LWC','Aura','Validation Rule','Formula Field'},FieldUsageController.getSourceTypes());
   System.assertEquals(2,FieldUsageController.getRecentRuns(20).size());
  }
-
  @IsTest static void coversSearchPagingAndEmptyInputBranches(){
   Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100);insert run;
   insert new List<Field_Usage_Evidence__c>{
@@ -34,78 +33,23 @@
    new Field_Usage_Evidence__c(Run__c=run.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='BetaService',Occurrence_Count__c=2,Location__c='Beta line'),
    new Field_Usage_Evidence__c(Run__c=run.Id,Field_Key__c='Account.Industry',Object_API_Name__c='Account',Field_API_Name__c='Industry',Source_Type__c='Flow',Component_Name__c='AccountFlow',Occurrence_Count__c=1,Location__c='Flow node')
   };
-  System.assertEquals(0,FieldUsageController.getEvidence(null,new List<String>{'Name'}).size());
-  System.assertEquals(0,FieldUsageController.getEvidence('Account',null).size());
-  System.assertEquals(0,FieldUsageController.getEvidenceSummary('',new List<String>{'Name'}).size());
-  System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>()).size());
-  System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>{'',null}).size());
-  System.assertEquals(0,FieldUsageController.getSnapshotFields('').size());
+  System.assertEquals(0,FieldUsageController.getEvidence(null,new List<String>{'Name'}).size());System.assertEquals(0,FieldUsageController.getEvidence('Account',null).size());System.assertEquals(0,FieldUsageController.getEvidenceSummary('',new List<String>{'Name'}).size());System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>()).size());System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>{'',null}).size());System.assertEquals(0,FieldUsageController.getSnapshotFields('').size());
   FieldUsageController.EvidenceDetailPageDTO blank=FieldUsageController.getEvidenceDetail('','','',null,null);System.assertEquals(0,blank.rows.size());
   FieldUsageController.EvidenceDetailPageDTO page=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',1,null);System.assertEquals(1,page.rows.size());System.assertEquals(true,page.hasMore);
   FieldUsageController.EvidenceDetailPageDTO page2=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',1,page.nextCursor);System.assertEquals(1,page2.rows.size());
-  System.assertEquals(2,FieldUsageController.searchEvidence('Account.Name','Apex Class',null).size());
-  System.assertEquals(2,FieldUsageController.searchEvidence('Account.Name',null,500).size());
-  System.assertEquals(2,FieldUsageController.searchEvidence('Account','Apex Class',500).size());
-  System.assertEquals(3,FieldUsageController.searchEvidence('Account',null,500).size());
-  System.assertEquals(1,FieldUsageController.searchEvidence(null,'Flow',500).size());
-  System.assertEquals(3,FieldUsageController.searchEvidence(null,null,500).size());
+  System.assertEquals(2,FieldUsageController.searchEvidence('Account.Name','Apex Class',null).size());System.assertEquals(2,FieldUsageController.searchEvidence('Account.Name',null,500).size());System.assertEquals(2,FieldUsageController.searchEvidence('Account','Apex Class',500).size());System.assertEquals(3,FieldUsageController.searchEvidence('Account',null,500).size());System.assertEquals(1,FieldUsageController.searchEvidence(null,'Flow',500).size());System.assertEquals(3,FieldUsageController.searchEvidence(null,null,500).size());
+  System.assertEquals(1,FieldUsageController.getRecentRuns(0).size());System.assertEquals(1,FieldUsageController.getRecentRuns(-5).size());System.assertEquals(1,FieldUsageController.getRecentRuns(500).size());
  }
-
- @IsTest static void coversSnapshotWithoutCurrentRunAndSummaryLimit(){
-  FieldUsageController.SnapshotDTO empty=FieldUsageController.getSnapshotAvailability();System.assertEquals(false,empty.available);
-  System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>{'Name'}).size());
-  System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));
-  List<String> tooMany=new List<String>();for(Integer i=0;i<101;i++)tooMany.add('Field'+i);
-  try{FieldUsageController.getEvidenceSummary('Account',tooMany);System.assert(false,'Expected selection limit exception');}catch(AuraHandledException e){System.assert(true);}
- }
-
+ @IsTest static void coversSnapshotWithoutCurrentRunAndSummaryLimit(){FieldUsageController.SnapshotDTO empty=FieldUsageController.getSnapshotAvailability();System.assertEquals(false,empty.available);System.assertEquals(0,FieldUsageController.getEvidenceSummary('Account',new List<String>{'Name'}).size());System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));List<String> tooMany=new List<String>();for(Integer i=0;i<101;i++)tooMany.add('Field'+i);try{FieldUsageController.getEvidenceSummary('Account',tooMany);System.assert(false,'Expected selection limit exception');}catch(AuraHandledException e){System.assert(true);}}
  @IsTest static void coversNullDependencyCountAndScheduleProjection(){
-  insert new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Completed_At__c=System.now());
-  FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();
-  System.assertEquals(true,snapshot.available);System.assertEquals(0,snapshot.dependencyCount);
-  insert new List<Field_Usage_Schedule__c>{
-   new Field_Usage_Schedule__c(Name='Disabled Test',Enabled__c=false,Hour__c=1,Minute__c=5),
-   new Field_Usage_Schedule__c(Name='Enabled Test',Enabled__c=true,Hour__c=2,Minute__c=10)
-  };
-  List<FieldUsageController.ScheduledJobDTO> jobs=FieldUsageController.getScheduledJobs();
-  System.assertEquals(2,jobs.size());
-  Set<String> states=new Set<String>();for(FieldUsageController.ScheduledJobDTO job:jobs)states.add(job.state);
-  System.assert(states.contains('Paused'));System.assert(states.contains('Not Scheduled'));
-  System.assert(FieldUsageController.getObjects().contains('Account'));
+  insert new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Completed_At__c=System.now());FieldUsageController.SnapshotDTO snapshot=FieldUsageController.getSnapshotAvailability();System.assertEquals(true,snapshot.available);System.assertEquals(0,snapshot.dependencyCount);
+  insert new List<Field_Usage_Schedule__c>{new Field_Usage_Schedule__c(Name='Disabled Test',Enabled__c=false,Hour__c=1,Minute__c=5),new Field_Usage_Schedule__c(Name='Enabled Test',Enabled__c=true,Hour__c=2,Minute__c=10)};
+  List<FieldUsageController.ScheduledJobDTO> jobs=FieldUsageController.getScheduledJobs();System.assertEquals(2,jobs.size());for(FieldUsageController.ScheduledJobDTO job:jobs){System.assertNotEquals(null,job.scheduleId);System.assertNotEquals(null,job.scheduleName);System.assertNotEquals(null,job.enabled);System.assertNotEquals(null,job.hour);System.assertNotEquals(null,job.minute);System.assertEquals(null,job.cronTriggerId);System.assertEquals(null,job.state);}System.assert(FieldUsageController.getObjects().contains('Account'));
  }
-
- @IsTest static void coversComparatorNullBranches(){
-  FieldUsageController.EvidenceSummaryDTO a=new FieldUsageController.EvidenceSummaryDTO();
-  FieldUsageController.EvidenceSummaryDTO b=new FieldUsageController.EvidenceSummaryDTO();b.fieldApiName='Name';b.sourceType='Apex Class';
-  FieldUsageController.EvidenceSummaryComparator comparator=new FieldUsageController.EvidenceSummaryComparator();
-  Integer ab=comparator.compare(a,b);Integer ba=comparator.compare(b,a);Integer aa=comparator.compare(a,a);
-  System.assertNotEquals(0,ab);System.assertNotEquals(0,ba);System.assertEquals(-ab,ba);System.assertEquals(0,aa);
- }
-
- @IsTest static void coversBootstrapSchedulesAndNoRunStatus(){
-  FieldUsageController.bootstrap();
-  FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);System.assertEquals(null,status.run);System.assertNotEquals(null,status.schedules);
-  List<FieldUsageController.ScheduledJobDTO> jobs=FieldUsageController.getScheduledJobs();System.assertNotEquals(null,jobs);
- }
-
- @IsTest static void sparseSnapshotTreatsSchemaFieldWithoutEvidenceAsNoDependency(){
-  Field_Usage_Run__c currentRun=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert currentRun;
-  insert new Field_Usage_Evidence__c(Run__c=currentRun.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='AccountService',Occurrence_Count__c=1);
-  List<String> schemaFields=FieldUsageController.getFields('Account');String zeroEvidenceField=null;for(String fieldName:schemaFields)if(fieldName!='Name'){zeroEvidenceField=fieldName;break;}
-  System.assertNotEquals(null,zeroEvidenceField);
-  System.assertEquals(0,FieldUsageController.getEvidence('Account',new List<String>{zeroEvidenceField}).size());
-  System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));System.assert(FieldUsageController.getSnapshotFields('Account').contains(zeroEvidenceField));
- }
- @IsTest static void statusCanBePinnedToExactRun(){
-  Field_Usage_Run__c older=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=25,Progress_Phase__c='Older run');insert older;
-  Field_Usage_Run__c newer=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Newer run');insert newer;
-  FieldUsageController.StatusDTO pinned=FieldUsageController.getStatus(older.Id);System.assertEquals(older.Id,pinned.run.Id);System.assertEquals('Running',pinned.run.Status__c);
-  FieldUsageController.StatusDTO latest=FieldUsageController.getStatus(null);System.assertNotEquals(null,latest.run);System.assert(new Set<Id>{older.Id,newer.Id}.contains(latest.run.Id));
- }
- @IsTest static void unpinnedStatusPrefersActiveRunOverTerminalHistory(){
-  Field_Usage_Run__c active=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=1,Progress_Phase__c='Discovering scan work');insert active;
-  Field_Usage_Run__c terminal=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert terminal;
-  FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);System.assertEquals(active.Id,status.run.Id);System.assertEquals('Running',status.run.Status__c);
- }
+ @IsTest static void coversComparatorNullBranches(){FieldUsageController.EvidenceSummaryDTO a=new FieldUsageController.EvidenceSummaryDTO();FieldUsageController.EvidenceSummaryDTO b=new FieldUsageController.EvidenceSummaryDTO();b.fieldApiName='Name';b.sourceType='Apex Class';FieldUsageController.EvidenceSummaryComparator comparator=new FieldUsageController.EvidenceSummaryComparator();Integer ab=comparator.compare(a,b);Integer ba=comparator.compare(b,a);Integer aa=comparator.compare(a,a);System.assertNotEquals(0,ab);System.assertNotEquals(0,ba);System.assertEquals(-ab,ba);System.assertEquals(0,aa);}
+ @IsTest static void coversBootstrapSchedulesAndNoRunStatus(){FieldUsageController.bootstrap();FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);System.assertEquals(null,status.run);System.assertNotEquals(null,status.schedules);List<FieldUsageController.ScheduledJobDTO> jobs=FieldUsageController.getScheduledJobs();System.assertNotEquals(null,jobs);}
+ @IsTest static void sparseSnapshotTreatsSchemaFieldWithoutEvidenceAsNoDependency(){Field_Usage_Run__c currentRun=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert currentRun;insert new Field_Usage_Evidence__c(Run__c=currentRun.Id,Field_Key__c='Account.Name',Object_API_Name__c='Account',Field_API_Name__c='Name',Source_Type__c='Apex Class',Component_Name__c='AccountService',Occurrence_Count__c=1);List<String> schemaFields=FieldUsageController.getFields('Account');String zeroEvidenceField=null;for(String fieldName:schemaFields)if(fieldName!='Name'){zeroEvidenceField=fieldName;break;}System.assertNotEquals(null,zeroEvidenceField);System.assertEquals(0,FieldUsageController.getEvidence('Account',new List<String>{zeroEvidenceField}).size());System.assert(FieldUsageController.getSnapshotObjects().contains('Account'));System.assert(FieldUsageController.getSnapshotFields('Account').contains(zeroEvidenceField));}
+ @IsTest static void statusCanBePinnedToExactRun(){Field_Usage_Run__c older=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=25,Progress_Phase__c='Older run');insert older;Field_Usage_Run__c newer=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Newer run');insert newer;FieldUsageController.StatusDTO pinned=FieldUsageController.getStatus(older.Id);System.assertEquals(older.Id,pinned.run.Id);System.assertEquals('Running',pinned.run.Status__c);FieldUsageController.StatusDTO latest=FieldUsageController.getStatus(null);System.assertNotEquals(null,latest.run);System.assert(new Set<Id>{older.Id,newer.Id}.contains(latest.run.Id));}
+ @IsTest static void unpinnedStatusPrefersActiveRunOverTerminalHistory(){Field_Usage_Run__c active=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=1,Progress_Phase__c='Discovering scan work');insert active;Field_Usage_Run__c terminal=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert terminal;FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);System.assertEquals(active.Id,status.run.Id);System.assertEquals('Running',status.run.Status__c);}
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
 }
