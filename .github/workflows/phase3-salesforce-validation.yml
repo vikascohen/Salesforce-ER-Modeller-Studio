@@ -69,6 +69,7 @@ jobs:
             --tests FieldUsageDiscoveryBatchTest \
             --tests FieldUsageFlowScannerTest \
             --tests FieldUsageFormulaScannerTest \
+            --tests FieldUsageLayoutScannerTest \
             --tests FieldUsageOrchestratorTest \
             --tests FieldUsageScheduleServiceTest \
             --tests FieldUsageSnapshotFinalizerTest \
