@@ -1,7 +1,7 @@
 /**
- * Collects page-layout field membership and record-type/layout mappings once during
- * the Field Usage scan. The UI never calls layout APIs directly; it reads the
- * persisted successful snapshot.
+ * Loads page-layout field membership and record-type/layout mappings on demand.
+ * This metadata is NOT persisted in the Field Usage snapshot; Data Dictionary calls
+ * it only for the object/field the developer is inspecting.
  * @author Vikas Cohen
  */
 public without sharing class FieldUsageLayoutScanner {
@@ -9,41 +9,56 @@ public without sharing class FieldUsageLayoutScanner {
     private static final String NAMED_CREDENTIAL='callout:Salesforce_Tooling_API';
     private static final Integer MAX_RECORD_TYPE_CALLS=90;
 
-    public static List<Field_Usage_Evidence__c> scan(Id runId,String objectApiName){
-        List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();
-        if(runId==null||String.isBlank(objectApiName))return out;
+    public class FieldLayoutDetail {
+        @AuraEnabled public List<String> pageLayouts=new List<String>();
+        @AuraEnabled public List<String> recordTypes=new List<String>();
+        @AuraEnabled public Boolean metadataAvailable=false;
+    }
+
+    /** On-demand, read-only lookup used by Data Dictionary. No DML. */
+    public static FieldLayoutDetail describeField(String objectApiName,String fieldApiName){
+        FieldLayoutDetail out=new FieldLayoutDetail();
+        if(String.isBlank(objectApiName)||String.isBlank(fieldApiName))return out;
         Schema.SObjectType typ=Schema.getGlobalDescribe().get(objectApiName);
         if(typ==null)return out;
         Schema.DescribeSObjectResult describe=typ.getDescribe();
-        if(!describe.isAccessible()||!describe.isQueryable())return out;
-        Map<String,Set<String>> layoutFields=new Map<String,Set<String>>();Map<String,String> layoutNames=new Map<String,String>();Map<String,Set<String>> layoutRecordTypes=new Map<String,Set<String>>();
+        if(!describe.isAccessible())return out;
+
+        Map<String,Set<String>> layoutFields=new Map<String,Set<String>>();
+        Map<String,String> layoutNames=new Map<String,String>();
+        Map<String,Set<String>> layoutRecordTypes=new Map<String,Set<String>>();
         Map<String,Object> root=getLayout('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/','Page Layout describe for '+objectApiName);
-        // Salesforce exposes many accessible/queryable system entities that simply do not
-        // support page layouts. INVALID_ARGUMENT_TYPE for those entities is an expected
-        // capability result, not a failed Field Usage scan.
         if(root==null)return out;
+        out.metadataAvailable=true;
         harvest(root,layoutFields,layoutNames,layoutRecordTypes,null);
         Set<String> recordTypeIds=recordTypeIds(root);
         if(layoutFields.isEmpty()&&!recordTypeIds.isEmpty()){
-            if(recordTypeIds.size()>MAX_RECORD_TYPE_CALLS)throw new LayoutScanException('Object '+objectApiName+' has too many record types for safe layout scanning ('+recordTypeIds.size()+').');
-            for(String recordTypeId:recordTypeIds){Map<String,Object> detail=getLayout('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/'+EncodingUtil.urlEncode(recordTypeId,'UTF-8'),'Page Layout describe for '+objectApiName+' record type '+recordTypeId);if(detail!=null)harvest(detail,layoutFields,layoutNames,layoutRecordTypes,recordTypeId);}
-        }
-        hydrateLayoutNames(layoutFields.keySet(),layoutNames);
-        Datetime observed=System.now();
-        for(String layoutId:layoutFields.keySet()){
-            String layoutName=String.isBlank(layoutNames.get(layoutId))?layoutId:layoutNames.get(layoutId);Set<String> recordTypes=layoutRecordTypes.get(layoutId);
-            for(String fieldName:layoutFields.get(layoutId)){
-                out.add(evidence(runId,objectApiName,fieldName,'Page Layout',layoutName,layoutId,'Page Layout Field','Field is present on page layout '+layoutName,layoutName,observed));
-                if(recordTypes!=null)for(String recordTypeName:recordTypes)out.add(evidence(runId,objectApiName,fieldName,'Record Type',recordTypeName,null,'Record Type Layout Assignment','Field is exposed through page layout '+layoutName+' for record type '+recordTypeName,layoutName+' → '+recordTypeName,observed));
+            if(recordTypeIds.size()>MAX_RECORD_TYPE_CALLS)throw new LayoutScanException('Object '+objectApiName+' has too many record types for safe layout inspection ('+recordTypeIds.size()+').');
+            for(String recordTypeId:recordTypeIds){
+                Map<String,Object> detail=getLayout('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/'+EncodingUtil.urlEncode(recordTypeId,'UTF-8'),'Page Layout describe for '+objectApiName+' record type '+recordTypeId);
+                if(detail!=null)harvest(detail,layoutFields,layoutNames,layoutRecordTypes,recordTypeId);
             }
         }
+        hydrateLayoutNames(layoutFields.keySet(),layoutNames);
+        Set<String> layouts=new Set<String>();Set<String> recordTypes=new Set<String>();
+        for(String layoutId:layoutFields.keySet()){
+            Set<String> fields=layoutFields.get(layoutId);
+            if(fields==null||!fields.contains(fieldApiName))continue;
+            String layoutName=String.isBlank(layoutNames.get(layoutId))?layoutId:layoutNames.get(layoutId);
+            layouts.add(layoutName);
+            Set<String> mapped=layoutRecordTypes.get(layoutId);if(mapped!=null)recordTypes.addAll(mapped);
+        }
+        out.pageLayouts.addAll(layouts);out.pageLayouts.sort();out.recordTypes.addAll(recordTypes);out.recordTypes.sort();
         return out;
     }
+
+    // Legacy method retained for source compatibility only. Field Usage no longer calls it.
+    public static List<Field_Usage_Evidence__c> scan(Id runId,String objectApiName){return new List<Field_Usage_Evidence__c>();}
+
     private static void hydrateLayoutNames(Set<String> ids,Map<String,String> names){
         if(ids==null||ids.isEmpty())return;List<String> quoted=new List<String>();for(String id:ids)quoted.add('\''+String.escapeSingleQuotes(id)+'\'');
         String soql='SELECT Id,Name FROM Layout WHERE Id IN ('+String.join(quoted,',')+')';Map<String,Object> payload=get('/services/data/'+API_VERSION+'/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8'),'Page Layout names');Object raw=payload.get('records');if(raw instanceof List<Object>)for(Object item:(List<Object>)raw)if(item instanceof Map<String,Object>){Map<String,Object> row=(Map<String,Object>)item;String id=str(row.get('Id')),name=str(row.get('Name'));if(!String.isBlank(id)&&!String.isBlank(name))names.put(id,name);}
     }
-    private static Field_Usage_Evidence__c evidence(Id runId,String objectName,String fieldName,String sourceType,String componentName,String componentId,String evidenceType,String text,String location,Datetime observed){return new Field_Usage_Evidence__c(Run__c=runId,Field_Key__c=objectName+'.'+fieldName,Object_API_Name__c=objectName,Field_API_Name__c=fieldName,Source_Type__c=sourceType,Component_Name__c=componentName,Component_Id__c=componentId,Evidence_Type__c=evidenceType,Evidence__c=text,Confidence__c='High',Observed_At__c=observed,Occurrence_Count__c=1,Location__c=location);}
     private static void harvest(Map<String,Object> payload,Map<String,Set<String>> layoutFields,Map<String,String> layoutNames,Map<String,Set<String>> layoutRecordTypes,String requestedRecordTypeId){
         Map<String,String> rtNames=new Map<String,String>();Object mappingsRaw=payload.get('recordTypeMappings');
         if(mappingsRaw instanceof List<Object>)for(Object raw:(List<Object>)mappingsRaw){if(!(raw instanceof Map<String,Object>))continue;Map<String,Object> m=(Map<String,Object>)raw;String layoutId=str(m.get('layoutId')),rtId=str(m.get('recordTypeId')),name=str(m.get('name'));if(!String.isBlank(rtId)&&!String.isBlank(name))rtNames.put(rtId,name);if(!String.isBlank(layoutId)&&!String.isBlank(name)){if(!layoutRecordTypes.containsKey(layoutId))layoutRecordTypes.put(layoutId,new Set<String>());layoutRecordTypes.get(layoutId).add(name);}}
