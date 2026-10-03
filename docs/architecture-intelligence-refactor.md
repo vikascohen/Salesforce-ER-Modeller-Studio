@@ -1,5 +1,7 @@
 # Architecture Intelligence Refactor
 
+**Author: Vikas Cohen**
+
 Architecture Intelligence analyses the current or selected ER model and provides progressively deeper evidence for change decisions. It is decision support, not an automatic compliance scanner.
 
 ## Primary experiences
