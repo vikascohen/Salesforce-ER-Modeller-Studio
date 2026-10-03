@@ -930,8 +930,12 @@
 }
 
 .dict-header .dict-header-actions {
-    margin-left: auto;
     flex: 0 0 auto;
+}
+
+/* Only the right-hand Restore / Close group consumes free space. */
+.dict-header .dict-header-actions:last-child {
+    margin-left: auto;
 }
 .dict-title { font-size: 16px; font-weight: 700; color: var(--surface-text-strong); }
 .dict-header-actions { display: flex; align-items: center; gap: 10px; }
