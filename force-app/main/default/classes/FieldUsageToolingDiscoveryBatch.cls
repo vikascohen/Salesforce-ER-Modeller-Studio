@@ -3,18 +3,35 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
     private static final Integer CHUNK_SIZE=12;
     private static final Integer FLOW_CHUNK_SIZE=4;
     private static final Integer VALIDATION_CHUNK_SIZE=20;
+    private static final Integer LAYOUT_OBJECT_CHUNK_SIZE=1;
     @TestVisible private static Boolean suppressWorkerChainForTest=false;
     private final Id runId;
     public FieldUsageToolingDiscoveryBatch(Id runId){this.runId=runId;}
 
     public Iterable<String> start(Database.BatchableContext context){
         update new Field_Usage_Run__c(Id=runId,Status__c='Running',Heartbeat_At__c=System.now(),Job_Id__c=context==null?null:String.valueOf(context.getJobId()),Progress_Phase__c='Discovering Tooling metadata');
-        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule'};
+        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule','Layout'};
     }
 
     public void execute(Database.BatchableContext context,List<String> sourceTypes){
         List<Field_Usage_Work_Unit__c> allUnits=new List<Field_Usage_Work_Unit__c>();
         for(String sourceType:sourceTypes){
+            if(sourceType=='Layout'){
+                List<String> objects=new List<String>();
+                for(String apiName:Schema.getGlobalDescribe().keySet()){
+                    Schema.SObjectType typ=Schema.getGlobalDescribe().get(apiName);
+                    if(typ==null)continue;
+                    Schema.DescribeSObjectResult d=typ.getDescribe();
+                    if(d.isAccessible()&&d.isLayoutable())objects.add(apiName);
+                }
+                objects.sort();
+                for(Integer offset=0;offset<objects.size();offset+=LAYOUT_OBJECT_CHUNK_SIZE){
+                    Integer chunkEnd=Math.min(offset+LAYOUT_OBJECT_CHUNK_SIZE,objects.size());
+                    List<String> chunk=new List<String>();for(Integer i=offset;i<chunkEnd;i++)chunk.add(objects[i]);
+                    allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|Layout Bulk|'+String.valueOf(offset/LAYOUT_OBJECT_CHUNK_SIZE),Scanner_Type__c='Layout Bulk',Target_Key__c=String.join(chunk,','),Status__c='Pending'));
+                }
+                continue;
+            }
             List<String> ids=new List<String>(); String scannerType; Integer chunkSize=CHUNK_SIZE;
             if(sourceType=='LWC'||sourceType=='Aura'){
                 List<FieldUsageUiToolingClient.UiComponent> components=sourceType=='LWC'?FieldUsageUiToolingClient.getLwcBundleIndex():FieldUsageUiToolingClient.getAuraBundleIndex();
@@ -36,7 +53,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
             }
         }
         if(!allUnits.isEmpty()){Database.SaveResult[] results=Database.insert(allUnits,false);for(Database.SaveResult result:results)if(!result.isSuccess())throw new FieldUsageToolingApiClient.ToolingApiException('Could not checkpoint bulk Tooling API discovery: '+result.getErrors()[0].getMessage());}
-        update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered Tooling work');
+        update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered Tooling and layout work');
     }
 
     public void finish(Database.BatchableContext context){
