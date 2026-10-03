@@ -1,200 +1,192 @@
 # ER DSL Reference
 
-*Author: Vikas Cohen*
+**Author: Vikas Cohen**
 
-The ER modeller is driven by a small line-based text format. Every line is
-either an **entity declaration**, a **relationship**, a **comment**, or
-blank — nothing else is understood, and an unrecognised line will raise a
-parse error naming the line number.
+The ER DSL is a small, line-based format for describing Salesforce objects, fields and relationships. You normally do **not** need to write it by hand: Diagram Studio can generate DSL from Salesforce metadata, drag-and-drop modelling and editor assistance. See [Generating DSL instead of writing it](#generating-dsl-instead-of-writing-it).
 
-## Entity declaration
+Every source line is an entity declaration, relationship, comment or blank line. Unrecognised input produces a parse error with the source line number.
 
+## 1. Entity declarations
+
+```text
+entity <ObjectApiName> : <field1>, <field2>, <field3>
 ```
-entity <Name> : <field1>, <field2>, <field3>
-```
 
-- `<Name>` is the object's API name (e.g. `Account`, `My_Custom__c`).
-- The `: <fields>` part is optional — `entity Account` on its own declares
-  an entity with no plain fields yet.
-- Field names are a comma-separated list; whitespace around commas is
-  ignored.
-- Every entity automatically gets an `Id` field at the top of its box —
-  don't declare it yourself.
+Examples:
 
-### The optional `[...]` bracket suffix
-
-**You never have to use this.** Every field works perfectly well as just
-its bare name — `AnnualRevenue`, `LastName`, `TotalAmount` — with no
-brackets at all. Nothing about parsing, rendering, or the canvas requires
-it. The bracket only exists to *optionally* record extra information
-about a field, purely for these payoffs:
-
-- **A data type label** — e.g. `AnnualRevenue[Currency]` — shows up in
-  the Mermaid and draw.io exports as the real Setup-style type instead of
-  a generic placeholder. It has no effect at all if you never export to
-  those formats.
-- **`rollup`** (case-insensitive) marks a field as a Roll-Up Summary,
-  shown as a small teal Σ on the canvas.
-- **`Required`** (case-insensitive) marks a field as required, shown as
-  a small red **R** on the canvas.
-
-**And in practice, you rarely type any of this yourself anyway** — when
-you use **Import from Org**, the tool fills in the type, `rollup`, and
-`Required` markers automatically from the org's real field metadata.
-Hand-typing `[...]` only comes up if you're writing or editing DSL text
-directly by hand, and even then, only if you specifically want the extra
-detail it adds.
-
-If you do use the bracket, here's how it parses: all three markers can
-combine freely, in any order, comma-separated inside one bracket —
-`LastName[Required]`, `AnnualRevenue[Currency, Required]`,
-`TotalAmount[rollup, Required]`. The type label itself can contain
-spaces and parentheses freely — only the comma separating it from
-`rollup`/`Required` and the outermost brackets matter. Every marker is
-independent of the others, so DSL written before any of this existed
-still parses identically.
-
-- **A field with no bracket at all records no type information — it does
-  not mean "this field is Text."** `FirstName` with nothing after it just
-  means nothing was specified; the field's actual type, whatever it is,
-  simply isn't recorded in the DSL text. This distinction matters most
-  when reading DSL someone else wrote or imported — a bare field name is
-  "unknown/unspecified," not "confirmed to be Text."
-- When importing from your org, required fields (the field's own schema
-  definition — not nillable — not whether the importing user happens to
-  be able to create records) are sorted to the top of each entity's field
-  list automatically, ahead of everything else.
-- An entity whose API name ends in `__c` is drawn with a purple header
-  (custom object); everything else gets the standard blue header
-  (standard object). This is purely visual, not something you configure.
-
-```
-entity Account : Name, Industry, Phone, Website, Type, AnnualRevenue[Currency], Description[Text Area (Long)]
+```text
+entity Account : Name, Industry, Phone
+entity Contact : LastName[Required], FirstName, Email
 entity Order__c : Order_Date__c, Status__c
-entity WebCart : Name, TotalProductAmount[rollup]
-entity Contact : LastName[Required], FirstName, Email[required]
-
 ```
 
-## Relationships
+The field list is optional:
 
+```text
+entity Account
 ```
+
+Every entity receives an `Id` field automatically, so it does not need to be declared explicitly.
+
+Entity names are matched case-insensitively by the current model while the first display casing is preserved. Salesforce API names, including namespaced API names, are represented as ordinary identifiers rather than through separate namespace syntax.
+
+## 2. Optional field metadata
+
+A field can be written as a bare API name:
+
+```text
+AnnualRevenue
+```
+
+or with optional metadata:
+
+```text
+AnnualRevenue[Currency]
+LastName[Required]
+TotalAmount__c[rollup, Required]
+```
+
+The bracket suffix can record a display type and the `rollup` and `Required` markers. These markers are case-insensitive. A bare field means that the DSL has not recorded type information; it does not mean the field is Text.
+
+In normal org-import workflows Diagram Studio generates this metadata from Salesforce, so hand-authoring brackets is optional.
+
+### Type labels containing commas
+
+Salesforce-style type labels can themselves contain commas, for example:
+
+```text
+Amount__c[Number(16, 2), Required]
+```
+
+The current DSL should be treated as a compact human-readable format rather than a general-purpose type-expression language. Parenthesised type text belongs to the type label; top-level bracket markers such as `Required` and `rollup` are metadata markers. When in doubt, prefer DSL generated from org metadata rather than manually constructing complex type labels.
+
+## 3. Relationships
+
+```text
 <ChildEntity>.<ChildField> <arrow> <ParentEntity>
 ```
 
-Three arrows, matching the three ways a Salesforce lookup field can
-relate two objects:
-
-| Arrow | Meaning | Rendered as |
+| Arrow | Meaning | Visual treatment |
 |---|---|---|
-| `=>` | Master-Detail | Thick purple line, filled diamond, cardinality `N` → `1` |
-| `->` | Lookup | Thin blue line, open arrowhead, cardinality `N` → `1` |
-| `~>` | Polymorphic lookup | Dashed red line, open diamond, cardinality `N` → `?` |
+| `=>` | Master-Detail | Thick purple line, filled diamond, `N` to `1` |
+| `->` | Lookup | Thin blue line, open arrowhead, `N` to `1` |
+| `~>` | Polymorphic lookup | Dashed red line, open diamond, `N` to `?` |
 
-```
+Examples:
+
+```text
 Contact.AccountId => Account
-Contact.OwnerId   -> User
-Task.WhoId        ~> Contact
+Contact.OwnerId -> User
+Task.WhoId ~> Contact
 ```
 
-A few things worth knowing:
+The relationship field is added to the child entity automatically. A referenced parent can be declared before or after the relationship. If it has no explicit entity declaration, the model can create an implicit entity so the relationship has a target.
 
-- The child field is added to the child entity's box automatically and
-  labelled with its target and relationship type — you don't need to also
-  list it in the entity's field list.
-- **Importing or dragging a single object onto the canvas without its
-  related object also present** shows that object's relationship fields
-  as plain fields instead — e.g. `AccountId[Lookup]` on Contact if
-  Account isn't on the canvas yet — rather than silently leaving them out
-  entirely. There's nothing to draw a connector to yet, so it can't
-  appear as a proper relationship line, but the field itself still shows
-  up. If you later add the missing object too, this doesn't automatically
-  turn into a real relationship line — importing or dropping never
-  rewrites an entity already on the canvas, so you'd convert it to a
-  proper `ChildEntity.ChildField <arrow> ParentEntity` line by hand if
-  you want the connector drawn.
-- If the parent entity hasn't been declared with its own `entity` line,
-  it's created implicitly (with no fields other than `Id`) so the
-  connector still has something to point at.
-- Order doesn't matter — you can write relationship lines before or after
-  the entities they reference.
-- Entity names are matched case-insensitively, so `Account` and `account`
-  referenced on different lines resolve to the same box rather than
-  creating a duplicate — whichever casing you used first is what's shown.
-- **Self-relationships** work — `Account.ParentId -> Account` draws as a
-  small loop on the box instead of collapsing to nothing. If an entity has
-  more than one self-relationship, each gets a progressively larger loop
-  so they stay distinguishable.
-- **A single field can point at more than one target** — declare the same
-  child field with two separate relationship lines to two different
-  parents (this is the correct way to model a field that's genuinely
-  polymorphic across more than one object) and its row shows every target,
-  e.g. `WhoId  → Contact / Lead (Polymorphic Lookup)`.
-- If the same relationship line is declared twice, the duplicate is
-  ignored rather than drawing an identical connector on top of itself. If
-  two *different* relationships connect the same pair of entities (e.g.
-  two separate lookups from Opportunity to Account), their lines are
-  automatically fanned out so they don't overlap.
+Exact duplicate relationships are normalised rather than rendered twice. Self-relationships are supported.
 
-## Comments
+### Polymorphic relationships
 
-```
-# anything after a hash on its own line is ignored
+A genuinely polymorphic field is represented by repeating the same child field with different targets:
+
+```text
+Task.WhoId ~> Contact
+Task.WhoId ~> Lead
+
+Task.WhatId ~> Account
+Task.WhatId ~> Opportunity
 ```
 
-Comments must be on their own line starting with `#` — there's no
-inline/trailing comment support.
+This makes the multiple targets explicit in the source rather than hiding them behind special syntax. Use the polymorphic `~>` operator consistently for the same polymorphic field.
 
-## Full example
+## 4. Comments
 
+Comments occupy their own line and begin with `#`:
+
+```text
+# Sales objects
 ```
+
+Inline or trailing comments are not part of the current language.
+
+## 5. Full example
+
+```text
 # Sales objects
 entity Account : Name, Industry, Phone, Website, Type
 entity Contact : LastName, FirstName, Email, Phone, Title
 entity Opportunity : Name, StageName, Amount, CloseDate
 
-Contact.AccountId     => Account
+Contact.AccountId => Account
 Opportunity.AccountId => Account
-Opportunity.OwnerId   -> User
+Opportunity.OwnerId -> User
 
-# Activities can point at more than one kind of parent
+# Activities can have polymorphic parents
 Task.WhoId ~> Contact
+Task.WhoId ~> Lead
+Task.WhatId ~> Account
 Task.WhatId ~> Opportunity
 ```
 
-This renders five entities (`Account`, `Contact`, `Opportunity`, `Task`,
-plus an implicit `User` box since it's referenced but never declared) with
-Master-Detail, Lookup, and Polymorphic connectors between them.
+The example demonstrates explicit entities, an implicit `User` target, ordinary relationships and multi-target polymorphic fields.
 
-## Generating the DSL instead of writing it
+## 6. Parse errors
 
-You don't have to write this by hand:
+The parser reports the source line when it cannot recognise a declaration. For example, this is not valid DSL:
 
-- **DSL editor autocomplete** — the editor panel suggests the next token as
-  you type: the `entity` keyword, object names from your org, field names
-  for whichever entity you just named, relationship fields on an entity
-  once you type its name and a dot (picking one auto-appends the correct
-  arrow and target for you), the arrow itself, and finally the target
-  entity. Suggestions appear in a panel below the editor — arrow up/down
-  then Enter or Tab to accept, Esc to dismiss.
-- **Import panel** — give it a comma-separated list of object API names
-  and it describes them from the org's real schema (fields + relationship
-  types) and writes out the equivalent DSL for you.
-- **Palette drag-and-drop** — dragging an object onto the canvas does the
-  same thing for one object at a time, and automatically adds relationship
-  lines to any entity already on the canvas that it's connected to.
-- **Smart relationship linter** — if you add entities without wiring
-  relationships between them (by typing, or because you added them one at
-  a time), the editor scans their real schema and suggests any missing
-  connections between entities already on the canvas — click "+ Add" on a
-  suggestion (or "Add all") to insert the line and redraw.
-- **Compare with org schema** — for diagrams that have been sitting
-  around a while, click **Compare with Org** from the **Diagram** menu to
-  re-describe every entity that maps to a real org object and diff it
-  against the diagram: fields the org has that the diagram doesn't, and
-  fields the diagram lists that the org didn't return. Each is
-  individually addable or removable, right from the results.
+```text
+entity Account : Name
+Account.OwnerId --> User
+```
 
-All of these only ever produce DSL using the constructs described
-above, so anything generated this way is still just plain text you can
-hand-edit afterwards.
+`-->` is not a supported relationship operator. The error identifies the offending line so the source can be corrected to:
+
+```text
+Account.OwnerId -> User
+```
+
+## 7. Diagram Studio behaviour around the DSL
+
+Some behaviours belong to Diagram Studio rather than to the language grammar itself:
+
+- Import from Org can populate type, required and roll-up metadata from Salesforce.
+- Required fields may be ordered ahead of other fields when generated from org metadata.
+- Relationship fields can remain visible as ordinary fields when their target object is not currently represented on the canvas.
+- Drag-and-drop and schema import can generate relationship lines when both ends are available to the modelling workflow.
+- Multiple relationships between the same objects are visually separated by the renderer.
+- Self-relationships are rendered as loops.
+- Object header styling is presentation logic, not DSL semantics. The DSL itself does not classify every Salesforce object suffix into a colour category.
+- Saved canvas coordinates are presentation state. They are not part of the DSL language.
+
+These behaviours can evolve without changing the core language contract.
+
+## 8. Generating DSL instead of writing it
+
+Diagram Studio provides several ways to generate or assist DSL:
+
+- **DSL editor autocomplete** suggests keywords, object names, fields, relationship operators and targets.
+- **Import from Org** describes Salesforce objects and generates corresponding DSL.
+- **Palette drag-and-drop** adds objects through the visual modelling experience.
+- **Relationship suggestions** can identify missing connections between objects already represented in the model.
+- **Compare with Org** can compare a saved model with current Salesforce schema and help reconcile field differences.
+
+Generated DSL remains plain text and can be edited afterwards.
+
+## 9. Compact grammar
+
+The current language is intentionally flat and line-oriented:
+
+```text
+program       ::= line*
+line          ::= blank | comment | entity | relationship
+comment       ::= "#" text
+entity        ::= "entity" identifier (":" field-list)?
+field-list    ::= field ("," field)*
+field         ::= identifier field-metadata?
+field-metadata ::= "[" metadata-text "]"
+relationship  ::= identifier "." identifier operator identifier
+operator      ::= "->" | "=>" | "~>"
+```
+
+`metadata-text` is intentionally documented at a higher level rather than as a fully general expression grammar. The DSL is designed to remain small and readable. If future language features introduce nested expressions, blocks or more complex type syntax, the compiler architecture allows the grammar and semantic layer to evolve without making canvas geometry the source of truth.
+
+For compiler design and semantic-model architecture, see [ARCHITECTURE.md](ARCHITECTURE.md).
