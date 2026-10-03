@@ -17,12 +17,16 @@ public without sharing class FieldUsageLayoutScanner {
         Schema.DescribeSObjectResult describe=typ.getDescribe();
         if(!describe.isAccessible()||!describe.isQueryable())return out;
         Map<String,Set<String>> layoutFields=new Map<String,Set<String>>();Map<String,String> layoutNames=new Map<String,String>();Map<String,Set<String>> layoutRecordTypes=new Map<String,Set<String>>();
-        Map<String,Object> root=get('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/','Page Layout describe for '+objectApiName);
+        Map<String,Object> root=getLayout('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/','Page Layout describe for '+objectApiName);
+        // Salesforce exposes many accessible/queryable system entities that simply do not
+        // support page layouts. INVALID_ARGUMENT_TYPE for those entities is an expected
+        // capability result, not a failed Field Usage scan.
+        if(root==null)return out;
         harvest(root,layoutFields,layoutNames,layoutRecordTypes,null);
         Set<String> recordTypeIds=recordTypeIds(root);
         if(layoutFields.isEmpty()&&!recordTypeIds.isEmpty()){
             if(recordTypeIds.size()>MAX_RECORD_TYPE_CALLS)throw new LayoutScanException('Object '+objectApiName+' has too many record types for safe layout scanning ('+recordTypeIds.size()+').');
-            for(String recordTypeId:recordTypeIds){Map<String,Object> detail=get('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/'+EncodingUtil.urlEncode(recordTypeId,'UTF-8'),'Page Layout describe for '+objectApiName+' record type '+recordTypeId);harvest(detail,layoutFields,layoutNames,layoutRecordTypes,recordTypeId);}
+            for(String recordTypeId:recordTypeIds){Map<String,Object> detail=getLayout('/services/data/'+API_VERSION+'/sobjects/'+EncodingUtil.urlEncode(objectApiName,'UTF-8')+'/describe/layouts/'+EncodingUtil.urlEncode(recordTypeId,'UTF-8'),'Page Layout describe for '+objectApiName+' record type '+recordTypeId);if(detail!=null)harvest(detail,layoutFields,layoutNames,layoutRecordTypes,recordTypeId);}
         }
         hydrateLayoutNames(layoutFields.keySet(),layoutNames);
         Datetime observed=System.now();
@@ -49,6 +53,8 @@ public without sharing class FieldUsageLayoutScanner {
     private static void collectFields(Object node,Set<String> fields){if(node instanceof Map<String,Object>){Map<String,Object> mapNode=(Map<String,Object>)node;if('Field'.equalsIgnoreCase(str(mapNode.get('type')))){String value=str(mapNode.get('value'));if(!String.isBlank(value))fields.add(value);}for(Object child:mapNode.values())collectFields(child,fields);}else if(node instanceof List<Object>)for(Object child:(List<Object>)node)collectFields(child,fields);}
     private static Set<String> recordTypeIds(Map<String,Object> payload){Set<String> ids=new Set<String>();Object raw=payload.get('recordTypeMappings');if(raw instanceof List<Object>)for(Object item:(List<Object>)raw)if(item instanceof Map<String,Object>){String id=str(((Map<String,Object>)item).get('recordTypeId'));if(!String.isBlank(id))ids.add(id);}return ids;}
     private static String recordTypeName(String id){try{List<RecordType> rows=[SELECT Name FROM RecordType WHERE Id=:id LIMIT 1];return rows.isEmpty()?id:rows[0].Name;}catch(Exception ex){return id;}}
+    private static Map<String,Object> getLayout(String relativeUrl,String operation){HttpRequest req=new HttpRequest();req.setEndpoint(NAMED_CREDENTIAL+relativeUrl);req.setMethod('GET');req.setHeader('Accept','application/json');req.setTimeout(120000);HttpResponse res=new Http().send(req);if(res.getStatusCode()>=200&&res.getStatusCode()<300)return (Map<String,Object>)JSON.deserializeUntyped(res.getBody());if(isNonLayoutableResponse(res))return null;throw new LayoutScanException(operation+' failed with HTTP '+res.getStatusCode()+': '+String.valueOf(res.getBody()).left(1000));}
+    @TestVisible private static Boolean isNonLayoutableResponse(HttpResponse res){if(res==null||res.getStatusCode()!=400)return false;String body=String.valueOf(res.getBody());return body.contains('INVALID_ARGUMENT_TYPE')&&body.toLowerCase().contains('non-layoutable entity');}
     private static Map<String,Object> get(String relativeUrl,String operation){HttpRequest req=new HttpRequest();req.setEndpoint(NAMED_CREDENTIAL+relativeUrl);req.setMethod('GET');req.setHeader('Accept','application/json');req.setTimeout(120000);HttpResponse res=new Http().send(req);if(res.getStatusCode()<200||res.getStatusCode()>=300)throw new LayoutScanException(operation+' failed with HTTP '+res.getStatusCode()+': '+String.valueOf(res.getBody()).left(1000));return (Map<String,Object>)JSON.deserializeUntyped(res.getBody());}
     private static String str(Object value){return value==null?null:String.valueOf(value);}private static String firstNonBlank(List<String> values){for(String value:values)if(!String.isBlank(value))return value;return null;}public class LayoutScanException extends Exception{}
 }
