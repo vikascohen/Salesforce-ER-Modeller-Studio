@@ -11,18 +11,40 @@ public without sharing class FieldUsageUiToolingClient {
         List<Map<String,Object>> records=queryAll('SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName FROM ValidationRule ORDER BY ValidationName','Validation Rule index');
         List<UiComponent> out=new List<UiComponent>();for(Map<String,Object> record:records){UiComponent c=new UiComponent();c.id=stringValue(record.get('Id'));c.name=stringValue(record.get('ValidationName'));c.active=booleanValue(record.get('Active'));c.objectName=relationshipQualifiedApiName(record);c.sourceType='Validation Rule';out.add(c);}return out;
     }
-    /** Retrieve Validation Rule metadata one rule at a time through Composite. */
+    /** Retrieve Validation Rule metadata directly through Tooling API. The REST Composite endpoint is a Data API resource and rejects Tooling API subrequests. */
     public static List<UiComponent> getValidationRules(Set<String> ids){
-        List<UiComponent> out=new List<UiComponent>();if(ids==null||ids.isEmpty())return out;List<String> ordered=new List<String>(ids);Integer cursor=0;
-        while(cursor<ordered.size()){
-            List<Object> requests=new List<Object>();Integer batchEnd=Math.min(cursor+25,ordered.size());
-            for(Integer i=cursor;i<batchEnd;i++){String id=ordered[i];String soql='SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName,Metadata FROM ValidationRule WHERE Id=\''+String.escapeSingleQuotes(id)+'\'';requests.add(new Map<String,Object>{'method'=>'GET','url'=>'/services/data/'+API_VERSION+'/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8'),'referenceId'=>'vr'+String.valueOf(i-cursor)});}
-            HttpRequest req=new HttpRequest();req.setEndpoint(NAMED_CREDENTIAL+'/services/data/'+API_VERSION+'/composite');req.setMethod('POST');req.setHeader('Content-Type','application/json');req.setHeader('Accept','application/json');req.setTimeout(120000);req.setBody(JSON.serialize(new Map<String,Object>{'allOrNone'=>false,'compositeRequest'=>requests}));
-            HttpResponse response=new Http().send(req);if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new FieldUsageUiToolingException('Validation Rule composite request failed with HTTP '+response.getStatusCode()+': '+String.valueOf(response.getBody()).left(1000));
-            Map<String,Object> payload=(Map<String,Object>)JSON.deserializeUntyped(response.getBody());List<Object> responses=(List<Object>)payload.get('compositeResponse');if(responses==null)responses=new List<Object>();List<String> subErrors=new List<String>();
-            for(Object raw:responses){Map<String,Object> item=(Map<String,Object>)raw;Integer status=Integer.valueOf(String.valueOf(item.get('httpStatusCode')));if(status<200||status>=300){subErrors.add('HTTP '+status+' '+JSON.serialize(item.get('body')).left(500));continue;}Map<String,Object> queryBody=(Map<String,Object>)item.get('body');if(queryBody==null)continue;List<Object> rows=queryBody.get('records') instanceof List<Object>?(List<Object>)queryBody.get('records'):new List<Object>();if(rows.isEmpty())continue;Map<String,Object> record=(Map<String,Object>)rows[0];UiComponent c=new UiComponent();c.id=stringValue(record.get('Id'));c.name=stringValue(record.get('ValidationName'));c.active=booleanValue(record.get('Active'));c.objectName=relationshipQualifiedApiName(record);Object metadata=record.get('Metadata');if(metadata instanceof Map<String,Object>){Map<String,Object> md=(Map<String,Object>)metadata;c.body=firstNonBlank(new List<String>{stringValue(md.get('errorConditionFormula')),stringValue(md.get('ErrorConditionFormula')),stringValue(md.get('formula')),stringValue(md.get('Formula'))});}if(String.isBlank(c.body))c.body=firstNonBlank(new List<String>{stringValue(record.get('ErrorConditionFormula')),stringValue(record.get('errorConditionFormula'))});c.sourceType='Validation Rule';if(String.isBlank(c.objectName))subErrors.add('Unable to resolve object for Validation Rule '+c.name);else if(String.isBlank(c.body))subErrors.add('No formula metadata returned for Validation Rule '+c.name);else out.add(c);}
-            if(!subErrors.isEmpty())throw new FieldUsageUiToolingException('Validation Rule retrieval incomplete: '+String.join(subErrors,' | ').left(3500));cursor=batchEnd;
-        }return out;
+        List<UiComponent> out=new List<UiComponent>();
+        if(ids==null||ids.isEmpty())return out;
+        List<String> ordered=new List<String>(ids);
+        ordered.sort();
+        List<String> retrievalErrors=new List<String>();
+        for(String id:ordered){
+            String soql='SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName,Metadata FROM ValidationRule WHERE Id=\''+String.escapeSingleQuotes(id)+'\' LIMIT 1';
+            try{
+                List<Map<String,Object>> rows=queryAll(soql,'Validation Rule '+id);
+                if(rows.isEmpty()){retrievalErrors.add('Validation Rule '+id+' was not returned by Tooling API');continue;}
+                Map<String,Object> record=rows[0];
+                UiComponent c=new UiComponent();
+                c.id=stringValue(record.get('Id'));
+                c.name=stringValue(record.get('ValidationName'));
+                c.active=booleanValue(record.get('Active'));
+                c.objectName=relationshipQualifiedApiName(record);
+                Object metadata=record.get('Metadata');
+                if(metadata instanceof Map<String,Object>){
+                    Map<String,Object> md=(Map<String,Object>)metadata;
+                    c.body=firstNonBlank(new List<String>{stringValue(md.get('errorConditionFormula')),stringValue(md.get('ErrorConditionFormula')),stringValue(md.get('formula')),stringValue(md.get('Formula'))});
+                }
+                if(String.isBlank(c.body))c.body=firstNonBlank(new List<String>{stringValue(record.get('ErrorConditionFormula')),stringValue(record.get('errorConditionFormula'))});
+                c.sourceType='Validation Rule';
+                if(String.isBlank(c.objectName))retrievalErrors.add('Unable to resolve object for Validation Rule '+c.name);
+                else if(String.isBlank(c.body))retrievalErrors.add('No formula metadata returned for Validation Rule '+c.name);
+                else out.add(c);
+            }catch(FieldUsageUiToolingException ex){
+                retrievalErrors.add(ex.getMessage());
+            }
+        }
+        if(!retrievalErrors.isEmpty())throw new FieldUsageUiToolingException('Validation Rule retrieval incomplete: '+String.join(retrievalErrors,' | ').left(3500));
+        return out;
     }
     private static String relationshipQualifiedApiName(Map<String,Object> record){Object raw=record.get('EntityDefinition');if(raw instanceof Map<String,Object>){String value=stringValue(((Map<String,Object>)raw).get('QualifiedApiName'));if(!String.isBlank(value))return value;}return firstNonBlank(new List<String>{stringValue(record.get('Object_API_Name__c')),stringValue(record.get('QualifiedApiName'))});}
     private static String firstNonBlank(List<String> values){for(String value:values)if(!String.isBlank(value))return value;return null;}
