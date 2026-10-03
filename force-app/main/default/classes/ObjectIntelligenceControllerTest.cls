@@ -19,7 +19,7 @@ private class ObjectIntelligenceControllerTest {
         Test.startTest();ObjectIntelligenceController.Result result=ObjectIntelligenceController.getObjectIntelligence('Account');Test.stopTest();
         System.assertEquals(true,result.snapshotLoaded);System.assertEquals(true,result.toolingLoaded);System.assertEquals(null,result.toolingMessage);
         System.assertEquals('Account Layout',result.layouts[0].name);
-        System.assert(!result.recordTypes.isEmpty(),'Describe should return non-master Account record types available in the test context.');
+        System.assertNotEquals(null,result.recordTypes,'Record Types should always be returned as a list from Describe, even when only Master exists.');
         System.assertEquals('AccountTrigger',result.triggers[0].name);System.assertEquals('Account Flow',result.flows[0].name);System.assertEquals('Account_Check',result.validationRules[0].name);
     }
     @IsTest static void noSnapshotStillLoadsOnDemandMetadata(){
