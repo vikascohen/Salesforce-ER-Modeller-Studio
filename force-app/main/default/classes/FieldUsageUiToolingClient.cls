@@ -11,6 +11,21 @@ public without sharing class FieldUsageUiToolingClient {
         List<Map<String,Object>> records=queryAll('SELECT Id,ValidationName,Active,EntityDefinition.QualifiedApiName FROM ValidationRule ORDER BY ValidationName','Validation Rule index');
         List<UiComponent> out=new List<UiComponent>();for(Map<String,Object> record:records){UiComponent c=new UiComponent();c.id=stringValue(record.get('Id'));c.name=stringValue(record.get('ValidationName'));c.active=booleanValue(record.get('Active'));c.objectName=relationshipQualifiedApiName(record);c.sourceType='Validation Rule';out.add(c);}return out;
     }
+    /** Object-scoped Page Layout lookup used only by Data Dictionary Object Intelligence. */
+    public static List<UiComponent> getLayoutsForObject(String objectApiName){
+        List<UiComponent> out=new List<UiComponent>();
+        if(String.isBlank(objectApiName))return out;
+        String tableKey=objectApiName;
+        if(objectApiName.endsWith('__c')){
+            List<Map<String,Object>> defs=queryAll('SELECT DurableId,QualifiedApiName FROM EntityDefinition WHERE QualifiedApiName=\''+String.escapeSingleQuotes(objectApiName)+'\' LIMIT 1','EntityDefinition for '+objectApiName);
+            if(!defs.isEmpty()&&!String.isBlank(stringValue(defs[0].get('DurableId'))))tableKey=stringValue(defs[0].get('DurableId'));
+        }
+        String soql='SELECT Id,Name,TableEnumOrId FROM Layout WHERE TableEnumOrId=\''+String.escapeSingleQuotes(tableKey)+'\' ORDER BY Name';
+        for(Map<String,Object> record:queryAll(soql,'Page Layouts for '+objectApiName)){
+            UiComponent c=new UiComponent();c.id=stringValue(record.get('Id'));c.name=stringValue(record.get('Name'));c.objectName=objectApiName;c.sourceType='Page Layout';c.active=true;out.add(c);
+        }
+        return out;
+    }
     /** Retrieve Validation Rule metadata directly through Tooling API. The REST Composite endpoint is a Data API resource and rejects Tooling API subrequests. */
     public static List<UiComponent> getValidationRules(Set<String> ids){
         List<UiComponent> out=new List<UiComponent>();
@@ -39,9 +54,7 @@ public without sharing class FieldUsageUiToolingClient {
                 if(String.isBlank(c.objectName))retrievalErrors.add('Unable to resolve object for Validation Rule '+c.name);
                 else if(String.isBlank(c.body))retrievalErrors.add('No formula metadata returned for Validation Rule '+c.name);
                 else out.add(c);
-            }catch(FieldUsageUiToolingException ex){
-                retrievalErrors.add(ex.getMessage());
-            }
+            }catch(FieldUsageUiToolingException ex){retrievalErrors.add(ex.getMessage());}
         }
         if(!retrievalErrors.isEmpty())throw new FieldUsageUiToolingException('Validation Rule retrieval incomplete: '+String.join(retrievalErrors,' | ').left(3500));
         return out;
