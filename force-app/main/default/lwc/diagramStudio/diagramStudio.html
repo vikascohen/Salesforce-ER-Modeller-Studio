@@ -1109,7 +1109,21 @@
                                     <section class="dict-wow-hero"><span class="dict-intel-kicker">OBJECT AT A GLANCE</span><h2>{dictionaryIntelligenceHeadline}</h2></section>
                                     <div class="dict-wow-grid">
                                         <section class="dict-wow-card"><div class="dict-wow-title"><strong>Field composition</strong><span>Standard versus custom extension</span></div><template for:each={dictionaryComposition} for:item="row"><div class="dict-wow-bar-row" key={row.key}><div><span>{row.label}</span><strong>{row.count}</strong></div><div class="dict-wow-track"><i style={row.width}></i></div></div></template></section>
-                                        <section class="dict-wow-card"><div class="dict-wow-title"><strong>Documentation coverage</strong><span>Custom field descriptions</span></div><template for:each={dictionaryDocumentationLandscape} for:item="row"><div class="dict-wow-bar-row" key={row.key}><div><span>{row.label}</span><strong>{row.count}</strong></div><div class="dict-wow-track"><i style={row.width}></i></div></div></template></section>
+                                        <section class="dict-wow-card">
+                                            <div class="dict-wow-title">
+                                                <strong>Customisation review</strong>
+                                                <span>Custom fields compared with the standard Salesforce field model</span>
+                                            </div>
+                                            <div class="dict-review-summary">
+                                                <strong>{dictionaryCustomFieldCount}</strong>
+                                                <span>custom fields analysed</span>
+                                            </div>
+                                            <template if:true={dictionaryHasCustomFieldOverlapCandidates}>
+                                                <p class="dict-review-note">
+                                                    Potential overlap candidates require business review before any field is changed or removed.
+                                                </p>
+                                            </template>
+                                        </section>
                                     </div>
                                     <div class="dict-summary-grid"><template for:each={dictionaryObjectSummary} for:item="m"><div class="dict-summary-card" key={m.label}><strong>{m.value}</strong><span>{m.label}</span></div></template></div>
                                     <div class="dict-findings"><template for:each={dictionaryMetadataFindings} for:item="f"><article class="dict-finding" key={f.key}><span class="arch-tag">{f.kind}</span><div><strong>{f.title}</strong><p>{f.detail}</p></div></article></template></div>

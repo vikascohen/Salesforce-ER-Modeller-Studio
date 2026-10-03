@@ -692,9 +692,29 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.dictionaryArchaeologistOpen=false; this.dictionaryFieldFilter='all'; this.dictionaryFieldSearch=token;
     }
     get dictionaryIntelligenceHeadline(){
-        const fs=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), custom=fs.filter(f=>f.isCustom).length, rel=fs.filter(f=>f.isRelationship).length;
-        const derived=fs.filter(f=>String(f.dataType||'').startsWith('Formula')||f.isRollupSummary).length;
-        return (this.dictionaryRow?.apiName||'This object')+' contains '+fs.length+' business fields, including '+custom+' custom fields, '+rel+' relationships and '+derived+' derived fields.';
+        const fields = this.dictionaryRawFields.filter(
+            field => !field.isPrimaryKey
+        );
+
+        const custom = fields.filter(field => field.isCustom).length;
+        const relationships =
+            fields.filter(field => field.isRelationship).length;
+
+        const objectName =
+            this.dictionaryRow?.apiName || 'This object';
+
+        return (
+            objectName +
+            ' extends the Salesforce model with ' +
+            custom +
+            ' custom field' +
+            (custom === 1 ? '' : 's') +
+            ' and ' +
+            relationships +
+            ' relationship' +
+            (relationships === 1 ? '' : 's') +
+            '.'
+        );
     }
     get dictionaryFieldTypeLandscape(){
         const map=new Map();
@@ -706,10 +726,291 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const fs=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), custom=fs.filter(f=>f.isCustom).length, standard=fs.length-custom;
         return [{key:'custom',label:'Custom',count:custom,width:'width:'+(fs.length?Math.round(custom/fs.length*100):0)+'%'},{key:'standard',label:'Standard',count:standard,width:'width:'+(fs.length?Math.round(standard/fs.length*100):0)+'%'}];
     }
-    get dictionaryDocumentationLandscape(){
-        const custom=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey&&f.isCustom), documented=custom.filter(f=>(f.description||'').trim()).length, missing=custom.length-documented;
-        return [{key:'documented',label:'Documented custom fields',count:documented,width:'width:'+(custom.length?Math.round(documented/custom.length*100):0)+'%'},{key:'missing',label:'Missing description',count:missing,width:'width:'+(custom.length?Math.round(missing/custom.length*100):0)+'%'}];
+    dictionaryOverlapTokens(field) {
+        const stop = new Set([
+            'id', 'the', 'a', 'an', 'of', 'to', 'for', 'and', 'or',
+            'field', 'value', 'type', 'custom'
+        ]);
+
+        const text =
+            this.normaliseDictionaryToken(field.label || '') + ' ' +
+            this.normaliseDictionaryToken(field.apiName || '');
+
+        return new Set(
+            text.split(/\s+/)
+                .filter(token => token.length > 2 && !stop.has(token))
+        );
     }
+
+    dictionaryOverlapType(field) {
+        return String(field.dataType || field.friendlyType || '')
+            .toLowerCase()
+            .replace(/\s+/g, '');
+    }
+
+    dictionaryOverlapTypeCompatible(customField, standardField) {
+        const customType = this.dictionaryOverlapType(customField);
+        const standardType = this.dictionaryOverlapType(standardField);
+
+        if (!customType || !standardType) {
+            return true;
+        }
+
+        if (customType === standardType) {
+            return true;
+        }
+
+        const textTypes = ['string', 'text', 'textarea', 'longtextarea'];
+        if (
+            textTypes.some(type => customType.includes(type)) &&
+            textTypes.some(type => standardType.includes(type))
+        ) {
+            return true;
+        }
+
+        const numericTypes = [
+            'number', 'double', 'integer', 'currency', 'percent', 'decimal'
+        ];
+
+        if (
+            numericTypes.some(type => customType.includes(type)) &&
+            numericTypes.some(type => standardType.includes(type))
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    dictionaryOverlapTargetCompatible(customField, standardField) {
+        if (!customField.isRelationship && !standardField.isRelationship) {
+            return true;
+        }
+
+        if (customField.isRelationship !== standardField.isRelationship) {
+            return false;
+        }
+
+        const customTargets = new Set(
+            String(customField.relatesTo || '')
+                .split(',')
+                .map(value => value.trim().toLowerCase())
+                .filter(Boolean)
+        );
+
+        const standardTargets = String(standardField.relatesTo || '')
+            .split(',')
+            .map(value => value.trim().toLowerCase())
+            .filter(Boolean);
+
+        if (!customTargets.size || !standardTargets.length) {
+            return true;
+        }
+
+        return standardTargets.some(target => customTargets.has(target));
+    }
+
+    get dictionaryCustomFieldOverlapCandidates() {
+        const fields = this.dictionaryRawFields.filter(
+            field => !field.isPrimaryKey
+        );
+
+        const customFields = fields.filter(field => field.isCustom);
+        const standardFields = fields.filter(field => !field.isCustom);
+
+        const candidates = [];
+
+        customFields.forEach(customField => {
+            const customTokens = this.dictionaryOverlapTokens(customField);
+
+            if (!customTokens.size) {
+                return;
+            }
+
+            let best = null;
+
+            standardFields.forEach(standardField => {
+                if (
+                    !this.dictionaryOverlapTypeCompatible(
+                        customField,
+                        standardField
+                    )
+                ) {
+                    return;
+                }
+
+                if (
+                    !this.dictionaryOverlapTargetCompatible(
+                        customField,
+                        standardField
+                    )
+                ) {
+                    return;
+                }
+
+                const standardTokens =
+                    this.dictionaryOverlapTokens(standardField);
+
+                const shared = [...customTokens].filter(
+                    token => standardTokens.has(token)
+                );
+
+                if (!shared.length) {
+                    return;
+                }
+
+                const union = new Set([
+                    ...customTokens,
+                    ...standardTokens
+                ]);
+
+                const similarity = shared.length / Math.max(union.size, 1);
+
+                const customNormalised =
+                    this.normaliseDictionaryToken(
+                        customField.label || customField.apiName
+                    ).replace(/\s+/g, '');
+
+                const standardNormalised =
+                    this.normaliseDictionaryToken(
+                        standardField.label || standardField.apiName
+                    ).replace(/\s+/g, '');
+
+                const exactName =
+                    customNormalised &&
+                    standardNormalised &&
+                    customNormalised === standardNormalised;
+
+                const containsName =
+                    customNormalised.length >= 4 &&
+                    standardNormalised.length >= 4 &&
+                    (
+                        customNormalised.includes(standardNormalised) ||
+                        standardNormalised.includes(customNormalised)
+                    );
+
+                let score = similarity;
+
+                if (exactName) {
+                    score += 1;
+                } else if (containsName) {
+                    score += 0.35;
+                }
+
+                if (!best || score > best.score) {
+                    best = {
+                        score,
+                        shared,
+                        standardField
+                    };
+                }
+            });
+
+            if (!best || best.score < 0.45) {
+                return;
+            }
+
+            const standardField = best.standardField;
+
+            const reasons = [];
+
+            if (best.shared.length) {
+                reasons.push(
+                    'shared terminology: ' + best.shared.join(', ')
+                );
+            }
+
+            if (
+                this.dictionaryOverlapTypeCompatible(
+                    customField,
+                    standardField
+                )
+            ) {
+                reasons.push('compatible field type');
+            }
+
+            if (
+                customField.isRelationship &&
+                standardField.isRelationship
+            ) {
+                reasons.push('compatible relationship target');
+            }
+
+            candidates.push({
+                key:
+                    customField.apiName +
+                    '::' +
+                    standardField.apiName,
+
+                customField: customField.apiName,
+                customLabel: customField.label || customField.apiName,
+
+                standardField: standardField.apiName,
+                standardLabel:
+                    standardField.label || standardField.apiName,
+
+                score: best.score,
+
+                reason: reasons.join(' · ')
+            });
+        });
+
+        return candidates
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10);
+    }
+
+    get dictionaryCustomFieldCount() {
+        return this.dictionaryRawFields.filter(
+            field => !field.isPrimaryKey && field.isCustom
+        ).length;
+    }
+
+    get dictionaryHasCustomFieldOverlapCandidates() {
+        return this.dictionaryCustomFieldOverlapCandidates.length > 0;
+    }
+
+    get dictionaryCustomisationReview() {
+        const customCount = this.dictionaryCustomFieldCount;
+        const overlaps = this.dictionaryCustomFieldOverlapCandidates;
+
+        if (!customCount) {
+            return [{
+                key: 'no-custom-fields',
+                kind: 'CUSTOMISATION',
+                title: 'No custom fields to review',
+                detail:
+                    'This object does not currently extend the standard field model.'
+            }];
+        }
+
+        if (!overlaps.length) {
+            return [{
+                key: 'no-overlap',
+                kind: 'CUSTOMISATION',
+                title:
+                    customCount +
+                    ' custom field' +
+                    (customCount === 1 ? '' : 's') +
+                    ' analysed · 0 potential standard-field overlaps',
+                detail:
+                    'No obvious overlap with standard fields was detected from the loaded metadata.'
+            }];
+        }
+
+        return overlaps.map(candidate => ({
+            key: candidate.key,
+            kind: 'POTENTIAL OVERLAP',
+            title:
+                candidate.customField +
+                ' may overlap with standard field ' +
+                candidate.standardField,
+            detail:
+                candidate.reason +
+                '. Review the business meaning before retaining, replacing or removing the custom field.'
+        }));
+    }
+
     get dictionaryRelationshipMap(){
         const rel=this.dictionaryRelationshipConcentration, total=rel.length, radius=38;
         return rel.slice(0,8).map((x,i)=>{const a=(Math.PI*2*i/Math.max(total,1))-Math.PI/2, px=50+Math.cos(a)*radius, py=50+Math.sin(a)*radius;return {...x,x:px,y:py,style:'left:'+px+'%;top:'+py+'%'};});
@@ -721,28 +1022,104 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const custom=nonPk.filter(f=>f.isCustom).length, relationships=nonPk.filter(f=>f.isRelationship).length;
         const required=nonPk.filter(f=>f.required).length, formulas=nonPk.filter(f=>String(f.dataType||'').startsWith('Formula')).length;
         const picklists=nonPk.filter(f=>String(f.dataType||'').includes('Picklist')).length;
-        const described=nonPk.filter(f=>(f.description||'').trim()).length;
         return [
-            {label:'Fields',value:nonPk.length},{label:'Custom',value:custom},{label:'Required',value:required},
-            {label:'Relationships',value:relationships},{label:'Formula',value:formulas},{label:'Picklist',value:picklists},
-            {label:'Documented',value:nonPk.length?Math.round(described/nonPk.length*100)+'%':'—'}
+            {label:'Fields',value:nonPk.length},
+            {label:'Custom',value:custom},
+            {label:'Required',value:required},
+            {label:'Relationships',value:relationships},
+            {label:'Formula',value:formulas},
+            {label:'Picklist',value:picklists}
         ];
     }
     get dictionaryMetadataFindings() {
-        const fields=this.dictionaryRawFields.filter(f=>!f.isPrimaryKey), findings=[];
-        const missing=fields.filter(f=>f.isCustom&&!(f.description||'').trim());
-        if(missing.length) findings.push({key:'descriptions',kind:'DOCUMENTATION',title:missing.length+' custom field'+(missing.length===1?' is':'s are')+' missing descriptions',detail:'Descriptions make intent easier to understand for architects, designers and developers. Missing descriptions are documentation gaps, not proof that a field is unnecessary.'});
-        const rel=fields.filter(f=>f.isRelationship);
-        if(rel.length) findings.push({key:'relationships',kind:'RELATIONSHIPS',title:rel.length+' relationship field'+(rel.length===1?'':'s')+' connect this object',detail:'Relationship fields define this object’s structural dependencies. Review their targets and relationship types when assessing change impact.'});
-        const formulas=fields.filter(f=>String(f.dataType||'').startsWith('Formula'));
-        if(formulas.length) findings.push({key:'formula',kind:'DERIVED DATA',title:formulas.length+' formula field'+(formulas.length===1?'':'s')+' detected',detail:'Formula fields represent derived behaviour. They are useful review points when changing source fields or business semantics.'});
-        if(this.dictionaryUsageComputed){
-            const zero=fields.filter(f=>f.percentUsed===0), low=fields.filter(f=>f.percentUsed>0&&f.percentUsed<5);
-            if(zero.length) findings.push({key:'unused',kind:'USAGE',title:zero.length+' field'+(zero.length===1?' has':'s have')+' 0% population',detail:'These are review candidates only. A zero population rate can be valid for new, seasonal, integration-specific or rarely used fields.'});
-            if(low.length) findings.push({key:'low',kind:'USAGE',title:low.length+' field'+(low.length===1?' is':'s are')+' below 5% population',detail:'Low population can signal specialised fields or possible simplification opportunities. Confirm business purpose before drawing conclusions.'});
+        const fields = this.dictionaryRawFields.filter(
+            field => !field.isPrimaryKey
+        );
+
+        const customFields = fields.filter(field => field.isCustom);
+        const findings = [
+            ...this.dictionaryCustomisationReview
+        ];
+
+        const customRelationships = customFields.filter(
+            field => field.isRelationship
+        );
+
+        if (customRelationships.length) {
+            findings.push({
+                key: 'custom-relationships',
+                kind: 'CUSTOM RELATIONSHIPS',
+                title:
+                    customRelationships.length +
+                    ' custom relationship field' +
+                    (customRelationships.length === 1 ? '' : 's') +
+                    ' detected',
+                detail:
+                    'Review custom relationship targets when assessing how the object extends the standard Salesforce model.'
+            });
         }
-        return findings.slice(0,6);
+
+        const customFormulas = customFields.filter(
+            field => String(field.dataType || '').startsWith('Formula')
+        );
+
+        if (customFormulas.length) {
+            findings.push({
+                key: 'custom-formula',
+                kind: 'CUSTOM DERIVED DATA',
+                title:
+                    customFormulas.length +
+                    ' custom formula field' +
+                    (customFormulas.length === 1 ? '' : 's') +
+                    ' detected',
+                detail:
+                    'These custom derived fields may depend on other fields or business semantics and should be reviewed during change impact analysis.'
+            });
+        }
+
+        if (this.dictionaryUsageComputed) {
+            const zero = customFields.filter(
+                field => field.percentUsed === 0
+            );
+
+            const low = customFields.filter(
+                field =>
+                    field.percentUsed > 0 &&
+                    field.percentUsed < 5
+            );
+
+            if (zero.length) {
+                findings.push({
+                    key: 'custom-unused',
+                    kind: 'CUSTOM FIELD USAGE',
+                    title:
+                        zero.length +
+                        ' custom field' +
+                        (zero.length === 1 ? ' has' : 's have') +
+                        ' 0% population',
+                    detail:
+                        'These custom fields are review candidates only. Confirm their business purpose before considering consolidation or removal.'
+                });
+            }
+
+            if (low.length) {
+                findings.push({
+                    key: 'custom-low',
+                    kind: 'CUSTOM FIELD USAGE',
+                    title:
+                        low.length +
+                        ' custom field' +
+                        (low.length === 1 ? ' is' : 's are') +
+                        ' below 5% population',
+                    detail:
+                        'Low population can indicate specialised use. Review the custom field purpose before drawing conclusions.'
+                });
+            }
+        }
+
+        return findings.slice(0, 10);
     }
+
     get dictionaryRelationshipRows() {
         return this.dictionaryRawFields.filter(f=>f.isRelationship).map(f=>({key:f.apiName,field:f.apiName,target:f.relatesTo||'—',type:f.dataType||f.relationshipType||'Relationship'}));
     }
