@@ -80,6 +80,7 @@ jobs:
             --tests FieldUsageWorkUnitBatchTest \
             --tests FieldUsageErrorControllerTest \
             --tests DataDictionaryFieldDetailControllerTest \
+            --tests ObjectIntelligenceControllerTest \
             --tests StudioDiagnosticsControllerTest \
             --wait 25
       - name: Run all LWC Jest tests
