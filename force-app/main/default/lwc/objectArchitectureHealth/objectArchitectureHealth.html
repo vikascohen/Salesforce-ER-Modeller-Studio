@@ -5,8 +5,8 @@
             <article><span>Total fields</span><strong>{businessFieldCount}</strong></article><article><span>Standard fields</span><strong>{standardCount}</strong></article><article><span>Custom fields</span><strong>{customCount}</strong></article><article><span>Relationships</span><strong>{relationshipCount}</strong></article><article><span>Derived fields</span><strong>{derivedCount}</strong></article><article><span>Custom descriptions</span><strong>{descriptionCoverageText}</strong><small>{missingDescriptionCount} missing</small></article><article><span>Overlap candidates</span><strong>{possibleOverlapCount}</strong><small>review only</small></article>
         </div>
         <section class="health-section">
-            <div class="health-section-title"><div><strong>Verified dependency & object metadata</strong><span>Loaded on demand and cached for this Studio session. Zero means the source was queried and none were found.</span></div></div>
-            <template if:true={hasMetadataMessage}><div class="health-empty">Some Tooling metadata could not be loaded: {metadataMessage}</div></template>
+            <div class="health-section-title"><div><strong>Dependency &amp; Object Intelligence</strong><span>Dependency names come from the latest successful Field Usage snapshot. Object metadata is loaded for the selected object on demand and cached for this Studio session.</span></div></div>
+            <template if:true={hasMetadataMessage}><div class="health-empty">Some object metadata could not be loaded: {metadataMessage}</div></template>
             <div class="health-evidence-grid">
                 <template for:each={metadataStatus} for:item="item"><article key={item.key} class={item.css}><span>{item.label}</span><strong>{item.value}</strong><small>{item.detail}</small></article></template>
             </div>
@@ -15,6 +15,6 @@
             <div class="health-section-title"><div><strong>Architecture review signals</strong><span>Evidence-based prompts for human review, not automatic defect claims.</span></div></div>
             <div class="health-scroll"><template if:true={hasFindings}><template for:each={findings} for:item="item"><article key={item.key} class={item.css}><div class="finding-head"><span>{item.severity}</span><strong>{item.title}</strong></div><div class="finding-grid"><div><b>Evidence</b><p>{item.evidence}</p></div><div><b>Recommendation</b><p>{item.recommendation}</p></div></div></article></template></template><template if:false={hasFindings}><div class="health-empty">No architecture-health review signals were generated from the metadata currently loaded for this object.</div></template></div>
         </section>
-        <footer>Record Types use native Salesforce Describe. Page Layouts, Apex Triggers and Validation Rules use object-scoped Tooling queries. Flow names come from the latest successful Field Usage snapshot. No metadata value is fabricated.</footer>
+        <footer>Flows, Apex Triggers and Validation Rules use the latest successful Field Usage snapshot. Record Types use Salesforce object describe metadata. Page Layouts are loaded on demand through the authenticated Tooling API. Metadata is cached for the Studio session and is not persisted as Field Usage evidence.</footer>
     </section>
 </template>
