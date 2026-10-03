@@ -909,11 +909,29 @@
 .dict-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
     padding: 14px 20px;
     border-bottom: 1px solid var(--surface-border);
-    flex-shrink: 0;
+    flex: 0 0 auto;
     background: var(--surface-bg-alt);
+}
+
+.dict-header .dict-back-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.dict-header .dict-title {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.dict-header .dict-header-actions {
+    margin-left: auto;
+    flex: 0 0 auto;
 }
 .dict-title { font-size: 16px; font-weight: 700; color: var(--surface-text-strong); }
 .dict-header-actions { display: flex; align-items: center; gap: 10px; }
