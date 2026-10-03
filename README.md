@@ -1,5 +1,7 @@
 # Salesforce ER Modeller Studio — Architecture Intelligence Refactor
 
+**Author: Vikas Cohen**
+
 > **Development branch:** `architecture-intelligence-refactor`  
 > **Version 3 Field Usage Intelligence plus the Architecture Intelligence refactor.**
 
@@ -7,21 +9,31 @@
 
 > The deploy button above targets only the `architecture-intelligence-refactor` branch. This branch was created from `version-3-field-usage-intelligence`, so it contains the Version 3 code plus the Architecture Intelligence refactor.
 
-## Architecture Intelligence Refactor
+## What this branch contains
 
-This branch is intended for testing the redesigned Architecture Intelligence experience on top of the Version 3 codebase.
+ER Modeller Studio combines visual Salesforce ER modelling, DSL-driven modelling, Data Dictionary/schema exploration, Architecture Intelligence and Version 3 Field Usage dependency intelligence. Version 3 adds asynchronous field-dependency scanning, Field Usage maps, Field Change Impact, scheduling/operations, diagnostics and richer selected-object intelligence.
 
-### Deployment requirement: Tooling API Named Credential
+## Documentation
 
-Field Usage Apex/Trigger/Flow scanning requires the Salesforce Named Credential `Salesforce_Tooling_API` and the same External Credential / principal configuration used by Version 3.
+- [Version 3 Features](docs/VERSION-3-FEATURES.md) — current feature catalogue.
+- [Whole-project Architecture](docs/ARCHITECTURE.md) — end-to-end architecture, diagrams, philosophy and modularity.
+- [Field Usage Architecture](docs/FIELD_USAGE_ARCHITECTURE.md) — detailed Version 3 scanner/batch/snapshot design.
+- [DSL Reference](docs/DSL.md) — modelling language reference.
+- [DSL Compiler Architecture](docs/dsl-compiler-architecture.md) — compiler internals.
+- [Security](docs/SECURITY.md) — current Version 3 security and Tooling API trust boundary.
+- [Architecture Intelligence Refactor](docs/architecture-intelligence-refactor.md) — refactor-specific design notes.
 
-For the complete Version 3 configuration and troubleshooting guide, refer to the `version-3-field-usage-intelligence` branch documentation.
+Historical Version 2 documentation remains under `docs/` and is intentionally not duplicated into the Version 3 documents.
+
+## Deployment requirement: Tooling API Named Credential
+
+Version 3 Field Usage and selected metadata-intelligence capabilities require the Salesforce Named Credential `Salesforce_Tooling_API` and the corresponding External Credential / principal configuration. Use **Help → Configuration** inside the Studio for the current operational setup and troubleshooting steps.
 
 ## Contributors
 
 Developed and maintained by **Crius Consulting Architects**.
 
-**Lead Architect & Author:** Vikas Cohen
+**Lead Architect & Author: Vikas Cohen**
 
 ## License
 
