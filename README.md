@@ -1,13 +1,13 @@
-# Salesforce ER Modeller Studio — Architecture Intelligence Refactor
+# Salesforce ER Modeller Studio — Version 3 Beta
 
 **Author: Vikas Cohen**
 
-> **Development branch:** `architecture-intelligence-refactor`  
+> **Beta testing branch:** `v3-beta-testing`  
 > **Version 3 Field Usage Intelligence plus the Architecture Intelligence refactor.**
 
-[![Deploy Refactor to Salesforce](https://img.shields.io/badge/Deploy%20Refactor-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=architecture-intelligence-refactor&continue)
+[![Deploy V3 Beta to Salesforce](https://img.shields.io/badge/Deploy%20V3%20Beta-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=v3-beta-testing&continue)
 
-> The deploy button above targets only the `architecture-intelligence-refactor` branch. This branch was created from `version-3-field-usage-intelligence`, so it contains the Version 3 code plus the Architecture Intelligence refactor.
+> The deploy button above targets only the `v3-beta-testing` branch. Use it for Version 3 beta installation and clean-org testing. Version 1 and Version 2 stable branches are unaffected.
 
 ## What this branch contains
 
