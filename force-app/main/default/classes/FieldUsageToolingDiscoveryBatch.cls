@@ -21,7 +21,10 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
                 for(String apiName:gd.keySet()){
                     Schema.SObjectType typ=gd.get(apiName);if(typ==null)continue;
                     Schema.DescribeSObjectResult d=typ.getDescribe();
-                    if(d.isAccessible()&&d.isLayoutable())objects.add(apiName);
+                    // Apex DescribeSObjectResult has no isLayoutable(). Restrict layout work
+                    // to accessible, queryable objects; the layout REST resource remains the
+                    // authoritative test and the worker handles unsupported objects safely.
+                    if(d.isAccessible()&&d.isQueryable())objects.add(apiName);
                 }
                 objects.sort();
                 // One object per durable work unit deliberately bounds layout/record-type
