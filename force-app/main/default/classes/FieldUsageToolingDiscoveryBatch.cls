@@ -9,27 +9,15 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
 
     public Iterable<String> start(Database.BatchableContext context){
         update new Field_Usage_Run__c(Id=runId,Status__c='Running',Heartbeat_At__c=System.now(),Job_Id__c=context==null?null:String.valueOf(context.getJobId()),Progress_Phase__c='Discovering Tooling metadata');
-        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule','Layout'};
+        // Page Layout and Record Type metadata deliberately do not belong to the
+        // persisted Field Usage snapshot. They are configuration metadata and are
+        // loaded on demand by Data Dictionary for the selected object/field.
+        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule'};
     }
 
     public void execute(Database.BatchableContext context,List<String> sourceTypes){
         List<Field_Usage_Work_Unit__c> allUnits=new List<Field_Usage_Work_Unit__c>();
         for(String sourceType:sourceTypes){
-            if(sourceType=='Layout'){
-                List<String> objects=new List<String>();
-                Map<String,Schema.SObjectType> gd=Schema.getGlobalDescribe();
-                for(String apiName:gd.keySet()){
-                    Schema.SObjectType typ=gd.get(apiName);if(typ==null)continue;
-                    Schema.DescribeSObjectResult d=typ.getDescribe();
-                    // Describe has no isLayoutable(). Avoid known infrastructure/derived
-                    // entities that cannot own editable page layouts. The REST layout
-                    // resource remains authoritative for the remaining business objects.
-                    if(d.isAccessible()&&d.isQueryable()&&isBusinessLayoutCandidate(apiName,d))objects.add(apiName);
-                }
-                objects.sort();
-                for(Integer offset=0;offset<objects.size();offset++)allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|Page Layout Bulk|'+String.valueOf(offset),Scanner_Type__c='Page Layout Bulk',Target_Key__c=objects[offset],Status__c='Pending'));
-                continue;
-            }
             List<String> ids=new List<String>(); String scannerType; Integer chunkSize=CHUNK_SIZE;
             if(sourceType=='LWC'||sourceType=='Aura'){
                 List<FieldUsageUiToolingClient.UiComponent> components=sourceType=='LWC'?FieldUsageUiToolingClient.getLwcBundleIndex():FieldUsageUiToolingClient.getAuraBundleIndex();
@@ -51,22 +39,14 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
             }
         }
         if(!allUnits.isEmpty()){Database.SaveResult[] results=Database.insert(allUnits,false);for(Database.SaveResult result:results)if(!result.isSuccess())throw new FieldUsageToolingApiClient.ToolingApiException('Could not checkpoint bulk Tooling API discovery: '+result.getErrors()[0].getMessage());}
-        update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered Tooling and layout work');
-    }
-
-    @TestVisible private static Boolean isBusinessLayoutCandidate(String apiName,Schema.DescribeSObjectResult d){
-        if(d.isDeprecatedAndHidden()||d.isCustomSetting())return false;
-        String n=apiName==null?'':apiName.toLowerCase();
-        if(n.endsWith('changeevent')||n.endsWith('history')||n.endsWith('share')||n.endsWith('feed'))return false;
-        if(n.endsWith('__mdt')||n.endsWith('__b')||n.endsWith('__x'))return false;
-        return true;
+        update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered dependency metadata');
     }
 
     public void finish(Database.BatchableContext context){
         AsyncApexJob discoveryJob=[SELECT NumberOfErrors FROM AsyncApexJob WHERE Id=:context.getJobId()];
         if(discoveryJob.NumberOfErrors>0){FieldUsageSnapshotFinalizer.finish(runId,Integer.valueOf(discoveryJob.NumberOfErrors),new List<String>{'Tooling discovery batch reported platform or callout errors.'});return;}
         Integer total=[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId];
-        update new Field_Usage_Run__c(Id=runId,Objects_Total__c=total,Objects_Processed__c=0,Progress_Percent__c=5,Progress_Phase__c='Queued resumable work units');
+        update new Field_Usage_Run__c(Id=runId,Objects_Total__c=total,Objects_Processed__c=0,Progress_Percent__c=5,Progress_Phase__c='Queued resumable dependency work units');
         if(total==0){FieldUsageSnapshotFinalizer.finish(runId,0,new List<String>());return;}
         if(Test.isRunningTest()&&suppressWorkerChainForTest)return;
         Id workerJobId=Database.executeBatch(new FieldUsageWorkUnitBatch(runId),1);
