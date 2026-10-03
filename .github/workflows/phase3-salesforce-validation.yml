@@ -78,6 +78,8 @@ jobs:
             --tests FieldUsageUiScannerTest \
             --tests FieldUsageUiToolingClientTest \
             --tests FieldUsageWorkUnitBatchTest \
+            --tests FieldUsageErrorControllerTest \
+            --tests DataDictionaryFieldDetailControllerTest \
             --tests StudioDiagnosticsControllerTest \
             --wait 25
       - name: Run all LWC Jest tests
