@@ -1,273 +1,292 @@
-# Git and Salesforce CLI Development & Deployment Guide
+# Version 3 Beta — Installation, Configuration & Testing Guide
 
 **Author: Vikas Cohen**
 
-This is the practical source-control and Salesforce CLI guide for ER Modeller Studio. The examples below use the current Version 3 beta branch, `v3-beta-testing`, while keeping Version 1 and Version 2 stable branches untouched.
+This is the **start-here guide for Version 3 beta testers** of Salesforce ER Modeller Studio. You do not need to contribute code to beta test the product.
 
-## 1. Prerequisites
+The beta branch is `v3-beta-testing`. Version 1 and Version 2 stable branches are not changed by this beta.
 
-Verify Git, Node/npm and Salesforce CLI:
+## 1. What a beta tester needs to do
+
+A complete V3 beta installation has four parts:
+
+1. Install the metadata from `v3-beta-testing` into a Salesforce test/development org.
+2. Assign the **Diagram Studio User** permission set to the user who will run the Studio.
+3. Configure the **Salesforce Tooling API** authentication required by V3 Field Usage and selected metadata intelligence.
+4. Run Diagnostics and a first Field Usage scan before testing the V3 intelligence features.
+
+**Important:** a successful metadata deployment alone does not complete the V3 setup. Permission assignment and Tooling API configuration are required for the relevant V3 capabilities.
+
+## 2. Installation option A — Deploy V3 Beta button
+
+The repository README contains a **Deploy V3 Beta to Salesforce** button. This is the simplest installation path for testers who do not want to work from Git or Salesforce CLI.
+
+The button targets the `v3-beta-testing` branch.
+
+After the deployment completes, continue with **Section 4 — Required post-install configuration** below. Do not stop after deployment.
+
+## 3. Installation option B — Salesforce CLI
+
+### 3.1 Prerequisites
+
+Verify Git and Salesforce CLI:
 
 ```bash
 git --version
-node --version
-npm --version
 sf --version
 ```
 
-## 2. Clone the repository for the first time
+Node/npm are also useful if you intend to run the repository's Jest tests:
 
 ```bash
-git clone https://github.com/vikascohen/Salesforce-ER-Modeller-Studio.git
-cd Salesforce-ER-Modeller-Studio
-git fetch origin --prune
-git switch --track origin/v3-beta-testing
+node --version
+npm --version
 ```
 
-If the repository is already cloned, do not clone it again.
-
-## 3. Everyday start: get the latest V3 Beta
-
-From the repository root:
+### 3.2 Clone the V3 Beta branch
 
 ```bash
-git status
-git fetch origin --prune
-git switch v3-beta-testing
-git pull --rebase origin v3-beta-testing
+git clone --branch v3-beta-testing https://github.com/vikascohen/Salesforce-ER-Modeller-Studio.git
+cd Salesforce-ER-Modeller-Studio
+```
+
+Verify the source you are about to deploy:
+
+```bash
 git branch --show-current
 git log -1 --oneline
 ```
 
-`git branch --show-current` should print `v3-beta-testing`.
+The branch should be:
 
-If `git status` shows local uncommitted work, review, commit or deliberately stash it before rebasing.
-
-## 4. Review changes while developing
-
-```bash
-git status
-git diff
-git diff --check
+```text
+v3-beta-testing
 ```
 
-For JavaScript syntax checks when working on a specific file, for example:
+### 3.3 Authenticate the Salesforce beta-test org
+
+Choose your own local alias; for example:
 
 ```bash
-node --check force-app/main/default/lwc/diagramStudio/diagramStudio.js
+sf org login web --alias ermodeller-beta
 ```
 
-## 5. Run JavaScript/Jest tests
-
-Install dependencies after a fresh clone or dependency change:
-
-```bash
-npm ci
-```
-
-Run the full LWC Jest suite:
-
-```bash
-npm run test:unit -- -- --runInBand
-```
-
-Do not push a beta candidate merely because a single Jest test passes; run the complete configured suite before treating the branch as green.
-
-## 6. Authenticate a Salesforce org
-
-Log in and give the org an alias:
-
-```bash
-sf org login web --alias <org-alias>
-```
-
-List authenticated orgs:
+Then verify the target org before changing it:
 
 ```bash
 sf org list
+sf org display --target-org ermodeller-beta
 ```
 
-Verify the exact target before deployment:
+### 3.4 Deploy V3 Beta
+
+From the Salesforce DX project root:
 
 ```bash
-sf org display --target-org <org-alias>
+sf project deploy start --source-dir force-app/main/default --target-org ermodeller-beta --wait 30
 ```
 
-For the existing development org shown during V3 work, the alias has been `ermodel-dev`. Always confirm it with `sf org list` rather than assuming an alias still points to the intended org.
+The `main` in `force-app/main/default` is a Salesforce DX directory name. It is unrelated to the Git branch named `main`.
 
-## 7. Deploy V3 Beta to a Salesforce org
+## 4. Required post-install configuration
 
-From the project root:
+Complete this section regardless of whether you installed with the Deploy button or Salesforce CLI.
 
-```bash
-sf project deploy start --source-dir force-app/main/default --target-org <org-alias> --wait 30
+### 4.1 Assign the Diagram Studio User permission set
+
+In Salesforce Setup:
+
+1. Open **Permission Sets**.
+2. Open the **Diagram Studio User** permission set.
+3. Select **Manage Assignments**.
+4. Select **Add Assignments**.
+5. Choose each user who needs to run/test ER Modeller Studio.
+6. Complete the assignment.
+
+At minimum, assign it to the beta-testing user before testing the Studio.
+
+The purpose of the permission set is to give the user the application permissions packaged for Diagram Studio rather than relying on broad profile-level access.
+
+### 4.2 Configure the Salesforce Tooling API
+
+V3 Field Usage Intelligence and selected metadata-intelligence capabilities use authenticated Salesforce Tooling API access.
+
+The application expects the Salesforce Named Credential:
+
+```text
+Salesforce_Tooling_API
 ```
 
-For the known development alias, after verifying it:
+Configure the associated authentication exactly as described by **ER Modeller Studio → Help → Configuration** in the installed application. The configuration includes the required **External Credential / principal relationship and user access to that principal**.
+
+The exact Salesforce Setup screens can vary with Salesforce platform changes, so the in-product Configuration guide is the operational source of truth for the current V3 build.
+
+Do not place passwords, access tokens, session IDs, client secrets or other credentials in Git or application source.
+
+### 4.3 Grant External Credential principal access
+
+Creating a Named Credential is not sufficient if the testing user cannot use its External Credential principal.
+
+Follow **Help → Configuration** and ensure the testing user receives the required principal access through the permission configuration described there.
+
+If the Tooling API diagnostic reports an authentication/permission failure, check this assignment before assuming the scanner itself is broken.
+
+## 5. Verify the installation
+
+After permissions and Tooling API configuration are complete:
+
+1. Open ER Modeller Studio as the beta-testing user.
+2. Confirm the Studio loads successfully.
+3. Open **Help → Configuration** and compare the org setup with the documented requirements.
+4. Open **Diagnostics / System Information**.
+5. Run the available diagnostics.
+6. Confirm Tooling API connectivity succeeds.
+7. Open **Run Usage Scan**.
+8. Launch the first Field Usage scan.
+9. Allow the asynchronous scan pipeline to finish.
+10. Confirm a successful current snapshot is available.
+11. Open **Field Usage** and inspect dependency evidence.
+12. Open **Architecture Intelligence → Field Change Impact** and test a field that has evidence.
+
+If deployment succeeds but these steps do not, record the exact diagnostic/error message as part of the beta feedback.
+
+## 6. What beta testers should exercise
+
+Please test both the existing product and the new V3 capabilities. V3 is intended to carry forward the V1/V2 functionality while adding the V3 intelligence subsystem.
+
+Recommended areas:
+
+- ER canvas and Salesforce schema loading.
+- Relationships and model navigation.
+- ER DSL editing and bidirectional modelling.
+- Data Dictionary and field detail.
+- Data Dictionary Excel export.
+- Schema Drift / Compare with Org.
+- Sharing View and Heatmap.
+- Architecture Intelligence.
+- Object Intelligence, including Record Types, Page Layouts, Triggers, Validation Rules and Flows where present.
+- Field Usage scanning.
+- Field Usage Map and evidence drill-down.
+- Field Change Impact.
+- Schedule settings and running-task monitoring.
+- Diagnostics.
+- Theme/UI behaviour.
+
+See `RELEASE-NOTES-V3.md` for the V3 feature and regression-testing checklist.
+
+## 7. Updating an existing local beta checkout
+
+If you already cloned the repository and want the latest beta build:
 
 ```bash
-sf project deploy start --source-dir force-app/main/default --target-org ermodel-dev --wait 30
-```
-
-The `main` in `force-app/main/default` is a Salesforce DX folder name. It is not the Git `main` branch.
-
-## 8. Validate before deployment
-
-For a beta/release-oriented check:
-
-```bash
-sf project deploy validate --source-dir force-app/main/default --target-org <org-alias> --test-level RunLocalTests --wait 30
-```
-
-Then deploy only after validation succeeds:
-
-```bash
-sf project deploy start --source-dir force-app/main/default --target-org <org-alias> --test-level RunLocalTests --wait 30
-```
-
-The repository CI uses its own specified-test validation strategy. Local `RunLocalTests` is useful when you want a broad org-side check, but remember that unrelated local-org Apex can also affect that result.
-
-## 9. Run Apex tests and coverage
-
-Run local Apex tests with coverage:
-
-```bash
-sf apex run test --target-org <org-alias> --test-level RunLocalTests --wait 30 --code-coverage
-```
-
-Run one test class while iterating:
-
-```bash
-sf apex run test --target-org <org-alias> --tests FieldUsageControllerTest --wait 30 --code-coverage
-```
-
-Apex deployment requires Salesforce coverage rules to be satisfied. For this project, the beta goal is stronger than the platform minimum: keep the important project classes well covered and keep CI green.
-
-## 10. Deploy only a changed component during development
-
-Example LWC bundle:
-
-```bash
-sf project deploy start --source-dir force-app/main/default/lwc/diagramStudio --target-org <org-alias>
-```
-
-Example Apex class:
-
-```bash
-sf project deploy start --source-dir force-app/main/default/classes/FieldUsageController.cls --target-org <org-alias>
-```
-
-If the change depends on related metadata, deploy the complete related set or `force-app/main/default` instead.
-
-## 11. Commit and push to GitHub
-
-Before committing:
-
-```bash
-git status
-git diff
-git diff --check
-```
-
-Stage the intended changes:
-
-```bash
-git add .
-git diff --cached
-```
-
-Commit:
-
-```bash
-git commit -m "Describe the change clearly"
-```
-
-Push V3 Beta:
-
-```bash
-git push origin v3-beta-testing
-```
-
-Verify:
-
-```bash
-git status
-git log -1 --oneline
-```
-
-## 12. Complete pull → test → deploy → commit → push workflow
-
-For normal V3 Beta development, this is the practical sequence:
-
-```bash
-cd <repository-directory>
 git status
 git fetch origin --prune
 git switch v3-beta-testing
 git pull --rebase origin v3-beta-testing
 git branch --show-current
 git log -1 --oneline
+```
+
+Then redeploy:
+
+```bash
+sf org display --target-org ermodeller-beta
+sf project deploy start --source-dir force-app/main/default --target-org ermodeller-beta --wait 30
+```
+
+If you used a different org alias, substitute that alias for `ermodel-dev`/`ermodeler-beta` examples.
+
+## 8. Optional validation from Salesforce CLI
+
+A tester comfortable with Salesforce CLI can validate before deploying:
+
+```bash
+sf project deploy validate --source-dir force-app/main/default --target-org ermodeller-beta --test-level RunLocalTests --wait 30
+```
+
+Run Apex tests with coverage:
+
+```bash
+sf apex run test --target-org ermodeller-beta --test-level RunLocalTests --wait 30 --code-coverage
+```
+
+Remember that `RunLocalTests` can include unrelated Apex already present in the target org. A failure in unrelated org code does not automatically identify an ER Modeller Studio defect.
+
+## 9. Optional Jest validation
+
+For contributors or technically inclined testers:
+
+```bash
 npm ci
 npm run test:unit -- -- --runInBand
-git diff --check
-sf org display --target-org <org-alias>
-sf project deploy validate --source-dir force-app/main/default --target-org <org-alias> --test-level RunLocalTests --wait 30
-sf project deploy start --source-dir force-app/main/default --target-org <org-alias> --test-level RunLocalTests --wait 30
+```
+
+The repository CI also validates the beta branch.
+
+## 10. Reporting useful beta feedback
+
+When reporting a problem, please include:
+
+- Salesforce org type where relevant (Developer Edition, sandbox, scratch org, etc.).
+- Whether the org/application metadata uses a namespace or no namespace where relevant.
+- The V3 Beta commit from `git log -1 --oneline` if installed through Git/CLI.
+- Which installation method was used: Deploy button or CLI.
+- Whether **Diagram Studio User** was assigned.
+- Whether Tooling API diagnostics passed.
+- The feature being tested.
+- Exact error text where available.
+- Reproduction steps.
+- Screenshot where useful, excluding credentials or sensitive org data.
+
+## 11. Contributor workflow — pull, edit, test and push
+
+Beta testers do not need this section unless they also want to contribute code.
+
+Start from the latest beta:
+
+```bash
+git status
+git fetch origin --prune
+git switch v3-beta-testing
+git pull --rebase origin v3-beta-testing
+```
+
+Review changes while developing:
+
+```bash
 git status
 git diff
+git diff --check
+```
+
+Run Jest:
+
+```bash
+npm ci
+npm run test:unit -- -- --runInBand
+```
+
+Deploy to the contributor's authenticated test org:
+
+```bash
+sf org display --target-org <org-alias>
+sf project deploy start --source-dir force-app/main/default --target-org <org-alias> --wait 30
+```
+
+Commit and push intended changes:
+
+```bash
+git status
+git diff --check
 git add .
 git diff --cached
 git commit -m "Describe the change clearly"
 git push origin v3-beta-testing
 ```
 
-You can commit before deploying if that better matches the work being done; the essential rule is that you know exactly which branch and source state you are validating and deploying.
+Do not commit credentials or secrets.
 
-## 13. Pull after changes were made directly on GitHub
-
-When documentation or code was committed to GitHub by another contributor/tool, refresh your local V3 Beta branch before making more local edits:
-
-```bash
-git switch v3-beta-testing
-git fetch origin --prune
-git pull --rebase origin v3-beta-testing
-```
-
-Then confirm:
-
-```bash
-git status
-git log -3 --oneline
-```
-
-## 14. Named Credential requirement for V3
-
-V3 Field Usage and selected metadata intelligence use authenticated Salesforce Tooling API access. Deploying source code does not by itself configure the target org's authentication relationship.
-
-After installing V3 into a new org:
-
-1. Open ER Modeller Studio.
-2. Follow **Help → Configuration**.
-3. Configure the `Salesforce_Tooling_API` Named Credential.
-4. Configure the required External Credential and principal access.
-5. Run diagnostics.
-6. Run a Field Usage scan and verify a successful snapshot.
-
-Do not commit credentials, access tokens, session IDs or secrets to Git.
-
-## 15. Clean-org V3 Beta test
-
-For a new beta-test org:
-
-```bash
-sf org login web --alias v3-beta-test
-sf org display --target-org v3-beta-test
-sf project deploy start --source-dir force-app/main/default --target-org v3-beta-test --wait 30
-```
-
-Then complete the Named Credential/External Credential setup from **Help → Configuration**, run diagnostics, execute Field Usage, and exercise the V1/V2 regression paths listed in `RELEASE-NOTES-V3.md`.
-
-## 16. Useful Git recovery commands
+## 12. Useful Git recovery commands for contributors
 
 Discard unstaged changes to one file:
 
@@ -275,13 +294,13 @@ Discard unstaged changes to one file:
 git restore path/to/file
 ```
 
-Unstage while keeping edits:
+Unstage a file while keeping its edits:
 
 ```bash
 git restore --staged path/to/file
 ```
 
-Temporarily stash work:
+Temporarily store work:
 
 ```bash
 git stash push -m "temporary work"
@@ -300,59 +319,43 @@ Inspect recoverable history:
 git reflog
 ```
 
-## 17. Branch safety for this repository
+## 13. Branch safety
 
-Active Version 3 beta work belongs on:
+Current beta testing belongs on:
 
 ```text
 v3-beta-testing
 ```
 
-Do not accidentally develop on or rewrite the historical stable branches:
+The historical stable branches are:
 
 ```text
 version-1-stable
 version-2-stable
 ```
 
-Before editing, deploying or pushing, use:
+Do not modify the stable branches while beta testing V3.
 
-```bash
-git branch --show-current
-git status
-git log -1 --oneline
-sf org display --target-org <org-alias>
-```
+## 14. Installation checklist
 
-Those four checks answer two critical questions: **which source am I using, and which Salesforce org am I changing?**
+Before calling a beta installation ready for functional testing, confirm:
 
-## 18. GitHub Deploy button vs Salesforce CLI
+- V3 Beta metadata deployed successfully.
+- **Diagram Studio User** permission set assigned to the tester.
+- `Salesforce_Tooling_API` configured.
+- Required External Credential/principal access assigned to the tester.
+- Studio opens successfully.
+- Diagnostics complete successfully.
+- Tooling API connectivity passes.
+- First Field Usage scan completes successfully.
+- A current successful Field Usage snapshot exists.
+- Core ER modelling/Data Dictionary functionality works.
+- Architecture Intelligence works.
+- Field Usage and Field Change Impact work.
 
-The README contains a **Deploy V3 Beta to Salesforce** button targeting `v3-beta-testing`. It is convenient for beta installation.
+## 15. Security reminder
 
-Salesforce CLI is preferable for development and troubleshooting because it provides direct validation output, test results and deployment diagnostics.
-
-A Git push and a Salesforce deployment are separate operations:
-
-- `git push` updates source history on GitHub.
-- `sf project deploy ...` changes metadata in the selected Salesforce org.
-
-One does not automatically replace the other.
-
-## 19. Before calling V3 Beta green
-
-Confirm all of the following:
-
-- `git status` is clean for the intended commit.
-- Current branch is `v3-beta-testing`.
-- Full Jest suite passes.
-- Salesforce CLI validation passes.
-- Required Apex tests pass with acceptable coverage.
-- Clean-org deployment succeeds.
-- Named Credential/External Credential configuration works in the clean org.
-- Field Usage produces a successful current snapshot.
-- Data Dictionary, Architecture Intelligence, Object Intelligence and core ER modelling regression paths work.
-- No credentials or secrets are committed.
+Use a development/test Salesforce org for beta testing unless your organisation has explicitly approved another environment. ER Modeller Studio reads Salesforce schema/metadata and V3 stores Field Usage evidence in Salesforce custom objects. Review `SECURITY.md` for the project's security model and Tooling API trust boundary.
 
 ---
 
