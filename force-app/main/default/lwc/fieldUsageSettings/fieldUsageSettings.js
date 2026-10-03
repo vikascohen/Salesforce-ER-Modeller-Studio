@@ -27,13 +27,10 @@ export default class FieldUsageSettings extends LightningElement {
         try{
             const requestedRunId=this.activeRunId;
             const [status,jobs,sourceTypes,history]=await Promise.all([
-                getStatus({runId:requestedRunId}), getScheduledJobs(), getSourceTypes(), getRecentRuns({rowLimit:20})
+                getStatus({runId:requestedRunId}), getScheduledJobs(), getSourceTypes(), getRecentRuns({rowLimit:10})
             ]);
             const returnedRun=status?.run||null;
             const returnedRunning=['Queued','Running','Holding','Preparing','Processing'].includes(returnedRun?.Status__c)||['Holding','Queued','Preparing','Processing'].includes(status?.jobStatus);
-            // Once the pinned run is terminal, immediately release the pin and ask
-            // Apex for the current/latest snapshot. This prevents a completed batch
-            // from leaving the console stuck on stale pre-finalisation state.
             if(requestedRunId && returnedRun && !returnedRunning){
                 this.activeRunId=null;
                 const latest=await getStatus({runId:null});
@@ -45,7 +42,7 @@ export default class FieldUsageSettings extends LightningElement {
             }
             this.jobs=jobs||[];
             this.sourceTypes=sourceTypes||[];
-            this.history=history||[];
+            this.history=(history||[]).slice(0,10);
             if(showBusy)this.message='';
         }catch(e){ this.message=this.errorText(e,'Unable to load Field Usage operations.'); }
         finally{ if(showBusy)this.busy=false; }
@@ -104,7 +101,7 @@ export default class FieldUsageSettings extends LightningElement {
     get hasSchedules(){return this.schedules.length>0;}
     get hasHistory(){return this.history.length>0;}
     get jobsView(){return this.jobs.map(j=>({...j,key:j.scheduleId||j.cronTriggerId||j.jobName,next:this.formatDate(j.nextFireTime),previous:this.formatDate(j.previousFireTime),state:j.state||(j.enabled?'Scheduled':'Paused'),time:`${String(Math.trunc(Number(j.hour||0))).padStart(2,'0')}:${String(Math.trunc(Number(j.minute||0))).padStart(2,'0')}`,canPause:!!j.enabled,canResume:!j.enabled}));}
-    get historyView(){return this.history.map(r=>({...r,key:r.Id,status:r.Status__c||'Unknown',started:this.formatDate(r.Started_At__c),completed:this.formatDate(r.Completed_At__c),dependencies:r.Dependency_Count__c||0,errors:r.Error_Count__c||0,phase:r.Progress_Phase__c||'—'}));}
+    get historyView(){return this.history.slice(0,10).map((r,index)=>({...r,key:r.Id,status:r.Status__c||'Unknown',started:this.formatDate(r.Started_At__c),completed:this.formatDate(r.Completed_At__c),dependencies:r.Dependency_Count__c||0,errors:r.Error_Count__c||0,phase:r.Progress_Phase__c||'—',number:index+1}));}
     get coverageRows(){return this.sourceTypes.map((name,i)=>({key:`coverage-${i}`,name,status:'Operational'}));}
     formatDate(v){if(!v)return '—';try{return new Date(v).toLocaleString();}catch(_){return String(v);}}
 }
