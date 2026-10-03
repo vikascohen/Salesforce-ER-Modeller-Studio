@@ -1,1 +1,75 @@
-<template><section class="health-shell"><header><div><span class="kicker">OBJECT ARCHITECTURE HEALTH</span><h3>{objectApiName}</h3><p>{summary}</p></div><div class="health-counters"><strong>{findingCount}</strong><span>findings</span><b>{attentionCount} attention · {reviewCount} review</b></div></header><div class="health-map"><div><strong>Fields</strong><span>{businessFields.length}</span></div><i>→</i><div><strong>Relationships</strong><span>{relationshipCount}</span></div><i>→</i><div><strong>Derived logic</strong><span>{derivedCount}</span></div><i>→</i><div><strong>Architecture review</strong><span>{findingCount} signals</span></div></div><div class="health-scroll"><template if:true={hasFindings}><template for:each={findings} for:item="item"><article key={item.key} class={item.css}><div class="finding-head"><span>{item.severity}</span><strong>{item.title}</strong></div><div class="finding-grid"><div><b>Evidence</b><p>{item.evidence}</p></div><div><b>Recommendation</b><p>{item.recommendation}</p></div></div></article></template></template><template if:false={hasFindings}><div class="health-empty">No architecture-health findings were generated for this object.</div></template></div><footer>Architecture Health findings are review signals. They do not assert that metadata is unnecessary or safe to delete.</footer></section></template>
+<template>
+    <section class="health-shell">
+        <header>
+            <div>
+                <span class="kicker">OBJECT ARCHITECTURE HEALTH</span>
+                <h3>{objectApiName}</h3>
+                <p>{summary}</p>
+            </div>
+            <div class="health-counters">
+                <strong>{findingCount}</strong>
+                <span>review signals</span>
+                <b>{attentionCount} attention · {reviewCount} review</b>
+            </div>
+        </header>
+
+        <div class="health-metrics">
+            <article><span>Total fields</span><strong>{businessFieldCount}</strong></article>
+            <article><span>Standard fields</span><strong>{standardCount}</strong></article>
+            <article><span>Custom fields</span><strong>{customCount}</strong></article>
+            <article><span>Relationships</span><strong>{relationshipCount}</strong></article>
+            <article><span>Derived fields</span><strong>{derivedCount}</strong></article>
+            <article><span>Custom descriptions</span><strong>{descriptionCoverageText}</strong><small>{missingDescriptionCount} missing</small></article>
+            <article><span>Overlap candidates</span><strong>{possibleOverlapCount}</strong><small>review only</small></article>
+        </div>
+
+        <section class="health-section">
+            <div class="health-section-title">
+                <div>
+                    <strong>Verified dependency & object metadata</strong>
+                    <span>Values are shown only when evidence has actually been loaded. Unknown values stay explicitly marked Not loaded.</span>
+                </div>
+            </div>
+            <div class="health-evidence-grid">
+                <template for:each={metadataStatus} for:item="item">
+                    <article key={item.key} class={item.css}>
+                        <span>{item.label}</span>
+                        <strong>{item.value}</strong>
+                    </article>
+                </template>
+            </div>
+        </section>
+
+        <section class="health-section">
+            <div class="health-section-title">
+                <div>
+                    <strong>Architecture review signals</strong>
+                    <span>Evidence-based prompts for human review, not automatic defect claims.</span>
+                </div>
+            </div>
+            <div class="health-scroll">
+                <template if:true={hasFindings}>
+                    <template for:each={findings} for:item="item">
+                        <article key={item.key} class={item.css}>
+                            <div class="finding-head">
+                                <span>{item.severity}</span>
+                                <strong>{item.title}</strong>
+                            </div>
+                            <div class="finding-grid">
+                                <div><b>Evidence</b><p>{item.evidence}</p></div>
+                                <div><b>Recommendation</b><p>{item.recommendation}</p></div>
+                            </div>
+                        </article>
+                    </template>
+                </template>
+                <template if:false={hasFindings}>
+                    <div class="health-empty">No architecture-health review signals were generated from the metadata currently loaded for this object.</div>
+                </template>
+            </div>
+        </section>
+
+        <footer>
+            This view never invents metadata. Trigger, Flow and Validation Rule evidence comes from the persisted Field Usage snapshot when supplied. Record Type and Page Layout counts remain Not loaded until real metadata is retrieved.
+        </footer>
+    </section>
+</template>
