@@ -52,4 +52,14 @@
  @IsTest static void statusCanBePinnedToExactRun(){Field_Usage_Run__c older=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=25,Progress_Phase__c='Older run');insert older;Field_Usage_Run__c newer=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Newer run');insert newer;FieldUsageController.StatusDTO pinned=FieldUsageController.getStatus(older.Id);System.assertEquals(older.Id,pinned.run.Id);System.assertEquals('Running',pinned.run.Status__c);FieldUsageController.StatusDTO latest=FieldUsageController.getStatus(null);System.assertNotEquals(null,latest.run);System.assert(new Set<Id>{older.Id,newer.Id}.contains(latest.run.Id));}
  @IsTest static void unpinnedStatusPrefersActiveRunOverTerminalHistory(){Field_Usage_Run__c active=new Field_Usage_Run__c(Status__c='Running',Progress_Percent__c=1,Progress_Phase__c='Discovering scan work');insert active;Field_Usage_Run__c terminal=new Field_Usage_Run__c(Status__c='Completed',Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert terminal;FieldUsageController.StatusDTO status=FieldUsageController.getStatus(null);System.assertEquals(active.Id,status.run.Id);System.assertEquals('Running',status.run.Status__c);}
  @IsTest static void validatesUnknownObject(){try{FieldUsageController.getFields('Missing__c');System.assert(false);}catch(AuraHandledException e){System.assert(true);}}
+ @IsTest static void coversScheduleLifecycleControllerMethods(){
+  FieldUsageController.saveSchedules(null);FieldUsageController.deleteSchedule(null);FieldUsageController.pauseSchedule(null);FieldUsageController.resumeSchedule(null);FieldUsageController.deleteScheduledJob(null);
+  Field_Usage_Schedule__c schedule=new Field_Usage_Schedule__c(Name='Lifecycle Test',Enabled__c=true,Hour__c=6,Minute__c=30);
+  Test.startTest();FieldUsageController.saveSchedules(new List<Field_Usage_Schedule__c>{schedule});Test.stopTest();
+  Field_Usage_Schedule__c saved=[SELECT Id,Enabled__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Name='Lifecycle Test' LIMIT 1];System.assertEquals(true,saved.Enabled__c);System.assertNotEquals(null,saved.Cron_Job_Name__c);
+  List<FieldUsageController.ScheduledJobDTO> jobs=FieldUsageController.getScheduledJobs();System.assertEquals(1,jobs.size());System.assertNotEquals(null,jobs[0].cronTriggerId);
+  FieldUsageController.pauseSchedule(saved.Id);saved=[SELECT Id,Enabled__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Id=:saved.Id];System.assertEquals(false,saved.Enabled__c);
+  FieldUsageController.resumeSchedule(saved.Id);saved=[SELECT Id,Enabled__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Id=:saved.Id];System.assertEquals(true,saved.Enabled__c);System.assertNotEquals(null,saved.Cron_Job_Name__c);
+  FieldUsageController.deleteScheduledJob(saved.Id);System.assertEquals(0,[SELECT COUNT() FROM Field_Usage_Schedule__c WHERE Id=:saved.Id]);
+ }
 }
