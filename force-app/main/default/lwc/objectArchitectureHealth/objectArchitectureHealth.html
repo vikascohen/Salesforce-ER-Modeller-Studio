@@ -1,9 +1,17 @@
 <template>
     <section class="health-shell">
         <header><div><span class="kicker">OBJECT ARCHITECTURE HEALTH</span><h3>{objectApiName}</h3><p>{summary}</p></div><div class="health-counters"><strong>{findingCount}</strong><span>review signals</span><b>{attentionCount} attention · {reviewCount} review</b></div></header>
-        <div class="health-metrics">
-            <article><span>Total fields</span><strong>{businessFieldCount}</strong></article><article><span>Standard fields</span><strong>{standardCount}</strong></article><article><span>Custom fields</span><strong>{customCount}</strong></article><article><span>Relationships</span><strong>{relationshipCount}</strong></article><article><span>Derived fields</span><strong>{derivedCount}</strong></article><article><span>Custom descriptions</span><strong>{descriptionCoverageText}</strong><small>{missingDescriptionCount} missing</small></article><article><span>Overlap candidates</span><strong>{possibleOverlapCount}</strong><small>review only</small></article>
-        </div>
+        <template if:false={isCustomObject}>
+            <div class="health-metrics">
+                <article><span>Total fields</span><strong>{businessFieldCount}</strong></article><article><span>Standard fields</span><strong>{standardCount}</strong></article><article><span>Custom fields</span><strong>{customCount}</strong></article><article><span>Relationships</span><strong>{relationshipCount}</strong></article><article><span>Derived fields</span><strong>{derivedCount}</strong></article><article><span>Overlap candidates</span><strong>{possibleOverlapCount}</strong><small>custom → standard review only</small></article>
+            </div>
+        </template>
+        <template if:true={isCustomObject}>
+            <div class="health-metrics">
+                <article><span>Object type</span><strong>Custom</strong><small>organisation-defined schema</small></article><article><span>Business fields</span><strong>{businessFieldCount}</strong></article><article><span>Relationships</span><strong>{relationshipCount}</strong></article><article><span>Derived fields</span><strong>{derivedCount}</strong></article>
+            </div>
+            <div class="health-empty">Standard-field overlap analysis does not apply to a custom object. This view focuses on the custom object's own schema and dependencies.</div>
+        </template>
         <section class="health-section">
             <div class="health-section-title"><div><strong>Dependency &amp; Object Intelligence</strong><span>Dependency names come from the latest successful Field Usage snapshot. Object metadata is loaded for the selected object on demand and cached for this Studio session.</span></div></div>
             <template if:true={hasMetadataMessage}><div class="health-empty">Some object metadata could not be loaded: {metadataMessage}</div></template>
