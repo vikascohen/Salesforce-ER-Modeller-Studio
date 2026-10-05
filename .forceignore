@@ -5,10 +5,9 @@
 # org's own LWC compiler rejects them as invalid component markup.
 **/__tests__/**
 
-# Field Usage scanner fixtures are retained in source for automated
-# scanner testing, but they are not product metadata and must not be
-# installed into beta tester or production Salesforce orgs.
-force-app/main/default/lwc/fieldUsageTestContact/**
+# Field Usage scanner validation-rule fixture is retained in source for
+# automated scanner testing, but it is not product metadata and must not
+# be installed into beta tester or production Salesforce orgs.
 force-app/main/default/objects/Contact/validationRules/Field_Usage_Test_Contact_Name.validationRule-meta.xml
 
 # Editor/tooling config that has no business being deployed as metadata.
