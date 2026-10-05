@@ -5,6 +5,8 @@
 > **Beta testing branch:** `v3-beta-testing`  
 > **Version 3 Field Usage Intelligence plus Architecture Intelligence and the complete ER modelling platform.**
 
+> **Security and data boundary:** Salesforce ER Modeller Studio performs its architecture and dependency analysis within the customer's Salesforce environment. Salesforce metadata and source code used for analysis are not exported to an external SaaS platform for processing.
+
 [![Deploy V3 Beta to Salesforce](https://img.shields.io/badge/Deploy%20V3%20Beta-Salesforce-00A1E0?style=for-the-badge&logo=salesforce&logoColor=white)](https://githubsfdeploy.herokuapp.com/app/githubdeploy/vikascohen/Salesforce-ER-Modeller-Studio?ref=v3-beta-testing&continue)
 
 > The deploy button above targets only the `v3-beta-testing` branch. Use it for Version 3 beta installation and clean-org testing. Version 1 and Version 2 stable branches are unaffected.
