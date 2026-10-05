@@ -1,108 +1,122 @@
-# Salesforce ER Modeller Studio — Version 3
+# Salesforce ER Modeller Studio
 
 **Salesforce Data Architecture Intelligence & ER Modelling**  
 **Open source. Free to use. Built for Salesforce architects, developers and platform teams.**
 
-Salesforce ER Modeller Studio helps teams understand the structure, relationships and dependencies in a Salesforce org before making change. Version 3 combines visual ER modelling, Data Dictionary, Object Intelligence, Architecture Intelligence and Field Usage Intelligence in one Salesforce-native tool.
+Salesforce ER Modeller Studio is a Salesforce-native workspace for understanding the structure, relationships and dependencies in a Salesforce org before making change. It combines visual ER modelling, a Data Dictionary, Object Intelligence, Architecture Intelligence and, in Version 3, Field Usage Intelligence.
 
 > **Security boundary:** Analysis is performed within the customer's Salesforce environment. Salesforce metadata and source code used by the Studio are not exported to an external SaaS platform for processing.
 
-## Install Version 3
+## Current release
 
-Version **3.0.0.2** is released as a Salesforce second-generation unlocked package (2GP) and was validated with **91% Apex code coverage**.
+**Version 3** is the current stable release. It includes the modelling foundation from Version 1, the Architecture Intelligence introduced in Version 2, and the Field Usage and change-impact capabilities introduced in Version 3.
 
-| Environment | Install |
-| --- | --- |
-| Production / Developer Edition | [Install Version 3](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000imKHAAY) |
-| Sandbox | [Install Version 3 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000imKHAAY) |
+Version **3.0.0.2** is released as a Salesforce second-generation unlocked package (2GP). The released package was validated by Salesforce with **91% Apex code coverage**.
 
-**Subscriber Package Version ID:** `04taj000000imKHAAY`
+## Install
 
-### After installation
+Choose the version you want below. You do **not** need to install an earlier version before installing a later version.
+
+| Version | Release | Package | Production / Developer Edition | Sandbox | Branch |
+| --- | --- | --- | --- | --- | --- |
+| **Version 3** | **Current stable** | 2GP unlocked | [Install V3](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000imKHAAY) | [Install V3 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000imKHAAY) | [`version-3-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-3-stable) |
+| Version 2 | Historical stable | Unmanaged | [Install V2](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT) | [Install V2 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT) | [`version-2-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-2-stable) |
+| Version 1 | Historical stable | Unmanaged | [Install V1](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd) | [Install V1 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd) | [`version-1-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-1-stable) |
+
+### Version 3 package details
+
+**Subscriber Package Version ID:** `04taj000000imKHAAY`  
+**Version:** `3.0.0.2`  
+**Release status:** Released  
+**Apex code coverage:** 91%
+
+### After installing Version 3
 
 1. Assign the **Diagram Studio User** permission set to ER Modeller users.
-2. Configure the **Salesforce Tooling API** Named Credential, External Credential and authenticated principal. See [Installation and Configuration](docs/INSTALLATION.md) or **Help → Configuration** inside the Studio.
+2. Configure the **Salesforce Tooling API** Named Credential, External Credential and authenticated principal. See the installation/configuration documentation or **Help → Configuration** inside the Studio.
 3. Open the **ER Modeller** tab.
 4. Run **Diagnostics** to verify the environment before running Field Usage scans.
 
-## What's included
+> **Existing V1/V2 installations:** Versions 1 and 2 were distributed as unmanaged packages, while Version 3 is a new 2GP package lineage. Treat migration from an existing unmanaged installation separately rather than assuming V3 will overwrite the old package as an in-place upgrade.
 
-Version 3 includes the capabilities delivered in Versions 1 and 2 and adds Field Usage and change-impact intelligence.
+## Version history
 
-### ER Modelling
+### Version 1: ER modelling foundation
+
+Version 1 established the core Salesforce ER modelling workspace:
 
 - Visual Salesforce ER modelling canvas
-- Automatic Lookup, Master-Detail and polymorphic relationship modelling
+- Salesforce schema import
+- Lookup, Master-Detail and polymorphic relationship modelling
 - Drag-and-drop modelling
 - Bidirectional visual ↔ DSL modelling
 - DSL import/export and editor assistance
-- Point-and-click custom model creation
+- Data Dictionary
+- Sharing and org-aware views
+- Record-count heatmap
 - PNG, Mermaid and Draw.io export
+- Multi-file diagram workspace
+- Themes and per-user preferences
 
-### Data Dictionary & Object Intelligence
+### Version 2: Architecture Intelligence
 
-- Salesforce object and field exploration
-- Per-object and consolidated Data Dictionary
-- Field metadata, relationship and usage information
-- Selected-object structural and dependency intelligence
-- Schema drift and architecture-oriented metadata exploration
+Version 2 includes Version 1 and adds architecture-level analysis of the represented Salesforce data model:
 
-### Architecture Intelligence
-
-- Architecture overview and structural metrics
+- Architecture Overview and structural metrics
 - Object hotspots and connectivity analysis
 - Connected components and isolated objects
 - Relationship Path Finder
 - Bounded cycle analysis
 - Junction-object intelligence
-- Object impact and blast-radius views
-- Change-readiness and structural review signals
+- Object Map & Impact
+- Blast-radius evidence
+- Object Usage & Change Readiness
+- Relationship Insights
+- Expanded Data Dictionary and architecture-oriented metadata exploration
 
 Architecture Intelligence provides evidence for architectural review. Structural signals are prompts for investigation, not automatic declarations of defects.
 
-### Field Usage Intelligence
+### Version 3: Field Usage & Change Impact
 
-Version 3 adds dependency analysis designed to help answer a practical question before a field is changed: **what could this change affect?**
+Version 3 includes Versions 1 and 2 and adds dependency analysis designed to answer a practical question before a Salesforce field is changed: **what could this change affect?**
 
-- Apex Class and Apex Trigger usage evidence
+- Apex Class and Apex Trigger usage evidence through the Salesforce Tooling API
 - Active Flow dependency analysis
 - Formula-field dependency analysis
 - LWC and Aura field-reference analysis
 - Validation Rule field-reference analysis
 - Field Usage Map with evidence drill-down
 - Field Change Impact analysis
-- Scheduled and manual scans
+- Improved Data Dictionary and Object Intelligence
+- Scheduled and manual Field Usage scans
+- Running-task monitoring and scan status
 - Durable asynchronous work units for larger environments
 - Sparse evidence persistence
 - Last-known-good snapshot protection: an incomplete or failed scan does not replace the current successful snapshot
-
-> **Important:** An empty Field Usage result is not a guarantee that a field is safe to delete. See [Architecture](docs/ARCHITECTURE.md) for analysis scope and limitations.
-
-### Operations & Administration
-
-- Configurable scan schedules
-- Running-task monitoring
-- Scan status and persisted error information
 - Diagnostics and environment checks
 - System information
 - In-product configuration guidance and user help
 - **ER Modeller** Lightning tab
 - **Diagram Studio User** permission set
 
+> **Important:** An empty Field Usage result is not a guarantee that a field is safe to delete. The Studio reports the evidence it can discover within its documented analysis scope.
+
 ## Why use it?
 
-Understanding a mature Salesforce org often means piecing together information from Setup, Schema Builder, source code, Flows, spreadsheets and separate architecture tools. ER Modeller Studio brings those views together so teams can investigate architecture and change impact from inside Salesforce.
+Understanding a mature Salesforce org often means piecing together information from Setup, Schema Builder, source code, Flows, spreadsheets and separate architecture tools. ER Modeller Studio brings those views together so teams can investigate data architecture and change impact from inside Salesforce.
 
-The project is open source and free to use. It is designed to provide enterprise-grade data-architecture capabilities without requiring Salesforce metadata or source code to be sent to an external SaaS service for analysis.
+The project is open source and free to use. It is designed to provide enterprise-grade Salesforce data-architecture capabilities without requiring Salesforce metadata or source code to be sent to an external SaaS service for analysis.
 
 See [Business Use Cases](docs/BUSINESS-USE-CASES.md) for practical examples.
 
 ## Documentation
 
+The `main` branch represents the current Version 3 release.
+
 | Document | Purpose |
 | --- | --- |
-| [Installation & Configuration](docs/INSTALLATION.md) | Package installation, permissions, Tooling API configuration and verification |
-| [Architecture](docs/ARCHITECTURE.md) | Authoritative architecture for the Studio, DSL/compiler, Architecture Intelligence and Field Usage |
+| [Installation & Configuration](docs/INSTALLATION.md) | Installation, permissions, Tooling API configuration and verification |
+| [Architecture](docs/ARCHITECTURE.md) | Authoritative architecture for ER modelling, Architecture Intelligence and Field Usage Intelligence |
 | [DSL Reference](docs/DSL.md) | DSL syntax, examples and language reference |
 | [Business Use Cases](docs/BUSINESS-USE-CASES.md) | Practical Salesforce architecture use cases |
 | [Security](docs/SECURITY.md) | Security model and Tooling API trust boundary |
@@ -110,9 +124,14 @@ See [Business Use Cases](docs/BUSINESS-USE-CASES.md) for practical examples.
 
 Operational guidance and troubleshooting are also available through **Help** inside the Studio.
 
-## Previous versions
+For documentation corresponding specifically to an older release, use that release's stable branch rather than `main`.
 
-Version 1 and Version 2 stable branches remain available as historical releases. Version 3 is the current stable release.
+## Stable branches
+
+- [`main`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio) — current release, Version 3
+- [`version-3-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-3-stable) — preserved Version 3 stable release line
+- [`version-2-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-2-stable) — preserved Version 2 stable release
+- [`version-1-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-1-stable) — preserved Version 1 stable release
 
 ## Open Source & Licence
 
