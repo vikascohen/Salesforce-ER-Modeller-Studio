@@ -9,7 +9,6 @@
 # scanner testing, but they are not product metadata and must not be
 # installed into beta tester or production Salesforce orgs.
 force-app/main/default/lwc/fieldUsageTestContact/**
-force-app/main/default/aura/FieldUsageTestContactAura/**
 force-app/main/default/objects/Contact/validationRules/Field_Usage_Test_Contact_Name.validationRule-meta.xml
 
 # Editor/tooling config that has no business being deployed as metadata.
