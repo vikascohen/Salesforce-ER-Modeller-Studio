@@ -5,7 +5,68 @@
 
 Salesforce ER Modeller Studio is a Salesforce-native workspace for understanding the structure, relationships and dependencies in a Salesforce org before making change. It combines visual ER modelling, a Data Dictionary, Object Intelligence, Architecture Intelligence and, in Version 3, Field Usage Intelligence.
 
+> **Understand the architecture before you change the architecture.**
+
 > **Security boundary:** Analysis is performed within the customer's Salesforce environment. Salesforce metadata and source code used by the Studio are not exported to an external SaaS platform for processing.
+
+## Why this project exists
+
+This project started from a fairly ordinary frustration: **understanding a real Salesforce data model should not be this difficult.**
+
+Salesforce Schema Builder is useful when you need a quick visual view of objects and relationships. But in a large or mature org, an architect usually needs to answer much more than *what is connected to what?*
+
+I wanted to be able to move from a diagram to questions such as:
+
+- Why is this object so heavily connected?
+- What sits upstream and downstream from it?
+- How does one object reach another through the model?
+- Is this custom object acting as a junction?
+- What does the sharing model look like?
+- What fields actually exist and how are they configured?
+- Where is this field referenced before I change or remove it?
+- What part of the architecture deserves investigation first?
+
+The information needed to answer those questions exists, but it is often scattered across Salesforce Setup, Schema Builder, Object Manager, source code, Flows, spreadsheets, documentation and people's knowledge of the org.
+
+**ER Modeller Studio came from the idea that an architect should be able to explore those questions from one workspace.**
+
+It began as an ER modeller. The natural next question was *what can the model tell us?* That led to Architecture Intelligence. Then came another question that architects deal with constantly: *if I change this field, what might depend on it?* That led to Field Usage Intelligence and Field Change Impact.
+
+The philosophy has remained deliberately simple: **show useful evidence, make dependencies easier to see, and avoid pretending the tool knows something it cannot prove.**
+
+## The daily problem for Salesforce architects
+
+A mature Salesforce org rarely has one perfect source of architectural truth. Architects and platform teams routinely have to reconstruct the picture themselves.
+
+A seemingly simple request such as *“Can we change this field?”* can turn into a much larger investigation:
+
+**The diagram is only the beginning.** Schema Builder can show relationships, but architecture work also needs context: topology, paths, highly connected objects, junctions, external references and change impact.
+
+**The data dictionary becomes another artefact to maintain.** Teams often end up exporting metadata into spreadsheets or maintaining documentation separately from the org. It can become stale quickly.
+
+**Dependencies are distributed.** A field may look unimportant in Object Manager while still being referenced by Apex, a Trigger, an active Flow, a formula, a Validation Rule, LWC or Aura.
+
+**Large orgs are difficult to reason about visually.** Hundreds of objects and relationships can turn a diagram into noise. Architects need ways to narrow the question rather than simply draw more boxes and lines.
+
+**Architecture knowledge becomes tribal knowledge.** People who have worked in an org for years often know why something exists. New architects and developers have to rediscover that context.
+
+**Change assessment takes time.** Before changing an object or field, somebody still has to gather evidence from several places and decide what deserves deeper investigation.
+
+ER Modeller Studio does not try to replace architectural judgement. Its job is to make that judgement easier by putting more of the relevant evidence in front of the architect.
+
+## From diagram to architecture intelligence
+
+The product has evolved around three layers:
+
+**Model → Understand → Investigate change**
+
+`Version 1` provides the modelling foundation.  
+`Version 2` asks architectural questions about that model.  
+`Version 3` extends the investigation into field dependencies and change impact.
+
+The intention is not to produce a mysterious architecture score or declare that something is automatically *good* or *bad*. A highly connected object may be completely appropriate. A cycle may be intentional. A field with no detected references may still matter elsewhere.
+
+The Studio therefore treats architecture intelligence as **evidence for a human decision**, not a replacement for one.
 
 ## Current release
 
@@ -101,11 +162,23 @@ Version 3 includes Versions 1 and 2 and adds dependency analysis designed to ans
 
 > **Important:** An empty Field Usage result is not a guarantee that a field is safe to delete. The Studio reports the evidence it can discover within its documented analysis scope.
 
-## Why use it?
+## What the Studio is — and isn't
 
-Understanding a mature Salesforce org often means piecing together information from Setup, Schema Builder, source code, Flows, spreadsheets and separate architecture tools. ER Modeller Studio brings those views together so teams can investigate data architecture and change impact from inside Salesforce.
+ER Modeller Studio is intended to help with **data architecture discovery, visualisation and change investigation**. It is not a general-purpose static-code analyser, runtime observability platform or automated architecture judge.
 
-The project is open source and free to use. It is designed to provide enterprise-grade Salesforce data-architecture capabilities without requiring Salesforce metadata or source code to be sent to an external SaaS service for analysis.
+It deliberately stays close to the Salesforce data model and the dependencies that help an architect understand that model. Where the available evidence has limits, the UI and documentation should make those limits clear.
+
+That boundary matters. Useful architecture tooling should reduce uncertainty without creating false certainty.
+
+## Why open source?
+
+Architecture understanding should not necessarily require another expensive platform before a team can begin investigating its own Salesforce org.
+
+The project is therefore open source and free to use. The aim is to make genuinely useful Salesforce architecture capabilities available to teams that may not need, or may not be able to justify, a separate commercial architecture product.
+
+Free does not mean the engineering standard should be lower. The project is built with enterprise use in mind: permission-based access, Salesforce-native execution, diagnostics, asynchronous processing, test coverage, documented evidence boundaries and a release process.
+
+At the same time, the project does not claim to replace every commercial product. Different tools solve different problems. ER Modeller Studio focuses on doing its particular job well: **helping people understand Salesforce data architecture before they change it.**
 
 See [Business Use Cases](docs/BUSINESS-USE-CASES.md) for practical examples.
 
