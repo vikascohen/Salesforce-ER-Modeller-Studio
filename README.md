@@ -63,7 +63,7 @@ The Studio therefore treats architecture intelligence as **evidence for a human 
 
 **Version 3** is the current stable release. It includes the modelling foundation from Version 1, the Architecture Intelligence introduced in Version 2, and the Field Usage and change-impact capabilities introduced in Version 3.
 
-Version **3.0.0.2** is released as a Salesforce second-generation unlocked package (2GP). The released package was validated by Salesforce with **91% Apex code coverage**.
+Version **3.0.0.2** is released as a Salesforce second-generation unlocked package (2GP). The released package was validated with **91% Apex code coverage** and met the package code-coverage requirement.
 
 ## Install
 
@@ -85,7 +85,7 @@ Choose the version you want below. You do **not** need to install an earlier ver
 ### After installing Version 3
 
 1. Assign the **Diagram Studio User** permission set to ER Modeller users.
-2. Configure the **Salesforce Tooling API** Named Credential, External Credential and authenticated principal. See the installation/configuration documentation or **Help → Configuration** inside the Studio.
+2. Configure the **Salesforce Tooling API** Named Credential, External Credential and authenticated principal. See [Git/Salesforce CLI Deployment & Configuration](docs/GIT_SALESFORCE_CLI_DEPLOYMENT.md) or **Help → Configuration** inside the Studio.
 3. Open the **ER Modeller** tab.
 4. Run **Diagnostics** to verify the environment before running Field Usage scans.
 
@@ -179,12 +179,12 @@ The `main` branch represents the current Version 3 release.
 
 | Document | Purpose |
 | --- | --- |
-| [Installation & Configuration](docs/INSTALLATION.md) | Installation, permissions, Tooling API configuration and verification |
+| [Git/Salesforce CLI Deployment & Configuration](docs/GIT_SALESFORCE_CLI_DEPLOYMENT.md) | Source deployment, configuration, permissions and Tooling API setup |
 | [Architecture](docs/ARCHITECTURE.md) | Authoritative architecture for ER modelling, Architecture Intelligence and Field Usage Intelligence |
 | [DSL Reference](docs/DSL.md) | DSL syntax, examples and language reference |
 | [Business Use Cases](docs/BUSINESS-USE-CASES.md) | Practical Salesforce architecture use cases |
 | [Security](docs/SECURITY.md) | Security model and Tooling API trust boundary |
-| [Version 3 Release Notes](docs/RELEASE-NOTES-V3.md) | Version 3 release scope and capabilities |
+| [Version 3 Release Notes](docs/RELEASE-NOTES-V3.md) | Version 3 release scope, package details and capabilities |
 
 Operational guidance and troubleshooting are also available through **Help** inside the Studio.
 
