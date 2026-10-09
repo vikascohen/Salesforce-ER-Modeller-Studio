@@ -79,6 +79,8 @@
                 <aside class="settings-nav">
                     <div class="settings-nav-group">FIELD USAGE</div>
                     <button class={settingsScheduleNavClass} onclick={handleSettingsScheduleSection}>Field Usage</button>
+                    <div class="settings-nav-group">MCP</div>
+                    <button class={settingsMcpNavClass} onclick={handleSettingsMcpSection}>MCP Server</button>
                     <div class="settings-nav-group">SYSTEM</div>
                     <button class={settingsSystemNavClass} onclick={handleSettingsSystemSection}>System Information</button>
                     <button class={settingsDiagnosticsNavClass} onclick={handleSettingsDiagnosticsSection}>Diagnostics</button>
@@ -86,6 +88,7 @@
                     <button class={settingsThemeNavClass} onclick={handleSettingsThemeSection}>Theme</button>
                 </aside>
                 <main class="settings-content">
+                    <template if:true={settingsMcpSectionOpen}><c-er-mcp-settings></c-er-mcp-settings></template>
                     <template if:true={settingsScheduleSectionOpen}>
                         <c-field-usage-settings></c-field-usage-settings>
                     </template>

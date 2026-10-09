@@ -2,7 +2,7 @@
 
 **Branch:** `v4` (forked from `main`)  
 **Status:** Requirements baseline / feasibility pending  
-**Implementation completion:** **0%**. Documentation and branch creation do not count as feature implementation.  
+**Implementation completion:** **15% (provisional, locally validated only)**. No org deployment or Apex compilation has occurred.
 **Scope owner:** ER Modeller Studio; security and sharing analysis belongs to Warden Studio.
 
 ## 1. Immutable development boundaries — 0%
@@ -90,13 +90,13 @@
 | Workstream | Weight | Complete | Evidence |
 |---|---:|---:|---|
 | Boundaries and baseline | 5% | 0% | Branch created; implementation not started |
-| Hosted MCP feasibility/delivery | 15% | 0% | Pending |
-| Four agreed invocable tools | 25% | 0% | Pending |
+| Hosted MCP feasibility/delivery | 15% | 20% | Official Hosted MCP docs checked; invocable action scaffolding and permissions; org activation pending |
+| Four agreed invocable tools | 25% | 20% | Snapshot Status and Field Usage initial Apex actions; Changed Fields and Run Scan not built |
 | Snapshot retention and five-run diff | 20% | 0% | Pending |
-| MCP call logging | 10% | 0% | Pending |
-| Settings > MCP Server | 15% | 0% | Pending |
+| MCP call logging | 10% | 25% | Log object and best-effort Apex call logging; reliability, retention and caller app unresolved |
+| Settings > MCP Server | 15% | 30% | Initial Settings tab, tool switches, cooldown/retention inputs, log table and CSV; retention job not built |
 | Test, docs and release validation | 10% | 0% | Pending |
-| **Overall implementation** | **100%** | **0%** | **Not started** |
+| **Overall implementation** | **100%** | **15%** | **Local implementation in progress; no Salesforce validation** |
 
 Progress percentages are implementation completion, not documentation completion. Each workstream should record tested behaviour, commit/PR, unresolved gaps and remaining acceptance criteria. Proposed tools and parked features are excluded from the denominator until approved.
 
@@ -107,3 +107,9 @@ Progress percentages are implementation completion, not documentation completion
 4. Implement tool invocation logging and retention.
 5. Implement settings and setup Help.
 6. Run local regression, contract and load tests; prepare manual Hosted MCP setup instructions. **Do not deploy to an org without permission.**
+
+
+## V4 implementation log — 2026-10-09
+- Verified official Salesforce Hosted MCP docs: custom Apex actions require `global @InvocableMethod`; admin configures server in Setup; packaged server definition itself is not included in an ISV managed package. Official documentation: https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html and https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html
+- Initial implementation: `ErMcpGetSnapshotStatus`, `ErMcpGetFieldUsage`, `ErMcpCore`, `ErMcpSettingsController`; `MCP_Settings__c` and `MCP_Tool_Log__c`; MCP permission sets; Settings > MCP Server navigation and component.
+- Explicit limitations: Apex not compiled in an org; no Hosted MCP server activated; no org changes. The Changed Fields and Run Scan tools are not yet implemented. Caller app attribution and automatic log retention remain unimplemented. Field Usage is limited to 500 rows and lacks continuation pagination; log CSV exports only displayed rows; no live MCP integration test. Local Jest regression: 27/27 suites, 169 passing, 10 skipped. No new Apex tests executed. Do not claim production readiness.

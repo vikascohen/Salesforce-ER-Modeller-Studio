@@ -1652,6 +1652,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get heatmapMenuText()     { return this.heatmapOn ? 'Heatmap \u2713' : 'Heatmap'; }
     get architectureMenuText(){ return this.architectureOpen ? 'Architecture Intelligence \u2713' : 'Architecture Intelligence'; }
 
+    get settingsMcpSectionOpen(){return this.settingsSection==='mcp-server';}
+    get settingsMcpNavClass(){return this.settingsMcpSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
+    handleSettingsMcpSection(){this.settingsSection='mcp-server';this.settingsMessage='';}
     get settingsScheduleSectionOpen(){return this.settingsSection==='field-usage-schedule';}
     get settingsThemeSectionOpen(){return this.settingsSection==='theme';}
     get settingsSystemSectionOpen(){return this.settingsSection==='system-information';}

@@ -1,0 +1,28 @@
+<template>
+<lightning-card title="Salesforce Hosted MCP · ER Modeller">
+    <div class="slds-p-around_medium">
+        <p>Salesforce hosts the MCP endpoint. ER Modeller contributes Apex actions only; no standalone server is deployed.</p>
+        <p class="slds-m-top_small">{setupSteps}</p>
+        <p class="slds-m-top_small">The actual server URL is copied from Salesforce Setup after activation. This application cannot infer or activate it.</p>
+        <template if:true={message}><p class="slds-m-vertical_small" role="status">{message}</p></template>
+        <template if:true={ready}>
+            <h3 class="slds-text-heading_small slds-m-top_large">Exposed tools</h3>
+            <lightning-input type="toggle" label="Get Snapshot Status" name="Status_Enabled__c" checked={settings.Status_Enabled__c} onchange={handleToggle}></lightning-input>
+            <lightning-input type="toggle" label="Get Field Usage" name="Usage_Enabled__c" checked={settings.Usage_Enabled__c} onchange={handleToggle}></lightning-input>
+            <lightning-input type="toggle" label="Get Changed Fields (pending implementation)" name="Changed_Enabled__c" checked={settings.Changed_Enabled__c} onchange={handleToggle} disabled></lightning-input>
+            <lightning-input type="toggle" label="Run Scan (pending implementation)" name="Scan_Enabled__c" checked={settings.Scan_Enabled__c} onchange={handleToggle} disabled></lightning-input>
+            <h3 class="slds-text-heading_small slds-m-top_medium">Scan guard and retention</h3>
+            <lightning-input type="number" min="0" max="8760" label="Scan cooldown (hours)" name="Cooldown_Hours__c" value={settings.Cooldown_Hours__c} onchange={handleNumber}></lightning-input>
+            <lightning-input type="number" min="1" max="3650" label="Call log retention (days)" name="Log_Retention_Days__c" value={settings.Log_Retention_Days__c} onchange={handleNumber}></lightning-input>
+            <lightning-button label="Save settings" variant="brand" onclick={save} disabled={busy}></lightning-button>
+        </template>
+        <h3 class="slds-text-heading_small slds-m-top_large">MCP call log</h3>
+        <p>Today: {today} · Last 7 days: {week}</p>
+        <lightning-input label="Filter by method" value={method} onchange={handleMethod}></lightning-input>
+        <lightning-input label="Filter by result" value={outcome} onchange={handleOutcome}></lightning-input>
+        <lightning-button label="Refresh / Apply filters" onclick={refresh} disabled={busy}></lightning-button>
+        <lightning-button label="Export displayed rows as CSV" onclick={csv} disabled={busy}></lightning-button>
+        <template if:true={hasLogs}><div class="slds-scrollable_x slds-m-top_medium"><table class="slds-table slds-table_cell-buffer slds-table_bordered"><thead><tr><th>Time</th><th>User</th><th>Method</th><th>Field</th><th>Result</th><th>ms</th></tr></thead><tbody><template for:each={logs} for:item="entry"><tr key={entry.Id}><td>{entry.created}</td><td>{entry.user}</td><td>{entry.Tool__c}</td><td>{entry.Requested_Key__c}</td><td>{entry.Outcome__c}</td><td>{entry.Duration_Ms__c}</td></tr></template></tbody></table></div></template>
+    </div>
+</lightning-card>
+</template>
