@@ -2,7 +2,7 @@
 
 **Branch:** `v4` (forked from `main`)  
 **Status:** Requirements baseline / feasibility pending  
-**Implementation completion:** **15% (provisional, locally validated only)**. No org deployment or Apex compilation has occurred.
+**Implementation completion:** **30% (provisional, locally validated only)**. No org deployment or Apex compilation has occurred.
 **Scope owner:** ER Modeller Studio; security and sharing analysis belongs to Warden Studio.
 
 ## 1. Immutable development boundaries — 0%
@@ -91,12 +91,12 @@
 |---|---:|---:|---|
 | Boundaries and baseline | 5% | 0% | Branch created; implementation not started |
 | Hosted MCP feasibility/delivery | 15% | 20% | Official Hosted MCP docs checked; invocable action scaffolding and permissions; org activation pending |
-| Four agreed invocable tools | 25% | 20% | Snapshot Status and Field Usage initial Apex actions; Changed Fields and Run Scan not built |
-| Snapshot retention and five-run diff | 20% | 0% | Pending |
-| MCP call logging | 10% | 25% | Log object and best-effort Apex call logging; reliability, retention and caller app unresolved |
+| Four agreed invocable tools | 25% | 65% | Snapshot Status and Field Usage initial Apex actions; Changed Fields and Run Scan not built |
+| Snapshot retention and five-run diff | 20% | 25% | Pending |
+| MCP call logging | 10% | 40% | Log object and best-effort Apex call logging; reliability, retention and caller app unresolved |
 | Settings > MCP Server | 15% | 30% | Initial Settings tab, tool switches, cooldown/retention inputs, log table and CSV; retention job not built |
 | Test, docs and release validation | 10% | 0% | Pending |
-| **Overall implementation** | **100%** | **15%** | **Local implementation in progress; no Salesforce validation** |
+| **Overall implementation** | **100%** | **30%** | **Local implementation in progress; no Salesforce validation** |
 
 Progress percentages are implementation completion, not documentation completion. Each workstream should record tested behaviour, commit/PR, unresolved gaps and remaining acceptance criteria. Proposed tools and parked features are excluded from the denominator until approved.
 
@@ -113,3 +113,8 @@ Progress percentages are implementation completion, not documentation completion
 - Verified official Salesforce Hosted MCP docs: custom Apex actions require `global @InvocableMethod`; admin configures server in Setup; packaged server definition itself is not included in an ISV managed package. Official documentation: https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html and https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html
 - Initial implementation: `ErMcpGetSnapshotStatus`, `ErMcpGetFieldUsage`, `ErMcpCore`, `ErMcpSettingsController`; `MCP_Settings__c` and `MCP_Tool_Log__c`; MCP permission sets; Settings > MCP Server navigation and component.
 - Explicit limitations: Apex not compiled in an org; no Hosted MCP server activated; no org changes. The Changed Fields and Run Scan tools are not yet implemented. Caller app attribution and automatic log retention remain unimplemented. Field Usage is limited to 500 rows and lacks continuation pagination; log CSV exports only displayed rows; no live MCP integration test. Local Jest regression: 27/27 suites, 169 passing, 10 skipped. No new Apex tests executed. Do not claim production readiness.
+
+### Follow-up implementation (commit b14c08b)
+- Added initial Get Changed Fields action (bounded synchronous diff), Run Scan action with operator permission, cooldown and active-run guard.
+- Snapshot finaliser now preserves previous successful snapshots. Log retention batch and scheduling entry point added, but not yet automatically scheduled.
+- Local Jest regression: 27 suites passed, 169 tests passed, 10 skipped. **Apex compilation and Salesforce Hosted MCP integration tests have NOT been performed.** The changes are not production-ready; snapshot pruning to ten, proper paging, accurate coverage, reliable caller attribution and log filters remain outstanding.
