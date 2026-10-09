@@ -4,7 +4,7 @@
 
 ## Initial available Apex tools
 - **ER Modeller Get Snapshot Status** — `ErMcpGetSnapshotStatus` (read-only stored snapshot state)
-- **ER Modeller Get Field Usage** — `ErMcpGetFieldUsage` (read-only current evidence, maximum 500 rows; continuation pagination pending)
+- **ER Modeller Get Field Usage** — `ErMcpGetFieldUsage` (read-only current evidence, cursor pagination using afterEvidenceId and pageSize (maximum 200 per call))
 
 **Not yet available:** Get Changed Fields, Run Scan, log purge, complete log filtering, and historical comparison. Do not register missing actions as tools.
 
@@ -23,6 +23,7 @@
 - The initial log records effective Salesforce user through CreatedBy; caller External Client App attribution is not yet implemented.
 - Log retention is configurable but automatic purge is **not** yet implemented.
 - CSV exports only the currently displayed log rows.
+- Pagination cursors are evidence record IDs; callers should restart from the first page if the active snapshot changes between calls.
 - Snapshot status advertises scanner families supported by the product, not independently verified per-run coverage.
 - The settings page does not create, discover or activate a Salesforce Hosted MCP server.
 - The Hosted MCP server configuration itself is an admin Setup step. Salesforce documentation says custom server configurations are Metadata API deployable, but cannot yet be included in ISV managed packages.
