@@ -11,7 +11,7 @@ global with sharing class ErMcpGetFieldUsage {
             try {
                 ErMcpCore.requireEnabled(ErMcpCore.settings().Usage_Enabled__c);
                 if(req==null||String.isBlank(req.objectApiName)||String.isBlank(req.fieldApiName)) throw new ErMcpCore.InvalidRequestException('Object and field API names are required.');
-                List<Field_Usage_Evidence__c> rows=[SELECT Field_Key__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Location__c,Occurrence_Count__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Run__r.Status__c='Completed' AND Field_Key__c=:key ORDER BY Source_Type__c,Component_Name__c LIMIT 501];
+                List<Field_Usage_Evidence__c> rows=[SELECT Id,Field_Key__c,Source_Type__c,Component_Name__c,Component_Id__c,Evidence_Type__c,Confidence__c,Location__c,Occurrence_Count__c FROM Field_Usage_Evidence__c WHERE Run__r.Is_Current__c=true AND Run__r.Status__c='Completed' AND Field_Key__c=:key ORDER BY Source_Type__c,Component_Name__c LIMIT 501];
                 Boolean truncated=rows.size()>500;if(truncated)rows.remove(500);
                 response.result=JSON.serialize(new Map<String,Object>{'snapshot'=>JSON.deserializeUntyped(ErMcpCore.snapshotContext()),'field'=>key,'usage'=>rows,'truncated'=>truncated,'warning'=>truncated?'More than 500 references; pagination pending.':null});
             } catch(Exception ex) {outcome='Error';detail=ex.getMessage();response.result=JSON.serialize(new Map<String,Object>{'error'=>detail});}

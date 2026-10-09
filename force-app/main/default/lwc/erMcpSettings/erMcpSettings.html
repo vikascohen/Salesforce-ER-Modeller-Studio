@@ -9,8 +9,8 @@
             <h3 class="slds-text-heading_small slds-m-top_large">Exposed tools</h3>
             <lightning-input type="toggle" label="Get Snapshot Status" name="Status_Enabled__c" checked={settings.Status_Enabled__c} onchange={handleToggle}></lightning-input>
             <lightning-input type="toggle" label="Get Field Usage" name="Usage_Enabled__c" checked={settings.Usage_Enabled__c} onchange={handleToggle}></lightning-input>
-            <lightning-input type="toggle" label="Get Changed Fields (pending implementation)" name="Changed_Enabled__c" checked={settings.Changed_Enabled__c} onchange={handleToggle} disabled></lightning-input>
-            <lightning-input type="toggle" label="Run Scan (pending implementation)" name="Scan_Enabled__c" checked={settings.Scan_Enabled__c} onchange={handleToggle} disabled></lightning-input>
+            <lightning-input type="toggle" label="Get Changed Fields (initial implementation)" name="Changed_Enabled__c" checked={settings.Changed_Enabled__c} onchange={handleToggle}></lightning-input>
+            <lightning-input type="toggle" label="Run Scan (operator permission required)" name="Scan_Enabled__c" checked={settings.Scan_Enabled__c} onchange={handleToggle}></lightning-input>
             <h3 class="slds-text-heading_small slds-m-top_medium">Scan guard and retention</h3>
             <lightning-input type="number" min="0" max="8760" label="Scan cooldown (hours)" name="Cooldown_Hours__c" value={settings.Cooldown_Hours__c} onchange={handleNumber}></lightning-input>
             <lightning-input type="number" min="1" max="3650" label="Call log retention (days)" name="Log_Retention_Days__c" value={settings.Log_Retention_Days__c} onchange={handleNumber}></lightning-input>

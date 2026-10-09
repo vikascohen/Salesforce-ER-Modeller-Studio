@@ -18,8 +18,9 @@ public without sharing class FieldUsageSnapshotFinalizer {
    }
    List<Field_Usage_Run__c> old=[SELECT Id,Is_Current__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Id!=:runId];for(Field_Usage_Run__c r:old)r.Is_Current__c=false;if(!old.isEmpty())update old;
    run.Status__c='Completed';run.Is_Current__c=true;run.Error_Count__c=0;run.Dependency_Count__c=evidence;run.Completed_At__c=System.now();run.Heartbeat_At__c=System.now();run.Progress_Percent__c=100;run.Progress_Phase__c='Snapshot ready';run.Errors__c=null;update run;
-   List<Field_Usage_Run__c> historical=[SELECT Id FROM Field_Usage_Run__c WHERE Id!=:runId AND Status__c='Completed' AND Is_Current__c=false];
-   if(!historical.isEmpty())delete historical;
+   // V4: successful snapshots must remain available for five-run change history.
+   // A dedicated bounded retention batch will prune snapshots beyond the last ten.
+   // Never delete evidence from inside the promotion transaction.
   }catch(Exception ex){Database.rollback(sp);try{update new Field_Usage_Run__c(Id=runId,Status__c='Failed',Is_Current__c=false,Completed_At__c=System.now(),Errors__c=(ex.getTypeName()+': '+ex.getMessage()).left(32000));}catch(Exception ignored){}}
  }
 }
