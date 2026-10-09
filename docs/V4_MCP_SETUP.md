@@ -23,7 +23,7 @@
 - The initial log records effective Salesforce user through CreatedBy; caller External Client App attribution is not yet implemented.
 - Log retention is configurable but automatic purge is **not** yet implemented.
 - CSV exports only the currently displayed log rows.
-- Pagination cursors are evidence record IDs; callers should restart from the first page if the active snapshot changes between calls.
+- Pagination cursors are evidence record IDs. The first page returns snapshotId; pass both snapshotId and afterEvidenceId for subsequent pages. If the active snapshot changes, the tool rejects continuation and the caller must restart from page one.
 - Snapshot status advertises scanner families supported by the product, not independently verified per-run coverage.
 - The settings page does not create, discover or activate a Salesforce Hosted MCP server.
 - The Hosted MCP server configuration itself is an admin Setup step. Salesforce documentation says custom server configurations are Metadata API deployable, but cannot yet be included in ISV managed packages.
