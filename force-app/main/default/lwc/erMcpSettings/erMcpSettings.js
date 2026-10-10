@@ -19,7 +19,6 @@ export default class ErMcpSettings extends LightningElement {
     }
     get ready(){return !!this.settings;}
     get hasLogs(){return this.logs.length>0;}
-    get setupSteps(){return 'In Salesforce Setup → Integration → Salesforce MCP Servers, create a custom server. Add ER Modeller Apex Actions, activate, and copy the generated URL. Register each MCP caller with an External Client App and the mcp_api OAuth scope. Do not add standard record tools.';}
     handleToggle(e){this.settings={...this.settings,[e.target.name]:e.target.checked};}
     handleNumber(e){this.settings={...this.settings,[e.target.name]:Number(e.target.value)};}
     handleMethod(e){this.method=e.target.value;}

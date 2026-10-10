@@ -2,14 +2,20 @@
 <lightning-card title="Salesforce Hosted MCP · ER Modeller">
     <div class="slds-p-around_medium">
         <p>Salesforce hosts the MCP endpoint. ER Modeller contributes Apex actions only; no standalone server is deployed.</p>
-        <p class="slds-m-top_small">{setupSteps}</p>
-        <p class="slds-m-top_small">The actual server URL is copied from Salesforce Setup after activation. This application cannot infer or activate it.</p>
+        <section class="slds-box slds-theme_default slds-m-top_medium" aria-label="MCP configuration status">
+            <h3 class="slds-text-heading_small">Configuration boundaries</h3>
+            <p class="slds-m-top_x-small"><strong>ER Modeller tools:</strong> Apex actions are installed with V4; enable switches below control whether they can execute.</p>
+            <p class="slds-m-top_x-small"><strong>Hosted server:</strong> Create, register tools and activate in Salesforce Setup. Server activation is not checked by this screen.</p>
+            <p class="slds-m-top_x-small"><strong>External client:</strong> Configure OAuth and verify tool discovery and invocation separately. Connection is not checked by this screen.</p>
+            <p class="slds-m-top_small">For the full administrator walkthrough, open <strong>Help → Configuration → MCP Server Configuration</strong>. The Tooling API Named Credential used for snapshot collection is a separate connection.</p>
+        </section>
         <template if:true={message}><p class="slds-m-vertical_small" role="status">{message}</p></template>
         <template if:true={ready}>
-            <h3 class="slds-text-heading_small slds-m-top_large">Exposed tools</h3>
+            <h3 class="slds-text-heading_small slds-m-top_large">Tool execution controls</h3>
+            <p>These switches are enforced by ER Modeller Apex actions. They do not add or remove tools from Salesforce Hosted MCP registration.</p>
             <lightning-input type="toggle" label="Get Snapshot Status" name="Status_Enabled__c" checked={settings.Status_Enabled__c} onchange={handleToggle}></lightning-input>
             <lightning-input type="toggle" label="Get Field Usage" name="Usage_Enabled__c" checked={settings.Usage_Enabled__c} onchange={handleToggle}></lightning-input>
-            <lightning-input type="toggle" label="Get Changed Fields (initial implementation)" name="Changed_Enabled__c" checked={settings.Changed_Enabled__c} onchange={handleToggle}></lightning-input>
+            <lightning-input type="toggle" label="Get Changed Fields" name="Changed_Enabled__c" checked={settings.Changed_Enabled__c} onchange={handleToggle}></lightning-input>
             <lightning-input type="toggle" label="Run Scan (operator permission required)" name="Scan_Enabled__c" checked={settings.Scan_Enabled__c} onchange={handleToggle}></lightning-input>
             <h3 class="slds-text-heading_small slds-m-top_medium">Scan guard and retention</h3>
             <lightning-input type="number" min="0" max="8760" label="Scan cooldown (hours)" name="Cooldown_Hours__c" value={settings.Cooldown_Hours__c} onchange={handleNumber}></lightning-input>
@@ -18,6 +24,7 @@
         </template>
         <h3 class="slds-text-heading_small slds-m-top_large">MCP call log</h3>
         <p>Today: {today} · Last 7 days: {week}</p>
+        <p class="slds-m-top_x-small">The table is limited to 200 returned rows. CSV exports only the rows currently displayed, not the full audit history. Counts are separate summary values.</p>
         <lightning-input label="Filter by method" value={method} onchange={handleMethod}></lightning-input>
         <lightning-input label="Filter by result" value={outcome} onchange={handleOutcome}></lightning-input>
         <lightning-button label="Refresh / Apply filters" onclick={refresh} disabled={busy}></lightning-button>
