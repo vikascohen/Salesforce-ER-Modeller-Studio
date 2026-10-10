@@ -1,6 +1,6 @@
 # ER Modeller Studio — diagnostic capture contract (V4)
 
-All Studio features should emit errors through the shared diagnostics path rather than showing raw technical errors over the ER canvas.
+Only ER Modeller Studio-owned features should emit through this shared diagnostics path. This is **not** Salesforce-wide monitoring, and unrelated platform or third-party application failures are excluded by the central Apex source allowlist.
 
 ## Capture paths
 

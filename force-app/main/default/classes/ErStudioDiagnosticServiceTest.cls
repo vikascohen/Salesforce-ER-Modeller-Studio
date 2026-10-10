@@ -8,6 +8,12 @@ private class ErStudioDiagnosticServiceTest {
         System.assertEquals(false,ErStudioDiagnosticService.exception('Studio','Test',new SampleException('test')));
         Test.stopTest();
     }
+    @IsTest static void rejectsNonStudioSources() {
+        Test.startTest();
+        System.assertEquals(false,ErStudioDiagnosticService.error('Unrelated Salesforce App','Transaction','Not a Studio issue'));
+        System.assertEquals(false,ErStudioDiagnosticService.warning('Platform Monitor','Limits','Not a Studio issue'));
+        Test.stopTest();
+    }
     @IsTest static void boundedFailuresNeverThrow() {
         Test.startTest();
         for(Integer i=0;i<20;i++)ErStudioDiagnosticService.error('Studio','Operation '+i,'Failure '+i);

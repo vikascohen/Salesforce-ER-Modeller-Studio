@@ -3,6 +3,14 @@
  * Only emits after callouts and after any savepoint rollback; does not propagate failures.
  */
 public without sharing class ErStudioDiagnosticService {
+    // Only ER Modeller Studio-owned components may emit diagnostics.
+    // This is deliberately not a Salesforce platform exception monitor.
+    private static final Set<String> STUDIO_SOURCES=new Set<String>{
+        'Studio','Studio component','Model validation','ER Modelling','DSL',
+        'Architecture Intelligence','Data Dictionary','Field Usage',
+        'Field Usage Scheduler','Hosted MCP','MCP Settings','Diagnostic Settings',
+        'Studio Settings','Diagram Export','Diagram Import','Studio Files'
+    };
     private static Integer attempts=0;
     private static final Integer MAX_EVENTS_PER_TRANSACTION=10;
     public static Boolean error(String source,String operation,String message) {
@@ -15,7 +23,7 @@ public without sharing class ErStudioDiagnosticService {
         return error(source,operation,ex==null?'Unknown exception':ex.getTypeName()+': '+ex.getMessage());
     }
     @TestVisible private static Boolean emit(String source,String operation,String severity,String message) {
-        if(attempts>=MAX_EVENTS_PER_TRANSACTION || String.isBlank(message))return false;
+        if(!STUDIO_SOURCES.contains(source) || attempts>=MAX_EVENTS_PER_TRANSACTION || String.isBlank(message))return false;
         attempts++;
         try {
             String context='['+safe(source,65)+' / '+safe(operation,65)+'] ';
