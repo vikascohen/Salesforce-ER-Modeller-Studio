@@ -102,6 +102,12 @@
 
 **Version control evidence:** V4-only commits `276ca72` (Studio diagnostics routing) and `57fe217` (Studio-only source boundary). Earlier MCP implementation is present on `v4`. Untracked `coverage/` is not part of the release.
 
+### Additional MCP Apex coverage validation (2026-10-11)
+
+Added `ErMcpActionsTest` with targeted tests for tool success/error payloads, absent/current snapshots, dependency differences, pagination invocation, disabled tools, admin access, settings and log filters, scan authorisation/active-run/cooldown, and log retention. This complements `ErMcpFieldUsageServiceTest`.
+
+The final `RunLocalTests --code-coverage` result in `warden-dev` (test run `707aj00001KbFp1`) reported **184/184 passing Apex tests**, **86% org-wide coverage**, and **87% test-run coverage**. Per-class coverage: `ErMcpCore` 95%, `ErMcpRunScan` 89%, `ErMcpFieldUsageService` 97%, `ErMcpLogRetention` 100%, `ErMcpSettingsController` 100%, `ErMcpGetSnapshotStatus` 100%, `ErMcpGetChangedFields` 100%, and `ErMcpGetFieldUsage` 100%. Full external MCP client testing is still outstanding.
+
 ## 11. Recommended implementation order
 1. Verify Hosted MCP platform capabilities and resolve open decisions.
 2. Preserve snapshots and implement deterministic five-run diff/query service.

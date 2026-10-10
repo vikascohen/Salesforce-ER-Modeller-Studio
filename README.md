@@ -65,6 +65,29 @@ The Studio therefore treats architecture intelligence as **evidence for a human 
 
 Version **3.0.0.2** is released as a Salesforce second-generation unlocked package (2GP). The released package was validated with **91% Apex code coverage** and met the package code-coverage requirement.
 
+## Version 4 development — Salesforce Hosted MCP
+
+**Development branch:** [`v4`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v4). **Not a stable package release.** Version 3 remains the current published release; do not install V4 in production on the basis of this development branch.
+
+V4 adds a **Salesforce Hosted MCP** integration layer so authorised MCP clients and AI agents can query architectural intelligence already stored inside ER Modeller Studio. Salesforce hosts the MCP transport; ER Modeller contributes Apex invocable actions. No standalone MCP service is required.
+
+| MCP action | What it does |
+| --- | --- |
+| **Get Snapshot Status** | Returns current successful Field Usage snapshot information and active scan state, without running a scan. |
+| **Get Field Usage** | Reads persisted dependency evidence for an object/field with snapshot-bound cursor pagination (up to 200 rows per page). |
+| **Get Changed Fields** | Compares dependency evidence across up to five recent completed snapshots, subject to a 40,000-evidence-row synchronous bound. |
+| **Run Scan** | Requests an asynchronous V3 Field Usage scan, subject to operator authorisation, active-scan checks and cooldown. |
+
+**Configuration and access.** Administrators create and activate a **custom Salesforce Hosted MCP server** in Salesforce Setup, register the four actions, and configure an authorised External Client App with the `mcp_api` OAuth scope. The external MCP client credentials are **separate** from the `Salesforce_Tooling_API` Named/External Credential used by the V3 metadata scanners. Assign the relevant `ER_MCP_Admin`, `ER_MCP_Reader` and `ER_MCP_Scan_Operator` permission sets according to least privilege. The Studio does not create or activate the Salesforce MCP server or infer its URL.
+
+**In-product experience.** Open **Help → Configuration → MCP Server Configuration** for a dedicated setup walkthrough and troubleshooting. **Help → Configuration → Field Usage / Tooling API** retains the internal scanner configuration guide. **Settings → MCP Server** provides server-side tool execution switches, scan cooldown, log retention and a filterable invocation log. Its table returns up to 200 rows, and CSV export covers only displayed rows. Studio-scoped error diagnostics can be configured to write to an existing Salesforce logging object; session Error Log does not automatically retrieve historical log records.
+
+**Safety and limits.** These tools report evidence discovered by supported scanners, not a guarantee that a field is safe to change. External integrations, dynamic references and unsupported metadata may be absent. Tool enablement inside Studio is not the same as registering a tool on the Hosted MCP server. Logging retention scheduling and real external tool discovery/invocation require separate verification. V4 does not provide general Salesforce record access or a security-model simulator.
+
+**Documentation:** [V4 requirements](docs/V4_REQUIREMENTS.md), [Hosted MCP setup](docs/V4_MCP_SETUP.md), [Studio diagnostic coverage](docs/DIAGNOSTIC_COVERAGE.md).
+
+**Validation:** V4 metadata and Apex tests have been deployed/executed in the authorised `warden-dev` development org; LWC Jest regressions pass. These results establish code compilation and tested behaviour, **not** an externally activated MCP endpoint. Actual Salesforce Hosted MCP `tools/list`, `tools/call`, OAuth and integration-user authorisation remain end-to-end acceptance work. Latest `warden-dev` Apex regression: **184 tests passed, zero failures; 86% org-wide coverage and 87% test-run coverage**. All eight production `ErMcp*` Apex classes report **89–100% individual coverage**. See V4 requirements for per-class evidence.
+
 ## Install
 
 Choose the version you want below. You do **not** need to install an earlier version before installing a later version.
