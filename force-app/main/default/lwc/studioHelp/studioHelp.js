@@ -1,8 +1,13 @@
 import { LightningElement, api } from 'lwc';
 export default class StudioHelp extends LightningElement {
-    @api initialSection='configuration'; section='configuration'; searchText='';
+    @api initialSection='configuration'; section='configuration'; configurationTopic='tooling'; searchText='';
     connectedCallback(){this.section=this.initialSection==='manual'?'manual':'configuration';}
     get configurationOpen(){return this.section==='configuration';} get manualOpen(){return this.section==='manual';}
+    get toolingConfigurationOpen(){return this.configurationTopic==='tooling';} get mcpConfigurationOpen(){return this.configurationTopic==='mcp';}
+    get toolingTopicClass(){return this.toolingConfigurationOpen?'help-nav-item help-nav-subitem help-nav-item-active':'help-nav-item help-nav-subitem';}
+    get mcpTopicClass(){return this.mcpConfigurationOpen?'help-nav-item help-nav-subitem help-nav-item-active':'help-nav-item help-nav-subitem';}
+    showToolingConfiguration(){this.section='configuration';this.configurationTopic='tooling';this.clearSearch();}
+    showMcpConfiguration(){this.section='configuration';this.configurationTopic='mcp';this.clearSearch();}
     get configurationClass(){return this.configurationOpen?'help-nav-item help-nav-item-active':'help-nav-item';}
     get manualClass(){return this.manualOpen?'help-nav-item help-nav-item-active':'help-nav-item';}
     showConfiguration(){this.section='configuration';this.clearSearch();} showManual(){this.section='manual';}

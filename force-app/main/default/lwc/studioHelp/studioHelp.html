@@ -8,11 +8,16 @@
                 <nav class="help-nav">
                     <div class="help-nav-group">HELP</div>
                     <button class={configurationClass} onclick={showConfiguration}>Configuration</button>
+                    <template if:true={configurationOpen}>
+                        <button class={toolingTopicClass} onclick={showToolingConfiguration}>Field Usage / Tooling API</button>
+                        <button class={mcpTopicClass} onclick={showMcpConfiguration}>MCP Server Configuration</button>
+                    </template>
                     <button class={manualClass} onclick={showManual}>User Manual</button>
                 </nav>
                 <main class="help-content">
                     <template if:true={configurationOpen}>
-                        <c-tooling-api-configuration-help></c-tooling-api-configuration-help>
+                        <template if:true={toolingConfigurationOpen}><c-tooling-api-configuration-help></c-tooling-api-configuration-help></template>
+                        <template if:true={mcpConfigurationOpen}><c-mcp-configuration-help></c-mcp-configuration-help></template>
                     </template>
 
                     <template if:true={manualOpen}>

@@ -18,3 +18,6 @@
 .help-manual-section[hidden]{display:none!important}
 .help-manual-section p{line-height:1.65}
 .settings-nav,.settings-content,.help-nav,.help-content,.diagnostics-body,.help-doc,.help-manual{scrollbar-width:thin;scrollbar-color:var(--surface-border-strong) var(--surface-bg-alt)}.settings-nav::-webkit-scrollbar,.settings-content::-webkit-scrollbar,.help-nav::-webkit-scrollbar,.help-content::-webkit-scrollbar,.diagnostics-body::-webkit-scrollbar{width:10px;height:10px}.settings-nav::-webkit-scrollbar-thumb,.settings-content::-webkit-scrollbar-thumb,.help-nav::-webkit-scrollbar-thumb,.help-content::-webkit-scrollbar-thumb,.diagnostics-body::-webkit-scrollbar-thumb{background:var(--surface-border-strong);border:2px solid var(--surface-bg-alt);border-radius:8px}
+
+.help-nav-subitem{padding-left:22px;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+@media(max-width:900px){.help-head,.help-shell{min-width:0}.help-nav{min-width:0}.help-head{flex-wrap:wrap}.help-content{min-width:0}}
