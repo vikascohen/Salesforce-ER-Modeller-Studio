@@ -3,6 +3,7 @@
  */
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import { loadScript } from 'lightning/platformResourceLoader';
 import SHEETJS from '@salesforce/resourceUrl/sheetjs';
 import { refreshApex } from '@salesforce/apex';
@@ -89,7 +90,29 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track currentId   = null;
     @track fileName    = 'Untitled ER Diagram';
     @track sourceText  = ER_SAMPLE;
-    @track errorMessage = '';
+    _errorMessage = '';
+    @track diagnosticEvents = [];
+    @track errorLogOpen = false;
+    @track errorLogSearch = '';
+    @track errorLogSeverity = '';
+    get errorMessage(){return this._errorMessage;}
+    set errorMessage(value){
+        this._errorMessage=value||'';
+        if(!value || typeof value!=='string')return;
+        const last=this.diagnosticEvents[0];
+        if(last && last.message===value){this.diagnosticEvents=[{...last,count:last.count+1,time:new Date().toLocaleString()},...this.diagnosticEvents.slice(1)];return;}
+        const event={id:String(Date.now())+'-'+this.diagnosticEvents.length,message:value,severity:'ERROR',time:new Date().toLocaleString(),count:1};
+        this.diagnosticEvents=[event,...this.diagnosticEvents].slice(0,500);
+        persistDiagnosticEvent({message:value,severity:'ERROR'}).catch(()=>{});
+    }
+    get visibleDiagnosticEvents(){return this.diagnosticEvents.filter(e=>(!this.errorLogSeverity||e.severity===this.errorLogSeverity)&&(!this.errorLogSearch||e.message.toLowerCase().includes(this.errorLogSearch.toLowerCase())));}
+    get diagnosticEventCount(){return this.diagnosticEvents.length;}
+    handleMenuErrorLog(){this.openMenu=null;this.errorLogOpen=true;}
+    handleCloseErrorLog(){this.errorLogOpen=false;}
+    handleErrorLogSearch(e){this.errorLogSearch=e.target.value;}
+    handleErrorLogSeverity(e){this.errorLogSeverity=e.target.value;}
+    handleClearErrorLog(){this.diagnosticEvents=[];}
+
     @track isDirty     = false;
 
     // ── import panel ──

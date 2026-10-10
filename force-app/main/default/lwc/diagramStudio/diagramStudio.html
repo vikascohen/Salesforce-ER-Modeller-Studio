@@ -139,6 +139,7 @@
                             <button class="arch-action-btn arch-export-btn diag-run-button" onclick={handleRunDiagnostics}>{diagnosticsButtonLabel}</button>
                             <div class={diagnosticsOverallClass}><span>Current diagnostic state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Last completed: {diagnosticsCompletedAt}</small></div>
                         </section>
+                        <c-er-diagnostic-settings></c-er-diagnostic-settings>
                     </template>
                     <template if:true={settingsThemeSectionOpen}>
                         <div class="settings-title"><div><h2>Theme</h2><p>Choose the appearance used throughout ER Modeller Studio.</p></div></div>
@@ -147,6 +148,17 @@
                     </template>
                 </main>
             </div>
+        </section>
+    </template>
+
+    <template if:true={errorLogOpen}>
+        <section class="settings-page">
+            <header class="settings-head"><div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Error Log</h1><p>Temporary in-session diagnostics. Events are lost on reload unless object logging is configured.</p></div><button class="mimic-close" onclick={handleCloseErrorLog}>Back to Diagram</button></header>
+            <main class="settings-content er-error-log-content">
+                <div class="er-error-log-controls"><input aria-label="Search errors" type="search" placeholder="Search diagnostic messages" value={errorLogSearch} oninput={handleErrorLogSearch}/><select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select><button onclick={handleClearErrorLog}>Clear buffer</button></div>
+                <p>{diagnosticEventCount} buffered issues. For logging configuration open Settings → Diagnostics.</p>
+                <div class="er-error-log-list"><template for:each={visibleDiagnosticEvents} for:item="event"><article key={event.id} class="settings-panel"><strong>{event.severity}</strong><span> · {event.time} · occurrences: {event.count}</span><p>{event.message}</p><small>Check the affected operation, validate configuration and retry. Technical message shown above.</small></article></template></div>
+            </main>
         </section>
     </template>
 
@@ -393,6 +405,7 @@
                     <div class="dd-menu-item" onclick={handleMenuFieldUsage}>{fieldUsageMenuText}</div>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item" onclick={handleMenuArchitecture}>{architectureMenuText}</div>
+                    <div class="dd-menu-item" onclick={handleMenuErrorLog}>Error Log</div>
                 </div>
             </template>
         </div>

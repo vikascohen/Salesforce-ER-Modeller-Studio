@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata"><label>ER Diagnostic Configuration</label><pluralLabel>ER Diagnostic Configurations</pluralLabel><nameField><label>Configuration Name</label><type>Text</type></nameField><deploymentStatus>Deployed</deploymentStatus><sharingModel>Private</sharingModel></CustomObject>

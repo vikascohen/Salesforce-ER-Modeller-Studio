@@ -1862,3 +1862,5 @@
 .fu-control-actions{flex-wrap:wrap}
 
 .fu-node[data-kind="evidence-more"]{width:210px;min-height:68px;border:1px dashed #5b8db8;background:rgba(0,122,204,.08);cursor:pointer}.fu-node[data-kind="evidence-more"] strong{color:#7cc7ff}.fu-node[data-kind="evidence-more"] span{color:var(--surface-text-muted)}
+
+.er-error-log-content{flex:1;min-height:0;overflow:auto;min-width:0}.er-error-log-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.er-error-log-controls input{flex:1;min-width:170px}.er-error-log-controls input,.er-error-log-controls select{padding:9px;max-width:100%;box-sizing:border-box}.er-error-log-list{overflow:auto;max-height:calc(100vh - 245px);overflow-wrap:anywhere}.er-error-log-list article{margin:12px 0;padding:15px}

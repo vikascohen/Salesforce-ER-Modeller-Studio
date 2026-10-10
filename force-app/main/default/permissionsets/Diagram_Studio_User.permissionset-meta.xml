@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <label>Diagram Studio User</label>
     <tabSettings>
@@ -13,4 +13,5 @@
     <classAccesses><apexClass>DiagramPreferenceController</apexClass><enabled>true</enabled></classAccesses>
     <classAccesses><apexClass>StudioDiagnosticsController</apexClass><enabled>true</enabled></classAccesses>
     <classAccesses><apexClass>ObjectIntelligenceController</apexClass><enabled>true</enabled></classAccesses>
+    <classAccesses><apexClass>ErDiagnosticConfigController</apexClass><enabled>true</enabled></classAccesses>
 </PermissionSet>

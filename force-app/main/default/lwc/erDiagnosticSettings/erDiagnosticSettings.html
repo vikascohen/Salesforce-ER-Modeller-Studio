@@ -1,0 +1,29 @@
+<template>
+    <section class="diagnostic-config">
+        <h3>Error Log Configuration</h3>
+        <p>Diagnostics are buffered in memory. Optionally store events in an existing Salesforce object. For detailed history, use View → Error Log.</p>
+        <label class="toggle"><input type="checkbox" checked={config.enabled} data-name="enabled" onchange={update}/> Store diagnostic events in a Salesforce object</label>
+        <template if:true={enabled}>
+            <div class="field"><label for="objectApi">Full object API name</label><input id="objectApi" value={config.objectApi} data-name="objectApi" onchange={update} onblur={validate} placeholder="namespace__Log__c"/><small role="status">{objectNotice}</small></div>
+            <div class="field"><label for="messageField">Message field API name</label><input id="messageField" value={config.messageField} data-name="messageField" onchange={update} onblur={validate} placeholder="Message__c"/><small role="status">{messageNotice}</small></div>
+            <p>Salesforce metadata determines the field's actual maximum size. Longer messages are truncated when stored; the full message remains in the session buffer.</p>
+            <label class="toggle"><input type="checkbox" checked={config.severityEnabled} data-name="severityEnabled" onchange={update}/> Populate a severity field</label>
+            <template if:true={severityEnabled}>
+                <div class="field"><label for="severityField">Severity field API name</label><input id="severityField" value={config.severityField} data-name="severityField" onchange={update} onblur={validate}/><small role="status">{severityNotice}</small></div>
+                <div class="field"><label for="errorValue">Exact value for errors</label><input id="errorValue" value={config.errorValue} data-name="errorValue" onchange={update}/></div>
+                <div class="field"><label for="warningValue">Exact value for warnings</label><input id="warningValue" value={config.warningValue} data-name="warningValue" onchange={update}/></div>
+            </template>
+            <h3>Additional required field values</h3>
+            <p>Add any mandatory fields and their default values. Salesforce validates field types and restricted picklists before saving.</p>
+            <template for:each={fields} for:item="f">
+                <div class="mapping" key={f.index}>
+                    <div class="field"><label>Field API name</label><input data-index={f.index} data-name="field" value={f.field} onchange={updateRequired} onblur={validateRequired}/></div>
+                    <div class="field"><label>Default value</label><input data-index={f.index} data-name="value" value={f.value} onchange={updateRequired}/></div>
+                    <button data-index={f.index} onclick={removeField} title="Remove mapping">Remove</button><small role="status">{f.notice}</small>
+                </div>
+            </template>
+            <button onclick={addField}>Add required field</button>
+        </template>
+        <div class="actions"><button disabled={disabledSave} onclick={saveConfig}>Save Configuration</button><span role="status">{feedback}</span></div>
+    </section>
+</template>
