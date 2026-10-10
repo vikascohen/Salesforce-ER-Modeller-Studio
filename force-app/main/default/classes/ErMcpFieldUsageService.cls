@@ -3,7 +3,7 @@
  * No Tooling API calls and no UI concerns.
  */
 public with sharing class ErMcpFieldUsageService {
-    public class Page {
+    public class UsagePage {
         public Id snapshotId;
         public List<Field_Usage_Evidence__c> rows;
         public Boolean hasMore;
@@ -11,7 +11,7 @@ public with sharing class ErMcpFieldUsageService {
         public Integer pageSize;
     }
 
-    public static Page readPage(String fieldKey,String requestedSnapshotId,String afterEvidenceId,Integer requestedSize) {
+    public static UsagePage readPage(String fieldKey,String requestedSnapshotId,String afterEvidenceId,Integer requestedSize) {
         if(String.isBlank(fieldKey)) throw new ErMcpCore.InvalidRequestException('Field key is required.');
         List<Field_Usage_Run__c> currentRuns=[
             SELECT Id FROM Field_Usage_Run__c
@@ -52,7 +52,7 @@ public with sharing class ErMcpFieldUsageService {
             ];
         }
 
-        Page page=new Page();
+        UsagePage page=new UsagePage();
         page.snapshotId=runId;
         page.pageSize=size;
         page.hasMore=evidence.size()>size;

@@ -11,7 +11,7 @@ global with sharing class ErMcpGetFieldUsage {
             try {
                 ErMcpCore.requireEnabled(ErMcpCore.settings().Usage_Enabled__c);
                 if(req==null||String.isBlank(req.objectApiName)||String.isBlank(req.fieldApiName)) throw new ErMcpCore.InvalidRequestException('Object and field API names are required.');
-                ErMcpFieldUsageService.Page page=ErMcpFieldUsageService.readPage(
+                ErMcpFieldUsageService.UsagePage page=ErMcpFieldUsageService.readPage(
                     key,req.snapshotId,req.afterEvidenceId,req.pageSize
                 );
                 response.result=JSON.serialize(new Map<String,Object>{

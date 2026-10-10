@@ -17,11 +17,11 @@ private class ErMcpFieldUsageServiceTest {
         }
         insert evidence;
         Test.startTest();
-        ErMcpFieldUsageService.Page first=ErMcpFieldUsageService.readPage('Account.Name',null,null,2);
+        ErMcpFieldUsageService.UsagePage first=ErMcpFieldUsageService.readPage('Account.Name',null,null,2);
         System.assertEquals(2,first.rows.size());
         System.assertEquals(true,first.hasMore);
         System.assertNotEquals(null,first.nextCursor);
-        ErMcpFieldUsageService.Page second=ErMcpFieldUsageService.readPage('Account.Name',String.valueOf(first.snapshotId),first.nextCursor,2);
+        ErMcpFieldUsageService.UsagePage second=ErMcpFieldUsageService.readPage('Account.Name',String.valueOf(first.snapshotId),first.nextCursor,2);
         System.assertEquals(1,second.rows.size());
         System.assertEquals(false,second.hasMore);
         System.assertEquals(null,second.nextCursor);
