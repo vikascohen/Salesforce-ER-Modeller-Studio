@@ -88,9 +88,9 @@
                     <button class={settingsThemeNavClass} onclick={handleSettingsThemeSection}>Theme</button>
                 </aside>
                 <main class="settings-content">
-                    <template if:true={settingsMcpSectionOpen}><c-er-mcp-settings></c-er-mcp-settings></template>
+                    <template if:true={settingsMcpSectionOpen}><c-er-mcp-settings onstudioerror={handleStudioDiagnostic}></c-er-mcp-settings></template>
                     <template if:true={settingsScheduleSectionOpen}>
-                        <c-field-usage-settings></c-field-usage-settings>
+                        <c-field-usage-settings onstudioerror={handleStudioDiagnostic}></c-field-usage-settings>
                     </template>
                     <template if:true={settingsSystemSectionOpen}>
                         <div class="settings-title"><div><h2>System Information</h2><p>Read-only Studio, Salesforce environment, architecture and Field Usage health information.</p></div><button class="arch-action-btn" onclick={loadSystemInfo}>Refresh</button></div>
@@ -140,7 +140,7 @@
                             <div class={diagnosticsOverallClass}><span>Current diagnostic state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Last completed: {diagnosticsCompletedAt}</small></div>
                         </section>
                         <section class="settings-panel"><div class="settings-panel-head"><div><h3>Current application issues</h3><p>{diagnosticEventCount} distinct issues recorded during this session.</p></div><button class="arch-action-btn" onclick={handleOpenLogFromSettings}>Open Error Log</button></div><template if:false={hasDiagnosticEvents}><p>No application issues recorded in this session.</p></template><template for:each={recentDiagnosticEvents} for:item="issue"><p key={issue.id}><strong>{issue.category}:</strong> {issue.summary}</p></template></section>
-                        <c-er-diagnostic-settings></c-er-diagnostic-settings>
+                        <c-er-diagnostic-settings onstudioerror={handleStudioDiagnostic}></c-er-diagnostic-settings>
                     </template>
                     <template if:true={settingsThemeSectionOpen}>
                         <div class="settings-title"><div><h2>Theme</h2><p>Choose the appearance used throughout ER Modeller Studio.</p></div></div>

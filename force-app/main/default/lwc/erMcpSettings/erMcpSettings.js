@@ -5,6 +5,7 @@ import getLogs from '@salesforce/apex/ErMcpSettingsController.getLogs';
 export default class ErMcpSettings extends LightningElement {
     settings; logs=[]; today=0; week=0; busy=false; message=''; method=''; outcome='';
     connectedCallback(){this.refresh();}
+    reportError(error,operation){const message=error?.body?.message||error?.message||operation;this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'MCP Settings / '+operation,message,severity:'ERROR'},bubbles:true,composed:true}));return message;}
     async refresh(){
         this.busy=true;
         try {
@@ -13,7 +14,7 @@ export default class ErMcpSettings extends LightningElement {
             this.logs=(summary.rows||[]).map(r=>({...r,created:new Date(r.CreatedDate).toLocaleString(),user:r.CreatedBy?.Name||'—'}));
             this.today=summary.today;this.week=summary.lastSevenDays;
             this.message='';
-        } catch(e){this.message=e?.body?.message||e?.message||'Unable to load MCP settings.';}
+        } catch(e){this.message=this.reportError(e,'Load MCP settings');}
         finally{this.busy=false;}
     }
     get ready(){return !!this.settings;}
@@ -28,7 +29,7 @@ export default class ErMcpSettings extends LightningElement {
         try {
             await saveSettings({statusEnabled:this.settings.Status_Enabled__c,usageEnabled:this.settings.Usage_Enabled__c,changedEnabled:this.settings.Changed_Enabled__c,scanEnabled:this.settings.Scan_Enabled__c,cooldownHours:Number(this.settings.Cooldown_Hours__c||0),retentionDays:Number(this.settings.Log_Retention_Days__c||30)});
             this.message='MCP settings saved.';
-        } catch(e){this.message=e?.body?.message||e?.message||'Unable to save.';}
+        } catch(e){this.message=this.reportError(e,'Save MCP settings');}
         finally{this.busy=false;}
     }
     csv(){

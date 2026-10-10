@@ -105,6 +105,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const isValidation=/^(Enter |Choose |Add another object|Mimic New ER needs|Object names in Mimic|No matching objects found)/i.test(value);
         this.recordDiagnostic(value,isValidation?'Model validation':'Studio',isValidation?'WARN':'ERROR');
     }
+    errorCallback(error,stack){this.recordDiagnostic((error?.message||String(error))+(stack?' | Component: '+stack:''),'Studio component','ERROR');}
+    handleStudioDiagnostic(event){const detail=event.detail||{};this.recordDiagnostic(detail.message||'Component operation failed.',detail.source||'Studio component',detail.severity||'ERROR');}
     recordDiagnostic(message,source='Studio',severity='ERROR'){
         const event=classifyDiagnostic(message,source,severity);
         const alreadyRecorded=this.diagnosticEvents.some(e=>e.message===event.message&&e.source===source&&e.severity===severity);

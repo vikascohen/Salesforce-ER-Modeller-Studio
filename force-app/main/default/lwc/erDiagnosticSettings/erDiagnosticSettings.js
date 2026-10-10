@@ -15,7 +15,7 @@ export default class ErDiagnosticSettings extends LightningElement {
     get messageNotice(){return this.notices.messageField||'';}
     get severityNotice(){return this.notices.severityField||'';}
     get disabledSave(){return this.busy;}
-    error(e){return e?.body?.message||e?.message||'Operation failed.';}
+    error(e){const message=e?.body?.message||e?.message||'Operation failed.';this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Diagnostic Settings',message,severity:'ERROR'},bubbles:true,composed:true}));return message;}
     update(e){const name=e.target.dataset.name;const value=e.target.type==='checkbox'?e.target.checked:e.target.value;this.config={...this.config,[name]:value};this.feedback='';if(name==='objectApi'){this.sequence++;this.notices={};}}
     updateRequired(e){const index=Number(e.target.dataset.index),name=e.target.dataset.name;this.config={...this.config,requiredFields:this.config.requiredFields.map((f,i)=>i===index?{...f,[name]:e.target.value}:f)};}
     addField(){this.config={...this.config,requiredFields:[...this.config.requiredFields,{field:'',value:''}]};}

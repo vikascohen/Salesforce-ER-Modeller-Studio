@@ -67,6 +67,6 @@ public with sharing class FieldUsageOrchestrator {
     public static void startScheduled() {
         try { start('Scheduled'); }
         catch (ScanAlreadyRunningException ex) { System.debug(LoggingLevel.INFO, ex.getMessage()); }
-        catch (FieldUsageToolingApiClient.ToolingApiException ex) { System.debug(LoggingLevel.ERROR, ex.getMessage()); }
+        catch (FieldUsageToolingApiClient.ToolingApiException ex) { ErStudioDiagnosticService.exception('Field Usage Scheduler','Start scheduled scan',ex); System.debug(LoggingLevel.ERROR, ex.getMessage()); }
     }
 }

@@ -11,6 +11,7 @@ public with sharing class ErMcpCore {
         if (enabled != true) throw new DisabledException('disabled by administrator');
     }
     public static void logCall(String method, String requested, String outcome, Long started, String detail) {
+        if(outcome=='Error') ErStudioDiagnosticService.error('Hosted MCP',method,String.isBlank(detail)?'MCP tool failed.':detail);
         try {
             insert new MCP_Tool_Log__c(Tool__c=method,Requested_Key__c=String.isBlank(requested)?null:requested.left(255),Outcome__c=outcome,Duration_Ms__c=System.now().getTime()-started,Detail__c=String.isBlank(detail)?null:detail.left(255));
         } catch (Exception ignored) { /* Logging must not override a successful read. */ }
