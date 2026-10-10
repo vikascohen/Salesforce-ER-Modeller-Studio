@@ -1305,7 +1305,7 @@ describe('c-diagram-studio', () => {
         expect(labels).not.toContain('Active'); // already on the line, just after the cursor — must not be offered
     });
 
-    it('shows the error banner with a line number for invalid DSL, without throwing', async () => {
+    it('routes invalid DSL to the diagnostic indicator without obscuring the canvas', async () => {
         const el = createStudio();
         await flushPromises();
 
@@ -1314,9 +1314,12 @@ describe('c-diagram-studio', () => {
         textarea.dispatchEvent(new CustomEvent('input'));
         await new Promise((resolve) => setTimeout(resolve, 300));
 
-        const errorBar = el.shadowRoot.querySelector('.error-bar');
-        expect(errorBar).not.toBeNull();
-        expect(errorBar.textContent).toMatch(/Line 1/);
+        expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
+        const indicator = el.shadowRoot.querySelector('.er-diagnostic-indicator');
+        expect(indicator).not.toBeNull();
+        indicator.click();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.settings-page')).not.toBeNull();
     });
 
     it('Clear Canvas empties the DSL and canvas back to a clean, error-free state', async () => {
