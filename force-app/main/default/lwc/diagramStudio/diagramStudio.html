@@ -139,6 +139,7 @@
                             <button class="arch-action-btn arch-export-btn diag-run-button" onclick={handleRunDiagnostics}>{diagnosticsButtonLabel}</button>
                             <div class={diagnosticsOverallClass}><span>Current diagnostic state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Last completed: {diagnosticsCompletedAt}</small></div>
                         </section>
+                        <section class="settings-panel"><div class="settings-panel-head"><div><h3>Current application issues</h3><p>{diagnosticEventCount} distinct issues recorded during this session.</p></div><button class="arch-action-btn" onclick={handleOpenLogFromSettings}>Open Error Log</button></div><template if:false={hasDiagnosticEvents}><p>No application issues recorded in this session.</p></template><template for:each={recentDiagnosticEvents} for:item="issue"><p key={issue.id}><strong>{issue.category}:</strong> {issue.summary}</p></template></section>
                         <c-er-diagnostic-settings></c-er-diagnostic-settings>
                     </template>
                     <template if:true={settingsThemeSectionOpen}>
@@ -153,11 +154,22 @@
 
     <template if:true={errorLogOpen}>
         <section class="settings-page">
-            <header class="settings-head"><div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Error Log</h1><p>Temporary in-session diagnostics. Events are lost on reload unless object logging is configured.</p></div><button class="mimic-close" onclick={handleCloseErrorLog}>Back to Diagram</button></header>
+            <header class="settings-head"><div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Error Log</h1><p>Session diagnostics. Salesforce object logging is optional; this list does not load historical records.</p></div><button class="mimic-close" onclick={handleCloseErrorLog}>{errorLogBackLabel}</button></header>
             <main class="settings-content er-error-log-content">
-                <div class="er-error-log-controls"><input aria-label="Search errors" type="search" placeholder="Search diagnostic messages" value={errorLogSearch} oninput={handleErrorLogSearch}/><select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select><button onclick={handleClearErrorLog}>Clear buffer</button></div>
-                <p>{diagnosticEventCount} buffered issues. For logging configuration open Settings → Diagnostics.</p>
-                <div class="er-error-log-list"><template for:each={visibleDiagnosticEvents} for:item="event"><article key={event.id} class="settings-panel"><strong>{event.severity}</strong><span> · {event.time} · occurrences: {event.count}</span><p>{event.message}</p><small>Check the affected operation, validate configuration and retry. Technical message shown above.</small></article></template></div>
+                <div class="er-error-log-controls"><input aria-label="Search errors" type="search" placeholder="Search diagnostics" value={errorLogSearch} oninput={handleErrorLogSearch}/><select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select><button onclick={handleClearErrorLog}>Clear session buffer</button></div>
+                <p>{diagnosticEventCount} distinct issues in this session. Select an issue to see its impact, suggested resolution and technical details.</p>
+                <div class="er-error-log-layout">
+                    <div class="er-error-log-list" aria-label="Diagnostic issues">
+                        <template for:each={visibleDiagnosticEvents} for:item="event"><button key={event.id} data-id={event.id} onclick={handleSelectDiagnostic} class="er-error-log-row"><strong>{event.category} · {event.severity}</strong><span>{event.timestamp} · {event.count} occurrence(s)</span><span>{event.summary}</span></button></template>
+                        <template if:false={hasDiagnosticEvents}><p>No issues have been recorded in this session.</p></template>
+                    </div>
+                    <div class="er-error-log-details">
+                        <template if:true={hasSelectedDiagnostic}>
+                            <h2>{selectedDiagnostic.summary}</h2><p><strong>What is affected?</strong> {selectedDiagnostic.impact}</p><h3>Suggested resolution</h3><ol><template for:each={selectedDiagnostic.steps} for:item="step"><li key={step}>{step}</li></template></ol><p><strong>Source:</strong> {selectedDiagnostic.source} · <strong>Category:</strong> {selectedDiagnostic.category}</p><p><strong>Recorded:</strong> {selectedDiagnostic.timestamp}</p><details><summary>Technical details</summary><pre class="er-error-technical">{selectedDiagnostic.message}</pre></details>
+                        </template>
+                        <template if:false={hasSelectedDiagnostic}><p>Select an issue to inspect its impact and recommended next steps.</p></template>
+                    </div>
+                </div>
             </main>
         </section>
     </template>
@@ -432,6 +444,7 @@
         </div>
 
         <div class="tb-spacer"></div>
+        <template if:true={hasDiagnosticEvents}><button class="er-diagnostic-indicator" title={diagnosticNotificationLabel} aria-label={diagnosticNotificationLabel} onclick={handleOpenDiagnosticCentre}>⚠ {diagnosticEventCount}</button></template>
         <input class="diag-name-input" type="text" value={fileName} oninput={handleNameChange} placeholder="Diagram name" />
     </div>
 
@@ -604,12 +617,6 @@
         <!-- CANVAS AREA -->
         <div class={canvasOuterClass}>
 
-            <template if:true={errorMessage}>
-                <div class="error-bar" role="alert">
-                    {errorMessage}
-                    <button class="error-dismiss" onclick={clearError}>x</button>
-                </div>
-            </template>
 
             <!-- Zoom controls -->
             <div class="zoom-controls">

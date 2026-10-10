@@ -1864,3 +1864,12 @@
 .fu-node[data-kind="evidence-more"]{width:210px;min-height:68px;border:1px dashed #5b8db8;background:rgba(0,122,204,.08);cursor:pointer}.fu-node[data-kind="evidence-more"] strong{color:#7cc7ff}.fu-node[data-kind="evidence-more"] span{color:var(--surface-text-muted)}
 
 .er-error-log-content{flex:1;min-height:0;overflow:auto;min-width:0}.er-error-log-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.er-error-log-controls input{flex:1;min-width:170px}.er-error-log-controls input,.er-error-log-controls select{padding:9px;max-width:100%;box-sizing:border-box}.er-error-log-list{overflow:auto;max-height:calc(100vh - 245px);overflow-wrap:anywhere}.er-error-log-list article{margin:12px 0;padding:15px}
+
+/* Diagnostics use the existing full-screen workspace and theme tokens. */
+.er-diagnostic-indicator{background:var(--surface-bg);color:var(--surface-text);border:1px solid var(--surface-border-strong);border-radius:6px;padding:5px 10px;cursor:pointer;white-space:nowrap}
+.er-diagnostic-indicator:focus-visible,.er-error-log-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.er-error-log-layout{display:grid;grid-template-columns:minmax(220px,2fr) minmax(250px,3fr);gap:16px;flex:1;min-height:0;overflow:hidden}
+.er-error-log-list,.er-error-log-details{min-width:0;min-height:0;overflow:auto;max-height:none;padding:8px}
+.er-error-log-row{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:7px;width:100%;padding:13px;margin-bottom:8px;border:1px solid var(--surface-border-strong);border-radius:6px;background:var(--surface-bg-alt);color:var(--surface-text);cursor:pointer;overflow-wrap:anywhere}
+.er-error-log-row span{font-size:.85rem}.er-error-log-details{background:var(--surface-bg-alt);color:var(--surface-text);border:1px solid var(--surface-border-strong);border-radius:6px;padding:18px;overflow-wrap:anywhere}.er-error-log-details li{margin-bottom:10px}.er-error-technical{white-space:pre-wrap;overflow:auto;max-height:240px;overflow-wrap:anywhere}
+@media(max-width:720px){.er-error-log-layout{grid-template-columns:minmax(0,1fr);overflow:auto}.er-error-log-list,.er-error-log-details{max-height:40vh}.er-error-log-controls{align-items:stretch}}

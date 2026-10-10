@@ -4,6 +4,7 @@
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
+import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
 import { loadScript } from 'lightning/platformResourceLoader';
 import SHEETJS from '@salesforce/resourceUrl/sheetjs';
 import { refreshApex } from '@salesforce/apex';
@@ -95,23 +96,38 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track errorLogOpen = false;
     @track errorLogSearch = '';
     @track errorLogSeverity = '';
+    @track selectedDiagnosticId = '';
+    errorLogOrigin = 'diagram';
     get errorMessage(){return this._errorMessage;}
     set errorMessage(value){
         this._errorMessage=value||'';
         if(!value || typeof value!=='string')return;
-        const last=this.diagnosticEvents[0];
-        if(last && last.message===value){this.diagnosticEvents=[{...last,count:last.count+1,time:new Date().toLocaleString()},...this.diagnosticEvents.slice(1)];return;}
-        const event={id:String(Date.now())+'-'+this.diagnosticEvents.length,message:value,severity:'ERROR',time:new Date().toLocaleString(),count:1};
-        this.diagnosticEvents=[event,...this.diagnosticEvents].slice(0,500);
-        persistDiagnosticEvent({message:value,severity:'ERROR'}).catch(()=>{});
+        const isValidation=/^(Enter |Choose |Add another object|Mimic New ER needs|Object names in Mimic|No matching objects found)/i.test(value);
+        this.recordDiagnostic(value,isValidation?'Model validation':'Studio',isValidation?'WARN':'ERROR');
     }
-    get visibleDiagnosticEvents(){return this.diagnosticEvents.filter(e=>(!this.errorLogSeverity||e.severity===this.errorLogSeverity)&&(!this.errorLogSearch||e.message.toLowerCase().includes(this.errorLogSearch.toLowerCase())));}
+    recordDiagnostic(message,source='Studio',severity='ERROR'){
+        const event=classifyDiagnostic(message,source,severity);
+        const alreadyRecorded=this.diagnosticEvents.some(e=>e.message===event.message&&e.source===source&&e.severity===severity);
+        this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
+        if(!alreadyRecorded)persistDiagnosticEvent({message:event.message,severity}).catch(()=>{});
+    }
+    get visibleDiagnosticEvents(){return filterDiagnostics(this.diagnosticEvents,this.errorLogSearch,this.errorLogSeverity).map(e=>({...e,selected:e.id===this.selectedDiagnosticId,buttonLabel:e.summary+' · '+e.category}));}
     get diagnosticEventCount(){return this.diagnosticEvents.length;}
-    handleMenuErrorLog(){this.openMenu=null;this.errorLogOpen=true;}
-    handleCloseErrorLog(){this.errorLogOpen=false;}
+    get recentDiagnosticEvents(){return this.diagnosticEvents.slice(0,5);}
+    get hasDiagnosticEvents(){return this.diagnosticEvents.length>0;}
+    get selectedDiagnostic(){return this.diagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
+    get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
+    get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
+    get diagnosticNotificationLabel(){return this.diagnosticEventCount+' diagnostic issue'+(this.diagnosticEventCount===1?'':'s')+'. Open Diagnostics.';}
+    handleOpenDiagnosticCentre(){this.errorLogOpen=false;this.settingsOpen=true;this.settingsSection='diagnostics';this.settingsMessage='';}
+    handleMenuErrorLog(){this.openMenu=null;this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;}
+    handleCloseErrorLog(){this.errorLogOpen=false;if(this.errorLogOrigin==='settings')this.settingsOpen=true;}
     handleErrorLogSearch(e){this.errorLogSearch=e.target.value;}
     handleErrorLogSeverity(e){this.errorLogSeverity=e.target.value;}
-    handleClearErrorLog(){this.diagnosticEvents=[];}
+    handleSelectDiagnostic(e){this.selectedDiagnosticId=e.currentTarget.dataset.id;}
+    handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';}
+    handleOpenLogFromSettings(){this.errorLogOrigin='settings';this.settingsOpen=false;this.errorLogOpen=true;}
+
 
     @track isDirty     = false;
 
