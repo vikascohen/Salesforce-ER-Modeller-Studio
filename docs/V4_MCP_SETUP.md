@@ -1,33 +1,49 @@
-# ER Modeller V4 — Salesforce Hosted MCP setup (draft)
+# ER Modeller Studio V4 — Salesforce Hosted MCP setup and verification
 
-**Status: not yet deployed or tested against a Salesforce org.** Salesforce hosts the MCP endpoint; this repository does not contain a self-hosted MCP server.
+**Status (2026-10-11):** Four Apex invocable actions and MCP object metadata deployed successfully to `warden-dev`; 170 Apex tests passed. **No verified external MCP client invocation or activated custom server yet.** Salesforce hosts the MCP transport. ER Modeller supplies the intelligence and Apex actions; it does not run a standalone MCP server.
 
-## Initial available Apex tools
-- **ER Modeller Get Snapshot Status** — `ErMcpGetSnapshotStatus` (read-only stored snapshot state)
-- **ER Modeller Get Field Usage** — `ErMcpGetFieldUsage` (read-only current evidence, cursor pagination using afterEvidenceId and pageSize (maximum 200 per call))
+## Architecture and what is reused
 
-**Not yet available:** Get Changed Fields, Run Scan, log purge, complete log filtering, and historical comparison. Do not register missing actions as tools.
+External MCP client → Salesforce Hosted MCP custom server → ER Modeller Apex invocable action → existing V3 Field Usage snapshots/evidence. Salesforce handles MCP hosting, discovery and transport. ER Modeller owns tool behaviour, settings, access checks, application logs and Studio-scoped diagnostics. The existing `Salesforce_Tooling_API` Named/External Credential is for **internal metadata collection**; it does not replace an external MCP client's OAuth authentication or External Client App.
 
-## Manual org setup (requires separate deployment authorisation)
-1. Deploy V4 metadata to an approved non-production org only after permission to do so is granted.
-2. Assign `ER MCP Administrator` to trusted administrators and `ER MCP Reader` to permitted read-only MCP callers. Review object/field access and organisation-specific permission policies before activation.
-3. Open Salesforce Setup → Integration → Salesforce MCP Servers. Create a **custom** MCP server named for ER Modeller.
-4. Add only the available **Apex Action** tools above. Do **not** add standard SObject record tools. Activate the server and copy its URL from Salesforce Setup.
-5. Register each external MCP client as an External Client App using the supported OAuth/PKCE flow and `mcp_api` scope. Do not commit secrets.
-6. Open ER Modeller → Settings → MCP Server to configure exposed tool switches and inspect logs.
-7. Test each tool with an authorised test user. Confirm tool discovery, invocable schema, no-current-snapshot responses, disabled behaviour, logging and permission denials.
-8. Confirm Salesforce Hosted MCP availability, edition and Flex Credits implications with the org administrator.
+## Four implemented Apex tools
 
-## Limitations
-- Apex classes and metadata have **not** been compiled or tested in a Salesforce org.
-- The initial log records effective Salesforce user through CreatedBy; caller External Client App attribution is not yet implemented.
-- Log retention is configurable but automatic purge is **not** yet implemented.
-- CSV exports only the currently displayed log rows.
-- Pagination cursors are evidence record IDs. The first page returns snapshotId; pass both snapshotId and afterEvidenceId for subsequent pages. If the active snapshot changes, the tool rejects continuation and the caller must restart from page one.
-- Snapshot status advertises scanner families supported by the product, not independently verified per-run coverage.
-- The settings page does not create, discover or activate a Salesforce Hosted MCP server.
-- The Hosted MCP server configuration itself is an admin Setup step. Salesforce documentation says custom server configurations are Metadata API deployable, but cannot yet be included in ISV managed packages.
+| Salesforce action label | Apex class | Purpose |
+|---|---|---|
+| ER Modeller Get Snapshot Status | `ErMcpGetSnapshotStatus` | Read current stored snapshot and active scan state |
+| ER Modeller Get Field Usage | `ErMcpGetFieldUsage` | Read field reference evidence, with bounded cursor pagination |
+| ER Modeller Get Changed Fields | `ErMcpGetChangedFields` | Compare dependency evidence across up to five successful snapshots; synchronous limit 40,000 evidence rows |
+| ER Modeller Run Scan | `ErMcpRunScan` | Queue existing V3 scan, enforcing scan-operator permission, active-run check and cooldown |
 
-## Sources
+These are deployed **application actions**, not proof of a live MCP endpoint. No standard Salesforce record/schema tools should be added to this custom server.
+
+## Administrator setup in Salesforce
+
+1. Use an authorised development org with V4 Apex, objects, fields, permission sets and dependencies deployed. `warden-dev` is the current validation org. Ensure the intended users have the appropriate `ER_MCP_Admin`, `ER_MCP_Reader` and, for Run Scan only, `ER_MCP_Scan_Operator` permissions. Verify effective object/field access and the MCP server's own tool access.
+2. In **Salesforce Setup**, locate **Salesforce MCP Servers** (menu placement can vary by release). Create a **custom** Hosted MCP server for ER Modeller, following Salesforce's current custom-server guide. Do not deploy or run a separate server on Linux.
+3. Add the four named **Apex invocable actions** as tools. Start with the read-only **Get Snapshot Status** tool for smoke testing. Do not include Salesforce's standard record tools. Save and activate the custom server.
+4. Obtain the actual MCP server URL from Salesforce Setup; do not invent or hard-code an endpoint. If the feature or actions are unavailable, check edition, feature availability, permissions and Salesforce's current Hosted MCP prerequisites.
+5. Create/configure an **External Client App** for the external caller, with Salesforce-supported OAuth authorisation and `mcp_api` scope. Follow Salesforce's current client authentication guide; protect secrets and use an appropriate integration identity. A Tooling API Named Credential is **not** an external MCP client credential.
+6. In ER Modeller Studio, open **Settings → MCP Server** and review enable switches, scan cooldown and invocation logs. This screen configures **ER Modeller behaviour**; it does not itself create or activate Salesforce's custom MCP server.
+7. From an authorised MCP client, connect to the URL, perform tool discovery (`tools/list`), invoke **Get Snapshot Status** (`tools/call`) and compare the returned snapshot ID/date with the Studio. Then test Field Usage, Changed Fields and Run Scan with deliberately bounded test data and a scan-authorised user.
+8. Verify rejection of unauthorised/disabled tools, missing snapshots, invalid cursors, cooldown and active-scan conflicts. Check `MCP_Tool_Log__c` records and the Studio diagnostics; do not infer success from Apex unit tests alone.
+
+## Implementation inventory
+
+- Shared logic: `ErMcpCore`, `ErMcpFieldUsageService`; four `ErMcp*` invocable actions.
+- Configuration and logs: `MCP_Settings__c`, `MCP_Tool_Log__c`, `ErMcpSettingsController`, `ErMcpLogRetention` and `erMcpSettings` LWC.
+- Permission sets: `ER_MCP_Admin`, `ER_MCP_Reader`, `ER_MCP_Scan_Operator`.
+- Diagnostics: failed MCP tool outcomes feed `ErStudioDiagnosticService`, scoped exclusively to ER Modeller Studio. Optional persistence uses an admin-configured existing Salesforce object. See `DIAGNOSTIC_COVERAGE.md`.
+
+## Verified vs not verified
+
+**Verified:** On 2026-10-11, deployment of the MCP object metadata and related Apex classes to `warden-dev` succeeded, with **170 passing Apex tests, zero failures**. The source remains on branch `v4`.
+
+**Not verified:** A custom Hosted MCP server's creation/activation, external OAuth handshake, MCP tool discovery, external invocation, client app attribution, automated log-retention scheduling, end-to-end permission behaviour and authenticated visual UI checks. No production-readiness claim.
+
+**Known limits:** Changed Fields refuses comparisons above 40,000 evidence rows; Field Usage cursor pagination is tied to the snapshot ID; log CSV covers displayed rows; historical Studio diagnostic events are not reloaded from arbitrary configured objects; logging in a rolled-back transaction may be lost. Snapshot coverage may be incomplete and must not be presented as proof a field is safe to modify.
+
+## Official references
+
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html
