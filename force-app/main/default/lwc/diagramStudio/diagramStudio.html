@@ -238,6 +238,15 @@
                             <lightning-button label="Copy draw.io XML" variant="neutral" onclick={handleCopyDrawio}></lightning-button>
                             <lightning-button label="Download .drawio" variant="neutral" onclick={handleDownloadDrawio}></lightning-button>
                         </div>
+                    <div class="export-divider"></div>
+                    <div class="export-field">
+                        <label class="export-label">Lucidchart Diagram</label>
+                        <p class="hint-text">Download an editable draw.io-format file for Lucidchart. In Lucidchart, select + New → Import documents and upload the downloaded .drawio file. Imported diagrams may need styling adjustments.</p>
+                        <div class="export-mermaid-actions">
+                            <lightning-button label="Download for Lucidchart (.drawio)" variant="neutral" onclick={handleDownloadLucidchart}></lightning-button>
+                        </div>
+                    </div>
+
                     </div>
                 </div>
                 <div class="modal-footer">
