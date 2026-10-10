@@ -3285,6 +3285,26 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
+    // Lucidchart imports native draw.io files; use our existing editable mxGraph export.
+    // This avoids a proprietary format, external API calls, or a second diagram converter.
+    handleDownloadLucidchart() {
+        try {
+            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            const safeName = (this.fileName || 'diagram').replace(/\\s+/g, '-');
+            const dataUri = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
+            const a = document.createElement('a');
+            a.href = dataUri;
+            a.download = safeName + '-Lucidchart.drawio';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            this.errorMessage = '';
+        } catch (e) {
+            this.errorMessage = 'Could not build Lucidchart-compatible diagram: ' + e.message;
+        }
+    }
+
     async handleDoExport() {
         this.exportBusy = true;
         try {
