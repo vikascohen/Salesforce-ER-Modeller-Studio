@@ -623,5 +623,3 @@ export function buildLegendGroup(svgWidth, svgHeight) {
 
     return g;
 }
-
-export { buildLucidDocument, buildLucidArchive } from './lucidStandardImport';
