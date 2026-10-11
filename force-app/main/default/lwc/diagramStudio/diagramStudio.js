@@ -3803,8 +3803,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleToggleHeatmap() {
         this.heatmapOn = !this.heatmapOn;
         if (this.heatmapOn && this.currentModelIsMimic) {
+            this.heatmapOn = false;
             this.recordCounts = {};
-            this.errorMessage = 'Heatmap is not available for a Mimic New ER model because its custom objects do not exist in this Salesforce org and therefore have no record data.';
+            this.errorMessage = 'Heatmap needs deployed, accessible Salesforce objects. Mimic New ER models may contain objects that do not exist in this org.';
             return;
         }
         if (this.heatmapOn) this.scheduleHeatmapFetch();
@@ -3837,7 +3838,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                     const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
                     if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
 
-                    if (value) {
+                    if (value == null) {
+                        this.recordDiagnostic('Heatmap could not retrieve record data for '+name+'. The object may not exist in this Salesforce org, or you may not have access to it.', 'Heatmap', 'WARN');
+                    } else {
                         next[name.toLowerCase()] = value;
                         // Progressive render: colour/badge each object as soon
                         // as its count arrives instead of waiting for the
