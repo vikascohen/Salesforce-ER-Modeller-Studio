@@ -14,7 +14,7 @@
 
 V4 makes Salesforce ER Modeller Studio's **persisted architectural intelligence available to authorised external systems and AI agents through Salesforce Hosted Model Context Protocol (MCP)**. An integration or AI assistant can query field dependencies and changes before proposing modifications to Salesforce. This is **impact intelligence, not a guarantee that a change is safe**.
 
-Salesforce hosts the MCP server and transport. V4 supplies Apex invocable actions, server-side controls, audit logging, diagnostics and administrator guidance. **No separate Node.js, Linux or self-hosted MCP server is required.**
+Salesforce hosts the MCP server and transport. V4 supplies Apex invocable actions, server-side controls, configurable diagnostics and administrator guidance. **No separate Node.js, Linux or self-hosted MCP server is required.**
 
 ## Version 4 feature inventory
 
@@ -87,6 +87,47 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 - Latest JavaScript regression: **177 Jest tests passed**, **10 skipped**, across 30 passing suites.
 - These results demonstrate code-level testing; they **do not establish production readiness or successful external MCP interoperability**.
 
+## Configure external Salesforce-object logging (Studio and MCP)
+
+The Studio can **optionally write diagnostic events to an existing Salesforce object** in your org, including a custom logging object provided by another application. It does **not** send log messages to an external web endpoint or logging service. No separate MCP log object is required. Configuration is shared by Studio and Hosted MCP.
+
+1. Open **Studio → Settings → Error Log Configuration** (the diagnostic logging configuration section; separate from the application self-test under Settings → Diagnostics).
+2. Enable **Store diagnostic events in a Salesforce object**.
+3. Enter the object's API name and the API name of the field that should contain the log message. Use **full API names**, including a namespace prefix where applicable. The selected object and fields must exist in this Salesforce org and be createable by the relevant user.
+4. Optionally configure a severity field and its accepted error/warning values, and supply default values for any other mandatory fields on that object.
+5. Click **Save Configuration**. The Studio validates object/field access, data types, required fields and restricted-picklist values before saving. Exercise a Studio diagnostic or MCP action and verify a record in your chosen object.
+
+### Logging configuration field reference
+
+| Setting / field | What it does |
+| --- | --- |
+| **Store diagnostic events in a Salesforce object** | Enables or disables optional persistent logging. When off, Studio does not write diagnostic records to the configured object; MCP's last-five history has no persistent source. |
+| **Full object API name** (`objectApi`) | Salesforce object that receives log records, e.g. `Application_Log__c` or `namespace__Log__c`. This is an existing object, not an object created by Studio. |
+| **Message field API name** (`messageField`) | Text or Text Area field holding the event identifier, source/operation and details. The Studio truncates to the actual Salesforce field length when necessary. This is also the field filtered by the MCP last-five query. |
+| **Populate a severity field** (`severityEnabled`) | Optional switch to populate a severity/status field on each new log record. |
+| **Severity field API name** (`severityField`) | API name of that destination field. Must be createable and accept the configured values. |
+| **Exact value for errors** (`errorValue`) | Value written to the severity field for `ERROR` events; must match the destination field's accepted value, including restricted picklists. |
+| **Exact value for warnings** (`warningValue`) | Value written for `WARN` events **and `INFO` events**, because the current configuration provides only error and warning mappings. The message remains the source of detailed event context. |
+| **Additional required field → Field API name** (`requiredFields[].field`) | API name of another mandatory destination field, such as a category or origin field. Add each required field once. |
+| **Additional required field → Default value** (`requiredFields[].value`) | Constant value to write to that mandatory field for every diagnostic record. Must match the Salesforce field type and allowed values. |
+| **Save Configuration** | Validates and saves the mapping in the Studio's diagnostic configuration; it does not create or alter the target object or its fields. |
+
+### How to distinguish Studio and MCP records
+
+The **beginning of the configured message field** identifies the producer:
+
+```text
+ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation] tool=Get Field Usage; outcome=Success; durationMs=42; requested=provided; detail=none
+ER_STUDIO_MODELLER [Field Usage / Scan] Example Studio diagnostic
+```
+
+- Filter the message field by **Starts With `ER_STUDIO_MODELLER_MCP `** to find MCP events only. The trailing space is significant: without it, the broader `ER_STUDIO_MODELLER` prefix also matches MCP entries.
+- Filter by **Starts With `ER_STUDIO_MODELLER [`** for non-MCP Studio diagnostics.
+- MCP events contain the tool name, outcome, elapsed time in milliseconds and indicators of whether request/detail values were provided. Raw requested keys and raw error details are deliberately not stored by the MCP invocation logger.
+- **Settings → MCP Server → Last 5 MCP calls** performs a server-side query against the configured object: message `LIKE 'ER_STUDIO_MODELLER_MCP %'`, newest `CreatedDate` first, `LIMIT 5`. It does **not** query or download the entire Studio log history. Click **Refresh calls** to reload. If the configuration is absent or the object/field cannot be accessed, a notice appears instead.
+
+**Operational considerations:** Logging is best-effort, subject to user-mode Salesforce CRUD/FLS, transaction rollback, record validation and the configured object's retention policy. The Studio does not automatically delete records in your external logging object or provide a tamper-proof audit trail. Session Error Log and persisted Salesforce records are separate views; the session view does not automatically fetch all historical records.
+
 ## Still in development / not yet accepted
 
 - Creation, activation and real-client verification of the Salesforce Hosted MCP custom server.
@@ -104,5 +145,3 @@ Additional MCP tools and architecture rule engines are **not part of the current
 ## Licence
 
 See [LICENSE](LICENSE) for the repository licence.
-
-All other Studio diagnostic messages begin with ER_STUDIO_MODELLER, while MCP messages begin with ER_STUDIO_MODELLER_MCP.
