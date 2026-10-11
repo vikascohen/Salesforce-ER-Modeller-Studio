@@ -117,6 +117,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get diagnosticEventCount(){return this.diagnosticEvents.length;}
     get recentDiagnosticEvents(){return this.diagnosticEvents.slice(0,5);}
     get hasDiagnosticEvents(){return this.diagnosticEvents.length>0;}
+    get hasNoDiagnosticEvents(){return this.diagnosticEvents.length===0;}
     get selectedDiagnostic(){return this.diagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
@@ -127,6 +128,37 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleErrorLogSearch(e){this.errorLogSearch=e.target.value;}
     handleErrorLogSeverity(e){this.errorLogSeverity=e.target.value;}
     handleSelectDiagnostic(e){this.selectedDiagnosticId=e.currentTarget.dataset.id;}
+    handleExportSessionErrors(){
+        if(!this.diagnosticEvents.length)return;
+        const lines=['ER Modeller Studio - Session Diagnostic Export',
+            'Exported: '+new Date().toISOString(),
+            'Distinct issues: '+this.diagnosticEvents.length,
+            'Scope: Current browser session only. Salesforce persisted logs are not included.',
+            ''];
+        this.diagnosticEvents.forEach((event,index)=>{
+            lines.push('--- Issue '+(index+1)+' ---',
+                'Severity: '+(event.severity||''),
+                'Timestamp: '+(event.timestamp||''),
+                'Source: '+(event.source||''),
+                'Category: '+(event.category||''),
+                'Occurrences: '+(event.count||1),
+                'Summary: '+(event.summary||''),
+                'Impact: '+(event.impact||''),
+                'Suggested resolution:');
+            (event.steps||[]).forEach((step,i)=>lines.push('  '+(i+1)+'. '+step));
+            lines.push('Technical details: '+(event.message||''),'');
+        });
+        const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
+        const url=URL.createObjectURL(blob);
+        try{
+            const link=document.createElement('a');
+            link.href=url;
+            link.download='ER-Modeller-Session-Errors-'+new Date().toISOString().slice(0,10)+'.txt';
+            link.style.display='none';
+            document.body.appendChild(link);
+            try{link.click();}finally{document.body.removeChild(link);}
+        }finally{URL.revokeObjectURL(url);}
+    }
     handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';}
     handleOpenLogFromSettings(){this.errorLogOrigin='settings';this.settingsOpen=false;this.errorLogOpen=true;}
 

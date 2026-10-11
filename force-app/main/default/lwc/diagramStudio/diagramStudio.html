@@ -169,6 +169,7 @@
                 <div class="er-error-log-controls">
                     <input aria-label="Search errors" type="search" placeholder="Search messages, categories or sources…" value={errorLogSearch} oninput={handleErrorLogSearch}/>
                     <select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select>
+                    <button class="er-log-clear" onclick={handleExportSessionErrors} disabled={hasNoDiagnosticEvents}>Export to TXT</button>
                     <button class="er-log-clear" onclick={handleClearErrorLog}>Clear session buffer</button>
                 </div>
                 <div class="er-error-log-layout">
