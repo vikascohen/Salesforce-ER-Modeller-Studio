@@ -11,7 +11,7 @@ public without sharing class ErStudioDiagnosticService {
     private static final Set<String> STUDIO_SOURCES=new Set<String>{
         'Studio','Studio component','Model validation','ER Modelling','DSL',
         'Architecture Intelligence','Data Dictionary','Field Usage',
-        'Field Usage Scheduler','Hosted MCP','MCP Settings','Diagnostic Settings',
+        'Field Usage Scheduler','Hosted MCP','HOSTED_MCP','MCP Settings','Diagnostic Settings',
         'Studio Settings','Diagram Export','Diagram Import','Studio Files'
     };
     private static Integer attempts=0;
@@ -33,7 +33,8 @@ public without sharing class ErStudioDiagnosticService {
         if(!STUDIO_SOURCES.contains(source) || attempts>=MAX_EVENTS_PER_TRANSACTION || String.isBlank(message))return false;
         attempts++;
         try {
-            String context='['+safe(source,65)+' / '+safe(operation,65)+'] ';
+            String prefix=(source=='HOSTED_MCP' || source=='Hosted MCP') ? 'ER_STUDIO_MODELLER_MCP' : 'ER_STUDIO_MODELLER';
+            String context=prefix+' ['+safe(source,65)+' / '+safe(operation,65)+'] ';
             return ErDiagnosticConfigController.recordEvent(context+message.left(3500),severity);
         }catch(Exception ignored){return false;}
     }

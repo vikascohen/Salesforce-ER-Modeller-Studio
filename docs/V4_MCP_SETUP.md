@@ -48,4 +48,6 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html
 
-MCP invocation diagnostics use the existing opt-in Studio logging configuration. V4 does not install a separate MCP log object, log retention scheduler, or dedicated invocation-history table. Successful tool calls emit INFO and failures emit ERROR; only tool name, outcome and duration are logged, not request values. If the chosen severity field has no INFO value, INFO events use its configured warning value.
+MCP invocation diagnostics use the existing opt-in Studio logging configuration. The shared diagnostic message starts with `ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]` to distinguish MCP calls from other Studio logs. V4 does not install a separate MCP log object, log retention scheduler, or dedicated invocation-history table. Successful tool calls emit INFO and failures emit ERROR; only tool name, outcome and duration are logged, not request values. If the chosen severity field has no INFO value, INFO events use its configured warning value.
+
+All other Studio diagnostic messages begin with ER_STUDIO_MODELLER, while MCP messages begin with ER_STUDIO_MODELLER_MCP.

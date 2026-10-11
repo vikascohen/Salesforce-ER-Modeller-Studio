@@ -56,7 +56,7 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 
 ### 5. Unified Studio diagnostics for MCP
 
-- MCP invocations use the existing Studio diagnostic service, **not a dedicated MCP log object**.
+- MCP invocations use the existing Studio diagnostic service, **not a dedicated MCP log object**. Every MCP entry is prefixed **`ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]`** in the shared message field so administrators can filter MCP records.
 - Events include tool name, outcome and elapsed milliseconds; request values and raw error details are not persisted by this integration.
 - Configure an existing Salesforce object in **Settings → Diagnostics** to opt in to persistent events. With persistence disabled, no durable MCP call history is kept.
 - Successful calls are emitted as `INFO`; errors as `ERROR`. If a configured severity field supports only ERROR/WARN values, INFO events use the configured warning value; distinguish the event level in the message.
@@ -104,3 +104,5 @@ Additional MCP tools and architecture rule engines are **not part of the current
 ## Licence
 
 See [LICENSE](LICENSE) for the repository licence.
+
+All other Studio diagnostic messages begin with ER_STUDIO_MODELLER, while MCP messages begin with ER_STUDIO_MODELLER_MCP.

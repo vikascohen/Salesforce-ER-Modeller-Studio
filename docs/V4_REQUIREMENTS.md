@@ -128,4 +128,6 @@ The latest post-consolidation `RunLocalTests --code-coverage` result in `warden-
 
 ### Unified logging decision (2026-10-11)
 
-MCP logging was consolidated into the existing opt-in Studio diagnostic sink. Removed `MCP_Tool_Log__c`, `ErMcpLogRetention`, the MCP-specific retention field, invocation log table, counts and CSV export. MCP events record tool name, outcome and elapsed time, not raw requested keys or error details. INFO events use the configured warning severity value when a severity field is enabled. Diagnostic object retention and audit guarantees are managed externally; rollback and actual external MCP calls remain unverified.
+MCP logging was consolidated into the existing opt-in Studio diagnostic sink. All MCP entries carry the searchable `ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]` prefix. Removed `MCP_Tool_Log__c`, `ErMcpLogRetention`, the MCP-specific retention field, invocation log table, counts and CSV export. MCP events record tool name, outcome and elapsed time, not raw requested keys or error details. INFO events use the configured warning severity value when a severity field is enabled. Diagnostic object retention and audit guarantees are managed externally; rollback and actual external MCP calls remain unverified.
+
+All other Studio diagnostic messages begin with ER_STUDIO_MODELLER, while MCP messages begin with ER_STUDIO_MODELLER_MCP.

@@ -20,7 +20,7 @@ public with sharing class ErMcpCore {
         String message = 'tool=' + safeLogToken(method) + '; outcome=' + safeLogToken(outcome) +
             '; durationMs=' + String.valueOf(elapsed) + '; requested=' + (String.isBlank(requested) ? 'none' : 'provided') +
             '; detail=' + (String.isBlank(detail) ? 'none' : 'available');
-        ErStudioDiagnosticService.event('Hosted MCP', 'Tool invocation', outcome == 'Error' ? 'ERROR' : 'INFO', message);
+        ErStudioDiagnosticService.event('HOSTED_MCP', 'Tool invocation', outcome == 'Error' ? 'ERROR' : 'INFO', message);
     }
     private static String safeLogToken(String value) {
         return String.isBlank(value) ? 'unknown' : value.left(80).replaceAll('[^a-zA-Z0-9 _-]', '_');
