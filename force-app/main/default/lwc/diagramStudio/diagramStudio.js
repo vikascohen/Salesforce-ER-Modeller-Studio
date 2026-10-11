@@ -39,7 +39,7 @@ import fieldImpactObjects from '@salesforce/apex/FieldUsageController.getSnapsho
 import fieldUsageSearchEvidence from '@salesforce/apex/FieldUsageController.searchEvidence';
 import fieldUsageGetSourceTypes from '@salesforce/apex/FieldUsageController.getSourceTypes';
 import { exportSvgAsPng, exportArchitectureReportAsPng, exportArchitectureReportAsPdf } from 'c/diagramExportUtils';
-import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, splitFieldList } from 'c/erDiagramLogic';
+import { ER_SAMPLE, parseEr, buildErGeometry, buildLegendGroup, buildMermaidErDiagram, buildDrawioXml, buildLucidDocument, buildLucidArchive, splitFieldList } from 'c/erDiagramLogic';
 import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastRadius, detectJunctionObjects, analyseDomains, deriveArchitectureIntelligence } from 'c/architectureIntelligence';
 import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle, calculateFieldUsageFitZoom } from 'c/fieldUsageMapLogic';
 import { exportFieldUsageMapAsPng } from 'c/fieldUsageMapExport';
@@ -3281,23 +3281,24 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // Lucidchart imports native draw.io files; use our existing editable mxGraph export.
-    // This avoids a proprietary format, external API calls, or a second diagram converter.
+    // Lucid Standard Import is a ZIP with document.json; no Lucid account token needed.
     handleDownloadLucidchart() {
         try {
-            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
-            const safeName = (this.fileName || 'diagram').replace(/\\s+/g, '-');
-            const dataUri = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
+            const model = parseEr(this.sourceText);
+            const lucidDoc = buildLucidDocument(model, this._erBoxes, this.fileName);
+            const archive = buildLucidArchive(lucidDoc);
+            const url = URL.createObjectURL(new Blob([archive], { type: 'application/zip' }));
             const a = document.createElement('a');
-            a.href = dataUri;
-            a.download = safeName + '-Lucidchart.drawio';
+            a.href = url;
+            a.download = (this.fileName || 'diagram').replace(/[^a-z0-9._-]+/gi, '-') + '.lucid';
             a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            URL.revokeObjectURL(url);
             this.errorMessage = '';
         } catch (e) {
-            this.errorMessage = 'Could not build Lucidchart-compatible diagram: ' + e.message;
+            this.errorMessage = 'Could not build Lucid Standard Import file: ' + e.message;
         }
     }
 
