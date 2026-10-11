@@ -16,67 +16,34 @@ V4 makes Salesforce ER Modeller Studio's **persisted architectural intelligence 
 
 Salesforce hosts the MCP server and transport. V4 supplies Apex invocable actions, server-side controls, configurable diagnostics and administrator guidance. **No separate Node.js, Linux or self-hosted MCP server is required.**
 
-## Requirements and implementation progress — at a glance
+## V4-only requirements and implementation status
 
-This checklist is an **implementation inventory**, not a claim of production readiness. **Implemented** means the capability exists in the `v4` source; **Partially complete** means the implementation exists but an important requirement or acceptance step remains; **Not verified** means the external behaviour has not been demonstrated; **Not approved** means it is a proposal, not a committed deliverable. A completed code item may still need integration, security, performance and browser testing. No arbitrary overall percentage is claimed.
+This checklist covers **changes introduced on the `v4` branch only**. Earlier ER canvas, DSL, data dictionary, architecture intelligence, Field Usage scanning, and ordinary diagram exports are **not counted as V4 achievements**. A code-complete feature may still require browser or external-client acceptance; percentages below describe implementation, not production readiness.
 
-### A. ER modelling and visual design (existing Studio capabilities carried into V4)
+1. **[Implemented in Apex; external acceptance pending] Get Snapshot Status:** Provide an MCP invocable action that returns the current successful Field Usage snapshot ID, completion date, dependency count, scanner families and any active scan state, without starting a scan.
+2. **[Implemented in Apex; external acceptance pending] Get Field Usage:** Expose stored object/field dependency references to authorised MCP callers, with bounded, snapshot-aware cursor pagination and provenance rather than a new live scan.
+3. **[Implemented in Apex; external acceptance pending] Get Changed Fields:** Compare persisted evidence across up to five completed snapshots, report dependency changes and no-change outcomes, and enforce the 40,000-evidence-row synchronous limit.
+4. **[Implemented in Apex; external acceptance pending] Run Scan:** Allow an authorised MCP operator to queue the existing asynchronous scanner, reject overlapping scans and enforce a configurable cooldown.
+5. **[Implemented in source; server activation pending] Salesforce Hosted MCP integration:** Supply the four Apex invocable actions for a custom Salesforce-hosted MCP server. Salesforce, not this repository, hosts the protocol endpoint; no standalone MCP service is installed.
+6. **[Not verified] Custom server activation and tool discovery:** Configure and activate the Salesforce Hosted MCP custom server, register the four actions and verify real-client `tools/list` and `tools/call` requests.
+7. **[Not verified] External client OAuth:** Configure a Salesforce External Client App with the supported `mcp_api` scope and test authenticated tool access. The scanner's outbound Tooling API Named Credential is separate.
+8. **[Implemented] Consolidated permissions:** Merge MCP reader, administrator and scan-operator access into the existing `Diagram_Studio_User` permission set; remove the three separate MCP permission sets while retaining Apex custom-permission checks. Restrict assignment to trusted users.
+9. **[Implemented] MCP Settings interface:** Add **Settings → MCP Server** with independent enable switches for Get Snapshot Status, Get Field Usage, Get Changed Fields and Run Scan; enforce switches in Apex, not merely in the UI.
+10. **[Implemented] Scan cooldown setting:** Let administrators set the scan cooldown from 0 to 8,760 hours and apply it alongside the active-run and operator-permission checks.
+11. **[Implemented] Shared diagnostic logging:** Route MCP tool outcomes through the Studio diagnostic service and its opt-in existing-Salesforce-object logging configuration; eliminate the dedicated `MCP_Tool_Log__c` object and MCP-specific retention class/field.
+12. **[Implemented; persistence acceptance pending] Log source identification:** Prefix MCP events with `ER_STUDIO_MODELLER_MCP` and other Studio diagnostic events with `ER_STUDIO_MODELLER`; include tool, outcome and elapsed milliseconds without persisting raw requested keys or raw error details.
+13. **[Implemented; browser acceptance pending] Last five MCP calls:** Show only the five newest MCP-prefixed events from the configured log object in MCP Settings, filtered and limited in Salesforce with `ORDER BY CreatedDate DESC LIMIT 5`; provide Refresh and empty/unconfigured states. Do not load all Studio logs.
+14. **[Implemented] Configurable Studio diagnostic destination:** Add optional mapping to an existing Salesforce logging object, including message field, severity mapping and defaults for required fields. Validate object/field access and types before saving; logging remains best-effort.
+15. **[Implemented] Studio diagnostic handling:** Add shared Studio-scoped diagnostic event routing and session Error Log visibility, without claiming Salesforce-wide monitoring or automatic retrieval of all persisted history.
+16. **[Implemented] MCP setup and help documentation:** Document custom-server registration, tool setup, OAuth, permissions, execution settings, diagnostic configuration, field meanings and troubleshooting in the in-product Help and repository.
+17. **[Partially complete] Automated regression and deployment verification:** Deploy MCP Apex, settings and UI to the authorised development org and run Apex/Jest tests; dedicated last-five-query tests, browser acceptance and a refreshed full regression run remain outstanding.
+18. **[Not verified] End-to-end MCP acceptance:** Test authenticated external invocations, denial paths, logging under rollback, high-volume snapshot comparisons and integration-user access before declaring the V4 integration production-ready.
 
-1. **[Implemented — inherited] Visual ER canvas:** Model Salesforce objects as draggable diagram nodes; position objects and inspect their fields and relationship connectors without changing live Salesforce metadata.
-2. **[Implemented — inherited] Salesforce schema import:** Import accessible org objects by API name and build diagram content from described fields and relationships; access and metadata visibility depend on the current Salesforce user.
-3. **[Implemented — inherited] Bidirectional DSL modelling:** Edit the compact ER domain-specific language, parse it into a model, and reconstruct the visual diagram from exported or imported DSL; support editor suggestions and synchronisation between code and canvas.
-4. **[Implemented — inherited] Saved diagrams and workspace tabs:** Create, rename, save, reopen and organise model files in the Studio Explorer; preserve multiple working tabs and indicate unsaved edits.
-5. **[Implemented — inherited] Relationship modelling:** Represent lookup, master-detail and supported polymorphic relationships so architects can inspect the direction and structure of dependencies between objects.
-6. **[Implemented — inherited] Data Dictionary:** Browse object/field metadata, search fields and export dictionary data to Excel; distinguish record-population percentages from code dependency evidence.
-7. **[Implemented — inherited] Schema drift / compare with org:** Compare a saved model with current Salesforce schema to investigate metadata changes rather than assuming a diagram remains current.
-8. **[Implemented — inherited] Sharing and record-volume views:** Inspect supported sharing context and record-count heatmap signals alongside the model; these are contextual signals, not security certification or performance guarantees.
-9. **[Implemented — inherited] Diagram PNG export:** Generate an image of the ER diagram; the Studio export flow saves the image to Salesforce Files and downloads it to the browser.
-10. **[Implemented — inherited] Mermaid export:** Copy Mermaid ER source or download a `.mmd` file for documentation and compatible renderers.
-11. **[Implemented — inherited] Editable draw.io export:** Copy mxGraph/draw.io XML or download an editable `.drawio` diagram preserving the model layout for diagrams.net.
-12. **[Implemented — inherited] Lucidchart-compatible export:** Use **File → Export → Lucidchart Diagram → Download for Lucidchart (.drawio)** to download an editable draw.io-format file; in Lucidchart, use **+ New → Import documents** to import it. This is **not a proprietary `.lucid` export or a direct Lucidchart API integration**; imported styling may need adjustment. External Lucidchart import acceptance has not been independently verified in this V4 review.
-13. **[Implemented — inherited] Architecture overview and topology:** Calculate and display structural metrics, connected components, isolated objects, cycles and hotspots from the loaded ER graph; interpret them as evidence for investigation, not design verdicts.
-14. **[Implemented — inherited] Architecture navigation and impact:** Provide Object Map & Impact, Relationship Path Finder, junction intelligence, relationship insights and change-readiness views to explore structural reach and potential blast radius.
-15. **[Implemented — inherited] Theme and workspace controls:** Offer selectable Studio themes, dedicated analysis/help/settings workspaces and navigation back to the active model.
+**V4 progress:** **14 implemented requirements**, **1 partially complete**, and **3 not verified** out of **18 tracked requirements**. Several implemented requirements still have explicitly stated acceptance gaps. These counts are **not** a percentage of production readiness.
 
-### B. Field Usage Intelligence (existing snapshot foundation reused by V4)
+**Not a V4 implementation:** The Lucidchart-compatible `.drawio` export is already present in the Studio and was therefore deliberately **excluded** from this V4-only checklist. It is not a native Lucidchart API integration.
 
-16. **[Implemented — inherited] Asynchronous field-usage discovery:** Launch the existing Salesforce batch scanning pipeline and retain durable run/work-unit progress; avoid starting overlapping scans from the Studio UI.
-17. **[Implemented — inherited; coverage-limited] Dependency scanners:** Gather supported references from Apex classes, triggers, active Flows, LWC, Aura and formula-related sources. Dynamic references, external integrations and unsupported metadata may not be detected.
-18. **[Implemented — inherited] Persisted successful snapshots:** Store dependency evidence for subsequent analysis, preserve a current successful snapshot and expose scan status; incomplete or failed runs must not be represented as complete coverage.
-19. **[Implemented — inherited] Field Usage Map:** Select Salesforce objects and fields, build a dependency graph from stored evidence and inspect referenced component/source information.
-20. **[Implemented — inherited] Field Change Impact:** Investigate components that reference a field before proposing changes; no-dependency results do **not** guarantee the field is safe to delete.
-21. **[Partially complete — retention acceptance outstanding] Snapshot history:** The V4 requirements target the **last ten successful snapshots** and comparisons across the **last five**. Verify retention, historical upgrade behaviour and storage cost under realistic scale before treating the full requirement as accepted.
-
-### C. V4 Salesforce Hosted MCP — new implementation
-
-22. **[Implemented in Apex; external integration not verified] Get Snapshot Status:** Return current completed snapshot identity, date, dependency count, supported scanner families and active scan state without launching a new scan.
-23. **[Implemented in Apex; external integration not verified] Get Field Usage:** Accept a requested object/field, return persisted dependency evidence and provenance with snapshot-aware bounded cursor pagination; do not query live source code for each request.
-24. **[Implemented in Apex; external integration not verified] Get Changed Fields:** Compare stored dependency evidence across up to five completed snapshots, identifying additions/removals and unchanged comparisons; refuse oversized synchronous comparisons above **40,000 evidence rows**.
-25. **[Implemented in Apex; external integration not verified] Run Scan:** Start the existing asynchronous scan with an operator permission check, active-run exclusion and administrator-defined cooldown; do not synchronously perform a full scan in the MCP request.
-26. **[Implemented — activation pending] Salesforce-hosted architecture:** Supply four Apex invocable actions for registration in a **custom Salesforce Hosted MCP server**; do not deploy a separate Node.js or self-hosted MCP transport.
-27. **[Not verified — administrator/external-client acceptance] Hosted server registration:** Create and activate the custom MCP server in Salesforce Setup, register the four actions, obtain its actual endpoint, and demonstrate authenticated `tools/list` and `tools/call` requests.
-28. **[Not verified — external-client acceptance] OAuth integration:** Configure a Salesforce External Client App with supported authorisation and `mcp_api` scope; validate integration-user permissions. This is distinct from the outbound `Salesforce_Tooling_API` Named Credential used by scanners.
-29. **[Implemented — deployed in development org] Unified permissions:** Use the single `Diagram_Studio_User` permission set for Studio and MCP class/object/field/custom-permission access; only assign it to trusted users because it includes MCP administration and scan initiation.
-30. **[Implemented in Apex] MCP tool controls:** Expose four independent enable/disable switches in **Settings → MCP Server**; reject disabled tool execution on the server rather than hiding a button only in the UI.
-31. **[Implemented in Apex] Scan cooldown:** Configure an integer cooldown in hours (0–8,760) and apply it alongside active-run and operator-permission checks.
-32. **[Implemented — opt-in] Shared diagnostic persistence:** Reuse **Settings → Error Log Configuration** to map an existing Salesforce object, message field, optional severity field and mandatory-field defaults. Do not create a separate MCP logging object.
-33. **[Implemented — persistence/rollback acceptance pending] Distinct diagnostic origins:** Prefix MCP messages with `ER_STUDIO_MODELLER_MCP` and other Studio messages with `ER_STUDIO_MODELLER`; log tool name, outcome and elapsed milliseconds without storing raw requested keys or raw error details.
-34. **[Implemented — browser acceptance pending] Last five MCP calls:** Query **only** messages beginning `ER_STUDIO_MODELLER_MCP ` from the configured logging object, sorted by `CreatedDate DESC` and capped by a **server-side `LIMIT 5`**. Show a clear empty/unconfigured state and offer **Refresh calls**; do not download the complete log history.
-35. **[Implemented — inherited/configurable] Studio diagnostics and session Error Log:** Provide scoped application diagnostic events, opt-in Salesforce-object persistence and session-visible errors; session history does not automatically reload every record from the chosen log object.
-36. **[Implemented] Setup and help guidance:** Document hosted-server activation, four tools, OAuth separation, diagnostics, field mapping, permissions, testing and troubleshooting in the Studio Help and repository documentation.
-37. **[Partially complete — acceptance pending] Automated regression coverage:** Existing Apex and Jest suites exercise MCP contracts and Studio functionality; the new last-five query needs dedicated regression tests and browser acceptance. The last recorded full Apex run was **183/183 passed**, **86% org-wide coverage**; it predates some subsequent V4 changes.
-38. **[Not verified] Production-grade MCP interoperability:** Complete real-client discovery/invocation, permission-denial tests, logging under rollback, realistic data-volume tests, browser UX and deployment acceptance before declaring V4 stable.
-
-### D. Ideas recorded but **not** approved or implemented in V4
-
-39. **[Not approved — 0%] Check Field List:** A proposed bounded multi-field dependency query, including per-field errors and provenance; not part of the four agreed MCP actions.
-40. **[Not approved — 0%] Get Component Footprint:** A proposed reverse dependency lookup showing fields referenced by a specified component; not implemented as a fifth tool.
-41. **[Not approved — 0%] Get Object Automation:** A proposed live automation query for triggers/Flows/validation rules; platform overlap and scope have not been approved.
-42. **[Not approved — 0%] Architecture rule engine and security simulation:** Future ideas outside this V4 Hosted MCP scope; do not confuse them with shipped ER Modeller features.
-
-**Progress summary:** **33 of 42** checklist items have implementation present (including inherited Studio features and items still awaiting acceptance); **2 items** are partially complete (21, 37), **3 items** require external/operational verification not yet demonstrated (27, 28, 38), and **4 items** are unapproved proposals (39–42), so **do not interpret these counts as a percentage of production readiness**. The checklist's primary source of truth is each item's explicit status above.
-
-## Version 4 feature inventory
+## Detailed V4 implementation notes
 
 ### 1. Four MCP tools (Apex invocable actions)
 
