@@ -1381,7 +1381,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get canvasSummaryToggleLabel(){ return this.canvasSummaryVisible?'Hide Summary':'Show Summary'; }
     handleToggleCanvasSummary(){ this.canvasSummaryVisible=!this.canvasSummaryVisible; }
-    get showCanvasFitExport(){ return this.canvasHasModel && this.canvasFitActive && this.canvasMaximised; }
+    get showCanvasFitExport(){ return this.canvasHasModel; }
     handleToggleDslMaximise(){ this.preserveDslCaretForRender(); this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
     handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; else this.canvasFitActive=false; }
     handleFitModel(){

@@ -94,6 +94,20 @@ function createStudio() {
 }
 
 describe('c-diagram-studio', () => {
+    it('shows Export for a nonempty canvas even before Fit Model or maximise', async () => {
+        const el=createStudio();
+        await flushPromises();
+        // A DSL edit creates a real model without invoking Fit Model or maximise.
+        const editor=el.shadowRoot.querySelector('.code-editor');
+        expect(editor).not.toBeNull();
+        editor.value='entity Demo__c : Name';
+        editor.dispatchEvent(new CustomEvent('input'));
+        await new Promise(resolve=>setTimeout(resolve,350));
+        const controls=[...el.shadowRoot.querySelectorAll('.zoom-controls button')].map(b=>b.textContent.trim());
+        expect(controls).toContain('Fit Model');
+        expect(controls).toContain('Export');
+    });
+
     it('does not offer Fit Model or fitted Export on an empty canvas', async () => {
         const el=createStudio();
         await flushPromises();
