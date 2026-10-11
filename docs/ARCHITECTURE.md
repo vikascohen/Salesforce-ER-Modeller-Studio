@@ -447,3 +447,154 @@ Salesforce schema / metadata / supported source
 The visual modeller and DSL share one semantic meaning. Architecture Intelligence reasons over the ER model. Field Usage gathers durable source evidence asynchronously. Object Intelligence combines selected-object metadata with appropriate dependency context. The UI progressively discloses detail without pretending that structural signals or missing evidence are definitive conclusions.
 
 That separation of **meaning, evidence, analysis and presentation** is the core architectural principle of ER Modeller Studio.
+
+## 19. Version 4 — Salesforce Hosted MCP architecture
+
+**Implementation status:** Four ER Modeller Apex invocable actions exist in V4; activation of a Salesforce custom Hosted MCP server and external client execution are not yet independently verified. The MCP transport and OAuth boundary belong to Salesforce, not an ER Modeller-hosted web server. See [V4_MCP_SETUP.md](V4_MCP_SETUP.md).
+
+```mermaid
+flowchart TB
+    Client["Authorised external MCP client<br/>Postman / agent / future Teams adapter"]
+    OAuth["Salesforce OAuth<br/>External Client App + mcp_api scope"]
+    Hosted["Salesforce custom Hosted MCP server<br/>tool discovery and invocation"]
+    Gate{"ER Modeller authorisation<br/>deny by default"}
+    Tools["Invocable Apex actions<br/>Snapshot Status | Field Usage<br/>Changed Fields | Run Scan"]
+    Core["ErMcpCore and ErMcpFieldUsageService"]
+    Store[("Field Usage runs<br/>snapshots and evidence")]
+    Orchestrator["Existing scan orchestrator<br/>asynchronous workers"]
+    Diagnostic["ErStudioDiagnosticService<br/>best-effort diagnostic sink"]
+    Client --> OAuth --> Hosted --> Gate
+    Gate -->|authorised| Tools --> Core
+    Gate -->|denied| Denied["No evidence returned"]
+    Core --> Store
+    Core -->|Run Scan only| Orchestrator --> Store
+    Tools -.-> Diagnostic
+```
+
+The four actions are `ErMcpGetSnapshotStatus`, `ErMcpGetFieldUsage`, `ErMcpGetChangedFields`, and `ErMcpRunScan`. They consume existing V3 intelligence and scan orchestration; no second scanner or external metadata database is introduced. Field Usage uses snapshot-bound cursor pagination; Changed Fields is bounded by its implemented synchronous evidence limit. The `Salesforce_Tooling_API` Named Credential is for *internal acquisition* and is never an external MCP client's credential.
+
+### 19.1 Authorisation contract and current gap
+
+**Mandatory target policy:** An authenticated Salesforce user without explicit Diagram Studio entitlement must be denied **every** ER Modeller MCP action, regardless of whether the request originates from Postman, an agent or Teams. Salesforce login, OAuth scope, server visibility and generic object access are necessary but not sufficient. Add a dedicated `ER_Diagram_Studio_Access` custom permission (proposed name), granted by the `Diagram_Studio_User` permission set, and check it in a shared Apex guard before any evidence query, tool response or scan launch. Additional least-privilege tool-specific permission is required for Run Scan; existing `ER_MCP_Scan_Operator` must remain enforced. Do not rely on checking a permission-set name in Apex.
+
+**Not yet implemented:** The three read-only actions currently check their tool-enable settings but do not explicitly enforce a Diagram Studio entitlement custom permission. Run Scan checks `ER_MCP_Scan_Operator`, but must also pass the common entitlement gate. This is an open release-blocking security gap; this document does not claim that it has been fixed.
+
+```mermaid
+flowchart TD
+    A["MCP tools/call"] --> B{"Valid Salesforce identity<br/>and MCP tool access?"}
+    B -->|No| X["Deny; return no evidence"]
+    B -->|Yes| C{"Diagram Studio entitlement?"}
+    C -->|No| X
+    C -->|Yes| D{"Tool enabled?"}
+    D -->|No| X
+    D -->|Yes| E{"Run Scan?"}
+    E -->|No| F["Authorised read-only tool"]
+    E -->|Yes| G{"Scan operator permission<br/>and operational guards?"}
+    G -->|No| X
+    G -->|Yes| H["Queue existing scan"]
+```
+
+The guard must run in the *effective invoking user's* security context. A privileged integration identity must never be used as a blanket bypass for arbitrary Teams users. Test revoked permissions, least-privileged users, object/field access, disabled tools and identity propagation end-to-end before exposing the server externally. A `with sharing` declaration alone is not a substitute for explicit entitlement, CRUD/FLS and tool-level authorisation.
+
+### 19.2 Invocation sequence and verification
+
+```mermaid
+sequenceDiagram
+    participant C as External MCP client
+    participant S as Salesforce Hosted MCP
+    participant A as ER Modeller Apex
+    participant D as Snapshot store
+    participant L as Diagnostic sink
+    C->>S: OAuth-authorised MCP initialize
+    C->>S: tools/list
+    S-->>C: Registered ER Modeller tools
+    C->>S: tools/call Get Snapshot Status
+    S->>A: Invoke action as authorised identity
+    Note over A: Required shared entitlement guard<br/>not yet implemented for all actions
+    A->>D: Query current snapshot
+    D-->>A: Snapshot context
+    A-->>S: Bounded tool result
+    A-->>L: Best-effort outcome / duration
+    S-->>C: MCP tool response
+```
+
+External acceptance testing must demonstrate a live Salesforce Hosted MCP endpoint, OAuth, discovery, real tool execution, denial for non-Diagram-Studio users, and read/write separation. An Apex deployment or unit-test pass alone does not prove the Hosted MCP endpoint is active.
+
+## 20. Version 4 — Studio diagnostics and logger architecture
+
+The logger is **Studio-scoped**, not an org-wide exception monitor. Its central sink is `ErStudioDiagnosticService`; configuration, validation and persistence are provided by `ErDiagnosticConfigController` and `ER_Diagnostic_Config__c`. Supported sources are explicitly allowlisted. This is a best-effort telemetry path, never the source of truth for scan completion or evidence consistency.
+
+```mermaid
+flowchart TB
+    UI["Studio LWC errors<br/>diagram / settings / import / export"]
+    Batch["Field Usage orchestrator<br/>work-unit / finaliser failures"]
+    MCP["Hosted MCP actions<br/>outcome and elapsed time"]
+    Sink["ErStudioDiagnosticService<br/>source allowlist / event cap"]
+    Config{"Configured logging enabled?<br/>Valid object, fields, mappings and access?"}
+    Store[("Administrator-selected Salesforce log object<br/>simple or parent/child structure")]
+    Buffer["Session-only UI diagnostic buffer"]
+    Checkpoints[("Durable Field Usage run<br/>and work-unit checkpoints")]
+    UI --> Buffer
+    UI --> Sink
+    Batch --> Sink
+    Batch --> Checkpoints
+    MCP --> Sink
+    Sink --> Config
+    Config -->|Yes, best effort| Store
+    Config -->|No / failure| Drop["Do not block business operation"]
+```
+
+### 20.1 Configuration and persistence
+
+The administrator configures either a simple Salesforce logging object or a custom parent/child logging structure. Configuration must validate the selected object and fields, the child lookup/master-detail relationship to the selected parent, writable message/severity fields, required-value mappings and effective create access **before** attempting log DML. The settings path requires `ER_MCP_Admin`. No dedicated MCP history object is installed.
+
+The sink accepts INFO, WARN and ERROR, enforces a Studio-source allowlist and caps attempts at ten events per transaction. It is best effort: a failed log write must not break the originating business operation. The existing implementation uses an administrator-configured Salesforce object and user-mode write checks; it is not guaranteed to persist when the enclosing transaction rolls back. The latest-five MCP invocation view depends on configured accessible persisted records, not on a guaranteed durable independent event stream. The UI's broader diagnostic buffer is session-scoped.
+
+### 20.2 Logging semantics and privacy
+
+MCP events are marked `ER_STUDIO_MODELLER_MCP`; other Studio diagnostics use `ER_STUDIO_MODELLER`. MCP logging captures a sanitised tool identifier, outcome, duration and presence indicators, **not** field names, request bodies, access tokens, credentials, session IDs or raw evidence. Do not use logging as a second data-exfiltration channel. Error payloads must be sanitised before emission. Logging must not grant a caller access to diagnostics that the caller could not otherwise read.
+
+```mermaid
+sequenceDiagram
+    participant T as MCP tool / Studio operation
+    participant L as Shared diagnostic service
+    participant C as Validated logging configuration
+    participant O as Chosen Salesforce log object
+    T->>L: event(source, operation, severity, sanitised message)
+    L->>L: Validate allowlist and transaction cap
+    L->>C: Resolve opt-in configuration
+    alt Enabled and permitted
+        C->>O: User-mode best-effort insert
+        O-->>L: Result
+    else Disabled, invalid or inaccessible
+        C-->>L: No record
+    end
+    L-->>T: Continue without propagating logging failure
+```
+
+Durable scan state remains in Field Usage run/work-unit records. The system cannot guarantee logging of every exception, unhandled rollback or async failure; Salesforce platform logs and durable checkpoints complement it. For precise capture scope see [DIAGNOSTIC_COVERAGE.md](DIAGNOSTIC_COVERAGE.md).
+
+## 21. Future extension — headless Microsoft Teams adapter (not implemented)
+
+The planned Teams integration is an **adapter** over the same Salesforce Hosted MCP tools, not a separate architecture-intelligence service. It may offer an explicit **Connect Salesforce Org** experience and headless invocation after authorisation, without opening Studio. Headless does **not** mean anonymous or permission-free.
+
+```mermaid
+flowchart LR
+    Person["Teams user"] --> Bot["Future Teams bot / adapter"]
+    Bot --> Identity["Delegated Salesforce identity<br/>and entitlement mapping"]
+    Identity --> MCP["Salesforce Hosted MCP"]
+    MCP --> Guard["Diagram Studio entitlement<br/>plus per-tool permissions"]
+    Guard --> Evidence["Existing snapshot intelligence"]
+    Guard -->|Denied| Block["No disclosure"]
+```
+
+Do not use a single privileged bot service account to expose snapshot evidence to users who lack Diagram Studio entitlement. Require identity binding, least privilege, token protection, revocation handling, auditability and negative permission tests. No Teams code or configuration is claimed to exist in V4 today.
+
+## 22. V4 release gates and engineering follow-up
+
+1. Implement and test the shared Diagram Studio entitlement guard in **all four** Apex actions before external MCP enablement.
+2. Verify Salesforce Hosted MCP custom server activation and authorised Postman MCP discovery/invocation in `warden-dev`.
+3. Test unauthorised user, revoked access, disabled tool, CRUD/FLS, scan cooldown and active-scan rejection.
+4. Verify both simple and parent/child diagnostic mappings, least-privileged log writes, missing/invalid configuration and rollback limitations.
+5. Preserve no-secrets/no-raw-request logging and bounded query/pagination behaviour.
+6. Keep Teams integration explicitly future-state until separately designed, secured and tested.
