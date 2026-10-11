@@ -137,7 +137,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get diagnosticEventCount(){return this.displayedDiagnosticEvents.length;}
     get recentDiagnosticEvents(){return this.diagnosticEvents.slice(0,5);}
     get hasDiagnosticEvents(){return this.diagnosticEvents.length>0;}
-    get hasNoDiagnosticEvents(){return this.diagnosticEvents.length===0;}
+    get hasNoDiagnosticEvents(){return this.displayedDiagnosticEvents.length===0 || this.diagnosticExportBusy;}
     get selectedDiagnostic(){return this.displayedDiagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
@@ -168,14 +168,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
     handleSelectDiagnostic(e){this.selectedDiagnosticId=e.currentTarget.dataset.id;}
+    @track diagnosticExportUrl = '';
+    @track diagnosticExportStatus = '';
+    @track diagnosticExportBusy = false;
+    get hasDiagnosticExportUrl(){return Boolean(this.diagnosticExportUrl);}
     async handleExportSessionErrors(){
-        if(!this.diagnosticEvents.length)return;
+        if(!this.displayedDiagnosticEvents.length)return;
+        this.diagnosticExportBusy=true;
+        this.diagnosticExportUrl='';
+        this.diagnosticExportStatus='Preparing TXT file in Salesforce Files…';
         const lines=['ER Modeller Studio - Session Diagnostic Export',
             'Exported: '+new Date().toISOString(),
-            'Distinct issues: '+this.diagnosticEvents.length,
-            'Scope: Current browser session only. Salesforce persisted logs are not included.',
+            'Distinct issues: '+this.displayedDiagnosticEvents.length,
+            'Scope: '+(this.errorLogHistory?'Persisted history (latest 50 logging records)':'Current browser session'),
             ''];
-        this.diagnosticEvents.forEach((event,index)=>{
+        this.displayedDiagnosticEvents.forEach((event,index)=>{
             lines.push('--- Issue '+(index+1)+' ---',
                 'Severity: '+(event.severity||''),
                 'Timestamp: '+(event.timestamp||''),
@@ -191,13 +198,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try {
             const fileName='ER-Modeller-Session-Errors-'+new Date().toISOString().slice(0,10);
             const versionId=await saveSessionDiagnosticText({fileName,textContent:lines.join('\n')});
-            this[NavigationMixin.Navigate]({
-                type:'standard__webPage',
-                attributes:{url:'/sfc/servlet.shepherd/version/download/'+versionId}
-            });
+            this.diagnosticExportUrl='/sfc/servlet.shepherd/version/download/'+versionId;
+            this.diagnosticExportStatus='TXT file created. Click Download TXT file below to save it.';
         } catch(error) {
-            this.errorMessage='Session diagnostic export failed: '+this.reduceError(error);
-            this.recordDiagnostic(this.errorMessage,'Export','ERROR');
+            this.diagnosticExportStatus='TXT export failed: '+this.reduceError(error);
+            this.recordDiagnostic(this.diagnosticExportStatus,'Export','ERROR');
+        } finally {
+            this.diagnosticExportBusy=false;
         }
     }
     handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';this.pendingDiagnosticCount=0;}

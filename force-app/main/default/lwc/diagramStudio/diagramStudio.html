@@ -204,6 +204,8 @@
                         <template if:false={hasSelectedDiagnostic}><div class="er-log-empty er-log-detail-empty"><span class="er-log-empty-icon">↗</span><h3>Select an event</h3><p>Click an issue on the left to inspect its impact, resolution steps and technical details.</p></div></template>
                     </section>
                 </div>
+                <template if:true={diagnosticExportStatus}><p class="er-log-footnote" role="status">{diagnosticExportStatus}</p></template>
+                <template if:true={hasDiagnosticExportUrl}><p class="er-log-footnote"><a href={diagnosticExportUrl} target="_blank" rel="noopener noreferrer">Download TXT file</a> (saved in Salesforce Files)</p></template>
                 <p class="er-log-footnote">{errorLogHistoryStatus} Session buffer controls never delete persisted records. Persistent history is read-only and requires a saved, valid logging configuration.</p>
             </main>
         </section>
