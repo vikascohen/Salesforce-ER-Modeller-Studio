@@ -120,8 +120,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get selectedDiagnostic(){return this.diagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
-    get diagnosticNotificationLabel(){return this.diagnosticEventCount+' diagnostic issue'+(this.diagnosticEventCount===1?'':'s')+'. Open Diagnostics.';}
-    handleOpenDiagnosticCentre(){this.errorLogOpen=false;this.settingsOpen=true;this.settingsSection='diagnostics';this.settingsMessage='';}
+    get diagnosticNotificationLabel(){return this.diagnosticEventCount+' diagnostic issue'+(this.diagnosticEventCount===1?'':'s')+'. Open Error Log.';}
+    handleOpenDiagnosticCentre(){this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;this.errorLogSearch='';this.errorLogSeverity='';}
     handleMenuErrorLog(){this.openMenu=null;this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;}
     handleCloseErrorLog(){this.errorLogOpen=false;if(this.errorLogOrigin==='settings')this.settingsOpen=true;}
     handleErrorLogSearch(e){this.errorLogSearch=e.target.value;}
