@@ -18,7 +18,7 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 
 ## V4-only requirements and implementation status
 
-This checklist covers **changes introduced on the `v4` branch only**. Earlier ER canvas, DSL, data dictionary, architecture intelligence, Field Usage scanning and ordinary diagram exports are **not counted as V4 achievements**. The dedicated Lucidchart export action is listed because its V4-specific user-facing export path is part of this branch; its underlying draw.io serializer is reused rather than new. A code-complete feature may still require browser or external-client acceptance; percentages below describe implementation, not production readiness.
+This checklist covers **changes introduced on the `v4` branch only**. Earlier ER canvas, DSL, data dictionary, architecture intelligence, Field Usage scanning and ordinary diagram exports are **not counted as V4 achievements**. A code-complete feature may still require browser or external-client acceptance; percentages below describe implementation, not production readiness.
 
 | # | V4 requirement and delivered behaviour | Estimated completion |
 | --- | --- | ---: |
@@ -40,15 +40,10 @@ This checklist covers **changes introduced on the `v4` branch only**. Earlier ER
 | 16 | **MCP setup and help documentation** — Document custom-server registration, tool setup, OAuth, permissions, execution settings, diagnostic configuration, field meanings and troubleshooting in the in-product Help and repository. | **95%** |
 | 17 | **Automated regression and deployment verification** — Deploy MCP Apex, settings and UI to the authorised development org and run Apex/Jest tests; dedicated last-five-query tests, browser acceptance and a refreshed full regression run remain outstanding. | **70%** |
 | 18 | **End-to-end MCP acceptance** — Test authenticated external invocations, denial paths, logging under rollback, high-volume snapshot comparisons and integration-user access before declaring the V4 integration production-ready. | **0%** |
-| 19 | **Lucidchart-compatible export (no API)** — Under **File → Export → Lucidchart Diagram**, download an editable `.drawio` document containing ER objects, fields, relationships and canvas positions. Import the file manually in Lucidchart through **+ New → Import documents**. Uses the existing draw.io serializer; requires no API key, OAuth or Lucid account connection in Studio. Lucidchart import acceptance remains to be verified. | **90%** |
 
 **How to read completion:** These are approximate, judgement-based **requirement completion estimates**, not measured test coverage or production-readiness scores. For example, 85% on an MCP tool means its Apex implementation exists but real external MCP invocation has not been accepted; 0% means the requirement has not been verified or completed. No overall average is claimed.
 
-**Lucidchart clarification:** V4 provides one manual export option, **Download for Lucidchart (.drawio)**. This is a draw.io-compatible file for Lucidchart import, **not** a native `.lucid` file or direct Lucid API integration. No API key, OAuth configuration or reverse import is included in V4.
-
-### Export to Lucidchart (no API setup)
-
-In Studio, open **File → Export → Lucidchart Diagram** and select **Download for Lucidchart (.drawio)**. In Lucidchart, choose **+ New → Import documents** and upload the downloaded `.drawio` file. The diagram contains editable ER entity shapes and relationship connectors. Check the imported layout and styling; a real Lucidchart import acceptance test is still outstanding.
+**Diagram export compatibility note:** The existing **File → Export → draw.io Diagram → Download .drawio** option produces editable mxGraph XML. The same file may be imported into Lucidchart using **+ New → Import documents**, subject to Lucidchart's import compatibility and styling. This is **not** a separate Lucidchart format or V4-specific delivered requirement. No Lucid API key, OAuth, proprietary `.lucid` export or reverse import is provided. Lucidchart-side import acceptance remains unverified.
 
 ## Detailed V4 implementation notes
 

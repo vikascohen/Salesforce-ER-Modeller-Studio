@@ -257,18 +257,10 @@
                     <div class="export-divider"></div>
                     <div class="export-field">
                         <label class="export-label">draw.io Diagram</label>
-                        <p class="hint-text">Opens directly in draw.io / diagrams.net (File → Open, or drag the .drawio file in) — laid out exactly like your canvas, fully editable there.</p>
+                        <p class="hint-text">Exports an editable .drawio diagram for draw.io / diagrams.net (File → Open). You can also try importing this same file into Lucidchart using + New → Import documents; Lucidchart compatibility and styling have not yet been verified.</p>
                         <div class="export-mermaid-actions">
                             <lightning-button label="Copy draw.io XML" variant="neutral" onclick={handleCopyDrawio}></lightning-button>
                             <lightning-button label="Download .drawio" variant="neutral" onclick={handleDownloadDrawio}></lightning-button>
-                        </div>
-                    </div>
-                    <div class="export-divider"></div>
-                    <div class="export-field">
-                        <label class="export-label">Lucidchart Diagram</label>
-                        <p class="hint-text">Download an editable .drawio diagram and import it in Lucidchart using + New → Import documents. No API key or account connection in Studio. Lucidchart may adjust some styling.</p>
-                        <div class="export-mermaid-actions">
-                            <lightning-button label="Download for Lucidchart (.drawio)" variant="neutral" onclick={handleDownloadLucidchart}></lightning-button>
                         </div>
                     </div>
                 </div>

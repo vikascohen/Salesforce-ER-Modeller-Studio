@@ -3281,26 +3281,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // Export an editable draw.io document for Lucidchart's manual document import.
-    // No Lucid credentials, remote calls or proprietary file format required.
-    handleDownloadLucidchart() {
-        try {
-            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
-            const url = URL.createObjectURL(new Blob([xml], { type: 'application/xml;charset=utf-8' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = (this.fileName || 'diagram').replace(/[^a-z0-9._-]+/gi, '-') + '-Lucidchart.drawio';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            this.errorMessage = '';
-        } catch (error) {
-            this.errorMessage = 'Could not export diagram for Lucidchart: ' + error.message;
-        }
-    }
-
     async handleDoExport() {
         this.exportBusy = true;
         try {
