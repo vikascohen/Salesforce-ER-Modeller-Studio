@@ -1924,3 +1924,8 @@
 .er-log-detail-empty { min-height:100%; }
 .er-log-footnote { color:var(--surface-text-muted); font-size:11px; margin:0; }
 @media(max-width:760px) { .er-error-log-content { padding:16px; } .er-error-log-layout { grid-template-columns:minmax(0,1fr); overflow:visible; } .er-log-list-panel { min-height:240px; } .er-error-log-list { max-height:300px; } .er-error-log-details { min-height:270px; } .er-log-toolbar { align-items:flex-start; } }
+
+/* Distinguish diagnostic errors from ordinary toolbar controls across themes. */
+.er-diagnostic-indicator { background:#991b1b; color:#ffffff; border:1px solid #dc2626; font-weight:700; }
+.er-diagnostic-indicator:hover { background:#7f1d1d; border-color:#f87171; }
+.er-diagnostic-indicator:focus-visible { outline:2px solid #fca5a5; outline-offset:2px; }
