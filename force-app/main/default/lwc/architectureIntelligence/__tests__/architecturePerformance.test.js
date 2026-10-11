@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { analyseArchitecture } from 'c/architectureIntelligence';
 import { architectureRenderPlan, clearArchitectureAnalysisCache, fingerprintArchitectureModel, getCachedArchitectureAnalysis } from '../architecturePerformance';
 

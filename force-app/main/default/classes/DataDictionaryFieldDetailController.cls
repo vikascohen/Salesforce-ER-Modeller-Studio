@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public with sharing class DataDictionaryFieldDetailController {
     public class FieldDetail {
         @AuraEnabled public String objectApiName;

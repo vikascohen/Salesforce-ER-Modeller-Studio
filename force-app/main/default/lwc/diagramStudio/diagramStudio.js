@@ -44,7 +44,6 @@ import { analyseArchitecture, analyseObject, findArchitecturePath, analyseBlastR
 import { buildFieldUsageMap, clampFieldUsageZoom, buildFieldUsageViewportStyle, calculateFieldUsageFitZoom } from 'c/fieldUsageMapLogic';
 import { exportFieldUsageMapAsPng } from 'c/fieldUsageMapExport';
 
-// ── page-size options for the export modal ──
 const EXPORT_SIZE_OPTIONS = [
     { label: 'PNG  –  native diagram size',   value: 'PNG' },
     { label: 'A4 Landscape  (1123 × 794 px)', value: 'A4'  },
@@ -79,15 +78,12 @@ function injectDefs(defsEl) {
 export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @api diagramId;
 
-    // ── sidebar file list ──
     @track files        = [];
     @track sidebarOpen  = true;
     wiredFilesResult;
 
-    // ── open-tab strip (VS Code style) ──
     @track openTabs = []; // { id, name, dirty, active, renaming, renameValue }
 
-    // ── active diagram state ──
     @track currentId   = null;
     @track fileName    = 'Untitled ER Diagram';
     @track sourceText  = ER_SAMPLE;
@@ -133,7 +129,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     @track isDirty     = false;
 
-    // ── import panel ──
     @track mimicOpen = false;
     @track currentModelIsMimic = false;
     @track mimicModelName = 'Mimicked Model';
@@ -143,11 +138,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track importObjectNames = '';
     @track importPanelOpen   = false;
 
-    // ── palette ──
     @track paletteFilter  = '';
     @track paletteObjects = [];
 
-    // ── export modal ──
     @track exportModalOpen   = false;
     @track architectureOpen  = false;
     @track architectureError = '';
@@ -165,10 +158,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track exportBusy        = false;
     exportSizeOptions = EXPORT_SIZE_OPTIONS;
 
-    // ── context menu ──
     @track ctxMenu       = null; // { x, y, fileId, fileName }
 
-    // ── canvas ──
     @track _erBoxes     = [];
     @track erConnectors = [];
     @track svgWidth     = 800;
@@ -198,7 +189,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     _isDisconnected = false;
     _focusNameOnNextRender = false;
 
-    // ── DSL editor panel (left, next to the file explorer) ──
     @track dslPanelOpen   = true;
     @track dslPanelWidth  = 460;
     @track dslSuggestions = [];
@@ -226,18 +216,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     objectFieldsFetching = {};
     DSL_SUGGEST_WIDTH    = 280; // px — kept in sync with the CSS width of .dsl-suggestions
 
-    // ── smart relationship linter ──
     @track missingRelationshipSuggestions = [];
     dismissedSuggestionKeys = new Set();
     _relScanTimer = null;
 
-    // ── schema drift check ──
     @track driftModalOpen = false;
     @track driftBusy      = false;
     @track driftChecked   = false;
     @track driftResults   = [];
 
-    // ── zoom ──
     @track zoomLevel = 1;
     @track legendX = null;
     @track legendY = null;
@@ -247,25 +234,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     legendPointerId = null;
 
 
-    // ── sharing model view ──
     @track sharingViewOn = false;
     @track sharingModels = {}; // lowercased apiName -> { internal, external } raw sharing model strings
     @track sharingSignals = {}; // lowercased apiName -> { shareTableAvailable, isCustomObject, hasSharingRule, hasApexSharing }
     _sharingFetchTimer = null;
 
-    // ── record-count heatmap ──
     @track heatmapOn = false;
     @track recordCounts = {}; // lowercased apiName -> Integer record count
     _heatmapFetchTimer = null;
 
-    // ── object summary hover card ──
     // Aggregates whatever's already been fetched by the toggles above (plus
     // the field count, always available from the canvas model itself) into
     // one glanceable card on hover — no new Apex calls of its own.
     @track hoverCard = null;
     _hoverTimer = null;
 
-    // ── data dictionary ──
     // Phase 3 — Field Usage Intelligence
     @track fieldUsageOpen=false; @track fieldUsageConsoleOpen=false; @track fieldUsageObjects=[]; @track fieldUsageFields=[];
     @track fieldUsageLoading=false; @track fieldUsageSnapshotAvailable=false; @track fieldUsageBatchRunning=false; @track fieldUsageEntryMessage='';
@@ -309,9 +292,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     sheetJsLoaded = false;
     sheetJsLoadPromise = null;
 
-    // ────────────────────────────────────────────────────────
     //  Lifecycle
-    // ────────────────────────────────────────────────────────
 
     connectedCallback() {
         this._isDisconnected = false;
@@ -421,9 +402,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ────────────────────────────────────────────────────────
     //  Wire adapters
-    // ────────────────────────────────────────────────────────
 
     @wire(listFiles)
     wiredFiles(result) {
@@ -440,9 +419,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (data) this.paletteObjects = data;
     }
 
-    // ────────────────────────────────────────────────────────
     //  Getters
-    // ────────────────────────────────────────────────────────
 
     get filteredPaletteObjects() {
         const f = (this.paletteFilter || '').toLowerCase();
@@ -633,7 +610,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get driftHasResults() { return this.driftResults && this.driftResults.length > 0; }
     get driftNoIssues() { return this.driftChecked && !this.driftBusy && !this.driftHasResults; }
 
-    // ── data dictionary ──
     get dictionaryObjectList() {
         const q = (this.dictionarySearch || '').trim().toLowerCase();
         const source = this.paletteObjects || [];
@@ -1253,7 +1229,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track canvasFitActive = false;
     @track canvasSummaryVisible = false;
 
-    // ── DSL panel ──
     get dslPanelClass() { return this.dslPanelOpen ? 'dsl-panel dsl-panel-open'+(this.dslMaximised?' dsl-panel-maximised':'') : 'dsl-panel dsl-panel-closed'; }
     get dslPanelStyle() { return this.dslPanelOpen ? (this.dslMaximised?'width:100%':`width:${this.dslPanelWidth}px`) : 'width:0px'; }
     get canvasOuterClass(){ return 'canvas-outer'+(this.canvasMaximised?' canvas-outer-maximised':'')+(this.dslMaximised?' canvas-hidden-by-dsl':''); }
@@ -1392,7 +1367,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }));
     }
 
-    // ── zoom ──
     get zoomPercentLabel() { return Math.round(this.zoomLevel * 100) + '%'; }
     get svgScaleWrapStyle() {
         return `width:${Math.round(this.svgWidth * this.zoomLevel)}px;height:${Math.round(this.svgHeight * this.zoomLevel)}px;`;
@@ -1452,9 +1426,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     get exportModalSaveDisabled() { return this.exportBusy; }
 
-    // ────────────────────────────────────────────────────────
     //  File row helpers
-    // ────────────────────────────────────────────────────────
 
     toFileRow(f) {
         const isOpen   = this.openTabs.some((t) => t.id === f.id);
@@ -1471,9 +1443,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.files = this.files.map((f) => this.toFileRow(f));
     }
 
-    // ────────────────────────────────────────────────────────
     //  Tab management
-    // ────────────────────────────────────────────────────────
 
     openNewUnsaved() {
         const tabId = 'new-' + Date.now();
@@ -1572,7 +1542,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ── Tab rename (double-click) ──
 
     handleTabDblClick(event) {
         const tabId = event.currentTarget.dataset.tabid;
@@ -1613,17 +1582,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.handleTabRenameCommit(event);
     }
 
-    // ────────────────────────────────────────────────────────
     //  Sidebar toggle
-    // ────────────────────────────────────────────────────────
 
     handleToggleSidebar() {
         this.sidebarOpen = !this.sidebarOpen;
     }
 
-    // ────────────────────────────────────────────────────────
     //  Keyboard shortcuts
-    // ────────────────────────────────────────────────────────
 
     handleKeyDown(event) {
         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
@@ -1640,9 +1605,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if (this.openMenu) this.openMenu = null;
     }
 
-    // ────────────────────────────────────────────────────────
     //  Menu bar — File / Diagram / View
-    // ────────────────────────────────────────────────────────
 
     handleToggleMenu(event) {
         event.stopPropagation();
@@ -2992,9 +2955,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get architectureIslandsText() { const a=this.architectureAnalysis; return a?.islands?.length ? a.islands.map(x=>x.name).join(', ') : 'No isolated objects.'; }
     get architectureCyclesText() { const a=this.architectureAnalysis; return a?.cycles?.length ? a.cycles.map(c=>c.join(' → ')).join(' | ') : 'No relationship cycles detected.'; }
 
-    // ────────────────────────────────────────────────────────
     //  Toolbar / file actions
-    // ────────────────────────────────────────────────────────
 
     handleNew() {
         this.openNewUnsaved();
@@ -3088,7 +3049,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ── Context menu (right-click on file row) ──
 
     handleFileContextMenu(event) {
         event.preventDefault();
@@ -3135,16 +3095,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ── Copy ID ──
 
     handleCopyId() {
         if (!this.currentId) return;
         if (navigator.clipboard) navigator.clipboard.writeText(this.currentId).catch(() => {});
     }
 
-    // ────────────────────────────────────────────────────────
     //  Import panel
-    // ────────────────────────────────────────────────────────
 
     handleToggleImport() {
         this.importPanelOpen = !this.importPanelOpen;
@@ -3251,9 +3208,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return lines.join('\n');
     }
 
-    // ────────────────────────────────────────────────────────
     //  Export modal
-    // ────────────────────────────────────────────────────────
 
     handleOpenExport() {
         this.exportModalOpen   = true;
@@ -3398,9 +3353,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ────────────────────────────────────────────────────────
     //  Palette drag & drop
-    // ────────────────────────────────────────────────────────
 
     handlePaletteFilterChange(event) {
         this.paletteFilter = event.target.value;
@@ -3461,9 +3414,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ────────────────────────────────────────────────────────
     //  Delete entity from canvas
-    // ────────────────────────────────────────────────────────
 
     handleDeleteEntity(event) {
         event.stopPropagation();
@@ -3504,9 +3455,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ────────────────────────────────────────────────────────
     //  Box drag (move) — pointer captured on the SVG element
-    // ────────────────────────────────────────────────────────
 
     handleBoxPointerDown(event) {
         if (event.target.dataset.role === 'resize') return;
@@ -3601,10 +3550,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         event.stopPropagation();this.legendX=null;this.legendY=null;
     }
 
-    // ────────────────────────────────────────────────────────
     //  Focus mode — click an entity to fade everything except it and
     //  its direct relationships; click empty canvas to release.
-    // ────────────────────────────────────────────────────────
 
     toggleFocusEntity(name) {
         this.focusedEntity = this.focusedEntity === name ? null : name;
@@ -3614,9 +3561,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.focusedEntity = null;
     }
 
-    // ────────────────────────────────────────────────────────
     //  Box resize — also captured on SVG
-    // ────────────────────────────────────────────────────────
 
     handleResizePointerDown(event) {
         event.stopPropagation();
@@ -3673,9 +3618,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.rerenderGeometry();
     }
 
-    // ────────────────────────────────────────────────────────
     //  Box horizontal resize (right edge)
-    // ────────────────────────────────────────────────────────
 
     handleResizeRightPointerDown(event) {
         event.stopPropagation();
@@ -3703,9 +3646,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.resizingWidthEntity = null;
     }
 
-    // ────────────────────────────────────────────────────────
     //  DSL panel — toggle & resize
-    // ────────────────────────────────────────────────────────
 
     handleToggleDslPanel() {
         this.dslPanelOpen = !this.dslPanelOpen;
@@ -3731,20 +3672,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) {}
     }
 
-    // ────────────────────────────────────────────────────────
     //  Zoom
-    // ────────────────────────────────────────────────────────
 
     handleZoomIn()    { this.zoomLevel = Math.min(2.5, Math.round((this.zoomLevel + 0.1) * 100) / 100); }
     handleZoomOut()   { this.zoomLevel = Math.max(0.3, Math.round((this.zoomLevel - 0.1) * 100) / 100); }
     handleZoomReset() { this.zoomLevel = 1; }
 
-    // ────────────────────────────────────────────────────────
     //  Sharing model view — badges each box with its org-wide default
     //  sharing model (from EntityDefinition). A Master-Detail child
     //  naturally comes back as 'ControlledByParent', which is exactly
     //  what shows that its sharing is inherited rather than independent.
-    // ────────────────────────────────────────────────────────
 
     handleToggleSharingView() {
         this.sharingViewOn = !this.sharingViewOn;
@@ -3833,13 +3770,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return map[model] || { code: '?', color: '#8896a6', label: model ? model : 'Unknown / not available' };
     }
 
-    // ────────────────────────────────────────────────────────
     //  Record-count heatmap — colors each box by relative record volume
     //  among whatever's currently on the canvas, with the actual count
     //  badged at the top. Same opt-in-and-cache-nothing pattern as
     //  Sharing View: toggle on, fetch for the current canvas, refetch
     //  whenever the diagram's content changes while it's still on.
-    // ────────────────────────────────────────────────────────
 
     handleToggleHeatmap() {
         this.heatmapOn = !this.heatmapOn;
@@ -3940,9 +3875,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         return String(n);
     }
 
-    // ────────────────────────────────────────────────────────
     //  Object summary hover card
-    // ────────────────────────────────────────────────────────
 
     handleBoxMouseEnter(event) {
         const name = event.currentTarget.dataset.name;
@@ -4021,9 +3954,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         };
     }
 
-    // ────────────────────────────────────────────────────────
     //  Data Dictionary
-    // ────────────────────────────────────────────────────────
 
     handleToggleDictionary() {
         this.dictionaryOpen = !this.dictionaryOpen;
@@ -4260,9 +4191,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ────────────────────────────────────────────────────────
     //  Auto layout / copy DSL
-    // ────────────────────────────────────────────────────────
 
     handleAutoLayout() {
         // Presentation-only layout reset: the DSL source and parser/compiler are untouched.
@@ -4320,9 +4249,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         reader.readAsText(file);
     }
 
-    // ────────────────────────────────────────────────────────
     //  DSL editor — typing, debounced render, intellisense
-    // ────────────────────────────────────────────────────────
 
     handleTextChange(event) {
         this.sourceText = event.target.value;
@@ -4702,11 +4629,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    // ────────────────────────────────────────────────────────
     //  Smart relationship linter — notices relationship fields on
     //  entities already on the canvas that point at another entity also
     //  on the canvas, but aren't wired up as a DSL relationship line yet.
-    // ────────────────────────────────────────────────────────
 
     scheduleRelationshipScan() {
         clearTimeout(this._relScanTimer);
@@ -4779,7 +4704,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.renderDiagram();
     }
 
-    // ────────────────────────────────────────────────────────
     //  Schema drift check — re-describes every entity on canvas that
     //  maps to a real org object, right now, and compares the FRESH
     //  schema against what the diagram currently says, to catch fields
@@ -4787,7 +4711,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     //  Unlike the linter's cache (fetch once, reuse), this always fetches
     //  fresh — that's the whole point — and then refreshes the shared
     //  cache too, so intellisense/linter immediately benefit from it.
-    // ────────────────────────────────────────────────────────
 
     handleOpenDriftCheck() {
         this.driftModalOpen = true;
@@ -4940,9 +4863,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.renderDiagram();
     }
 
-    // ────────────────────────────────────────────────────────
     //  Geometry helpers
-    // ────────────────────────────────────────────────────────
 
     rerenderGeometry() {
         if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }

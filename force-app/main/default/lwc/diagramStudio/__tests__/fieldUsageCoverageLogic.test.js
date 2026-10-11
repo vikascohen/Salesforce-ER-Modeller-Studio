@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { EXPECTED_SOURCE_TYPES, buildScanCoverage, coverageFreshnessLabel } from '../fieldUsageCoverageLogic';
 
 describe('fieldUsageCoverageLogic', () => {

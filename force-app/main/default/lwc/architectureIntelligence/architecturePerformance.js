@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 const MAX_CACHE_ENTRIES = 8;
 const analysisCache = new Map();
 

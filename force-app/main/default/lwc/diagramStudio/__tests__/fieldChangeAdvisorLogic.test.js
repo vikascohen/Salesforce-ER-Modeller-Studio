@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { FIELD_CHANGE_TYPES, buildFieldProfile, buildChangeAdvice, getAdvisorAvailability } from '../fieldChangeAdvisorLogic';
 
 describe('fieldChangeAdvisorLogic', () => {

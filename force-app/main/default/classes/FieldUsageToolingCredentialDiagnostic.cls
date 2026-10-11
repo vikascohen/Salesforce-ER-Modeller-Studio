@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public without sharing class FieldUsageToolingCredentialDiagnostic {
     @AuraEnabled
     public static String run() {

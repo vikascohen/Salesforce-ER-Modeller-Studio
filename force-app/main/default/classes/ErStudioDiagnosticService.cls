@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 /** Shared best-effort diagnostic sink for the Studio, asynchronous scans and hosted MCP tools.
  * Never use as a substitute for durable Field Usage run/work-unit checkpoints.
  * Only emits after callouts and after any savepoint rollback; does not propagate failures.

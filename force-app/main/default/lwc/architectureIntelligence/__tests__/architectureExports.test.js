@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import * as experience from '../architectureExports';
 
 describe('Architecture Intelligence redesigned public facade', () => {

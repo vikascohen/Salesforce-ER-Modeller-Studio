@@ -1,4 +1,7 @@
 /**
+ * @author Vikas Cohen
+ */
+/**
  * Phase 2 — Data Architecture Intelligence.
  * Author: Vikas Cohen
  * Pure graph analysis over the ER model produced by erDiagramLogic.parseEr().

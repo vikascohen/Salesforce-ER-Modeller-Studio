@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { normaliseArchitectureFinding } from '../architectureFindingContract';
 
 describe('architecture finding contract', () => {

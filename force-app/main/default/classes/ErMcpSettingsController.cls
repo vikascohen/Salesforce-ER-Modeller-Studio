@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public with sharing class ErMcpSettingsController {
     private static void requireAdmin() {
         if (!FeatureManagement.checkPermission('ER_MCP_Admin')) throw new AuraHandledException('MCP administrator permission required.');

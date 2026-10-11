@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 global with sharing class ErMcpGetChangedFields {
     global class Request { @InvocableVariable(label='Request reference') global String reference; }
     global class Response { @InvocableVariable(label='Changed fields JSON') global String result; }

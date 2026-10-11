@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 function widthFor(node) {
     if (node?.kind === 'component') return 250;
     if (node?.kind === 'usage') return 280;

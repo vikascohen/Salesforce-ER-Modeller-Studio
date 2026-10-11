@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { analyseArchitecture } from 'c/architectureIntelligence';
 import { buildArchitectureOverview } from '../architectureExperience';
 import { buildArchitectureVisualModel } from '../architectureVisualModel';

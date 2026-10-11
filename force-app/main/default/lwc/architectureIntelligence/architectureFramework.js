@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 export const ARCHITECTURE_GUIDANCE = Object.freeze({
     id: 'salesforce-er-architecture-guidance',
     version: '2026.10',

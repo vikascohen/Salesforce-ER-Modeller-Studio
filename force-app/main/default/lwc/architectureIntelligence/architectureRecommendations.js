@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 const RECOMMENDATION_BUILDERS = [
     buildHighCouplingRecommendations,
     buildIsolationRecommendations,

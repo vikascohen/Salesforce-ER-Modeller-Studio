@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { createElement } from 'lwc';
 import ObjectArchitectureHealth from 'c/objectArchitectureHealth';
 import getObjectIntelligence from '@salesforce/apex/ObjectIntelligenceController.getObjectIntelligence';

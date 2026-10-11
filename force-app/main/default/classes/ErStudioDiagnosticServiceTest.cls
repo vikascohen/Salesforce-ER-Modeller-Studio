@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 @IsTest
 private class ErStudioDiagnosticServiceTest {
     private class SampleException extends Exception {}

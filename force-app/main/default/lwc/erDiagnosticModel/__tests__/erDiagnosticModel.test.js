@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
 describe('diagnostic model',()=>{
  it('offers evidence-specific steps and explains affected functionality',()=>{const e=classifyDiagnostic('Tooling API authentication failed');expect(e.category).toBe('Connection');expect(e.impact).toMatch(/Salesforce/);expect(e.steps.length).toBeGreaterThan(1);});

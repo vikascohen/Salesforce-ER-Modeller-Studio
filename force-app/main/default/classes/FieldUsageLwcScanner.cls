@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 /** Scans LWC JS/HTML resources for high-confidence Salesforce field references. */
 public without sharing class FieldUsageLwcScanner {
     private static final Pattern SCHEMA_IMPORT=Pattern.compile('(?i)@salesforce/schema/([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)');

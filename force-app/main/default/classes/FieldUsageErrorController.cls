@@ -1,4 +1,7 @@
 /**
+ * @author Vikas Cohen
+ */
+/**
  * Provides persisted diagnostic detail for Field Usage scan history.
  * Kept separate from FieldUsageController so operational diagnostics remain modular.
  */

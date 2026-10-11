@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { LightningElement, track } from 'lwc';
 import load from '@salesforce/apex/ErDiagnosticConfigController.load';
 import save from '@salesforce/apex/ErDiagnosticConfigController.save';

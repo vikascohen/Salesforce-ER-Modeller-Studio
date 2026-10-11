@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { LightningElement, api } from 'lwc';
 export default class StudioHelp extends LightningElement {
     @api initialSection='configuration'; section='configuration'; configurationTopic='tooling'; searchText='';

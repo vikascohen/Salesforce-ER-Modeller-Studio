@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 global with sharing class ErMcpGetFieldUsage {
     global class Request { @InvocableVariable(required=true label='Object API name') global String objectApiName; @InvocableVariable(required=true label='Field API name') global String fieldApiName; @InvocableVariable(label='Snapshot Id from first page') global String snapshotId; @InvocableVariable(label='After evidence Id') global String afterEvidenceId; @InvocableVariable(label='Page size (1 to 200)') global Integer pageSize; }
     global class Response { @InvocableVariable(label='Field usage JSON') global String result; }

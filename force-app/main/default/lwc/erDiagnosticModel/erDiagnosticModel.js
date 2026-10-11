@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 /** Pure, bounded diagnostic classification. Never infer a root cause without evidence. */
 const GUIDANCE = [
  {pattern:/tooling api|named credential|authentication|unauthori[sz]ed|401\b/i,category:'Connection',summary:'A Salesforce connection or authentication operation failed.',impact:'The operation requiring Salesforce access may not have completed.',steps:['Check the configured Salesforce connection and its authorised principal.','Confirm the running user has access to the requested operation.','Retry the affected operation after correcting the connection.']},

@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { analyseBlastRadius, analyseObject } from 'c/architectureIntelligence';
 import { buildArchitectureRecommendations } from './architectureRecommendations';
 

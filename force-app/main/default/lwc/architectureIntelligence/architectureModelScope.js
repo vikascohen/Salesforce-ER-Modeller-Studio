@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 export function buildArchitectureModelScope(modelLabel, analysis, source = 'current') {
     return {
         label: modelLabel || (source === 'saved' ? 'Saved ER Model' : 'Current Diagram'),

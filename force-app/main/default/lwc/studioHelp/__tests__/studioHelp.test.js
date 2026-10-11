@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { createElement } from 'lwc';
 import StudioHelp from 'c/studioHelp';
 

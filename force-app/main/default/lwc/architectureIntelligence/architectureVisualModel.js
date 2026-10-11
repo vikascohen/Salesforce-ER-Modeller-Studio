@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { architectureRenderPlan } from './architecturePerformance';
 
 /** Builds a reusable, presentation-neutral graph for Overview and Impact maps. */

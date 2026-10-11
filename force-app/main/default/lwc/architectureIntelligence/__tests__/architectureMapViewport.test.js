@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { architectureViewportStyle, clampArchitectureZoom, fitArchitectureMap, zoomArchitecture } from '../architectureMapViewport';
 
 describe('shared architecture map viewport', () => {

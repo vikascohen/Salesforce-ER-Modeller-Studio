@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { LightningElement, api } from 'lwc';
 import getObjectIntelligence from '@salesforce/apex/ObjectIntelligenceController.getObjectIntelligence';
 

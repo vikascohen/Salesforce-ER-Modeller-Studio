@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 export function getHelpConfigurationOpen(section) {
     return section === 'configuration';
 }

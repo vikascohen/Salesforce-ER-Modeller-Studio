@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { exportSvgAsPng, PAGE_SIZES } from 'c/diagramExportUtils';
 
 // jsdom implements <canvas> as an element but not a real 2D rendering

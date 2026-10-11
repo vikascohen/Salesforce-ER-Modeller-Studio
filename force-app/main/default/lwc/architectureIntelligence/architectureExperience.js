@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { buildArchitectureRecommendations } from './architectureRecommendations';
 
 export const ANALYSIS_STAGES = Object.freeze([

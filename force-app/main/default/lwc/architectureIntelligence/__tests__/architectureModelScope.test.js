@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { buildArchitectureModelScope } from '../architectureModelScope';
 
 describe('architecture model scope', () => {

@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { createElement } from 'lwc';
 import ErDiagnosticSettings from 'c/erDiagnosticSettings';
 import load from '@salesforce/apex/ErDiagnosticConfigController.load';

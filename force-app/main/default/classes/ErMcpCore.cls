@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public with sharing class ErMcpCore {
     public class DisabledException extends Exception {}
     public class InvalidRequestException extends Exception {}

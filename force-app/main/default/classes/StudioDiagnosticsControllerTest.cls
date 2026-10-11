@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 @IsTest
 private class StudioDiagnosticsControllerTest {
     private class ToolingOkMock implements HttpCalloutMock { public HTTPResponse respond(HTTPRequest req){System.assert(req.getEndpoint().startsWith('callout:Salesforce_Tooling_API/services/data/v60.0/tooling/query'));HttpResponse res=new HttpResponse();res.setStatusCode(200);res.setBody('{"totalSize":1,"done":true,"records":[{"Id":"01p000000000001AAA"}]}');return res;} }

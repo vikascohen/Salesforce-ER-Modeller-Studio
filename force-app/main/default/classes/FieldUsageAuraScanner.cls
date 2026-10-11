@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 /** Scans Aura markup/controller/helper resources for explicit object.field references. */
 public without sharing class FieldUsageAuraScanner {
     private static final Pattern QUALIFIED_FIELD=Pattern.compile('(?i)\\b([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)\\b');

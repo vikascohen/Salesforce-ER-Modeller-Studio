@@ -28,7 +28,6 @@ public with sharing class DiagramFileController {
         @AuraEnabled public String sourceCode;
     }
 
-    // ── list ──
 
     @AuraEnabled(cacheable=true)
     public static List<FileSummary> listFiles() {
@@ -50,7 +49,6 @@ public with sharing class DiagramFileController {
         return out;
     }
 
-    // ── get single ──
 
     @AuraEnabled(cacheable=true)
     public static FileDetail getFile(Id fileId) {
@@ -71,7 +69,6 @@ public with sharing class DiagramFileController {
         return out;
     }
 
-    // ── save DSL source ──
 
     // Enforce unique diagram names — without this, two completely separate
     // Diagram_File__c records can silently share the same Name, which is
@@ -127,7 +124,6 @@ public with sharing class DiagramFileController {
         return row.Id;
     }
 
-    // ── rename ──
 
     @AuraEnabled
     public static void renameFile(Id fileId, String newName) {
@@ -138,7 +134,6 @@ public with sharing class DiagramFileController {
         update new Diagram_File__c(Id = fileId, Name = newName);
     }
 
-    // ── delete ──
 
     @AuraEnabled
     public static void deleteFile(Id fileId) {

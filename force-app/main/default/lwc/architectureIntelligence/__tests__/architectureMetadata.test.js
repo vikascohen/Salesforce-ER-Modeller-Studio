@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import fs from 'fs';
 import path from 'path';
 

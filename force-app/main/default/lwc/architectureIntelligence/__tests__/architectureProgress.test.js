@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { runArchitectureAnalysis } from '../architectureProgress';
 import { clearArchitectureAnalysisCache } from '../architecturePerformance';
 

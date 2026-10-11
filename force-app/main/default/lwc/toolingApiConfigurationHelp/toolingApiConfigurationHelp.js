@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { LightningElement } from 'lwc';
 
 /**

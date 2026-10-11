@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { analyseArchitecture, analyseObject } from 'c/architectureIntelligence';
 import { buildArchitectureRecommendations } from '../architectureRecommendations';
 import { ANALYSIS_STAGES, buildArchitectureOverview, buildImpactSummary, buildProcessingState } from '../architectureExperience';

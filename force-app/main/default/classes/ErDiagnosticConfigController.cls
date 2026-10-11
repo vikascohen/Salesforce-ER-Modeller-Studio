@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 /** Configurable object logging; no DML is performed until the opt-in has passed validation. */
 public without sharing class ErDiagnosticConfigController {
     private static void authorize() {

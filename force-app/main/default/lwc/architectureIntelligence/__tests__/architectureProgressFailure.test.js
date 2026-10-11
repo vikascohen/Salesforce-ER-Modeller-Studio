@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { buildProcessingState } from '../architectureExperience';
 
 describe('architecture processing failure visibility', () => {

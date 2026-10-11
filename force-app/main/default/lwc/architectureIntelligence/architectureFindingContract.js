@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { guidanceForRecommendation } from './architectureFramework';
 
 export function normaliseArchitectureFinding(recommendation) {

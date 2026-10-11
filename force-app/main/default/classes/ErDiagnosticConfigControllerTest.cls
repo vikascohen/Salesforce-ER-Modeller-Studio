@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 @IsTest
 private class ErDiagnosticConfigControllerTest {
     private static User adminUser() {

@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { LightningElement } from 'lwc';
 import getSettings from '@salesforce/apex/ErMcpSettingsController.getSettings';
 import saveSettings from '@salesforce/apex/ErMcpSettingsController.saveSettings';

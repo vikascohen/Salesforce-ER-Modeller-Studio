@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 public without sharing class ErMcpLogRetention implements Schedulable, Database.Batchable<SObject> {
     public void execute(SchedulableContext context) {Database.executeBatch(new ErMcpLogRetention(),200);}
     public Database.QueryLocator start(Database.BatchableContext context) {

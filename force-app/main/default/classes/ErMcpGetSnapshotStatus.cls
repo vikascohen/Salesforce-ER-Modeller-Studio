@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 global with sharing class ErMcpGetSnapshotStatus {
     global class Request { @InvocableVariable(label='Request reference') global String reference; }
     global class Response { @InvocableVariable(label='Snapshot status JSON') global String result; }

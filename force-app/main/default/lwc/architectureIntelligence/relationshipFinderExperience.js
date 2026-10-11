@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { findArchitecturePath } from 'c/architectureIntelligence';
 
 export function buildRelationshipFinderResult(analysis, source, target) {

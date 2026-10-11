@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 1.8;
 const ZOOM_STEP = 0.1;

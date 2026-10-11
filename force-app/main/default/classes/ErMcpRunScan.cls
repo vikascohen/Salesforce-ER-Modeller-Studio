@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 global with sharing class ErMcpRunScan {
     global class Request { @InvocableVariable(label='Request reference') global String reference; }
     global class Response { @InvocableVariable(label='Run Scan result JSON') global String result; }

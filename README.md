@@ -3,6 +3,8 @@
 **Salesforce Data Architecture Intelligence & ER Modelling**  
 **Open source. Free to use. Built for Salesforce architects, developers and platform teams.**
 
+**Author and maintainer:** Vikas Cohen.
+
 Salesforce ER Modeller Studio is a Salesforce-native workspace for understanding the structure, relationships and dependencies in a Salesforce org before making change. It combines visual ER modelling, a Data Dictionary, Object Intelligence, Architecture Intelligence and, in Version 3, Field Usage Intelligence.
 
 > **Understand the architecture before you change the architecture.**

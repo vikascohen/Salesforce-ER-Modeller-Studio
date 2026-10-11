@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { createElement } from 'lwc';
 import { registerApexTestWireAdapter } from '@salesforce/sfdx-lwc-jest';
 import getFile from '@salesforce/apex/DiagramFileController.getFile';

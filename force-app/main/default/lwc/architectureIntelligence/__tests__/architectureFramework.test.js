@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { ARCHITECTURE_GUIDANCE, guidanceForRecommendation } from '../architectureFramework';
 
 describe('architecture guidance registry', () => {

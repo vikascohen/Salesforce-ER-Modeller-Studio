@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 export { buildArchitectureOverview, buildImpactSummary, buildProcessingState, ANALYSIS_STAGES } from './architectureExperience';
 export { buildArchitectureRecommendations } from './architectureRecommendations';
 export { normaliseArchitectureFinding, normaliseArchitectureFindings } from './architectureFindingContract';

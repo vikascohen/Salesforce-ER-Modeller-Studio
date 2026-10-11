@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import {
     ER_SAMPLE,
     parseEr,

@@ -292,7 +292,6 @@ private class SchemaMetadataControllerTest {
         Assert.areEqual(0, refs.size());
     }
 
-    // ── helper ──
 
     private static SchemaMetadataController.FieldWrap findField(
         List<SchemaMetadataController.FieldWrap> fields, String apiName

@@ -1,3 +1,6 @@
+/**
+ * @author Vikas Cohen
+ */
 import { analyseArchitecture, findArchitecturePath } from 'c/architectureIntelligence';
 
 function chainModel(size) {
