@@ -3748,15 +3748,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // lazily only when the architect hovers an object.
             const existingNames = await this.checkMissingModelObjects(names, 'Sharing View');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || this._isDisconnected) return;
-            const fresh = existingNames.length ? await getSharingModels({ objectApiNames: existingNames }) : {};
+            this._sharingModelCache = this._sharingModelCache || {};
+            const uncachedNames = existingNames.filter(name=>!Object.prototype.hasOwnProperty.call(this._sharingModelCache,name.toLowerCase()));
+            const fresh = uncachedNames.length ? await getSharingModels({ objectApiNames: uncachedNames }) : {};
+            for (const name of uncachedNames) {
+                const match = Object.keys(fresh||{}).find(key=>key.toLowerCase()===name.toLowerCase());
+                this._sharingModelCache[name.toLowerCase()] = match ? fresh[match] : null;
+            }
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
-            Object.keys(fresh || {}).forEach((name) => {
-                next[name.toLowerCase()] = {
-                    internal: fresh[name] ? fresh[name].internalModel : null,
-                    external: fresh[name] ? fresh[name].externalModel : null
-                };
+            existingNames.forEach(name=>{
+                const value=this._sharingModelCache[name.toLowerCase()];
+                if(value) next[name.toLowerCase()]={internal:value.internalModel,external:value.externalModel};
             });
             this.sharingModels = next;
 
@@ -3839,7 +3843,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const next = { ...(this.recordCounts || {}) };
             const existingNames = await this.checkMissingModelObjects(names, 'Heatmap');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || this._isDisconnected) return;
-            const pendingNames = existingNames.filter((name) => next[name.toLowerCase()] == null);
+            this._heatmapUnavailableNames = this._heatmapUnavailableNames || new Set();
+            const pendingNames = existingNames.filter((name) => next[name.toLowerCase()] == null && !this._heatmapUnavailableNames.has(name.toLowerCase()));
             const concurrency = 4;
             let cursor = 0;
 
@@ -3851,6 +3856,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                     if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
 
                     if (value == null) {
+                        this._heatmapUnavailableNames.add(name.toLowerCase());
                         this.recordDiagnostic('Heatmap could not retrieve record data for '+name+'. The object may not exist in this Salesforce org, or you may not have access to it.', 'Heatmap', 'WARN');
                     } else {
                         next[name.toLowerCase()] = value;
