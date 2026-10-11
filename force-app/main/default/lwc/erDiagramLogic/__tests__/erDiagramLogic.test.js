@@ -270,6 +270,45 @@ describe('buildDrawioXml', () => {
     });
 });
 
+describe('Lucidchart-compatible draw.io export acceptance', () => {
+    it('produces well-formed editable mxGraph XML with linked endpoints and preserved fields', () => {
+        const model = parseEr('entity Account : Name[Text], AnnualRevenue[Currency]\nentity Contact : LastName[Required]\nContact.AccountId => Account\nContact.OwnerId -> User\nTask.WhoId ~> Contact');
+        const geo = buildErGeometry(model, {}, {}, {});
+        const xml = buildDrawioXml(model, geo.boxes);
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        expect(doc.querySelector('parsererror')).toBeNull();
+        expect(doc.documentElement.tagName).toBe('mxfile');
+        const vertices = Array.from(doc.querySelectorAll('mxCell[vertex="1"]'));
+        const edges = Array.from(doc.querySelectorAll('mxCell[edge="1"]'));
+        expect(vertices).toHaveLength(model.entities.length);
+        expect(edges).toHaveLength(model.relationships.length);
+        const ids = new Set(vertices.map((node) => node.getAttribute('id')));
+        expect(ids.size).toBe(vertices.length);
+        for (const edge of edges) {
+            expect(ids.has(edge.getAttribute('source'))).toBe(true);
+            expect(ids.has(edge.getAttribute('target'))).toBe(true);
+            expect(edge.querySelector('mxGeometry[as="geometry"]')).not.toBeNull();
+        }
+        for (const vertex of vertices) {
+            const geometry = vertex.querySelector('mxGeometry');
+            expect(Number(geometry.getAttribute('width'))).toBeGreaterThan(0);
+            expect(Number(geometry.getAttribute('height'))).toBeGreaterThan(0);
+        }
+        const labels = vertices.map((vertex) => vertex.getAttribute('value')).join(' ');
+        expect(labels).toContain('AnnualRevenue (Currency)');
+        expect(labels).toContain('LastName');
+        expect(edges.map((edge) => edge.getAttribute('value'))).toEqual(expect.arrayContaining(['AccountId', 'OwnerId', 'WhoId']));
+    });
+
+    it('escapes XML-sensitive field type text instead of producing invalid XML', () => {
+        const model = parseEr('entity Account : Name[Text & Other]');
+        const xml = buildDrawioXml(model, buildErGeometry(model, {}, {}, {}).boxes);
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        expect(doc.querySelector('parsererror')).toBeNull();
+        expect(doc.querySelector('mxCell[vertex="1"]').getAttribute('value')).toContain('Text &amp; Other');
+    });
+});
+
 describe('buildLegendGroup', () => {
     it('returns an SVG <g> element containing the three relationship rows', () => {
         const g = buildLegendGroup(800, 600);
