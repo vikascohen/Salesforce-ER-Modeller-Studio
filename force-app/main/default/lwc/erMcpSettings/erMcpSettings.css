@@ -22,3 +22,7 @@
 .mcp-panel li { border-color: var(--surface-border, #e4e7ec); overflow-wrap: anywhere; }
 .mcp-actions { margin-top: 8px; }
 @media (max-width: 640px) { .mcp-content { padding: 12px; } .mcp-panel { padding: 14px; } }
+
+.mcp-tool-row { display:flex; align-items:center; justify-content:space-between; gap:20px; max-width:570px; padding:12px 0; border-bottom:1px solid var(--surface-border, #e4e7ec); }
+.mcp-tool-label { color:var(--surface-text-strong, #101828); font-size:13px; font-weight:600; line-height:1.5; }
+.mcp-tool-row lightning-input { flex-shrink:0; margin:0; }
