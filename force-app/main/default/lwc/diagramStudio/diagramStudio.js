@@ -1667,14 +1667,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get settingsThemeSectionOpen(){return this.settingsSection==='theme';}
     get settingsSystemSectionOpen(){return this.settingsSection==='system-information';}
     get settingsDiagnosticsSectionOpen(){return this.settingsSection==='diagnostics';}
+    get settingsErrorLogConfigSectionOpen(){return this.settingsSection==='error-log-configuration';}
     get settingsScheduleNavClass(){return this.settingsScheduleSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
     get settingsThemeNavClass(){return this.settingsThemeSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
     get settingsSystemNavClass(){return this.settingsSystemSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
     get settingsDiagnosticsNavClass(){return this.settingsDiagnosticsSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
+    get settingsErrorLogConfigNavClass(){return this.settingsErrorLogConfigSectionOpen?'settings-nav-item settings-nav-item-active':'settings-nav-item';}
     handleSettingsScheduleSection(){this.settingsSection='field-usage-schedule';this.settingsMessage='';}
     handleSettingsThemeSection(){this.settingsSection='theme';this.settingsMessage='';}
     async handleSettingsSystemSection(){this.settingsSection='system-information';this.settingsMessage='';await this.loadSystemInfo();}
     handleSettingsDiagnosticsSection(){this.settingsSection='diagnostics';this.settingsMessage='';}
+    handleSettingsErrorLogConfigSection(){this.settingsSection='error-log-configuration';this.settingsMessage='';}
     async loadSystemInfo(){
         this.systemInfoBusy=true;
         try{this.systemInfo=await getStudioSystemInfo();}
