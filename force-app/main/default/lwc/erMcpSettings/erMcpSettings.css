@@ -1,0 +1,24 @@
+:host {
+    display: block;
+    color: var(--surface-text, #344054);
+    --slds-c-input-text-color: var(--surface-text-strong, #101828);
+    --slds-c-input-color-background: var(--surface-bg-alt, #f9fafb);
+    --slds-c-input-color-border: var(--surface-border-strong, #d0d5dd);
+    --slds-c-input-label-color: var(--surface-text, #344054);
+    --slds-c-toggle-color-background: var(--surface-border-strong, #d0d5dd);
+}
+.mcp-settings { background: var(--surface-bg-alt, #f9fafb); color: var(--surface-text, #344054); min-height: 100%; font-size: 13px; }
+.mcp-heading { padding: 18px 20px; border-bottom: 1px solid var(--surface-border, #e4e7ec); }
+.mcp-heading h2 { font-size: 17px; font-weight: 650; color: var(--surface-text-strong, #101828); margin: 0 0 5px; }
+.mcp-heading p { color: var(--surface-text-muted, #667085); margin: 0; }
+.mcp-content { display: grid; gap: 16px; padding: 18px 20px 24px; }
+.mcp-content > p { margin: 0; line-height: 1.55; }
+.mcp-panel { padding: 18px; background: var(--surface-bg, #fff); border: 1px solid var(--surface-border, #e4e7ec); border-radius: 10px; color: var(--surface-text, #344054); }
+.mcp-panel h3 { font-size: 15px; font-weight: 650; color: var(--surface-text-strong, #101828); margin: 0 0 10px; }
+.mcp-panel p { line-height: 1.55; color: var(--surface-text-muted, #667085); }
+.mcp-panel p strong { color: var(--surface-text-strong, #101828); }
+.mcp-panel lightning-input { display: block; margin-top: 9px; }
+.mcp-panel lightning-button { display: inline-block; margin-top: 12px; }
+.mcp-panel li { border-color: var(--surface-border, #e4e7ec); overflow-wrap: anywhere; }
+.mcp-actions { margin-top: 8px; }
+@media (max-width: 640px) { .mcp-content { padding: 12px; } .mcp-panel { padding: 14px; } }
