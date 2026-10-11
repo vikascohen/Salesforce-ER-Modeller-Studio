@@ -3283,20 +3283,30 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
+    downloadDiagramText(contents, extension, mimeType) {
+        // Salesforce Lightning Web Security / browsers may block downloads
+        // initiated from data: URLs. Use a Blob URL and an actual anchor instead.
+        const safeName = (this.fileName || 'diagram').replace(/[^a-zA-Z0-9._-]+/g, '-');
+        const blob = new Blob([contents], { type: mimeType + ';charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = safeName + extension;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        try { anchor.click(); }
+        finally {
+            document.body.removeChild(anchor);
+            URL.revokeObjectURL(url);
+        }
+    }
+
     handleDownloadMermaid() {
         try {
             const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
-            const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
-            const dataUri  = 'data:text/plain;charset=utf-8,' + encodeURIComponent(mmd);
-            const a = document.createElement('a');
-            a.href = dataUri;
-            a.download = safeName + '.mmd';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            this.downloadDiagramText(mmd, '.mmd', 'text/plain');
         } catch (e) {
-            this.errorMessage = 'Could not build Mermaid diagram: ' + e.message;
+            this.errorMessage = 'Could not download Mermaid diagram: ' + (e.message || String(e));
         }
     }
 
@@ -3312,17 +3322,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleDownloadDrawio() {
         try {
             const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
-            const safeName = (this.fileName || 'diagram').replace(/\s+/g, '-');
-            const dataUri  = 'data:application/xml;charset=utf-8,' + encodeURIComponent(xml);
-            const a = document.createElement('a');
-            a.href = dataUri;
-            a.download = safeName + '.drawio';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            this.downloadDiagramText(xml, '.drawio', 'application/xml');
         } catch (e) {
-            this.errorMessage = 'Could not build draw.io diagram: ' + e.message;
+            this.errorMessage = 'Could not download draw.io diagram: ' + (e.message || String(e));
         }
     }
 
