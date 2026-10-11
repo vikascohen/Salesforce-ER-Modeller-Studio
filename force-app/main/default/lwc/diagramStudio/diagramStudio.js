@@ -1381,10 +1381,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get canvasSummaryToggleLabel(){ return this.canvasSummaryVisible?'Hide Summary':'Show Summary'; }
     handleToggleCanvasSummary(){ this.canvasSummaryVisible=!this.canvasSummaryVisible; }
-    get showCanvasFitExport(){ return this.canvasFitActive && this.canvasMaximised; }
+    get showCanvasFitExport(){ return this.canvasHasModel && this.canvasFitActive && this.canvasMaximised; }
     handleToggleDslMaximise(){ this.preserveDslCaretForRender(); this.dslMaximised=!this.dslMaximised; if(this.dslMaximised)this.canvasMaximised=false; }
     handleToggleCanvasMaximise(){ this.canvasMaximised=!this.canvasMaximised; if(this.canvasMaximised)this.dslMaximised=false; else this.canvasFitActive=false; }
     handleFitModel(){
+        if(!this.canvasHasModel){ this.canvasFitActive=false; return; }
         this.canvasFitActive=true;
         // Relationship-aware presentation layout only. DSL/parser/compiler remain untouched.
         const wrap=this.template.querySelector('.canvas-wrap');

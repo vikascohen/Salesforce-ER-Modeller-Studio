@@ -94,6 +94,14 @@ function createStudio() {
 }
 
 describe('c-diagram-studio', () => {
+    it('does not offer Fit Model or fitted Export on an empty canvas', async () => {
+        const el=createStudio();
+        await flushPromises();
+        const controls=()=>[...el.shadowRoot.querySelectorAll('.zoom-controls button')].map(b=>b.textContent.trim());
+        expect(controls()).not.toContain('Fit Model');
+        expect(controls()).not.toContain('Export');
+    });
+
     beforeEach(() => {
         // jsdom has no real canvas 2D backend (used for DSL-editor character
         // width measurement) and no Pointer Events capture API — both real
