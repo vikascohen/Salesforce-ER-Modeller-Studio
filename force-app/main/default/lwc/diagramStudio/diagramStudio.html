@@ -156,20 +156,44 @@
         <section class="settings-page">
             <header class="settings-head"><div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Error Log</h1><p>Session diagnostics. Salesforce object logging is optional; this list does not load historical records.</p></div><button class="mimic-close" onclick={handleCloseErrorLog}>{errorLogBackLabel}</button></header>
             <main class="settings-content er-error-log-content">
-                <div class="er-error-log-controls"><input aria-label="Search errors" type="search" placeholder="Search diagnostics" value={errorLogSearch} oninput={handleErrorLogSearch}/><select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select><button onclick={handleClearErrorLog}>Clear session buffer</button></div>
-                <p>{diagnosticEventCount} distinct issues in this session. Select an issue to see its impact, suggested resolution and technical details.</p>
-                <div class="er-error-log-layout">
-                    <div class="er-error-log-list" aria-label="Diagnostic issues">
-                        <template for:each={visibleDiagnosticEvents} for:item="event"><button key={event.id} data-id={event.id} onclick={handleSelectDiagnostic} class="er-error-log-row"><strong>{event.category} · {event.severity}</strong><span>{event.timestamp} · {event.count} occurrence(s)</span><span>{event.summary}</span></button></template>
-                        <template if:false={hasDiagnosticEvents}><p>No issues have been recorded in this session.</p></template>
-                    </div>
-                    <div class="er-error-log-details">
-                        <template if:true={hasSelectedDiagnostic}>
-                            <h2>{selectedDiagnostic.summary}</h2><p><strong>What is affected?</strong> {selectedDiagnostic.impact}</p><h3>Suggested resolution</h3><ol><template for:each={selectedDiagnostic.steps} for:item="step"><li key={step}>{step}</li></template></ol><p><strong>Source:</strong> {selectedDiagnostic.source} · <strong>Category:</strong> {selectedDiagnostic.category}</p><p><strong>Recorded:</strong> {selectedDiagnostic.timestamp}</p><details><summary>Technical details</summary><pre class="er-error-technical">{selectedDiagnostic.message}</pre></details>
-                        </template>
-                        <template if:false={hasSelectedDiagnostic}><p>Select an issue to inspect its impact and recommended next steps.</p></template>
-                    </div>
+                <div class="er-log-toolbar">
+                    <div class="er-log-toolbar-copy"><span class="settings-kicker">SESSION MONITOR</span><h2>Diagnostic events</h2><p>Search and inspect recorded issues. Select an event to see its impact and suggested resolution.</p></div>
+                    <div class="er-log-count"><strong>{diagnosticEventCount}</strong><span>Distinct issues</span></div>
                 </div>
+                <div class="er-error-log-controls">
+                    <input aria-label="Search errors" type="search" placeholder="Search messages, categories or sources…" value={errorLogSearch} oninput={handleErrorLogSearch}/>
+                    <select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select>
+                    <button class="er-log-clear" onclick={handleClearErrorLog}>Clear session buffer</button>
+                </div>
+                <div class="er-error-log-layout">
+                    <section class="er-log-list-panel" aria-label="Diagnostic issues">
+                        <div class="er-log-panel-heading"><h3>Events</h3><span>Newest first</span></div>
+                        <div class="er-error-log-list">
+                            <template for:each={visibleDiagnosticEvents} for:item="event">
+                                <button key={event.id} data-id={event.id} onclick={handleSelectDiagnostic} class={event.rowClass} aria-pressed={event.selected}>
+                                    <span class="er-log-row-top"><span class={event.severityClass}>{event.severity}</span><span class="er-log-row-time">{event.timestamp}</span></span>
+                                    <strong>{event.summary}</strong>
+                                    <span class="er-log-row-bottom"><span>{event.category}</span><span>{event.count} occurrence(s)</span></span>
+                                </button>
+                            </template>
+                            <template if:false={hasVisibleDiagnosticEvents}>
+                                <div class="er-log-empty"><span class="er-log-empty-icon">✓</span><h3>{errorLogEmptyTitle}</h3><p>{errorLogEmptyMessage}</p></div>
+                            </template>
+                        </div>
+                    </section>
+                    <section class="er-error-log-details" aria-label="Selected diagnostic details">
+                        <template if:true={hasSelectedDiagnostic}>
+                            <div class="er-log-detail-heading"><span class="settings-kicker">EVENT DETAILS</span><span class={selectedDiagnosticSeverityClass}>{selectedDiagnostic.severity}</span></div>
+                            <h2>{selectedDiagnostic.summary}</h2>
+                            <div class="er-log-meta"><div><span>Source</span><strong>{selectedDiagnostic.source}</strong></div><div><span>Category</span><strong>{selectedDiagnostic.category}</strong></div><div><span>Recorded</span><strong>{selectedDiagnostic.timestamp}</strong></div><div><span>Occurrences</span><strong>{selectedDiagnostic.count}</strong></div></div>
+                            <div class="er-log-detail-section"><h3>What is affected?</h3><p>{selectedDiagnostic.impact}</p></div>
+                            <div class="er-log-detail-section"><h3>Suggested resolution</h3><ol><template for:each={selectedDiagnostic.steps} for:item="step"><li key={step}>{step}</li></template></ol></div>
+                            <details class="er-log-technical"><summary>Technical details</summary><pre class="er-error-technical">{selectedDiagnostic.message}</pre></details>
+                        </template>
+                        <template if:false={hasSelectedDiagnostic}><div class="er-log-empty er-log-detail-empty"><span class="er-log-empty-icon">↗</span><h3>Select an event</h3><p>Click an issue on the left to inspect its impact, resolution steps and technical details.</p></div></template>
+                    </section>
+                </div>
+                <p class="er-log-footnote">This view contains session events only. It does not load historical records from the configured Salesforce logging object.</p>
             </main>
         </section>
     </template>

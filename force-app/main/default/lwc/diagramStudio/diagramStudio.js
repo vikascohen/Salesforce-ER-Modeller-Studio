@@ -109,7 +109,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
         if(!alreadyRecorded)persistDiagnosticEvent({message:event.message,severity}).catch(()=>{});
     }
-    get visibleDiagnosticEvents(){return filterDiagnostics(this.diagnosticEvents,this.errorLogSearch,this.errorLogSeverity).map(e=>({...e,selected:e.id===this.selectedDiagnosticId,buttonLabel:e.summary+' · '+e.category}));}
+    get visibleDiagnosticEvents(){return filterDiagnostics(this.diagnosticEvents,this.errorLogSearch,this.errorLogSeverity).map(e=>({...e,selected:e.id===this.selectedDiagnosticId,rowClass:'er-error-log-row'+(e.id===this.selectedDiagnosticId?' er-error-log-row-selected':''),severityClass:'er-log-severity '+(e.severity==='ERROR'?'er-log-severity-error':'er-log-severity-warn')}));}
+    get hasVisibleDiagnosticEvents(){return this.visibleDiagnosticEvents.length>0;}
+    get errorLogEmptyTitle(){return this.diagnosticEvents.length?'No matching events':'No issues recorded';}
+    get errorLogEmptyMessage(){return this.diagnosticEvents.length?'Try another search or severity filter.':'Your current session has no recorded diagnostic issues.';}
+    get selectedDiagnosticSeverityClass(){return 'er-log-severity '+(this.selectedDiagnostic?.severity==='ERROR'?'er-log-severity-error':'er-log-severity-warn');}
     get diagnosticEventCount(){return this.diagnosticEvents.length;}
     get recentDiagnosticEvents(){return this.diagnosticEvents.slice(0,5);}
     get hasDiagnosticEvents(){return this.diagnosticEvents.length>0;}
