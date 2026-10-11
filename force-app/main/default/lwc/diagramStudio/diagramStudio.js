@@ -15,6 +15,7 @@ import deleteFile     from '@salesforce/apex/DiagramFileController.deleteFile';
 import renameFile     from '@salesforce/apex/DiagramFileController.renameFile';
 import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagramAsFile';
 import saveSessionDiagnosticText from '@salesforce/apex/DiagramFileController.saveSessionDiagnosticText';
+import saveDiagramTextExport from '@salesforce/apex/DiagramFileController.saveDiagramTextExport';
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
@@ -3285,30 +3286,25 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    downloadDiagramText(contents, extension, mimeType) {
-        // Salesforce Lightning Web Security / browsers may block downloads
-        // initiated from data: URLs. Use a Blob URL and an actual anchor instead.
-        const safeName = (this.fileName || 'diagram').replace(/[^a-zA-Z0-9._-]+/g, '-');
-        const blob = new Blob([contents], { type: mimeType + ';charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = safeName + extension;
-        anchor.style.display = 'none';
-        document.body.appendChild(anchor);
-        try { anchor.click(); }
-        finally {
-            document.body.removeChild(anchor);
-            URL.revokeObjectURL(url);
-        }
+    async downloadDiagramText(contents, extension) {
+        const safeName = (this.fileName || 'diagram').replace(/[^a-zA-Z0-9_-]+/g, '-');
+        const versionId = await saveDiagramTextExport({
+            fileName: safeName,
+            extension,
+            textContent: contents
+        });
+        this[NavigationMixin.Navigate]({
+            type: 'standard__webPage',
+            attributes: { url: '/sfc/servlet.shepherd/version/download/' + versionId }
+        });
     }
 
-    handleDownloadMermaid() {
+    async handleDownloadMermaid() {
         try {
             const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
-            this.downloadDiagramText(mmd, '.mmd', 'text/plain');
+            await this.downloadDiagramText(mmd, 'mmd');
         } catch (e) {
-            this.errorMessage = 'Could not download Mermaid diagram: ' + (e.message || String(e));
+            this.errorMessage = 'Could not download Mermaid diagram: ' + this.reduceError(e);
         }
     }
 
@@ -3321,12 +3317,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
 
-    handleDownloadDrawio() {
+    async handleDownloadDrawio() {
         try {
             const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
-            this.downloadDiagramText(xml, '.drawio', 'application/xml');
+            await this.downloadDiagramText(xml, 'drawio');
         } catch (e) {
-            this.errorMessage = 'Could not download draw.io diagram: ' + (e.message || String(e));
+            this.errorMessage = 'Could not download draw.io diagram: ' + this.reduceError(e);
         }
     }
 

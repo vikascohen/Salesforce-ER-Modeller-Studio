@@ -176,6 +176,28 @@ public with sharing class DiagramFileController {
         return cv.Id;
     }
     @AuraEnabled
+    public static Id saveDiagramTextExport(String fileName, String extension, String textContent) {
+        if (!Schema.sObjectType.ContentVersion.isCreateable()) {
+            throw new AuraHandledException('You do not have permission to create Salesforce Files.');
+        }
+        if (String.isBlank(textContent) || textContent.length() > 1000000) {
+            throw new AuraHandledException('Diagram export must contain between 1 and 1,000,000 characters.');
+        }
+        if (extension != 'mmd' && extension != 'drawio') {
+            throw new AuraHandledException('Unsupported diagram export format.');
+        }
+        String title = String.isBlank(fileName) ? 'ER-Diagram' : fileName.replaceAll('[^a-zA-Z0-9_-]', '-');
+        ContentVersion file = new ContentVersion(
+            Title = title,
+            PathOnClient = title + '.' + extension,
+            VersionData = Blob.valueOf(textContent),
+            IsMajorVersion = true
+        );
+        insert file;
+        return file.Id;
+    }
+
+    @AuraEnabled
     public static Id saveSessionDiagnosticText(String fileName, String textContent) {
         if (!Schema.sObjectType.ContentVersion.isCreateable()) {
             throw new AuraHandledException('You do not have permission to create Salesforce Files.');
