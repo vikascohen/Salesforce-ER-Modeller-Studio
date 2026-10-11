@@ -21,6 +21,25 @@
             <lightning-input type="number" min="0" max="8760" label="Scan cooldown (hours)" name="Cooldown_Hours__c" value={settings.Cooldown_Hours__c} onchange={handleNumber}></lightning-input>
             <lightning-button label="Save settings" variant="brand" onclick={save} disabled={busy}></lightning-button>
         </template>
+        <section class="slds-m-top_large" aria-label="Recent MCP invocations">
+            <h3 class="slds-text-heading_small">Last 5 MCP calls</h3>
+            <p>Only MCP-prefixed entries are queried, newest first, with a server-side limit of five.</p>
+            <lightning-button label="Refresh calls" onclick={refreshLogs} disabled={busy}></lightning-button>
+            <template if:true={hasRecentCalls}>
+                <ul class="slds-m-top_small">
+                    <template for:each={recentCalls} for:item="entry">
+                        <li key={entry.key} class="slds-p-vertical_x-small slds-border_bottom">
+                            <lightning-formatted-date-time value={entry.occurredAt} year="numeric" month="short" day="2-digit" hour="2-digit" minute="2-digit"></lightning-formatted-date-time>
+                            <p class="slds-text-body_small slds-wrap">{entry.message}</p>
+                        </li>
+                    </template>
+                </ul>
+            </template>
+            <template if:false={hasRecentCalls}>
+                <template if:true={logConfigured}><p>No recent MCP calls in the configured diagnostic object.</p></template>
+                <template if:false={logConfigured}><p>No accessible diagnostic log object is configured.</p></template>
+            </template>
+        </section>
         <p class="slds-m-top_medium">MCP invocation diagnostics use the existing Studio diagnostic configuration. Configure an existing Salesforce logging object under Settings → Diagnostics to opt in to persistence. No separate MCP log object or retention scheduler is installed.</p>
     </div>
 </lightning-card>

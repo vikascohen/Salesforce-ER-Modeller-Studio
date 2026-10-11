@@ -51,3 +51,5 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 MCP invocation diagnostics use the existing opt-in Studio logging configuration. The shared diagnostic message starts with `ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]` to distinguish MCP calls from other Studio logs. V4 does not install a separate MCP log object, log retention scheduler, or dedicated invocation-history table. Successful tool calls emit INFO and failures emit ERROR; only tool name, outcome and duration are logged, not request values. If the chosen severity field has no INFO value, INFO events use its configured warning value.
 
 All other Studio diagnostic messages begin with ER_STUDIO_MODELLER, while MCP messages begin with ER_STUDIO_MODELLER_MCP.
+
+The MCP Settings screen shows up to five recent MCP invocation events from the configured Studio diagnostic object. The Apex query filters for `ER_STUDIO_MODELLER_MCP` and limits the result to five newest records. If no accessible log object is configured, the interface displays a notice instead of querying Studio-wide logs.

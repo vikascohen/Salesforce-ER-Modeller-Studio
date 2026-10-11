@@ -60,7 +60,7 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 - Events include tool name, outcome and elapsed milliseconds; request values and raw error details are not persisted by this integration.
 - Configure an existing Salesforce object in **Settings → Diagnostics** to opt in to persistent events. With persistence disabled, no durable MCP call history is kept.
 - Successful calls are emitted as `INFO`; errors as `ERROR`. If a configured severity field supports only ERROR/WARN values, INFO events use the configured warning value; distinguish the event level in the message.
-- No MCP-specific retention setting, log table, CSV export or retention batch is installed. Retention follows the administrator's chosen diagnostic object policy.
+- The MCP Settings interface displays only the five most recent MCP-prefixed diagnostic records, using a server-side `LIKE` filter and `LIMIT 5` on the configured logging object. No MCP-specific retention setting, standalone log table, CSV export or retention batch is installed. Retention follows the administrator's chosen diagnostic object policy.
 - Best-effort persistence is subject to Salesforce transaction rollback and permissions; it is not a tamper-proof audit trail.
 
 ### 6. Studio diagnostics and error visibility
