@@ -19,7 +19,7 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 
 ## Administrator setup in Salesforce
 
-1. Use an authorised development org with V4 Apex, objects, fields, permission sets and dependencies deployed. `warden-dev` is the current validation org. Ensure the intended users have the appropriate `ER_MCP_Admin`, `ER_MCP_Reader` and, for Run Scan only, `ER_MCP_Scan_Operator` permissions. Verify effective object/field access and the MCP server's own tool access.
+1. Use an authorised development org with V4 Apex, objects, fields, permission sets and dependencies deployed. `warden-dev` is the current validation org. Assign `Diagram_Studio_User` only to trusted users. It consolidates MCP administration, reading and scan execution. Verify effective object/field access and the MCP server's own tool access.
 2. In **Salesforce Setup**, locate **Salesforce MCP Servers** (menu placement can vary by release). Create a **custom** Hosted MCP server for ER Modeller, following Salesforce's current custom-server guide. Do not deploy or run a separate server on Linux.
 3. Add the four named **Apex invocable actions** as tools. Start with the read-only **Get Snapshot Status** tool for smoke testing. Do not include Salesforce's standard record tools. Save and activate the custom server.
 4. Obtain the actual MCP server URL from Salesforce Setup; do not invent or hard-code an endpoint. If the feature or actions are unavailable, check edition, feature availability, permissions and Salesforce's current Hosted MCP prerequisites.
@@ -32,7 +32,7 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 
 - Shared logic: `ErMcpCore`, `ErMcpFieldUsageService`; four `ErMcp*` invocable actions.
 - Configuration and logs: `MCP_Settings__c`, `MCP_Tool_Log__c`, `ErMcpSettingsController`, `ErMcpLogRetention` and `erMcpSettings` LWC.
-- Permission sets: `ER_MCP_Admin`, `ER_MCP_Reader`, `ER_MCP_Scan_Operator`.
+- Permission set: `Diagram_Studio_User` (consolidated MCP administration, reading and scan execution). The `ER_MCP_Admin` and `ER_MCP_Scan_Operator` custom permissions remain internal Apex security gates and are granted by this permission set.
 - Diagnostics: failed MCP tool outcomes feed `ErStudioDiagnosticService`, scoped exclusively to ER Modeller Studio. Optional persistence uses an admin-configured existing Salesforce object. See `DIAGNOSTIC_COVERAGE.md`.
 
 ## Verified vs not verified

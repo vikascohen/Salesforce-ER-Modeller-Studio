@@ -58,15 +58,18 @@ private class ErMcpActionsTest {
         System.assertEquals(1,((List<Object>)result.get('comparisons')).size());
     }
     @IsTest static void adminAccessIsEnforced() {
-        Boolean denied=false;
-        try {ErMcpSettingsController.getSettings();}catch(Exception ex){denied=true;}
-        System.assert(denied);
-        denied=false;
-        try {ErMcpSettingsController.getLogs(null,null,200);}catch(Exception ex){denied=true;}
-        System.assert(denied);
-        denied=false;
-        try {ErMcpSettingsController.saveSettings(true,true,true,true,24,30);}catch(Exception ex){denied=true;}
-        System.assert(denied);
+        User unassigned=integrationUser();
+        System.runAs(unassigned) {
+            Boolean denied=false;
+            try {ErMcpSettingsController.getSettings();}catch(Exception ex){denied=true;}
+            System.assert(denied,'Unassigned user must not administer MCP');
+            denied=false;
+            try {ErMcpSettingsController.getLogs(null,null,200);}catch(Exception ex){denied=true;}
+            System.assert(denied);
+            denied=false;
+            try {ErMcpSettingsController.saveSettings(true,true,true,true,24,30);}catch(Exception ex){denied=true;}
+            System.assert(denied);
+        }
     }
     private static User integrationUser() {
         User u=new User(Alias='ermcp',Email='ermcp@example.com',EmailEncodingKey='UTF-8',LastName='McpTest',LanguageLocaleKey='en_US',LocaleSidKey='en_US',TimeZoneSidKey='Pacific/Auckland',ProfileId=UserInfo.getProfileId(),Username='ermcp.'+String.valueOf(System.now().getTime())+'@example.com');
@@ -74,7 +77,7 @@ private class ErMcpActionsTest {
     }
     @IsTest static void adminSettingsAndLogFilters() {
         User u=integrationUser();
-        PermissionSet admin=[SELECT Id FROM PermissionSet WHERE Name='ER_MCP_Admin' LIMIT 1];
+        PermissionSet admin=[SELECT Id FROM PermissionSet WHERE Name='Diagram_Studio_User' LIMIT 1];
         insert new PermissionSetAssignment(AssigneeId=u.Id,PermissionSetId=admin.Id);
         System.runAs(u) {
             System.assertEquals(true,ErMcpSettingsController.getSettings().Status_Enabled__c);
@@ -93,7 +96,7 @@ private class ErMcpActionsTest {
     }
     @IsTest static void scanOperatorBlockedByActiveRun() {
         User u=integrationUser();
-        PermissionSet operatorSet=[SELECT Id FROM PermissionSet WHERE Name='ER_MCP_Scan_Operator' LIMIT 1];
+        PermissionSet operatorSet=[SELECT Id FROM PermissionSet WHERE Name='Diagram_Studio_User' LIMIT 1];
         insert new PermissionSetAssignment(AssigneeId=u.Id,PermissionSetId=operatorSet.Id);
         System.runAs(u) {
             insert new Field_Usage_Run__c(Status__c='Running',Is_Current__c=false);
@@ -103,7 +106,7 @@ private class ErMcpActionsTest {
     }
     @IsTest static void scanOperatorCooldown() {
         User u=integrationUser();
-        PermissionSet operatorSet=[SELECT Id FROM PermissionSet WHERE Name='ER_MCP_Scan_Operator' LIMIT 1];
+        PermissionSet operatorSet=[SELECT Id FROM PermissionSet WHERE Name='Diagram_Studio_User' LIMIT 1];
         insert new PermissionSetAssignment(AssigneeId=u.Id,PermissionSetId=operatorSet.Id);
         System.runAs(u) {
             run(true);

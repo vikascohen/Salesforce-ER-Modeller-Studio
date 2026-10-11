@@ -50,7 +50,7 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 
 ### 4. Permissions and execution safeguards
 
-- `ER_MCP_Admin`, `ER_MCP_Reader` and `ER_MCP_Scan_Operator` permission sets for separated responsibilities.
+- One **`Diagram_Studio_User`** permission set containing MCP class, object, field and custom-permission access. Assign only to trusted users: the consolidated set permits MCP administration and scan initiation.
 - Permission checks and server-side tool enablement enforcement.
 - Rejection of disabled tools, unauthorised scan requests, overlapping scans and scan requests inside the cooldown period.
 - Input validation, bounded query results, pagination and defensive errors.

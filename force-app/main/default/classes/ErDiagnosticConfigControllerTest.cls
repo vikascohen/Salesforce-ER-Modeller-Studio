@@ -6,7 +6,7 @@ private class ErDiagnosticConfigControllerTest {
     private static User adminUser() {
         User u=new User(Alias='erdtest',Email='erdtest@example.org',EmailEncodingKey='UTF-8',LastName='Diagnostic',LanguageLocaleKey='en_US',LocaleSidKey='en_US',TimeZoneSidKey='Pacific/Auckland',ProfileId=UserInfo.getProfileId(),Username='erdtest-'+String.valueOf(System.now().getTime())+'@example.org');
         insert u;
-        PermissionSet ps=[SELECT Id FROM PermissionSet WHERE Name='ER_MCP_Admin' LIMIT 1];
+        PermissionSet ps=[SELECT Id FROM PermissionSet WHERE Name='Diagram_Studio_User' LIMIT 1];
         insert new PermissionSetAssignment(AssigneeId=u.Id,PermissionSetId=ps.Id);
         return u;
     }

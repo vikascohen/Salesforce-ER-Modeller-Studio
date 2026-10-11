@@ -14,7 +14,7 @@
 
 ## 2. Hosted MCP delivery
 - Salesforce Hosted MCP is the MCP endpoint and transport. ER Modeller provides **Apex invocable actions** exposed as tools through a **custom MCP server configured in Salesforce Setup**.
-- Ship invocable Apex classes, tests, permission set(s), configuration metadata, and Help/setup instructions. Admin creates/configures server, adds actions and activates it.
+- Ship invocable Apex classes, tests, the consolidated `Diagram_Studio_User` permission set, configuration metadata, and Help/setup instructions. Admin creates/configures server, adds actions and activates it.
 - Each caller (MuleSoft, Postman, agent) uses an External Client App with `mcp_api` scope, subject to Salesforce's actual supported OAuth and authorisation configuration.
 - Do not add standard Salesforce record tools to this custom server.
 - Setup documentation must explain prerequisites, user permissions, tool registration, OAuth, endpoint discovery, smoke test, diagnostics and troubleshooting. Do not hard-code an org-specific server URL.
@@ -61,7 +61,7 @@
 - **Scan guard:** admin-configured cooldown hours and scan-operator authorisation.
 - **Call log:** today and trailing seven-day counts by method, filterable log table (date, method, user, result), CSV export.
 - **Log retention:** configurable days, scheduled bounded purge, protected against active jobs and governor limits.
-- **Access:** admins and scan operators only; separate read/admin/operator capabilities if supported, least privilege.
+- **Access:** admins and scan operators only; single `Diagram_Studio_User` permission set per owner decision; it grants MCP administration and scan execution as well as reading. Restrict assignment to trusted users.
 - Provide diagnostics, useful failure states, accessible UI and tests.
 
 ## 7. Explicit decisions awaiting owner approval
@@ -93,7 +93,7 @@
 | Hosted MCP architecture | Salesforce-hosted custom server selected; no self-hosted MCP transport | Admin must create/configure/activate server in Setup, register tools and validate endpoint and external OAuth client |
 | Four invocable tools | `ErMcpGetSnapshotStatus`, `ErMcpGetFieldUsage`, `ErMcpGetChangedFields`, `ErMcpRunScan` exist and have been deployed | Real MCP `tools/list` and `tools/call` tests not yet performed; test input/output schema and permissions through MCP |
 | Field Usage intelligence | Reuses V3 persisted scan/evidence/snapshot services; Field Usage cursor pagination implemented | Five-run diff bounded to 40,000 evidence rows; verify retention of ten successful snapshots and behaviour at scale |
-| Settings and authorisation | `MCP_Settings__c`, admin/reader/scan-operator permission sets, `ErMcpSettingsController`, Settings > MCP Server UI | Confirm assigned permissions and integration user access; admin Setup configuration is separate from the Studio UI |
+| Settings and authorisation | `MCP_Settings__c`, consolidated `Diagram_Studio_User` permission set (including MCP custom permissions), `ErMcpSettingsController`, Settings > MCP Server UI | Confirm assigned permissions and integration user access; admin Setup configuration is separate from the Studio UI |
 | MCP invocation logs | `MCP_Tool_Log__c`, `ErMcpCore.logCall`, settings log queries and `ErMcpLogRetention` exist | Verify persistence under rollbacks, scheduled retention, redaction, CSV limitations and external client attribution |
 | Studio diagnostics | Central `ErStudioDiagnosticService`, UI events, background Field Usage/MCP failure routing; configurable existing-object sink | Coverage gaps and historical log retrieval documented in `DIAGNOSTIC_COVERAGE.md`; not Salesforce-wide monitoring |
 | Deployment/tests | `warden-dev` deployment of MCP classes and object metadata succeeded on 2026-10-11; 170 local Apex tests passed, zero failures | Salesforce Hosted MCP custom server has **not** been confirmed active or tested with an external MCP client; browser UX not verified |
