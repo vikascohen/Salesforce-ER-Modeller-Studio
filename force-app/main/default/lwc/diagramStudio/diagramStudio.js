@@ -17,6 +17,7 @@ import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagra
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
+import getMissingObjectNames from '@salesforce/apex/SchemaMetadataController.getMissingObjectNames';
 import getSharingSignal   from '@salesforce/apex/SchemaMetadataController.getSharingSignal';
 import getRecordCount     from '@salesforce/apex/SchemaMetadataController.getRecordCount';
 import describeObjectsForDictionary from '@salesforce/apex/SchemaMetadataController.describeObjectsForDictionary';
@@ -3702,6 +3703,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleZoomOut()   { this.zoomLevel = Math.max(0.3, Math.round((this.zoomLevel - 0.1) * 100) / 100); }
     handleZoomReset() { this.zoomLevel = 1; }
 
+    async checkMissingModelObjects(names, feature) {
+        const key = [...new Set(names.map(name=>name.toLowerCase()))].sort().join('|');
+        if (this._validatedModelKey !== key) {
+            this._validatedModelKey = key;
+            this._missingModelPromise = getMissingObjectNames({objectApiNames:names});
+        }
+        let missing;
+        try { missing = await this._missingModelPromise; }
+        catch (error) { this._validatedModelKey = null; throw error; }
+        const missingKeys = new Set((missing||[]).map(name=>name.toLowerCase()));
+        for (const name of missing||[]) {
+            this.recordDiagnostic(feature+': Object '+name+' does not exist in this Salesforce org. It is a hypothetical model object; deploy it before using '+feature+'.',feature,'WARN');
+        }
+        return names.filter(name=>!missingKeys.has(name.toLowerCase()));
+    }
+
     //  Sharing model view — badges each box with its org-wide default
     //  sharing model (from EntityDefinition). A Master-Detail child
     //  naturally comes back as 'ControlledByParent', which is exactly
@@ -3709,11 +3726,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleToggleSharingView() {
         this.sharingViewOn = !this.sharingViewOn;
-        if (this.sharingViewOn && this.currentModelIsMimic) {
-            this.sharingModels = {}; this.sharingSignals = {};
-            this.errorMessage = 'Sharing View is not available for a Mimic New ER model because its custom objects do not exist in this Salesforce org.';
-            return;
-        }
+
         if (this.sharingViewOn) this.scheduleSharingFetch();
     }
 
@@ -3723,7 +3736,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async fetchSharingModels() {
-        if (this.currentModelIsMimic || !this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
+        if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._sharingRequestToken;
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
@@ -3733,7 +3746,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // fetched here: doing one Apex round trip per canvas object made
             // Sharing View slow on larger diagrams. Those details are loaded
             // lazily only when the architect hovers an object.
-            const fresh = await getSharingModels({ objectApiNames: names });
+            const existingNames = await this.checkMissingModelObjects(names, 'Sharing View');
+            if (myToken !== this._sharingRequestToken || !this.sharingViewOn || this._isDisconnected) return;
+            const fresh = existingNames.length ? await getSharingModels({ objectApiNames: existingNames }) : {};
             const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
@@ -3802,12 +3817,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleToggleHeatmap() {
         this.heatmapOn = !this.heatmapOn;
-        if (this.heatmapOn && this.currentModelIsMimic) {
-            this.heatmapOn = false;
-            this.recordCounts = {};
-            this.errorMessage = 'Heatmap needs deployed, accessible Salesforce objects. Mimic New ER models may contain objects that do not exist in this org.';
-            return;
-        }
+
         if (this.heatmapOn) this.scheduleHeatmapFetch();
     }
 
@@ -3817,7 +3827,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     async fetchRecordCounts() {
-        if (this.currentModelIsMimic || !this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
+        if (!this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._heatmapRequestToken;
         const names = this._erBoxes.map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
@@ -3827,7 +3837,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // live reporting dashboard, so repeatedly querying unchanged
             // canvas objects only adds latency and server load.
             const next = { ...(this.recordCounts || {}) };
-            const pendingNames = names.filter((name) => next[name.toLowerCase()] == null);
+            const existingNames = await this.checkMissingModelObjects(names, 'Heatmap');
+            if (myToken !== this._heatmapRequestToken || !this.heatmapOn || this._isDisconnected) return;
+            const pendingNames = existingNames.filter((name) => next[name.toLowerCase()] == null);
             const concurrency = 4;
             let cursor = 0;
 

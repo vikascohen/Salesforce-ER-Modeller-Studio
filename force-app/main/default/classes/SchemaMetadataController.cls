@@ -476,6 +476,23 @@ public with sharing class SchemaMetadataController {
      * LIMIT) — one query per requested object, each wrapped so a single
      * unresolvable or inaccessible name can't fail the whole batch.
      */
+    /** Single metadata lookup for mixed deployed and hypothetical ER diagrams. */
+    @AuraEnabled(cacheable=true)
+    public static List<String> getMissingObjectNames(List<String> objectApiNames) {
+        List<String> missing = new List<String>();
+        if (objectApiNames == null || objectApiNames.isEmpty()) return missing;
+        Map<String, Schema.SObjectType> available = Schema.getGlobalDescribe();
+        Set<String> keys = new Set<String>();
+        for (String key : available.keySet()) keys.add(key.toLowerCase());
+        Set<String> seen = new Set<String>();
+        for (String name : objectApiNames) {
+            if (String.isBlank(name)) continue;
+            String normalised = name.trim().toLowerCase();
+            if (seen.add(normalised) && !keys.contains(normalised)) missing.add(name.trim());
+        }
+        return missing;
+    }
+
     @AuraEnabled(cacheable=false)
     public static Map<String, SharingWrap> getSharingModels(List<String> objectApiNames) {
         Map<String, SharingWrap> result = new Map<String, SharingWrap>();
