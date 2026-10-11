@@ -167,6 +167,43 @@ ER_STUDIO_MODELLER [Field Usage / Scan] Example Studio diagnostic
 
 Additional MCP tools and architecture rule engines are **not part of the currently implemented V4 feature set**. See the requirements tracker for proposals and unresolved decisions; they must not be mistaken for shipped features.
 
+## Phase 5 consideration — MCP-driven ER modelling and DSL rendering (proposal only)
+
+**Status: future design consideration; not implemented, committed to a release, or included in V4 completion percentages.** V4 remains focused on MCP access to existing field-usage intelligence and snapshot operations.
+
+The proposed V5 capability would allow an authorised external integration or AI agent to **submit Studio's ER modelling domain-specific language (DSL) through MCP**, have Studio parse and validate it, construct the corresponding ER model, and request an export in one of the following formats:
+
+| Requested format | Proposed output | Notes |
+| --- | --- | --- |
+| **Mermaid** | Mermaid `erDiagram` source text | Text response that the consuming client can render; no binary image is implied. |
+| **draw.io** | Editable `.drawio` / mxGraph XML | Return XML for bounded payloads or an authorised downloadable file reference for larger exports. |
+| **PNG** | Rendered `image/png` binary | Return through a supported MCP image/content mechanism or an authorised file reference; base64 only where payload size permits. Requires a real server-accessible rendering implementation. |
+| **Canonical model / DSL** | Validated structured model or normalised DSL text | Enables round-trip editing and downstream consumption without forcing an image export. |
+
+**Illustrative request (not an existing MCP tool contract):**
+
+```json
+{
+  "dsl": "entity Account : Name\nentity Contact : LastName\nContact.AccountId -> Account",
+  "format": "drawio",
+  "layout": "fit"
+}
+```
+
+Here, `fit` means arranging and sizing the diagram to its content bounds with readable spacing and no clipped entities or labels. The export should preserve editable shapes and connectors in draw.io; for PNG, it should render the entire diagram at a documented resolution. The exact layout and output contract are still to be designed.
+
+**Potential V5 capabilities:**
+
+- Accept validated DSL from authorised integrations or agents, without requiring the Studio LWC to be open.
+- Optionally generate a DSL/model from existing Salesforce metadata (for example Account, Contact and their relationships) or accept a proposed model supplied by an agent; explicitly distinguish deployed metadata from hypothetical designs.
+- Parse DSL once into a **canonical, UI-independent model**, then generate Mermaid, draw.io or PNG from that model rather than implementing inconsistent modelling rules for each format.
+- Support bounded synchronous responses and, where needed, asynchronous rendering with status, expiry and permission-checked retrieval of the generated artefact.
+- Reuse architecture validation and impact intelligence where applicable, while ensuring that modelling/export operations **do not create or modify Salesforce schema**.
+
+**Engineering prerequisites and acceptance criteria:** Define a versioned DSL grammar and API contract; reject invalid syntax with useful line/column diagnostics; enforce object/field visibility, MCP authorisation, input size, output size, execution time and rate limits; prevent HTML/XML injection in labels; and specify safe file storage/retention. The current Mermaid and draw.io exporters run in LWC JavaScript, whereas Salesforce Hosted MCP tools run in Apex. A server-accessible modelling/export implementation or an explicitly authorised rendering service is therefore required; **PNG must not be advertised until real rendering and retrieval are proven**. Test semantic parity and round-trip fidelity against Studio's existing DSL and exporters, complex/large diagrams, layout fitting, binary delivery and real external MCP clients.
+
+No new V5 MCP tool names, external renderer, storage mechanism or delivery dates are finalised by this proposal.
+
 ## Stable release
 
 **For a stable installation, use [the `main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and install Version 3 following its README.** This `v4` branch is exclusively for ongoing development and testing.
