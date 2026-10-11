@@ -29,70 +29,103 @@ The system follows several rules:
 - New capability should normally become a focused module rather than another monolithic block.
 - Absence of detected evidence is not proof of absence of dependency.
 
-## 2. Whole-system architecture
+## 2. Whole-system architecture — V4
+
+This diagram combines the interactive Studio, V4 Hosted MCP actions, persisted intelligence, asynchronous scans and shared diagnostics. **The Hosted MCP server activation and external invocation remain unverified.** The shared Diagram Studio entitlement gate is a required security enhancement, not yet implemented across all four actions. Teams is future state.
 
 ```mermaid
 flowchart TB
-    U[Architect / Developer] --> DS[Diagram Studio LWC]
+    User["Architect / Developer"] --> Studio["Diagram Studio LWC"]
+    Caller["Postman / AI Agent / External MCP Client"] --> OAuth["Salesforce OAuth and MCP server access"]
+    OAuth --> Hosted["Salesforce Hosted MCP custom server"]
+    Hosted --> Gate["Required Diagram Studio entitlement gate<br/>OPEN SECURITY GAP"]
+    Gate --> Actions["Four ER Modeller Invocable Apex Actions"]
 
-    subgraph Experience[Experience Layer]
-      DS --> ER[ER Canvas + Explorer]
-      DS --> DD[Data Dictionary]
-      DS --> AI[Architecture Intelligence]
-      DS --> FU[Field Usage Intelligence]
-      DS --> ST[Settings / Diagnostics / Help]
+    subgraph Experience["Interactive experience"]
+      Canvas["ER Canvas / Explorer"]
+      Dictionary["Data Dictionary"]
+      Intelligence["Architecture / Object Intelligence"]
+      Usage["Field Usage Intelligence"]
+      Settings["Settings / Help / Diagnostics"]
     end
+    Studio --> Canvas
+    Studio --> Dictionary
+    Studio --> Intelligence
+    Studio --> Usage
+    Studio --> Settings
 
-    subgraph Client[Client Model and Analysis]
-      DSL[ER DSL Compiler]
-      ERL[ER Diagram Logic]
-      AIL[Architecture Analysis Modules]
-      FUL[Field Usage Map Logic]
-      EXP[Export Utilities]
+    subgraph Client["Client modelling and analysis"]
+      DSL["ER DSL Compiler / Semantic Model"]
+      Graph["Diagram and Architecture Graph Logic"]
+      Maps["Field Usage Map Logic"]
+      Export["Export Utilities"]
     end
+    Canvas <--> DSL
+    Canvas --> Graph
+    Intelligence --> Graph
+    Usage --> Maps
+    Canvas --> Export
 
-    ER <--> DSL
-    ER --> ERL
-    AI --> AIL
-    FU --> FUL
-    ER --> EXP
-    AI --> EXP
-    FU --> EXP
-
-    subgraph Apex[Salesforce Service Layer]
-      SMC[SchemaMetadataController]
-      DFC[DataDictionaryFieldDetailController]
-      OIC[ObjectIntelligenceController]
-      FUC[FieldUsageController]
-      DIA[StudioDiagnosticsController]
-      FILE[Diagram File / Preference Controllers]
+    subgraph Services["Salesforce application services"]
+      Schema["SchemaMetadataController"]
+      Detail["DataDictionaryFieldDetailController"]
+      ObjectIntel["ObjectIntelligenceController"]
+      FieldSvc["FieldUsageController and Services"]
+      Files["Diagram File / Preferences"]
+      McpCore["ErMcpCore / ErMcpFieldUsageService"]
+      Scan["Scan Orchestrator / Batch / Finaliser"]
     end
+    Studio --> Schema
+    Dictionary --> Detail
+    Intelligence --> ObjectIntel
+    Usage --> FieldSvc
+    Studio --> Files
+    Actions --> McpCore
+    McpCore --> FieldSvc
+    McpCore -->|Run Scan| Scan
+    FieldSvc --> Scan
 
-    DS --> SMC
-    DD --> DFC
-    AI --> OIC
-    FU --> FUC
-    ST --> DIA
-    DS --> FILE
-
-    subgraph Sources[Salesforce Evidence Sources]
-      DESC[Describe / Org Schema]
-      TOOL[Tooling API]
-      ORG[Org Metadata and Data]
-      SNAP[Current Successful Field Usage Snapshot]
+    subgraph Persistence["Salesforce evidence and persistence"]
+      Describe["Describe / Org Schema"]
+      Tooling["Tooling API via Named Credential"]
+      Org["Org Metadata / Diagram Records"]
+      Snapshot[("Current Successful Snapshot / Evidence")]
+      Checkpoint[("Durable Scan Run / Work Units")]
     end
+    Schema --> Describe
+    Detail --> Describe
+    ObjectIntel --> Describe
+    ObjectIntel --> Tooling
+    ObjectIntel --> Snapshot
+    Files --> Org
+    FieldSvc --> Snapshot
+    Scan --> Tooling
+    Scan --> Snapshot
+    Scan --> Checkpoint
+    McpCore --> Snapshot
 
-    SMC --> DESC
-    DFC --> DESC
-    OIC --> DESC
-    OIC --> TOOL
-    OIC --> SNAP
-    DIA --> TOOL
-    FUC --> SNAP
-    FILE --> ORG
+    subgraph Diagnostics["Studio-scoped best-effort diagnostics"]
+      Sink["ErStudioDiagnosticService"]
+      Config["ErDiagnosticConfigController / Configuration"]
+      Log[("Admin-selected Salesforce Log Object")]
+      Buffer["Session-only UI Buffer"]
+    end
+    Studio -.-> Buffer
+    Studio -.-> Sink
+    Actions -.-> Sink
+    Scan -.-> Sink
+    Settings --> Config
+    Sink --> Config
+    Config -->|Enabled, valid and permitted| Log
 ```
 
-`diagramStudio` is the application shell and cross-feature orchestrator. Specialist behaviour is progressively extracted into focused components and JavaScript modules. The shell coordinates; it should not become a second implementation of every subsystem.
+**Trust boundaries:** External MCP consumers require Salesforce OAuth and Hosted MCP tool access. Every MCP action must additionally enforce the caller's Diagram Studio entitlement, with separate scan-operator authorisation for Run Scan. This shared entitlement guard is not yet complete. The internal Tooling API Named Credential is not an external MCP authentication mechanism.
+
+**Operational boundaries:** Heavy evidence acquisition is asynchronous; only successful snapshots become current. Durable run/work-unit checkpoints remain separate from optional, best-effort diagnostic records. The logger is Studio-scoped, validates configured simple or parent/child Salesforce objects, and must never persist tokens or raw evidence.
+
+**Future state:** A Teams headless adapter can consume the same MCP tools through an authorised Salesforce identity, but must never use a privileged service identity to bypass per-user Diagram Studio access. Teams is not shipped in V4. See Sections 19–22 for the detailed MCP, security and logging architecture.
+
+`diagramStudio` remains the interactive shell and cross-feature orchestrator; specialist behaviour belongs in focused components and services.
 
 ## 3. Core modelling path
 
