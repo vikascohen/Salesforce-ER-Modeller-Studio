@@ -54,4 +54,18 @@ private class ErDiagnosticConfigControllerTest {
         try {ErDiagnosticConfigController.validateValue('Account','NumberOfEmployees','not a number');System.assert(false,'Invalid numeric default accepted');}
         catch(AuraHandledException expected) {System.assert(expected.getMessage()!=null);}
     }
+    @IsTest static void customParentChildLogging() {
+        User u=adminUser();
+        System.runAs(u) {
+            String config='{"enabled":true,"provider":"custom","parentObjectApi":"Account","parentLookupField":"AccountId","parentRequiredFields":[{"field":"Name","value":"ER Parent Log"}],"objectApi":"Contact","messageField":"Description","requiredFields":[{"field":"LastName","value":"ER Child Entry"}]}';
+            Test.startTest();
+            ErDiagnosticConfigController.save(config);
+            System.assertEquals(true,ErDiagnosticConfigController.recordEvent('Test parent child diagnostic','ERROR'));
+            Test.stopTest();
+            Contact entry=[SELECT Account.Name,Description FROM Contact WHERE LastName='ER Child Entry' LIMIT 1];
+            System.assertEquals('ER Parent Log',entry.Account.Name);
+            System.assertEquals('Test parent child diagnostic',entry.Description);
+        }
+    }
+
 }

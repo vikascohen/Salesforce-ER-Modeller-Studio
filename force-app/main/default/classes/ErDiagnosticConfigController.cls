@@ -19,6 +19,10 @@ public without sharing class ErDiagnosticConfigController {
     }
     public class Configuration {
         public Boolean enabled;
+        public String provider;
+        public String parentObjectApi;
+        public String parentLookupField;
+        public List<Mapping> parentRequiredFields;
         public String objectApi;
         public String messageField;
         public Boolean severityEnabled;
@@ -63,6 +67,32 @@ public without sharing class ErDiagnosticConfigController {
     private static void checkConfig(Configuration c) {
         if (c==null) throw new AuraHandledException('Configuration is missing.');
         if (c.enabled!=true) return;
+        if (c.provider!='custom' && c.provider!='simple' && !String.isBlank(c.provider)) throw new AuraHandledException('Unknown logging structure.');
+        if (c.provider=='custom') {
+            CheckResult parentResult=validateObject(c.parentObjectApi);
+            if (!parentResult.valid) throw new AuraHandledException(parentResult.message);
+            if (String.isBlank(c.parentLookupField)) throw new AuraHandledException('Child relationship field is required.');
+            Map<String,Schema.SObjectType> types=Schema.getGlobalDescribe();
+            if (!types.containsKey(c.objectApi)) throw new AuraHandledException('Child logging object does not exist.');
+            Map<String,Schema.SObjectField> childFields=types.get(c.objectApi).getDescribe().fields.getMap();
+            if (!childFields.containsKey(c.parentLookupField)) throw new AuraHandledException('Child relationship field does not exist.');
+            Schema.DescribeFieldResult link=childFields.get(c.parentLookupField).getDescribe();
+            if (!link.isCreateable() || link.getType()!=Schema.DisplayType.Reference) throw new AuraHandledException('Child relationship must be a writable lookup or master-detail field.');
+            Boolean targetsParent=false;
+            for (Schema.SObjectType referenceType:link.getReferenceTo()) if (referenceType.getDescribe().getName()==c.parentObjectApi) targetsParent=true;
+            if (!targetsParent) throw new AuraHandledException('Child relationship does not reference the configured parent object.');
+            Set<String> suppliedParentFields=new Set<String>();
+            if(c.parentRequiredFields!=null) for(Mapping m:c.parentRequiredFields) {
+                if(m==null || String.isBlank(m.field) || !suppliedParentFields.add(m.field.toLowerCase())) throw new AuraHandledException('Parent field mappings must be unique.');
+                CheckResult fieldResult=validateField(c.parentObjectApi,m.field,false);
+                if(!fieldResult.valid) throw new AuraHandledException(fieldResult.message);
+                validateValue(c.parentObjectApi,m.field,m.value);
+            }
+            for (Schema.SObjectField parentField:types.get(c.parentObjectApi).getDescribe().fields.getMap().values()) {
+                Schema.DescribeFieldResult d=parentField.getDescribe();
+                if (d.isCreateable() && !d.isNillable() && !d.isDefaultedOnCreate() && !suppliedParentFields.contains(d.getName().toLowerCase())) throw new AuraHandledException('Parent field '+d.getName()+' requires a default-value mapping.');
+            }
+        }
         CheckResult objectResult=validateObject(c.objectApi);
         if (!objectResult.valid) throw new AuraHandledException(objectResult.message);
         CheckResult messageResult=validateField(c.objectApi,c.messageField,true);
@@ -74,6 +104,7 @@ public without sharing class ErDiagnosticConfigController {
             validateValue(c.objectApi,c.severityField,c.warningValue);
         }
         Set<String> used=new Set<String>{c.messageField.toLowerCase()};
+        if (c.provider=='custom') used.add(c.parentLookupField.toLowerCase());
         if (c.severityEnabled==true) used.add(c.severityField.toLowerCase());
         if (c.requiredFields!=null) for (Mapping m:c.requiredFields) {
             if (m==null || String.isBlank(m.field) || used.contains(m.field.toLowerCase())) throw new AuraHandledException('Required field mappings must be unique and have an API name.');
@@ -131,6 +162,19 @@ public without sharing class ErDiagnosticConfigController {
             record.put(c.messageField,message.length()>length?message.substring(0,length):message);
             if(c.severityEnabled==true) record.put(c.severityField,validateValue(c.objectApi,c.severityField,severity=='ERROR'?c.errorValue:c.warningValue));
             if(c.requiredFields!=null) for(Mapping m:c.requiredFields) record.put(m.field,validateValue(c.objectApi,m.field,m.value));
+            if (c.provider=='custom') {
+                Savepoint checkpoint=Database.setSavepoint();
+                try {
+                    SObject parent=Schema.getGlobalDescribe().get(c.parentObjectApi).newSObject();
+                    if(c.parentRequiredFields!=null) for(Mapping m:c.parentRequiredFields) parent.put(m.field,validateValue(c.parentObjectApi,m.field,m.value));
+                    Database.SaveResult parentResult=Database.insert(parent,false,AccessLevel.USER_MODE);
+                    if (!parentResult.isSuccess()) {Database.rollback(checkpoint);return false;}
+                    record.put(c.parentLookupField,parentResult.getId());
+                    Database.SaveResult childResult=Database.insert(record,false,AccessLevel.USER_MODE);
+                    if (!childResult.isSuccess()) {Database.rollback(checkpoint);return false;}
+                    return true;
+                } catch(Exception failed) {Database.rollback(checkpoint);return false;}
+            }
             Database.SaveResult result=Database.insert(record,false,AccessLevel.USER_MODE);
             return result.isSuccess();
         } catch(Exception ignored) {return false;}

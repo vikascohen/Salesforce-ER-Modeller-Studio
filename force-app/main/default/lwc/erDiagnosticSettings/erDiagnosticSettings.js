@@ -6,13 +6,21 @@ import load from '@salesforce/apex/ErDiagnosticConfigController.load';
 import save from '@salesforce/apex/ErDiagnosticConfigController.save';
 import validateObject from '@salesforce/apex/ErDiagnosticConfigController.validateObject';
 import validateField from '@salesforce/apex/ErDiagnosticConfigController.validateField';
-const blank=()=>({enabled:false,objectApi:'',messageField:'',severityEnabled:false,severityField:'',errorValue:'ERROR',warningValue:'WARN',requiredFields:[]});
+const blank=()=>({enabled:false,provider:'simple',parentObjectApi:'',parentLookupField:'',parentRequiredFields:[],objectApi:'',messageField:'',severityEnabled:false,severityField:'',errorValue:'ERROR',warningValue:'WARN',requiredFields:[]});
 export default class ErDiagnosticSettings extends LightningElement {
     @track config=blank(); @track notices={}; @track busy=false; @track feedback=''; sequence=0; fieldTokens={};
     connectedCallback(){this.initialise();}
     async initialise(){this.busy=true;try{this.config={...blank(),...JSON.parse(await load())};}catch(e){this.feedback=this.error(e);}finally{this.busy=false;}}
+    get isCustom(){return this.config.provider==='custom';}
+    get childObjectLabel(){return this.isCustom?'Child entry object API name':'Full object API name';}
+    get parentNotice(){return this.notices.parentObjectApi||'';}
+    get relationshipNotice(){return this.notices.parentLookupField||'';}
     get enabled(){return this.config.enabled;}
     get severityEnabled(){return this.config.severityEnabled;}
+    get parentFields(){return (this.config.parentRequiredFields||[]).map((f,index)=>({...f,index}));}
+    addParentField(){this.config={...this.config,parentRequiredFields:[...(this.config.parentRequiredFields||[]),{field:'',value:''}]};}
+    removeParentField(e){const index=Number(e.currentTarget.dataset.index);this.config={...this.config,parentRequiredFields:this.config.parentRequiredFields.filter((f,i)=>i!==index)};}
+    updateParentField(e){const index=Number(e.target.dataset.index),name=e.target.dataset.name;this.config={...this.config,parentRequiredFields:this.config.parentRequiredFields.map((f,i)=>i===index?{...f,[name]:e.target.value}:f)};}
     get fields(){return (this.config.requiredFields||[]).map((f,index)=>({...f,index,notice:this.notices['required-'+index]||''}));}
     get objectNotice(){return this.notices.objectApi||'';}
     get messageNotice(){return this.notices.messageField||'';}
@@ -23,7 +31,7 @@ export default class ErDiagnosticSettings extends LightningElement {
     updateRequired(e){const index=Number(e.target.dataset.index),name=e.target.dataset.name;this.config={...this.config,requiredFields:this.config.requiredFields.map((f,i)=>i===index?{...f,[name]:e.target.value}:f)};}
     addField(){this.config={...this.config,requiredFields:[...this.config.requiredFields,{field:'',value:''}]};}
     removeField(e){const index=Number(e.currentTarget.dataset.index);this.config={...this.config,requiredFields:this.config.requiredFields.filter((f,i)=>i!==index)};this.notices={};}
-    async validate(e){if(!this.config.enabled)return;const name=e.target.dataset.name;if(!name)return;const token=++this.sequence;this.fieldTokens[name]=token;const value=this.config[name];if(!value){this.notices={...this.notices,[name]:'Enter an API name.'};return;}try{const r=name==='objectApi'?await validateObject({objectApi:value}):await validateField({objectApi:this.config.objectApi,fieldApi:value,forMessage:name==='messageField'});if(token===this.fieldTokens[name])this.notices={...this.notices,[name]:r.message+(r.valid&&r.maxLength?' Maximum length: '+r.maxLength+'.':'')};}catch(err){if(token===this.fieldTokens[name])this.notices={...this.notices,[name]:this.error(err)};}}
+    async validate(e){if(!this.config.enabled)return;const name=e.target.dataset.name;if(!name)return;const token=++this.sequence;this.fieldTokens[name]=token;const value=this.config[name];if(!value){this.notices={...this.notices,[name]:'Enter an API name.'};return;}try{const r=(name==='objectApi'||name==='parentObjectApi')?await validateObject({objectApi:value}):await validateField({objectApi:this.config.objectApi,fieldApi:value,forMessage:name==='messageField'});if(token===this.fieldTokens[name])this.notices={...this.notices,[name]:r.message+(r.valid&&r.maxLength?' Maximum length: '+r.maxLength+'.':'')};}catch(err){if(token===this.fieldTokens[name])this.notices={...this.notices,[name]:this.error(err)};}}
     async validateRequired(e){if(!this.config.enabled)return;const index=Number(e.target.dataset.index),f=this.config.requiredFields[index];if(!f?.field)return;const key='required-'+index;const token=++this.sequence;this.fieldTokens[key]=token;try{const r=await validateField({objectApi:this.config.objectApi,fieldApi:f.field,forMessage:false});if(token===this.fieldTokens[key])this.notices={...this.notices,['required-'+index]:r.message};}catch(err){if(token===this.fieldTokens[key])this.notices={...this.notices,['required-'+index]:this.error(err)};}}
     async saveConfig(){this.busy=true;this.feedback='';try{await save({jsonConfig:JSON.stringify(this.config)});this.feedback='Error logging configuration saved.';}catch(e){this.feedback=this.error(e);}finally{this.busy=false;}}
 }

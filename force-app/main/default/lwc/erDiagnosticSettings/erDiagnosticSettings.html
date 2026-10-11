@@ -4,7 +4,26 @@
         <p>Diagnostics are buffered in memory. Optionally store events in an existing Salesforce object. For detailed history, use View → Error Log.</p>
         <label class="toggle"><input type="checkbox" checked={config.enabled} data-name="enabled" onchange={update}/> Store diagnostic events in a Salesforce object</label>
         <template if:true={enabled}>
-            <div class="field"><label for="objectApi">Full object API name</label><input id="objectApi" value={config.objectApi} data-name="objectApi" onchange={update} onblur={validate} placeholder="namespace__Log__c"/><small role="status">{objectNotice}</small></div>
+            <div class="field"><label for="provider">Logging structure</label><select id="provider" data-name="provider" value={config.provider} onchange={update}>
+                <option value="simple">Simple Salesforce Object</option>
+                <option value="custom">Custom Logging Structure (parent and child)</option>
+            </select></div>
+            <template if:true={isCustom}>
+                <p>Creates a parent log record and links each diagnostic entry to it. Works with custom parent–child logging models.</p>
+                <div class="field"><label for="parentObjectApi">Parent log object API name</label><input id="parentObjectApi" data-name="parentObjectApi" value={config.parentObjectApi} onchange={update} onblur={validate}/><small role="status">{parentNotice}</small></div>
+                <div class="field"><label for="parentLookupField">Child relationship field API name</label><input id="parentLookupField" data-name="parentLookupField" value={config.parentLookupField} onchange={update} onblur={validate}/><small role="status">{relationshipNotice}</small></div>
+                <h3>Parent required fields</h3>
+                <p>Map mandatory parent fields that have no Salesforce default. Leave empty when the parent object has no such fields.</p>
+                <template for:each={parentFields} for:item="f">
+                    <div class="mapping" key={f.index}>
+                        <div class="field"><label>Parent field API name</label><input data-index={f.index} data-name="field" value={f.field} onchange={updateParentField}/></div>
+                        <div class="field"><label>Default value</label><input data-index={f.index} data-name="value" value={f.value} onchange={updateParentField}/></div>
+                        <button data-index={f.index} onclick={removeParentField}>Remove</button>
+                    </div>
+                </template>
+                <button onclick={addParentField}>Add parent field</button>
+            </template>
+            <div class="field"><label for="objectApi">{childObjectLabel}</label><input id="objectApi" value={config.objectApi} data-name="objectApi" onchange={update} onblur={validate} placeholder="namespace__Log__c"/><small role="status">{objectNotice}</small></div>
             <div class="field"><label for="messageField">Message field API name</label><input id="messageField" value={config.messageField} data-name="messageField" onchange={update} onblur={validate} placeholder="Message__c"/><small role="status">{messageNotice}</small></div>
             <p>Salesforce metadata determines the field's actual maximum size. Longer messages are truncated when stored; the full message remains in the session buffer.</p>
             <label class="toggle"><input type="checkbox" checked={config.severityEnabled} data-name="severityEnabled" onchange={update}/> Populate a severity field</label>
