@@ -89,6 +89,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track sourceText  = ER_SAMPLE;
     _errorMessage = '';
     @track diagnosticEvents = [];
+    @track pendingDiagnosticCount = 0;
     @track errorLogOpen = false;
     @track errorLogSearch = '';
     @track errorLogSeverity = '';
@@ -107,6 +108,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const event=classifyDiagnostic(message,source,severity);
         const alreadyRecorded=this.diagnosticEvents.some(e=>e.message===event.message&&e.source===source&&e.severity===severity);
         this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
+        this.pendingDiagnosticCount+=1;
         if(!alreadyRecorded)persistDiagnosticEvent({message:event.message,severity}).catch(()=>{});
     }
     get visibleDiagnosticEvents(){return filterDiagnostics(this.diagnosticEvents,this.errorLogSearch,this.errorLogSeverity).map(e=>({...e,selected:e.id===this.selectedDiagnosticId,rowClass:'er-error-log-row'+(e.id===this.selectedDiagnosticId?' er-error-log-row-selected':''),severityClass:'er-log-severity '+(e.severity==='ERROR'?'er-log-severity-error':'er-log-severity-warn')}));}
@@ -121,7 +123,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get selectedDiagnostic(){return this.diagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
-    get diagnosticNotificationLabel(){return this.diagnosticEventCount+' diagnostic issue'+(this.diagnosticEventCount===1?'':'s')+'. Open Error Log.';}
+    get diagnosticNotificationLabel(){return this.pendingDiagnosticCount+' new diagnostic event'+(this.pendingDiagnosticCount===1?'':'s')+'. Open Error Log.';}
+    get hasPendingDiagnosticNotifications(){return this.pendingDiagnosticCount>0;}
+    get hasNoPendingDiagnosticNotifications(){return this.pendingDiagnosticCount===0;}
+    handleDismissDiagnosticNotifications(){this.pendingDiagnosticCount=0;}
     handleOpenDiagnosticCentre(){this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;this.errorLogSearch='';this.errorLogSeverity='';}
     handleMenuErrorLog(){this.openMenu=null;this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;}
     handleCloseErrorLog(){this.errorLogOpen=false;if(this.errorLogOrigin==='settings')this.settingsOpen=true;}
@@ -159,7 +164,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             try{link.click();}finally{document.body.removeChild(link);}
         }finally{URL.revokeObjectURL(url);}
     }
-    handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';}
+    handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';this.pendingDiagnosticCount=0;}
     handleOpenLogFromSettings(){this.errorLogOrigin='settings';this.settingsOpen=false;this.errorLogOpen=true;}
 
 
