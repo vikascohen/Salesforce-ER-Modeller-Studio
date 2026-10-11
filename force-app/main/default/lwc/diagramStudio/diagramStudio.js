@@ -4,6 +4,7 @@
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
+import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
 import { loadScript } from 'lightning/platformResourceLoader';
 import SHEETJS from '@salesforce/resourceUrl/sheetjs';
@@ -96,6 +97,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track errorLogOpen = false;
     @track errorLogSearch = '';
     @track errorLogSeverity = '';
+    @track errorLogSource = '';
+    @track errorLogOrder = 'newest';
+    @track errorLogHistory = false;
+    @track persistedDiagnosticEvents = [];
+    @track errorLogHistoryStatus = '';
     @track selectedDiagnosticId = '';
     errorLogOrigin = 'diagram';
     get errorMessage(){return this._errorMessage;}
@@ -112,29 +118,55 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const alreadyRecorded=this.diagnosticEvents.some(e=>e.message===event.message&&e.source===source&&e.severity===severity);
         this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
         this.pendingDiagnosticCount+=1;
-        if(!alreadyRecorded)persistDiagnosticEvent({message:event.message,severity}).catch(()=>{});
+        if(!alreadyRecorded) {
+            const prefix=/mcp/i.test(source)?'ER_STUDIO_MODELLER_MCP':'ER_STUDIO_MODELLER';
+            persistDiagnosticEvent({message:prefix+' ['+source+'] ['+severity+'] '+event.message,severity}).catch(()=>{});
+        }
     }
-    get visibleDiagnosticEvents(){return filterDiagnostics(this.diagnosticEvents,this.errorLogSearch,this.errorLogSeverity).map(e=>({...e,selected:e.id===this.selectedDiagnosticId,rowClass:'er-error-log-row'+(e.id===this.selectedDiagnosticId?' er-error-log-row-selected':''),severityClass:'er-log-severity '+(e.severity==='ERROR'?'er-log-severity-error':'er-log-severity-warn')}));}
+    get displayedDiagnosticEvents(){return this.errorLogHistory?this.persistedDiagnosticEvents:this.diagnosticEvents;}
+    get visibleDiagnosticEvents(){
+        const events=filterDiagnostics(this.displayedDiagnosticEvents,this.errorLogSearch,this.errorLogSeverity)
+            .filter(e=>!this.errorLogSource || (this.errorLogSource==='MCP'?/mcp/i.test(e.source):!/mcp/i.test(e.source)))
+            .slice().sort((a,b)=>this.errorLogOrder==='oldest'?a.timestamp.localeCompare(b.timestamp):b.timestamp.localeCompare(a.timestamp));
+        return events.map(e=>({...e,selected:e.id===this.selectedDiagnosticId,rowClass:'er-error-log-row'+(e.id===this.selectedDiagnosticId?' er-error-log-row-selected':''),severityClass:'er-log-severity '+(e.severity==='ERROR'?'er-log-severity-error':'er-log-severity-warn')}));
+    }
     get hasVisibleDiagnosticEvents(){return this.visibleDiagnosticEvents.length>0;}
-    get errorLogEmptyTitle(){return this.diagnosticEvents.length?'No matching events':'No issues recorded';}
-    get errorLogEmptyMessage(){return this.diagnosticEvents.length?'Try another search or severity filter.':'Your current session has no recorded diagnostic issues.';}
+    get errorLogEmptyTitle(){return this.displayedDiagnosticEvents.length?'No matching events':'No issues recorded';}
+    get errorLogEmptyMessage(){return this.displayedDiagnosticEvents.length?'Try another search or severity filter.':'Your current session has no recorded diagnostic issues.';}
     get selectedDiagnosticSeverityClass(){return 'er-log-severity '+(this.selectedDiagnostic?.severity==='ERROR'?'er-log-severity-error':'er-log-severity-warn');}
-    get diagnosticEventCount(){return this.diagnosticEvents.length;}
+    get diagnosticEventCount(){return this.displayedDiagnosticEvents.length;}
     get recentDiagnosticEvents(){return this.diagnosticEvents.slice(0,5);}
     get hasDiagnosticEvents(){return this.diagnosticEvents.length>0;}
     get hasNoDiagnosticEvents(){return this.diagnosticEvents.length===0;}
-    get selectedDiagnostic(){return this.diagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
+    get selectedDiagnostic(){return this.displayedDiagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
     get diagnosticNotificationLabel(){return this.pendingDiagnosticCount+' new diagnostic event'+(this.pendingDiagnosticCount===1?'':'s')+'. Open Error Log.';}
     get hasPendingDiagnosticNotifications(){return this.pendingDiagnosticCount>0;}
     get hasNoPendingDiagnosticNotifications(){return this.pendingDiagnosticCount===0;}
     handleDismissDiagnosticNotifications(){this.pendingDiagnosticCount=0;}
-    handleOpenDiagnosticCentre(){this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;this.errorLogSearch='';this.errorLogSeverity='';}
-    handleMenuErrorLog(){this.openMenu=null;this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;}
+    handleOpenDiagnosticCentre(){this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;this.errorLogSearch='';this.errorLogSeverity='';this.refreshDiagnosticHistory();}
+    handleMenuErrorLog(){this.openMenu=null;this.errorLogOrigin=this.settingsOpen?'settings':'diagram';this.settingsOpen=false;this.errorLogOpen=true;this.refreshDiagnosticHistory();}
     handleCloseErrorLog(){this.errorLogOpen=false;if(this.errorLogOrigin==='settings')this.settingsOpen=true;}
     handleErrorLogSearch(e){this.errorLogSearch=e.target.value;}
     handleErrorLogSeverity(e){this.errorLogSeverity=e.target.value;}
+    handleErrorLogSource(e){this.errorLogSource=e.target.value;}
+    handleErrorLogOrder(e){this.errorLogOrder=e.target.value;}
+    handleErrorLogScope(e){this.errorLogHistory=e.target.value==='history';this.selectedDiagnosticId='';if(this.errorLogHistory)this.refreshDiagnosticHistory();}
+    async refreshDiagnosticHistory(){
+        this.errorLogHistoryStatus='Loading persistent diagnostics…';
+        try {
+            const rows=await recentDiagnosticHistory();
+            this.persistedDiagnosticEvents=(rows||[]).map(r=>({...classifyDiagnostic(r.message,r.source,r.severity,r.created),id:r.id,timestamp:r.created,source:r.source,parentId:r.parentId}));
+            this.errorLogHistoryStatus='Latest '+this.persistedDiagnosticEvents.length+' matching events from the 50 most recent logging records.';
+        } catch(error) {
+            const message='Persistent Error Log query failed: '+this.reduceError(error);
+            this.errorLogHistoryStatus=message;
+            const event=classifyDiagnostic(message,'Error Log query','ERROR');
+            this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
+            this.pendingDiagnosticCount+=1;
+        }
+    }
     handleSelectDiagnostic(e){this.selectedDiagnosticId=e.currentTarget.dataset.id;}
     async handleExportSessionErrors(){
         if(!this.diagnosticEvents.length)return;
@@ -169,7 +201,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
     handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';this.pendingDiagnosticCount=0;}
-    handleOpenLogFromSettings(){this.errorLogOrigin='settings';this.settingsOpen=false;this.errorLogOpen=true;}
+    handleOpenLogFromSettings(){this.errorLogOrigin='settings';this.settingsOpen=false;this.errorLogOpen=true;this.refreshDiagnosticHistory();}
 
 
     @track isDirty     = false;

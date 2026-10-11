@@ -9,9 +9,9 @@
                 <option value="custom">Custom Logging Structure (parent and child)</option>
             </select></div>
             <template if:true={isCustom}>
-                <p>Creates a parent log record and links each diagnostic entry to it. Works with custom parent–child logging models.</p>
+                <p>Creates a parent log record and links each diagnostic entry to it. Historical reads query the child entry object, use the configured child relationship field to identify the parent record, and order by CreatedDate. The object and relationship are validated against Salesforce metadata before saving or querying.</p>
                 <div class="field"><label for="parentObjectApi">Parent log object API name</label><input id="parentObjectApi" data-name="parentObjectApi" value={config.parentObjectApi} onchange={update} onblur={validate}/><small role="status">{parentNotice}</small></div>
-                <div class="field"><label for="parentLookupField">Child relationship field API name</label><input id="parentLookupField" data-name="parentLookupField" value={config.parentLookupField} onchange={update} onblur={validate}/><small role="status">{relationshipNotice}</small></div>
+                <div class="field"><label for="parentLookupField">Child field referencing parent (lookup/master-detail API name)</label><input id="parentLookupField" data-name="parentLookupField" value={config.parentLookupField} onchange={update} onblur={validate}/><small role="status">{relationshipNotice}</small></div>
                 <h3>Parent required fields</h3>
                 <p>Map mandatory parent fields that have no Salesforce default. Leave empty when the parent object has no such fields.</p>
                 <template for:each={parentFields} for:item="f">

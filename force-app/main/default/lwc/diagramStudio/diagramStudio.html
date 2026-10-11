@@ -160,7 +160,7 @@
 
     <template if:true={errorLogOpen}>
         <section class="settings-page">
-            <header class="settings-head"><div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Error Log</h1><p>Session diagnostics. Salesforce object logging is optional; this list does not load historical records.</p></div><button class="mimic-close" onclick={handleCloseErrorLog}>{errorLogBackLabel}</button></header>
+            <header class="settings-head"><div><span class="settings-kicker">ER MODELLER STUDIO</span><h1>Error Log</h1><p>Review current session diagnostics or the latest 50 persisted logging records when configured.</p></div><button class="mimic-close" onclick={handleCloseErrorLog}>{errorLogBackLabel}</button></header>
             <main class="settings-content er-error-log-content">
                 <div class="er-log-toolbar">
                     <div class="er-log-toolbar-copy"><span class="settings-kicker">SESSION MONITOR</span><h2>Diagnostic events</h2><p>Search and inspect recorded issues. Select an event to see its impact and suggested resolution.</p></div>
@@ -168,6 +168,9 @@
                 </div>
                 <div class="er-error-log-controls">
                     <input aria-label="Search errors" type="search" placeholder="Search messages, categories or sources…" value={errorLogSearch} oninput={handleErrorLogSearch}/>
+                    <select aria-label="Log source" onchange={handleErrorLogScope}><option value="session">Session events</option><option value="history">Persisted history (latest 50)</option></select>
+                    <select aria-label="Filter source" onchange={handleErrorLogSource}><option value="">All sources</option><option value="MCP">MCP errors</option><option value="General">General errors</option></select>
+                    <select aria-label="Sort events" onchange={handleErrorLogOrder}><option value="newest">Latest first</option><option value="oldest">Oldest first</option></select>
                     <select aria-label="Filter severity" onchange={handleErrorLogSeverity}><option value="">All severities</option><option value="ERROR">Errors</option><option value="WARN">Warnings</option></select>
                     <button class="er-log-clear" onclick={handleDismissDiagnosticNotifications} disabled={hasNoPendingDiagnosticNotifications}>Dismiss notification</button>
                     <button class="er-log-clear" onclick={handleExportSessionErrors} disabled={hasNoDiagnosticEvents}>Export to TXT</button>
@@ -175,7 +178,7 @@
                 </div>
                 <div class="er-error-log-layout">
                     <section class="er-log-list-panel" aria-label="Diagnostic issues">
-                        <div class="er-log-panel-heading"><h3>Events</h3><span>Newest first</span></div>
+                        <div class="er-log-panel-heading"><h3>Events</h3><span>{diagnosticEventCount} records</span></div>
                         <div class="er-error-log-list">
                             <template for:each={visibleDiagnosticEvents} for:item="event">
                                 <button key={event.id} data-id={event.id} onclick={handleSelectDiagnostic} class={event.rowClass} aria-pressed={event.selected}>
@@ -201,7 +204,7 @@
                         <template if:false={hasSelectedDiagnostic}><div class="er-log-empty er-log-detail-empty"><span class="er-log-empty-icon">↗</span><h3>Select an event</h3><p>Click an issue on the left to inspect its impact, resolution steps and technical details.</p></div></template>
                     </section>
                 </div>
-                <p class="er-log-footnote">This view contains session events only. It does not load historical records from the configured Salesforce logging object.</p>
+                <p class="er-log-footnote">{errorLogHistoryStatus} Session buffer controls never delete persisted records. Persistent history is read-only and requires a saved, valid logging configuration.</p>
             </main>
         </section>
     </template>

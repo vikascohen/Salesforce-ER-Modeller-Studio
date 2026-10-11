@@ -179,4 +179,56 @@ public without sharing class ErDiagnosticConfigController {
             return result.isSuccess();
         } catch(Exception ignored) {return false;}
     }
+    public class HistoryEntry {
+        @AuraEnabled public String id;
+        @AuraEnabled public String message;
+        @AuraEnabled public String severity;
+        @AuraEnabled public String source;
+        @AuraEnabled public String parentId;
+        @AuraEnabled public Datetime created;
+    }
+    /** Read-only, bounded history. All SOQL identifiers come from validated describe metadata. */
+    @AuraEnabled public static List<HistoryEntry> recentHistory() {
+        authorize();
+        List<HistoryEntry> output=new List<HistoryEntry>();
+        List<ER_Diagnostic_Config__c> configs=[SELECT Configuration__c FROM ER_Diagnostic_Config__c WHERE Name='Default' LIMIT 1];
+        if(configs.isEmpty()) return output;
+        Configuration c=parse(configs[0].Configuration__c);
+        if(c.enabled!=true) return output;
+        checkConfig(c);
+        Schema.DescribeSObjectResult obj=Schema.getGlobalDescribe().get(c.objectApi).getDescribe();
+        if(!obj.isAccessible()) throw new AuraHandledException('Logging object is not readable: '+c.objectApi);
+        Map<String,Schema.SObjectField> fields=obj.fields.getMap();
+        if(!fields.get(c.messageField).getDescribe().isAccessible()) throw new AuraHandledException('Logging message field is not readable.');
+        String query='SELECT Id, CreatedDate, '+c.messageField;
+        if(c.severityEnabled==true) {
+            if(!fields.get(c.severityField).getDescribe().isAccessible()) throw new AuraHandledException('Logging severity field is not readable.');
+            query+=', '+c.severityField;
+        }
+        if(c.provider=='custom') {
+            if(!fields.get(c.parentLookupField).getDescribe().isAccessible()) throw new AuraHandledException('Logging parent relationship field is not readable.');
+            String relationshipName=fields.get(c.parentLookupField).getDescribe().getRelationshipName();
+            if(String.isBlank(relationshipName)) throw new AuraHandledException('Configured parent relationship cannot be queried.');
+            query+=', '+c.parentLookupField+', '+relationshipName+'.Id';
+        }
+        query+=' FROM '+c.objectApi+' ORDER BY CreatedDate DESC, Id DESC LIMIT 50';
+        try {
+            for(SObject row:Database.queryWithBinds(query,new Map<String,Object>(),AccessLevel.USER_MODE)) {
+                String message=String.valueOf(row.get(c.messageField));
+                if(!message.startsWith('ER_STUDIO_MODELLER')) continue;
+                HistoryEntry entry=new HistoryEntry();
+                entry.id=String.valueOf(row.get('Id'));
+                entry.message=message;
+                entry.created=(Datetime)row.get('CreatedDate');
+                entry.severity=(c.severityEnabled==true && String.valueOf(row.get(c.severityField))==c.warningValue) || (c.severityEnabled!=true && message.contains('[WARN]'))?'WARN':'ERROR';
+                entry.source=message.startsWith('ER_STUDIO_MODELLER_MCP')?'MCP':'General';
+                entry.parentId=c.provider=='custom'?String.valueOf(row.get(c.parentLookupField)):null;
+                output.add(entry);
+            }
+            return output;
+        } catch(Exception e) {
+            throw new AuraHandledException('Persistent diagnostic history query failed. Verify the logging object, relationship field, field access and SOQL configuration: '+e.getMessage());
+        }
+    }
+
 }

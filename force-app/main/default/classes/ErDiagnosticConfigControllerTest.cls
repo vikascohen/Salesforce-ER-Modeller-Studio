@@ -65,6 +65,19 @@ private class ErDiagnosticConfigControllerTest {
             Contact entry=[SELECT Account.Name,Description FROM Contact WHERE LastName='ER Child Entry' LIMIT 1];
             System.assertEquals('ER Parent Log',entry.Account.Name);
             System.assertEquals('Test parent child diagnostic',entry.Description);
+            System.assertEquals(0,ErDiagnosticConfigController.recentHistory().size());
+        }
+    }
+
+    @IsTest static void readsRecentPersistedEvents() {
+        User u=adminUser();
+        System.runAs(u) {
+            ErDiagnosticConfigController.save('{"enabled":true,"provider":"simple","objectApi":"Account","messageField":"Description","requiredFields":[{"field":"Name","value":"ER history test"}]}');
+            System.assertEquals(true,ErDiagnosticConfigController.recordEvent('ER_STUDIO_MODELLER [Studio] History sample','ERROR'));
+            List<ErDiagnosticConfigController.HistoryEntry> history=ErDiagnosticConfigController.recentHistory();
+            System.assertEquals(1,history.size());
+            System.assertEquals('General',history[0].source);
+            System.assert(history[0].message.contains('History sample'));
         }
     }
 
