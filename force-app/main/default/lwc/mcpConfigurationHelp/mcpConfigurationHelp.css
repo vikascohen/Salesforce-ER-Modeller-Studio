@@ -1,0 +1,25 @@
+/* MCP setup documentation is a child LWC: style it in its own shadow scope. */
+:host { display:block; color:var(--surface-text, #d4d4d4); }
+.help-doc { max-width:960px; margin:0 auto; padding-bottom:40px; }
+.help-doc h2 { color:var(--surface-text-strong, #e8e8e8); font-size:24px; font-weight:650; margin:0 0 12px; }
+.help-doc .help-lead { font-size:13px; line-height:1.8; color:var(--surface-text-muted, #a8a8a8); margin:0 0 26px; }
+.help-doc section { display:block; margin:0 0 22px; padding:22px 26px; background:var(--surface-bg, #252526); border:1px solid var(--surface-border, #3c3c3c); border-radius:10px; }
+.help-doc section h3 { font-size:16px; font-weight:650; line-height:1.5; color:var(--surface-text-strong, #e8e8e8); margin:0 0 14px; }
+.help-doc section p { font-size:13px; line-height:1.85; margin:0 0 14px; color:var(--surface-text, #d4d4d4); }
+.help-doc section p:last-child { margin-bottom:0; }
+.help-doc section strong { color:var(--surface-text-strong, #e8e8e8); }
+.help-doc code { padding:2px 5px; border-radius:4px; background:var(--surface-bg-alt, #1e1e1e); color:var(--surface-text-strong, #e8e8e8); overflow-wrap:anywhere; }
+.help-warning { display:grid; gap:9px; padding:18px 22px; margin:0 0 26px; border:1px solid var(--surface-border-strong, #4a4a4a); border-left:3px solid var(--accent, #007acc); border-radius:9px; background:var(--surface-bg, #252526); }
+.help-warning strong { color:var(--surface-text-strong, #e8e8e8); font-size:13px; }
+.help-warning span { line-height:1.8; font-size:13px; }
+.help-values { display:grid; gap:0; margin:14px 0 18px; border:1px solid var(--surface-border, #3c3c3c); border-radius:8px; background:var(--surface-bg-alt, #1e1e1e); overflow:hidden; }
+.help-values span { display:grid; grid-template-columns:minmax(180px, 1fr) minmax(0, 1.5fr); gap:14px; align-items:start; padding:12px 15px; border-bottom:1px solid var(--surface-border, #3c3c3c); font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
+.help-values span:last-child { border-bottom:0; }
+.help-values b { color:var(--surface-text-strong, #e8e8e8); }
+.help-troubleshoot { display:grid; gap:6px; padding:14px 0; border-bottom:1px solid var(--surface-border, #3c3c3c); font-size:13px; }
+.help-troubleshoot:last-child { border-bottom:0; }
+.help-troubleshoot strong { color:var(--surface-text-strong, #e8e8e8); }
+.help-troubleshoot span { line-height:1.75; color:var(--surface-text-muted, #a8a8a8); }
+.help-doc > p { line-height:1.8; margin:18px 0; }
+.help-doc a { color:var(--accent, #007acc); }
+@media (max-width:720px) { .help-doc section { padding:17px; margin-bottom:15px; } .help-values span { grid-template-columns:minmax(0,1fr); gap:4px; } }
