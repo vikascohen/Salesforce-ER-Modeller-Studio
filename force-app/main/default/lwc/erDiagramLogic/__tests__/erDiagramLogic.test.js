@@ -261,6 +261,27 @@ describe('buildDrawioXml', () => {
         expect(xml).toContain(`x="${Math.round(account.x)}" y="${Math.round(account.y)}"`);
     });
 
+    it('uses distinct attachment points for parallel relationships', () => {
+        const model = parseEr('entity Opportunity : Name\nentity Account : Name\nOpportunity.AccountId -> Account\nOpportunity.Partner__c -> Account');
+        const xml = buildDrawioXml(model, buildErGeometry(model, {}, {}, {}).boxes);
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        const edges = Array.from(doc.querySelectorAll('mxCell[edge="1"]'));
+        expect(edges).toHaveLength(2);
+        expect(edges[0].getAttribute('style')).toContain('exitY=0.333');
+        expect(edges[1].getAttribute('style')).toContain('exitY=0.667');
+    });
+
+    it('sizes the page to contain wide diagrams and gives dense entities enough height', () => {
+        const model = parseEr('entity Account : Name, Industry, Phone, Website, BillingCity, BillingCountry');
+        const xml = buildDrawioXml(model, [{ name: 'Account', x: 1400, y: 1200, width: 300, height: 45 }]);
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        const page = doc.querySelector('mxGraphModel');
+        const geometry = doc.querySelector('mxCell[vertex="1"] mxGeometry');
+        expect(Number(page.getAttribute('pageWidth'))).toBeGreaterThan(1700);
+        expect(Number(page.getAttribute('pageHeight'))).toBeGreaterThan(1200);
+        expect(Number(geometry.getAttribute('height'))).toBeGreaterThan(45);
+    });
+
     it('gives a self-relationship the same source and target node id', () => {
         const model = parseEr('entity Account : Name\nAccount.ParentId -> Account');
         const geo = buildErGeometry(model, {}, {}, {});
@@ -295,7 +316,7 @@ describe('Lucidchart-compatible draw.io export acceptance', () => {
             expect(Number(geometry.getAttribute('height'))).toBeGreaterThan(0);
         }
         const labels = vertices.map((vertex) => vertex.getAttribute('value')).join(' ');
-        expect(labels).toContain('AnnualRevenue (Currency)');
+        expect(labels.replace(/<[^>]*>/g, '')).toContain('AnnualRevenue (Currency)');
         expect(labels).toContain('LastName');
         expect(edges.map((edge) => edge.getAttribute('value'))).toEqual(expect.arrayContaining(['AccountId', 'OwnerId', 'WhoId']));
     });

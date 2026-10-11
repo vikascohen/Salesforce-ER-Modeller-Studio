@@ -463,33 +463,35 @@ function escapeXml(str) {
 }
 
 function drawioEntityLabelHtml(ent) {
-    const rows = [`<b>${ent.name}</b>`, '<hr size="1">', 'Id (PK)'];
-    ent.fields.forEach((f) => {
+    // HTML is XML-escaped at the mxCell boundary. Escape user-authored
+    // values here first to avoid HTML injection when draw.io renders them.
+    const safe = (value) => escapeXml(value);
+    const custom = isCustom(ent.name);
+    const header = custom ? '#5c2d91' : '#145a9c';
+    const rows = [
+        `<div style="background-color:${header};color:#ffffff;padding:10px 12px;font-size:14px;font-weight:bold;">${safe(ent.name)}</div>`,
+        '<div style="padding:7px 12px;background-color:#eef3f8;border-bottom:1px solid #d6dfe9;color:#44546a;font-size:11px;">Id <b>PK</b></div>'
+    ];
+    ent.fields.forEach((f, i) => {
+        let detail = '';
         if (f.isRelationship) {
             const targets = f.relatesTo && f.relatesTo.length ? f.relatesTo.join(' / ') : '?';
-            rows.push(`${f.name} \u2192 ${targets} (${kindLabel(f.kind)})`);
+            detail = ` &rarr; ${safe(targets)} <span style="color:#60748b;">(${safe(kindLabel(f.kind))})</span>`;
         } else if (f.isRollupSummary) {
-            rows.push(`${f.name} (Roll-Up Summary)`);
+            detail = ' <span style="color:#60748b;">(Roll-Up Summary)</span>';
         } else if (f.dataType) {
-            // Plain HTML label text here, not a grammar Mermaid has to
-            // parse — the friendly type can be shown exactly as-is,
-            // spaces/parens included, with no sanitizing needed.
-            rows.push(`${f.name} (${escapeXml(f.dataType)})`);
-        } else {
-            rows.push(f.name);
+            detail = ` <span style="color:#60748b;">(${safe(f.dataType)})</span>`;
         }
+        rows.push(`<div style="padding:5px 12px;background-color:${i % 2 ? '#f3f7fb' : '#ffffff'};border-bottom:1px solid #edf0f4;font-size:11px;">${safe(f.name)}${detail}</div>`);
     });
-    return rows.join('<br>');
+    return `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.4;">${rows.join('')}</div>`;
 }
 
 function drawioEdgeStyle(kind) {
-    if (kind === 'master') {
-        return 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5c2d91;strokeWidth=2.5;endArrow=diamondThin;endFill=1;startArrow=none;jettySize=auto;';
-    }
-    if (kind === 'poly') {
-        return 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#ea4335;dashed=1;endArrow=block;endFill=0;startArrow=none;jettySize=auto;';
-    }
-    return 'edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#0070d2;endArrow=block;endFill=0;startArrow=none;jettySize=auto;';
+    const base = 'edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;loopStyle=loop;html=1;strokeWidth=2;jettySize=auto;labelBackgroundColor=#ffffff;fontSize=10;fontColor=#344054;';
+    if (kind === 'master') return base + 'strokeColor=#7752a6;endArrow=diamondThin;endFill=1;';
+    if (kind === 'poly') return base + 'strokeColor=#d97736;dashed=1;dashPattern=6 4;endArrow=block;endFill=0;';
+    return base + 'strokeColor=#2973b9;dashed=1;dashPattern=6 4;endArrow=block;endFill=0;';
 }
 
 /**
@@ -514,35 +516,61 @@ export function buildDrawioXml(model, boxes) {
     (boxes || []).forEach((b) => { boxByName[b.name] = b; });
 
     const cells = [];
-    model.entities.forEach((ent) => {
+    let maxX = 0;
+    let maxY = 0;
+    model.entities.forEach((ent, i) => {
         const box = boxByName[ent.name];
-        const x = box ? box.x : 40;
-        const y = box ? box.y : 40;
-        const w = box ? box.width : BOX_WIDTH;
-        const h = box ? box.height : HEADER_HEIGHT + 80;
+        const x = Math.round(box && Number.isFinite(box.x) ? box.x : 60 + (i % 3) * 340);
+        const y = Math.round(box && Number.isFinite(box.y) ? box.y : 60 + Math.floor(i / 3) * 320);
+        const w = Math.max(250, Math.round(box && Number.isFinite(box.width) ? box.width : BOX_WIDTH));
+        // Header + PK + one row per field; prevent truncation of long objects.
+        const minHeight = 78 + ent.fields.length * 25;
+        const h = Math.max(minHeight, Math.round(box && Number.isFinite(box.height) ? box.height : minHeight));
+        maxX = Math.max(maxX, x + w);
+        maxY = Math.max(maxY, y + h);
         const custom = isCustom(ent.name);
-        const fill   = custom ? '#e6d9f5' : '#dae8fc';
-        const stroke = custom ? '#5c2d91' : '#0070d2';
-        const label  = escapeXml(drawioEntityLabelHtml(ent));
+        const stroke = custom ? '#7752a6' : '#2973b9';
+        const label = escapeXml(drawioEntityLabelHtml(ent));
         cells.push(
-            `<mxCell id="${idOf[ent.name]}" value="${label}" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=${fill};strokeColor=${stroke};fontSize=12;" vertex="1" parent="1">` +
-            `<mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${Math.round(w)}" height="${Math.round(h)}" as="geometry" /></mxCell>`
+            `<mxCell id="${idOf[ent.name]}" value="${label}" style="rounded=1;arcSize=5;whiteSpace=wrap;html=1;overflow=fill;align=left;verticalAlign=top;spacing=0;fillColor=#ffffff;strokeColor=${stroke};strokeWidth=1.5;shadow=1;fontSize=11;" vertex="1" parent="1">` +
+            `<mxGeometry x="${x}" y="${y}" width="${w}" height="${h}" as="geometry" /></mxCell>`
         );
     });
 
+    // Spread parallel connectors across separate attachment points rather
+    // than stacking them all on the same centre-to-centre path.
+    const groups = new Map();
+    model.relationships.forEach((r) => {
+        const key = `${r.childEntity}\u0000${r.parentEntity}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(r);
+    });
+    const seen = new Map();
     model.relationships.forEach((r, i) => {
-        const label = escapeXml(r.childField);
-        const style = drawioEdgeStyle(r.kind);
+        const key = `${r.childEntity}\u0000${r.parentEntity}`;
+        const index = seen.get(key) || 0;
+        seen.set(key, index + 1);
+        const total = groups.get(key).length;
+        const offset = ((index + 1) / (total + 1)).toFixed(3);
+        const sourceBox = boxByName[r.childEntity];
+        const targetBox = boxByName[r.parentEntity];
+        const sourceX = sourceBox ? sourceBox.x : 0;
+        const targetX = targetBox ? targetBox.x : 0;
+        const toRight = sourceX <= targetX;
+        const side = toRight ? 'exitX=1;entryX=0;' : 'exitX=0;entryX=1;';
+        const style = drawioEdgeStyle(r.kind) + side + `exitY=${offset};entryY=${offset};exitPerimeter=1;entryPerimeter=1;`;
         cells.push(
-            `<mxCell id="rel${i}" value="${label}" style="${style}" edge="1" parent="1" source="${idOf[r.childEntity]}" target="${idOf[r.parentEntity]}">` +
+            `<mxCell id="rel${i}" value="${escapeXml(r.childField)}" style="${style}" edge="1" parent="1" source="${idOf[r.childEntity]}" target="${idOf[r.parentEntity]}">` +
             '<mxGeometry relative="1" as="geometry" /></mxCell>'
         );
     });
 
+    const pageWidth = Math.max(850, Math.ceil((maxX + 100) / 100) * 100);
+    const pageHeight = Math.max(1100, Math.ceil((maxY + 100) / 100) * 100);
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
         '<mxfile host="app.diagrams.net">\n' +
         '  <diagram name="ER Diagram" id="er-diagram-1">\n' +
-        '    <mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">\n' +
+        `    <mxGraphModel dx="${pageWidth}" dy="${pageHeight}" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0">\n` +
         '      <root>\n' +
         '        <mxCell id="0" />\n' +
         '        <mxCell id="1" parent="0" />\n' +
