@@ -31,101 +31,62 @@ The system follows several rules:
 
 ## 2. Whole-system architecture — V4
 
-This diagram combines the interactive Studio, V4 Hosted MCP actions, persisted intelligence, asynchronous scans and shared diagnostics. **The Hosted MCP server activation and external invocation remain unverified.** The shared Diagram Studio entitlement gate is a required security enhancement, not yet implemented across all four actions. Teams is future state.
+The top-level view deliberately shows **capabilities and trust boundaries**, not individual classes. Detailed MCP, logger, authorisation and runtime diagrams are in Sections 19–22.
 
 ```mermaid
 flowchart TB
-    User["Architect / Developer"] --> Studio["Diagram Studio LWC"]
-    Caller["Postman / AI Agent / External MCP Client"] --> OAuth["Salesforce OAuth and MCP server access"]
-    OAuth --> Hosted["Salesforce Hosted MCP custom server"]
-    Hosted --> Gate["Required Diagram Studio entitlement gate<br/>OPEN SECURITY GAP"]
-    Gate --> Actions["Four ER Modeller Invocable Apex Actions"]
-
-    subgraph Experience["Interactive experience"]
-      Canvas["ER Canvas / Explorer"]
-      Dictionary["Data Dictionary"]
-      Intelligence["Architecture / Object Intelligence"]
-      Usage["Field Usage Intelligence"]
-      Settings["Settings / Help / Diagnostics"]
+    subgraph Consumers["1. Consumers"]
+      direction LR
+      Human["Architect / Developer"]
+      Agent["External MCP Client"]
     end
-    Studio --> Canvas
-    Studio --> Dictionary
+
+    subgraph Access["2. Access channels"]
+      direction LR
+      Studio["Diagram Studio<br/>Salesforce LWC"]
+      Hosted["Salesforce Hosted MCP<br/>OAuth + custom server"]
+    end
+
+    subgraph Application["3. ER Modeller application"]
+      direction LR
+      Modelling["Modelling<br/>DSL · ER Canvas · Export"]
+      Intelligence["Architecture Intelligence<br/>Dictionary · Impact · Field Usage"]
+      MCP["MCP Apex Tools<br/>authorised read / scan"]
+    end
+
+    subgraph Platform["4. Salesforce platform"]
+      direction LR
+      Schema["Schema / Metadata<br/>Describe + Tooling API"]
+      Snapshot[("Stored Models<br/>Field Usage Snapshots")]
+      Scan["Asynchronous<br/>Scan Pipeline"]
+    end
+
+    Human --> Studio
+    Agent --> Hosted
+    Studio --> Modelling
     Studio --> Intelligence
-    Studio --> Usage
-    Studio --> Settings
-
-    subgraph Client["Client modelling and analysis"]
-      DSL["ER DSL Compiler / Semantic Model"]
-      Graph["Diagram and Architecture Graph Logic"]
-      Maps["Field Usage Map Logic"]
-      Export["Export Utilities"]
-    end
-    Canvas <--> DSL
-    Canvas --> Graph
-    Intelligence --> Graph
-    Usage --> Maps
-    Canvas --> Export
-
-    subgraph Services["Salesforce application services"]
-      Schema["SchemaMetadataController"]
-      Detail["DataDictionaryFieldDetailController"]
-      ObjectIntel["ObjectIntelligenceController"]
-      FieldSvc["FieldUsageController and Services"]
-      Files["Diagram File / Preferences"]
-      McpCore["ErMcpCore / ErMcpFieldUsageService"]
-      Scan["Scan Orchestrator / Batch / Finaliser"]
-    end
-    Studio --> Schema
-    Dictionary --> Detail
-    Intelligence --> ObjectIntel
-    Usage --> FieldSvc
-    Studio --> Files
-    Actions --> McpCore
-    McpCore --> FieldSvc
-    McpCore -->|Run Scan| Scan
-    FieldSvc --> Scan
-
-    subgraph Persistence["Salesforce evidence and persistence"]
-      Describe["Describe / Org Schema"]
-      Tooling["Tooling API via Named Credential"]
-      Org["Org Metadata / Diagram Records"]
-      Snapshot[("Current Successful Snapshot / Evidence")]
-      Checkpoint[("Durable Scan Run / Work Units")]
-    end
-    Schema --> Describe
-    Detail --> Describe
-    ObjectIntel --> Describe
-    ObjectIntel --> Tooling
-    ObjectIntel --> Snapshot
-    Files --> Org
-    FieldSvc --> Snapshot
-    Scan --> Tooling
+    Hosted --> MCP
+    MCP --> Intelligence
+    Modelling --> Schema
+    Modelling --> Snapshot
+    Intelligence --> Schema
+    Intelligence --> Snapshot
+    MCP -->|Run Scan| Scan
+    Scan --> Schema
     Scan --> Snapshot
-    Scan --> Checkpoint
-    McpCore --> Snapshot
 
-    subgraph Diagnostics["Studio-scoped best-effort diagnostics"]
-      Sink["ErStudioDiagnosticService"]
-      Config["ErDiagnosticConfigController / Configuration"]
-      Log[("Admin-selected Salesforce Log Object")]
-      Buffer["Session-only UI Buffer"]
-    end
-    Studio -.-> Buffer
-    Studio -.-> Sink
-    Actions -.-> Sink
-    Scan -.-> Sink
-    Settings --> Config
-    Sink --> Config
-    Config -->|Enabled, valid and permitted| Log
+    Diagnostics["Cross-cutting diagnostics<br/>opt-in Salesforce logger"]
+    Application -.-> Diagnostics
+    Scan -.-> Diagnostics
 ```
 
-**Trust boundaries:** External MCP consumers require Salesforce OAuth and Hosted MCP tool access. Every MCP action must additionally enforce the caller's Diagram Studio entitlement, with separate scan-operator authorisation for Run Scan. This shared entitlement guard is not yet complete. The internal Tooling API Named Credential is not an external MCP authentication mechanism.
+**Reading the diagram:** Interactive users enter through Studio; external consumers enter through Salesforce Hosted MCP. Both reach the **same ER Modeller intelligence**, which is backed by Salesforce metadata, persisted models and successful Field Usage snapshots. The asynchronous scan pipeline refreshes that evidence. Diagnostics observe application and scan operations without becoming a dependency for successful business execution.
 
-**Operational boundaries:** Heavy evidence acquisition is asynchronous; only successful snapshots become current. Durable run/work-unit checkpoints remain separate from optional, best-effort diagnostic records. The logger is Studio-scoped, validates configured simple or parent/child Salesforce objects, and must never persist tokens or raw evidence.
+**Security boundary:** The Hosted MCP transport requires Salesforce authentication and tool access. Every MCP action must also check Diagram Studio entitlement; this shared authorisation guard is a **known implementation gap**, not a completed control. Run Scan requires its additional operator permission. The internal Tooling API Named Credential is separate from external MCP authentication.
 
-**Future state:** A Teams headless adapter can consume the same MCP tools through an authorised Salesforce identity, but must never use a privileged service identity to bypass per-user Diagram Studio access. Teams is not shipped in V4. See Sections 19–22 for the detailed MCP, security and logging architecture.
+**Status:** V4 Apex MCP tools and Studio diagnostic services exist; a live custom Hosted MCP endpoint and external invocation remain unverified. **Microsoft Teams is future-state** and intentionally omitted from the current-state diagram. See Sections 19–22 for the full MCP sequence, permission decisions, logging architecture and planned Teams adapter.
 
-`diagramStudio` remains the interactive shell and cross-feature orchestrator; specialist behaviour belongs in focused components and services.
+The top-level diagram is intentionally small: it communicates architectural ownership and data flow, while subsequent diagrams document implementation detail.
 
 ## 3. Core modelling path
 
