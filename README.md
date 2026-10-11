@@ -18,7 +18,7 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 
 ## V4-only requirements and implementation status
 
-This checklist covers **changes introduced on the `v4` branch only**. Earlier ER canvas, DSL, data dictionary, architecture intelligence, Field Usage scanning, and ordinary diagram exports are **not counted as V4 achievements**. A code-complete feature may still require browser or external-client acceptance; percentages below describe implementation, not production readiness.
+This checklist covers **changes introduced on the `v4` branch only**. Earlier ER canvas, DSL, data dictionary, architecture intelligence, Field Usage scanning and ordinary diagram exports are **not counted as V4 achievements**. The dedicated Lucidchart export action is listed because its V4-specific user-facing export path is part of this branch; its underlying draw.io serializer is reused rather than new. A code-complete feature may still require browser or external-client acceptance; percentages below describe implementation, not production readiness.
 
 | # | V4 requirement and delivered behaviour | Estimated completion |
 | --- | --- | ---: |
@@ -40,10 +40,11 @@ This checklist covers **changes introduced on the `v4` branch only**. Earlier ER
 | 16 | **MCP setup and help documentation** — Document custom-server registration, tool setup, OAuth, permissions, execution settings, diagnostic configuration, field meanings and troubleshooting in the in-product Help and repository. | **95%** |
 | 17 | **Automated regression and deployment verification** — Deploy MCP Apex, settings and UI to the authorised development org and run Apex/Jest tests; dedicated last-five-query tests, browser acceptance and a refreshed full regression run remain outstanding. | **70%** |
 | 18 | **End-to-end MCP acceptance** — Test authenticated external invocations, denial paths, logging under rollback, high-volume snapshot comparisons and integration-user access before declaring the V4 integration production-ready. | **0%** |
+| 19 | **Lucidchart-compatible diagram export** — Add **File → Export → Lucidchart Diagram → Download for Lucidchart (.drawio)**, generating an editable mxGraph/draw.io file from the current ER model for import through Lucidchart **+ New → Import documents**. Reuses the existing draw.io serializer; does not create a proprietary `.lucid` file or call the Lucidchart API. Real Lucidchart import acceptance remains unverified. | **90%** |
 
 **How to read completion:** These are approximate, judgement-based **requirement completion estimates**, not measured test coverage or production-readiness scores. For example, 85% on an MCP tool means its Apex implementation exists but real external MCP invocation has not been accepted; 0% means the requirement has not been verified or completed. No overall average is claimed.
 
-**Not a V4 implementation:** The Lucidchart-compatible `.drawio` export is already present in the Studio and was therefore deliberately **excluded** from this V4-only checklist. It is not a native Lucidchart API integration.
+**Lucidchart clarification:** The dedicated Lucidchart download action is included as requirement 19. It exports `.drawio` for import into Lucidchart; it is not a native Lucidchart API integration. The underlying draw.io export engine is reused.
 
 ## Detailed V4 implementation notes
 
