@@ -5,19 +5,25 @@ public with sharing class ErMcpCore {
     public class DisabledException extends Exception {}
     public class InvalidRequestException extends Exception {}
     public static MCP_Settings__c settings() {
-        List<MCP_Settings__c> rows = [SELECT Id,Status_Enabled__c,Usage_Enabled__c,Changed_Enabled__c,Scan_Enabled__c,Cooldown_Hours__c,Log_Retention_Days__c FROM MCP_Settings__c WHERE Name='Default' LIMIT 1];
+        List<MCP_Settings__c> rows = [SELECT Id,Status_Enabled__c,Usage_Enabled__c,Changed_Enabled__c,Scan_Enabled__c,Cooldown_Hours__c FROM MCP_Settings__c WHERE Name='Default' LIMIT 1];
         if (!rows.isEmpty()) return rows[0];
-        MCP_Settings__c defaults = new MCP_Settings__c(Name='Default',Status_Enabled__c=true,Usage_Enabled__c=true,Changed_Enabled__c=true,Scan_Enabled__c=true,Cooldown_Hours__c=24,Log_Retention_Days__c=30);
+        MCP_Settings__c defaults = new MCP_Settings__c(Name='Default',Status_Enabled__c=true,Usage_Enabled__c=true,Changed_Enabled__c=true,Scan_Enabled__c=true,Cooldown_Hours__c=24);
         return defaults;
     }
     public static void requireEnabled(Boolean enabled) {
         if (enabled != true) throw new DisabledException('disabled by administrator');
     }
     public static void logCall(String method, String requested, String outcome, Long started, String detail) {
-        if(outcome=='Error') ErStudioDiagnosticService.error('Hosted MCP',method,String.isBlank(detail)?'MCP tool failed.':detail);
-        try {
-            insert new MCP_Tool_Log__c(Tool__c=method,Requested_Key__c=String.isBlank(requested)?null:requested.left(255),Outcome__c=outcome,Duration_Ms__c=System.now().getTime()-started,Detail__c=String.isBlank(detail)?null:detail.left(255));
-        } catch (Exception ignored) { /* Logging must not override a successful read. */ }
+        Long elapsed = started == null ? 0 : Math.max(0, System.now().getTime() - started);
+        // One best-effort diagnostic sink; no dedicated MCP object or independent retention job.
+        // Avoid persisting raw field names, request arguments or error details to an admin-selected log object.
+        String message = 'tool=' + safeLogToken(method) + '; outcome=' + safeLogToken(outcome) +
+            '; durationMs=' + String.valueOf(elapsed) + '; requested=' + (String.isBlank(requested) ? 'none' : 'provided') +
+            '; detail=' + (String.isBlank(detail) ? 'none' : 'available');
+        ErStudioDiagnosticService.event('Hosted MCP', 'Tool invocation', outcome == 'Error' ? 'ERROR' : 'INFO', message);
+    }
+    private static String safeLogToken(String value) {
+        return String.isBlank(value) ? 'unknown' : value.left(80).replaceAll('[^a-zA-Z0-9 _-]', '_');
     }
     public static String snapshotContext() {
         List<Field_Usage_Run__c> runs = [SELECT Id,Completed_At__c,Dependency_Count__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];

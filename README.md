@@ -42,10 +42,8 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 - **Settings → MCP Server** workspace.
 - Independent server-enforced enable/disable switches for the four MCP actions.
 - Configurable scan cooldown in hours.
-- Configurable MCP call-log retention in days.
-- MCP invocation counts for today and the previous seven days.
-- Filterable call-log table by method and outcome.
-- CSV export of the **currently displayed** log rows (maximum 200 returned rows, not the complete history).
+- Diagnostic retention managed by the configured Salesforce logging object, not MCP Settings.
+- Unified Studio diagnostics instead of a dedicated MCP call-log table.
 - Explicit guidance distinguishing installed Apex tools, Salesforce server activation and external OAuth connectivity. These external states are **not automatically verified** by the Settings page.
 
 ### 4. Permissions and execution safeguards
@@ -56,13 +54,14 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 - Input validation, bounded query results, pagination and defensive errors.
 - Snapshot-based reads: read-only MCP tools use persisted evidence rather than initiating live scans.
 
-### 5. MCP audit logging and retention
+### 5. Unified Studio diagnostics for MCP
 
-- `MCP_Tool_Log__c` records for tool invocation attempts, including tool, requested key, outcome, execution duration and bounded details.
-- `MCP_Settings__c` configuration storage.
-- MCP log retrieval, summary counts and CSV export from Studio.
-- `ErMcpLogRetention` batch and scheduling support for retention clean-up.
-- Logging designed not to interrupt successful read operations if audit insertion fails; transaction rollback behaviour still requires end-to-end verification.
+- MCP invocations use the existing Studio diagnostic service, **not a dedicated MCP log object**.
+- Events include tool name, outcome and elapsed milliseconds; request values and raw error details are not persisted by this integration.
+- Configure an existing Salesforce object in **Settings → Diagnostics** to opt in to persistent events. With persistence disabled, no durable MCP call history is kept.
+- Successful calls are emitted as `INFO`; errors as `ERROR`. If a configured severity field supports only ERROR/WARN values, INFO events use the configured warning value; distinguish the event level in the message.
+- No MCP-specific retention setting, log table, CSV export or retention batch is installed. Retention follows the administrator's chosen diagnostic object policy.
+- Best-effort persistence is subject to Salesforce transaction rollback and permissions; it is not a tamper-proof audit trail.
 
 ### 6. Studio diagnostics and error visibility
 
@@ -83,8 +82,8 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 
 ### 8. Tests and development validation
 
-- Dedicated Apex regression tests for MCP action responses, snapshots, dependency comparisons, pagination, disabled tools, permissions, scan cooldown, concurrent scan rejection, settings, logging and retention.
-- Latest full Apex coverage run in development org `warden-dev`: **184/184 tests passed**, **86% org-wide coverage**, **87% test-run coverage**. Each of the eight production `ErMcp*` Apex classes reported **89–100% individual coverage**.
+- Dedicated Apex regression tests for MCP action responses, snapshots, dependency comparisons, pagination, disabled tools, permissions, scan cooldown, concurrent scan rejection, settings and diagnostic dispatch.
+- Latest full Apex coverage run in development org `warden-dev`: **183/183 tests passed**, **86% org-wide coverage**, **87% test-run coverage**. The obsolete `ErMcpLogRetention` class was removed; individual coverage must be read from the current test run.
 - Latest JavaScript regression: **177 Jest tests passed**, **10 skipped**, across 30 passing suites.
 - These results demonstrate code-level testing; they **do not establish production readiness or successful external MCP interoperability**.
 
@@ -93,7 +92,7 @@ Salesforce hosts the MCP server and transport. V4 supplies Apex invocable action
 - Creation, activation and real-client verification of the Salesforce Hosted MCP custom server.
 - Authenticated external `tools/list` and `tools/call` requests for all four tools.
 - End-to-end permission and OAuth checks using actual integration users.
-- Retention scheduling, rollback/logging behaviour and large-scale snapshot comparisons under real operating conditions.
+- Diagnostic persistence and rollback behaviour, and large-scale snapshot comparisons under real operating conditions.
 - Browser-level acceptance and full operational verification.
 
 Additional MCP tools and architecture rule engines are **not part of the currently implemented V4 feature set**. See the requirements tracker for proposals and unresolved decisions; they must not be mistaken for shipped features.

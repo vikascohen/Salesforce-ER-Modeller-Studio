@@ -16,6 +16,10 @@ public without sharing class ErStudioDiagnosticService {
     };
     private static Integer attempts=0;
     private static final Integer MAX_EVENTS_PER_TRANSACTION=10;
+    public static Boolean event(String source,String operation,String severity,String message) {
+        if(severity!='INFO' && severity!='WARN' && severity!='ERROR') return false;
+        return emit(source,operation,severity,message);
+    }
     public static Boolean error(String source,String operation,String message) {
         return emit(source,operation,'ERROR',message);
     }

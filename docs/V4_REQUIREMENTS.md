@@ -94,7 +94,7 @@
 | Four invocable tools | `ErMcpGetSnapshotStatus`, `ErMcpGetFieldUsage`, `ErMcpGetChangedFields`, `ErMcpRunScan` exist and have been deployed | Real MCP `tools/list` and `tools/call` tests not yet performed; test input/output schema and permissions through MCP |
 | Field Usage intelligence | Reuses V3 persisted scan/evidence/snapshot services; Field Usage cursor pagination implemented | Five-run diff bounded to 40,000 evidence rows; verify retention of ten successful snapshots and behaviour at scale |
 | Settings and authorisation | `MCP_Settings__c`, consolidated `Diagram_Studio_User` permission set (including MCP custom permissions), `ErMcpSettingsController`, Settings > MCP Server UI | Confirm assigned permissions and integration user access; admin Setup configuration is separate from the Studio UI |
-| MCP invocation logs | `MCP_Tool_Log__c`, `ErMcpCore.logCall`, settings log queries and `ErMcpLogRetention` exist | Verify persistence under rollbacks, scheduled retention, redaction, CSV limitations and external client attribution |
+| MCP invocation logs | `ErMcpCore.logCall` uses `ErStudioDiagnosticService` and the opt-in Studio diagnostic configuration; no MCP-specific log object exists | Verify persistence under rollbacks, redaction and external client attribution; retention belongs to the chosen diagnostic object |
 | Studio diagnostics | Central `ErStudioDiagnosticService`, UI events, background Field Usage/MCP failure routing; configurable existing-object sink | Coverage gaps and historical log retrieval documented in `DIAGNOSTIC_COVERAGE.md`; not Salesforce-wide monitoring |
 | Deployment/tests | `warden-dev` deployment of MCP classes and object metadata succeeded on 2026-10-11; 170 local Apex tests passed, zero failures | Salesforce Hosted MCP custom server has **not** been confirmed active or tested with an external MCP client; browser UX not verified |
 
@@ -106,7 +106,7 @@
 
 Added `ErMcpActionsTest` with targeted tests for tool success/error payloads, absent/current snapshots, dependency differences, pagination invocation, disabled tools, admin access, settings and log filters, scan authorisation/active-run/cooldown, and log retention. This complements `ErMcpFieldUsageServiceTest`.
 
-The final `RunLocalTests --code-coverage` result in `warden-dev` (test run `707aj00001KbFp1`) reported **184/184 passing Apex tests**, **86% org-wide coverage**, and **87% test-run coverage**. Per-class coverage: `ErMcpCore` 95%, `ErMcpRunScan` 89%, `ErMcpFieldUsageService` 97%, `ErMcpLogRetention` 100%, `ErMcpSettingsController` 100%, `ErMcpGetSnapshotStatus` 100%, `ErMcpGetChangedFields` 100%, and `ErMcpGetFieldUsage` 100%. Full external MCP client testing is still outstanding.
+The latest post-consolidation `RunLocalTests --code-coverage` result in `warden-dev` (test run `707aj00001KbNn3`) reported **183/183 passing Apex tests**, **86% org-wide coverage** and **87% test-run coverage**. The dedicated MCP log-retention class and its tests have been removed. Individual MCP class percentages should be refreshed from this test run before quoting them. Full external MCP client testing is still outstanding.
 
 ## 11. Recommended implementation order
 1. Verify Hosted MCP platform capabilities and resolve open decisions.
@@ -125,3 +125,7 @@ The final `RunLocalTests --code-coverage` result in `warden-dev` (test run `707a
 - **Outstanding:** Custom Salesforce Hosted MCP server activation, registering four actions, External Client App OAuth with `mcp_api`, `tools/list` and `tools/call` smoke tests, permission-denial tests, real scan-run safeguards, retention scheduling and load/rollback tests.
 
 **Official references:** https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html and https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html
+
+### Unified logging decision (2026-10-11)
+
+MCP logging was consolidated into the existing opt-in Studio diagnostic sink. Removed `MCP_Tool_Log__c`, `ErMcpLogRetention`, the MCP-specific retention field, invocation log table, counts and CSV export. MCP events record tool name, outcome and elapsed time, not raw requested keys or error details. INFO events use the configured warning severity value when a severity field is enabled. Diagnostic object retention and audit guarantees are managed externally; rollback and actual external MCP calls remain unverified.

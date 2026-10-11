@@ -122,7 +122,7 @@ public without sharing class ErDiagnosticConfigController {
             List<ER_Diagnostic_Config__c> rows=[SELECT Configuration__c FROM ER_Diagnostic_Config__c WHERE Name='Default' LIMIT 1];
             if(rows.isEmpty()) return false;
             Configuration c=parse(rows[0].Configuration__c);
-            if(c.enabled!=true || String.isBlank(message) || (severity!='ERROR' && severity!='WARN')) return false;
+            if(c.enabled!=true || String.isBlank(message) || (severity!='ERROR' && severity!='WARN' && severity!='INFO')) return false;
             // Configuration was validated at save time; do not require admin rights to emit an event.
             Schema.SObjectType target=Schema.getGlobalDescribe().get(c.objectApi);
             SObject record=target.newSObject();

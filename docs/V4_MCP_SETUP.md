@@ -26,12 +26,12 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 5. Create/configure an **External Client App** for the external caller, with Salesforce-supported OAuth authorisation and `mcp_api` scope. Follow Salesforce's current client authentication guide; protect secrets and use an appropriate integration identity. A Tooling API Named Credential is **not** an external MCP client credential.
 6. In ER Modeller Studio, open **Help → Configuration → MCP Server Configuration** for the complete administrator walkthrough. Use **Settings → MCP Server** for tool execution switches, scan cooldown and invocation logs. Settings does **not** confirm server activation or external OAuth connectivity, and it does not create Salesforce's custom MCP server.
 7. From an authorised MCP client, connect to the URL, perform tool discovery (`tools/list`), invoke **Get Snapshot Status** (`tools/call`) and compare the returned snapshot ID/date with the Studio. Then test Field Usage, Changed Fields and Run Scan with deliberately bounded test data and a scan-authorised user.
-8. Verify rejection of unauthorised/disabled tools, missing snapshots, invalid cursors, cooldown and active-scan conflicts. Check `MCP_Tool_Log__c` records and the Studio diagnostics; do not infer success from Apex unit tests alone.
+8. Verify rejection of unauthorised/disabled tools, missing snapshots, invalid cursors, cooldown and active-scan conflicts. Check the configured Studio diagnostic object (if enabled); do not infer success from Apex unit tests alone.
 
 ## Implementation inventory
 
 - Shared logic: `ErMcpCore`, `ErMcpFieldUsageService`; four `ErMcp*` invocable actions.
-- Configuration and logs: `MCP_Settings__c`, `MCP_Tool_Log__c`, `ErMcpSettingsController`, `ErMcpLogRetention` and `erMcpSettings` LWC.
+- Configuration and logs: `MCP_Settings__c`, `ErMcpSettingsController`, `ErStudioDiagnosticService`, the shared Studio diagnostic configuration and `erMcpSettings` LWC.
 - Permission set: `Diagram_Studio_User` (consolidated MCP administration, reading and scan execution). The `ER_MCP_Admin` and `ER_MCP_Scan_Operator` custom permissions remain internal Apex security gates and are granted by this permission set.
 - Diagnostics: failed MCP tool outcomes feed `ErStudioDiagnosticService`, scoped exclusively to ER Modeller Studio. Optional persistence uses an admin-configured existing Salesforce object. See `DIAGNOSTIC_COVERAGE.md`.
 
@@ -47,3 +47,5 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html
+
+MCP invocation diagnostics use the existing opt-in Studio logging configuration. V4 does not install a separate MCP log object, log retention scheduler, or dedicated invocation-history table. Successful tool calls emit INFO and failures emit ERROR; only tool name, outcome and duration are logged, not request values. If the chosen severity field has no INFO value, INFO events use its configured warning value.
