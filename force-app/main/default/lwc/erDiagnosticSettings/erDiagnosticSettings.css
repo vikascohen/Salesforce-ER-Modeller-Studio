@@ -8,3 +8,14 @@
 .structure-option-title{font-size:15px;font-weight:700;line-height:1.35}
 .structure-option-description{font-size:13px;line-height:1.45;opacity:.85}
 @media(max-width:720px){.structure-options{grid-template-columns:1fr}}
+
+/* Theme-aware action buttons: avoid the browser's default white controls. */
+.diagnostic-config .config-button{appearance:none;display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 15px;border-radius:7px;font:inherit;font-size:13px;font-weight:650;line-height:1.25;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s}
+.diagnostic-config .config-button-secondary{background:var(--surface-bg-alt);border:1px solid #3688e8;color:#70b5ff}
+.diagnostic-config .config-button-secondary:hover{background:rgba(54,136,232,.13);border-color:#70b5ff}
+.diagnostic-config .config-button-primary{background:#1478d4;border:1px solid #1478d4;color:#fff}
+.diagnostic-config .config-button-primary:hover{background:#0b65b8;border-color:#0b65b8}
+.diagnostic-config .config-button-remove{background:var(--surface-bg-alt);border:1px solid var(--surface-border-strong);color:var(--surface-text)}
+.diagnostic-config .config-button-remove:hover{border-color:#d65d5d;color:#f08080}
+.diagnostic-config .config-button:focus-visible{outline:2px solid #70b5ff;outline-offset:2px}
+.diagnostic-config .config-button:disabled{opacity:.55;cursor:not-allowed}

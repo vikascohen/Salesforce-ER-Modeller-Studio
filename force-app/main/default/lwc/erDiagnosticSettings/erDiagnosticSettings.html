@@ -27,10 +27,10 @@
                     <div class="mapping" key={f.index}>
                         <div class="field"><label>Parent field API name</label><input data-index={f.index} data-name="field" value={f.field} onchange={updateParentField}/></div>
                         <div class="field"><label>Default value</label><input data-index={f.index} data-name="value" value={f.value} onchange={updateParentField}/></div>
-                        <button data-index={f.index} onclick={removeParentField}>Remove</button>
+                        <button class="config-button config-button-remove" data-index={f.index} onclick={removeParentField}>Remove</button>
                     </div>
                 </template>
-                <button onclick={addParentField}>Add parent field</button>
+                <button class="config-button config-button-secondary" onclick={addParentField}>Add parent field</button>
             </template>
             <div class="field"><label for="objectApi">{childObjectLabel}</label><input id="objectApi" value={config.objectApi} data-name="objectApi" onchange={update} onblur={validate} placeholder="namespace__Log__c"/><small role="status">{objectNotice}</small></div>
             <div class="field"><label for="messageField">Message field API name</label><input id="messageField" value={config.messageField} data-name="messageField" onchange={update} onblur={validate} placeholder="Message__c"/><small role="status">{messageNotice}</small></div>
@@ -47,11 +47,11 @@
                 <div class="mapping" key={f.index}>
                     <div class="field"><label>Field API name</label><input data-index={f.index} data-name="field" value={f.field} onchange={updateRequired} onblur={validateRequired}/></div>
                     <div class="field"><label>Default value</label><input data-index={f.index} data-name="value" value={f.value} onchange={updateRequired}/></div>
-                    <button data-index={f.index} onclick={removeField} title="Remove mapping">Remove</button><small role="status">{f.notice}</small>
+                    <button class="config-button config-button-remove" data-index={f.index} onclick={removeField} title="Remove mapping">Remove</button><small role="status">{f.notice}</small>
                 </div>
             </template>
-            <button onclick={addField}>Add required field</button>
+            <button class="config-button config-button-secondary" onclick={addField}>Add required field</button>
         </template>
-        <div class="actions"><button disabled={disabledSave} onclick={saveConfig}>Save Configuration</button><span role="status">{feedback}</span></div>
+        <div class="actions"><button class="config-button config-button-primary" disabled={disabledSave} onclick={saveConfig}>Save Configuration</button><span role="status">{feedback}</span></div>
     </section>
 </template>
