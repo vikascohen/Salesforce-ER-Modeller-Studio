@@ -14,6 +14,7 @@ import saveFile       from '@salesforce/apex/DiagramFileController.saveFile';
 import deleteFile     from '@salesforce/apex/DiagramFileController.deleteFile';
 import renameFile     from '@salesforce/apex/DiagramFileController.renameFile';
 import saveDiagramAsFile from '@salesforce/apex/DiagramFileController.saveDiagramAsFile';
+import saveSessionDiagnosticText from '@salesforce/apex/DiagramFileController.saveSessionDiagnosticText';
 import describeObjects   from '@salesforce/apex/SchemaMetadataController.describeObjects';
 import getAllObjectNames  from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import getSharingModels   from '@salesforce/apex/SchemaMetadataController.getSharingModels';
@@ -134,7 +135,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleErrorLogSearch(e){this.errorLogSearch=e.target.value;}
     handleErrorLogSeverity(e){this.errorLogSeverity=e.target.value;}
     handleSelectDiagnostic(e){this.selectedDiagnosticId=e.currentTarget.dataset.id;}
-    handleExportSessionErrors(){
+    async handleExportSessionErrors(){
         if(!this.diagnosticEvents.length)return;
         const lines=['ER Modeller Studio - Session Diagnostic Export',
             'Exported: '+new Date().toISOString(),
@@ -154,16 +155,17 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             (event.steps||[]).forEach((step,i)=>lines.push('  '+(i+1)+'. '+step));
             lines.push('Technical details: '+(event.message||''),'');
         });
-        const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
-        const url=URL.createObjectURL(blob);
-        try{
-            const link=document.createElement('a');
-            link.href=url;
-            link.download='ER-Modeller-Session-Errors-'+new Date().toISOString().slice(0,10)+'.txt';
-            link.style.display='none';
-            document.body.appendChild(link);
-            try{link.click();}finally{document.body.removeChild(link);}
-        }finally{URL.revokeObjectURL(url);}
+        try {
+            const fileName='ER-Modeller-Session-Errors-'+new Date().toISOString().slice(0,10);
+            const versionId=await saveSessionDiagnosticText({fileName,textContent:lines.join('\n')});
+            this[NavigationMixin.Navigate]({
+                type:'standard__webPage',
+                attributes:{url:'/sfc/servlet.shepherd/version/download/'+versionId}
+            });
+        } catch(error) {
+            this.errorMessage='Session diagnostic export failed: '+this.reduceError(error);
+            this.recordDiagnostic(this.errorMessage,'Export','ERROR');
+        }
     }
     handleClearErrorLog(){this.diagnosticEvents=[];this.selectedDiagnosticId='';this.pendingDiagnosticCount=0;}
     handleOpenLogFromSettings(){this.errorLogOrigin='settings';this.settingsOpen=false;this.errorLogOpen=true;}

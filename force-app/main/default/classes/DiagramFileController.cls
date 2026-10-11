@@ -175,4 +175,23 @@ public with sharing class DiagramFileController {
         }
         return cv.Id;
     }
+    @AuraEnabled
+    public static Id saveSessionDiagnosticText(String fileName, String textContent) {
+        if (!Schema.sObjectType.ContentVersion.isCreateable()) {
+            throw new AuraHandledException('You do not have permission to create Salesforce Files.');
+        }
+        if (String.isBlank(textContent) || textContent.length() > 1000000) {
+            throw new AuraHandledException('Diagnostic export must contain between 1 and 1,000,000 characters.');
+        }
+        String title = String.isBlank(fileName) ? 'ER-Modeller-Session-Errors' : fileName.replaceAll('[^a-zA-Z0-9_-]', '-');
+        ContentVersion file = new ContentVersion(
+            Title = title,
+            PathOnClient = title + '.txt',
+            VersionData = Blob.valueOf(textContent),
+            IsMajorVersion = true
+        );
+        insert file;
+        return file.Id;
+    }
+
 }
