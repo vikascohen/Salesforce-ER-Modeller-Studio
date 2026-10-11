@@ -12,6 +12,12 @@ export default class ErDiagnosticSettings extends LightningElement {
     connectedCallback(){this.initialise();}
     async initialise(){this.busy=true;try{this.config={...blank(),...JSON.parse(await load())};}catch(e){this.feedback=this.error(e);}finally{this.busy=false;}}
     get isCustom(){return this.config.provider==='custom';}
+    get simpleSelected(){return !this.isCustom;}
+    get customSelected(){return this.isCustom;}
+    get simpleOptionClass(){return 'structure-option'+(this.simpleSelected?' structure-option-active':'');}
+    get customOptionClass(){return 'structure-option'+(this.customSelected?' structure-option-active':'');}
+    chooseProvider(e){this.config={...this.config,provider:e.currentTarget.dataset.provider};this.feedback='';}
+
     get childObjectLabel(){return this.isCustom?'Child entry object API name':'Full object API name';}
     get parentNotice(){return this.notices.parentObjectApi||'';}
     get relationshipNotice(){return this.notices.parentLookupField||'';}

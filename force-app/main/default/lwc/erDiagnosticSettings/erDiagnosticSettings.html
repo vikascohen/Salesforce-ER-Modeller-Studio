@@ -4,10 +4,19 @@
         <p>Diagnostics are buffered in memory. Optionally store events in an existing Salesforce object. For detailed history, use View → Error Log.</p>
         <label class="toggle"><input type="checkbox" checked={config.enabled} data-name="enabled" onchange={update}/> Store diagnostic events in a Salesforce object</label>
         <template if:true={enabled}>
-            <div class="field"><label for="provider">Logging structure</label><select id="provider" data-name="provider" value={config.provider} onchange={update}>
-                <option value="simple">Simple Salesforce Object</option>
-                <option value="custom">Custom Logging Structure (parent and child)</option>
-            </select></div>
+            <div class="field">
+                <span class="structure-label">Logging structure</span>
+                <div class="structure-options" role="group" aria-label="Logging structure">
+                    <button type="button" class={simpleOptionClass} data-provider="simple" onclick={chooseProvider} aria-pressed={simpleSelected}>
+                        <span class="structure-option-title">Simple Salesforce Object</span>
+                        <span class="structure-option-description">Save each event directly into one Salesforce object.</span>
+                    </button>
+                    <button type="button" class={customOptionClass} data-provider="custom" onclick={chooseProvider} aria-pressed={customSelected}>
+                        <span class="structure-option-title">Custom Logging Structure</span>
+                        <span class="structure-option-description">Create a parent log and linked child entries.</span>
+                    </button>
+                </div>
+            </div>
             <template if:true={isCustom}>
                 <p>Creates a parent log record and links each diagnostic entry to it. Historical reads query the child entry object, use the configured child relationship field to identify the parent record, and order by CreatedDate. The object and relationship are validated against Salesforce metadata before saving or querying.</p>
                 <div class="field"><label for="parentObjectApi">Parent log object API name</label><input id="parentObjectApi" data-name="parentObjectApi" value={config.parentObjectApi} onchange={update} onblur={validate}/><small role="status">{parentNotice}</small></div>
