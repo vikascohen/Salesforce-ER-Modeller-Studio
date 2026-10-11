@@ -1,230 +1,107 @@
-# Salesforce ER Modeller Studio
+# Salesforce ER Modeller Studio — Version 4 (Development)
 
-**Salesforce Data Architecture Intelligence & ER Modelling**  
-**Open source. Free to use. Built for Salesforce architects, developers and platform teams.**
+**Author and maintainer:** Vikas Cohen
 
-**Author and maintainer:** Vikas Cohen.
+**Branch:** `v4`
 
-Salesforce ER Modeller Studio is a Salesforce-native workspace for understanding the structure, relationships and dependencies in a Salesforce org before making change. It combines visual ER modelling, a Data Dictionary, Object Intelligence, Architecture Intelligence and, in Version 3, Field Usage Intelligence.
+**Status:** **UNSTABLE — UNDER ACTIVE DEVELOPMENT AND TESTING**
 
-> **Understand the architecture before you change the architecture.**
+> **Do not install or use V4 as a stable release or in a production Salesforce org.** V4 is still being developed and tested. Features, contracts and configuration may change, and external MCP connectivity has not yet passed end-to-end acceptance testing.
+>
+> **Want the stable version?** Switch to the [`main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and follow its installation instructions for **Version 3**. **Do not install from `v4` if you need a stable release.**
 
-> **Security boundary:** Analysis is performed within the customer's Salesforce environment. Salesforce metadata and source code used by the Studio are not exported to an external SaaS platform for processing.
+## What Version 4 is about
 
-## Why this project exists
+V4 makes Salesforce ER Modeller Studio's **persisted architectural intelligence available to authorised external systems and AI agents through Salesforce Hosted Model Context Protocol (MCP)**. An integration or AI assistant can query field dependencies and changes before proposing modifications to Salesforce. This is **impact intelligence, not a guarantee that a change is safe**.
 
-This project started from a fairly ordinary frustration: **understanding a real Salesforce data model should not be this difficult.**
+Salesforce hosts the MCP server and transport. V4 supplies Apex invocable actions, server-side controls, audit logging, diagnostics and administrator guidance. **No separate Node.js, Linux or self-hosted MCP server is required.**
 
-Salesforce Schema Builder is useful for quickly viewing objects and relationships, but a large or mature Salesforce org often raises questions that go beyond a visual schema.
+## Version 4 feature inventory
 
-Architecture work may involve understanding why an object is heavily connected, what sits upstream or downstream from it, how two objects are connected through the model, whether a custom object is behaving like a junction, what fields and relationships make up an object, where a field is referenced before it is changed, and which parts of a large model deserve closer investigation.
+### 1. Four MCP tools (Apex invocable actions)
 
-The evidence needed to answer those questions is often spread across Salesforce Setup, Schema Builder, Object Manager, source code, Flows, spreadsheets, documentation and existing knowledge of the org.
-
-**ER Modeller Studio brings more of that architectural evidence into one workspace so it can be explored together.**
-
-The project began as an ER modeller. The next logical question was *what can the model tell us?* That led to Architecture Intelligence. Then came another common architecture question: *if this field changes, what might depend on it?* That led to Field Usage Intelligence and Field Change Impact.
-
-The philosophy is deliberately simple: **show useful evidence, make dependencies easier to see, and avoid pretending the tool knows something it cannot prove.**
-
-## The daily problem for Salesforce architects
-
-A mature Salesforce org rarely has one perfect source of architectural truth. Architects and platform teams routinely have to reconstruct the picture themselves.
-
-A seemingly simple request such as *“Can we change this field?”* can turn into a much larger investigation:
-
-**The diagram is only the beginning.** Schema Builder can show relationships, but architecture work can also require context such as topology, relationship paths, highly connected objects, junction patterns, represented external references and change-impact evidence.
-
-**The data dictionary becomes another artefact to maintain.** Teams often end up exporting metadata into spreadsheets or maintaining documentation separately from the org, and those artefacts can become stale.
-
-**Dependencies are distributed.** A field may appear straightforward in Object Manager while also being referenced by Apex, a Trigger, an active Flow, a formula, a Validation Rule, LWC or Aura.
-
-**Large orgs are difficult to reason about visually.** Hundreds of objects and relationships can turn a diagram into noise. Architects need ways to narrow the question rather than simply draw more boxes and lines.
-
-**Architecture knowledge becomes tribal knowledge.** People who have worked in an org for years often know why something exists. New architects and developers may have to rediscover that context.
-
-**Change assessment takes time.** Before changing an object or field, somebody still has to gather evidence from several places and decide what deserves deeper investigation.
-
-ER Modeller Studio does not try to replace architectural judgement. Its job is to make that judgement easier by putting more relevant evidence in front of the architect.
-
-## From diagram to architecture intelligence
-
-The product has evolved around three layers:
-
-**Model → Understand → Investigate change**
-
-`Version 1` provides the modelling foundation.  
-`Version 2` asks architectural questions about that model.  
-`Version 3` extends the investigation into field dependencies and change impact.
-
-The intention is not to produce a mysterious architecture score or declare that something is automatically *good* or *bad*. A highly connected object may be completely appropriate. A cycle may be intentional. A field with no detected references may still matter elsewhere.
-
-The Studio therefore treats architecture intelligence as **evidence for a human decision**, not a replacement for one.
-
-## Current release
-
-**Version 3** is the current stable release. It includes the modelling foundation from Version 1, the Architecture Intelligence introduced in Version 2, and the Field Usage and change-impact capabilities introduced in Version 3.
-
-Version **3.0.0.2** is released as a Salesforce second-generation unlocked package (2GP). The released package was validated with **91% Apex code coverage** and met the package code-coverage requirement.
-
-## Version 4 development — Salesforce Hosted MCP
-
-**Development branch:** [`v4`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v4). **Not a stable package release.** Version 3 remains the current published release; do not install V4 in production on the basis of this development branch.
-
-V4 adds a **Salesforce Hosted MCP** integration layer so authorised MCP clients and AI agents can query architectural intelligence already stored inside ER Modeller Studio. Salesforce hosts the MCP transport; ER Modeller contributes Apex invocable actions. No standalone MCP service is required.
-
-| MCP action | What it does |
+| Tool | Feature |
 | --- | --- |
-| **Get Snapshot Status** | Returns current successful Field Usage snapshot information and active scan state, without running a scan. |
-| **Get Field Usage** | Reads persisted dependency evidence for an object/field with snapshot-bound cursor pagination (up to 200 rows per page). |
-| **Get Changed Fields** | Compares dependency evidence across up to five recent completed snapshots, subject to a 40,000-evidence-row synchronous bound. |
-| **Run Scan** | Requests an asynchronous V3 Field Usage scan, subject to operator authorisation, active-scan checks and cooldown. |
+| **Get Snapshot Status** | Read the current successful Field Usage snapshot, its identity, completion date, dependency count and queued/running scan status, without launching a scan. |
+| **Get Field Usage** | Query stored references for a specified Salesforce object and field. Return detected component references, evidence and provenance, with bounded, snapshot-aware cursor pagination. |
+| **Get Changed Fields** | Compare field-dependency evidence across up to **five recent completed scans**. Identify added/removed references and unchanged comparisons. Synchronous comparison is limited to **40,000 evidence rows**. |
+| **Run Scan** | Request an asynchronous Field Usage scan using the existing scanning pipeline. Enforce scan-operator permission, prevent overlapping scans and apply an administrator-configured cooldown. |
 
-**Configuration and access.** Administrators create and activate a **custom Salesforce Hosted MCP server** in Salesforce Setup, register the four actions, and configure an authorised External Client App with the `mcp_api` OAuth scope. The external MCP client credentials are **separate** from the `Salesforce_Tooling_API` Named/External Credential used by the V3 metadata scanners. Assign the relevant `ER_MCP_Admin`, `ER_MCP_Reader` and `ER_MCP_Scan_Operator` permission sets according to least privilege. The Studio does not create or activate the Salesforce MCP server or infer its URL.
+### 2. Salesforce Hosted MCP integration
 
-**In-product experience.** Open **Help → Configuration → MCP Server Configuration** for a dedicated setup walkthrough and troubleshooting. **Help → Configuration → Field Usage / Tooling API** retains the internal scanner configuration guide. **Settings → MCP Server** provides server-side tool execution switches, scan cooldown, log retention and a filterable invocation log. Its table returns up to 200 rows, and CSV export covers only displayed rows. Studio-scoped error diagnostics can be configured to write to an existing Salesforce logging object; session Error Log does not automatically retrieve historical log records.
+- Four registered-ready Apex actions designed for a **custom Salesforce Hosted MCP server**.
+- Administrator-managed tool registration, server activation and endpoint URL in Salesforce Setup.
+- External-client authentication through a Salesforce **External Client App** and the `mcp_api` OAuth scope.
+- Separate credentials for external MCP clients and the internal `Salesforce_Tooling_API` Named Credential used to collect metadata.
+- No generic Salesforce record-access tools added by ER Modeller.
 
-**Safety and limits.** These tools report evidence discovered by supported scanners, not a guarantee that a field is safe to change. External integrations, dynamic references and unsupported metadata may be absent. Tool enablement inside Studio is not the same as registering a tool on the Hosted MCP server. Logging retention scheduling and real external tool discovery/invocation require separate verification. V4 does not provide general Salesforce record access or a security-model simulator.
+**Important:** The Apex actions have been deployed and tested in a development org, but the custom Hosted MCP server has **not** yet been confirmed activated or exercised through a real external MCP client. The server is not automatically created by installing V4.
 
-**Documentation:** [V4 requirements](docs/V4_REQUIREMENTS.md), [Hosted MCP setup](docs/V4_MCP_SETUP.md), [Studio diagnostic coverage](docs/DIAGNOSTIC_COVERAGE.md).
+### 3. MCP Settings in Studio
 
-**Validation:** V4 metadata and Apex tests have been deployed/executed in the authorised `warden-dev` development org; LWC Jest regressions pass. These results establish code compilation and tested behaviour, **not** an externally activated MCP endpoint. Actual Salesforce Hosted MCP `tools/list`, `tools/call`, OAuth and integration-user authorisation remain end-to-end acceptance work. Latest `warden-dev` Apex regression: **184 tests passed, zero failures; 86% org-wide coverage and 87% test-run coverage**. All eight production `ErMcp*` Apex classes report **89–100% individual coverage**. See V4 requirements for per-class evidence.
+- **Settings → MCP Server** workspace.
+- Independent server-enforced enable/disable switches for the four MCP actions.
+- Configurable scan cooldown in hours.
+- Configurable MCP call-log retention in days.
+- MCP invocation counts for today and the previous seven days.
+- Filterable call-log table by method and outcome.
+- CSV export of the **currently displayed** log rows (maximum 200 returned rows, not the complete history).
+- Explicit guidance distinguishing installed Apex tools, Salesforce server activation and external OAuth connectivity. These external states are **not automatically verified** by the Settings page.
 
-## Install
+### 4. Permissions and execution safeguards
 
-Choose the version you want below. You do **not** need to install an earlier version before installing a later version.
+- `ER_MCP_Admin`, `ER_MCP_Reader` and `ER_MCP_Scan_Operator` permission sets for separated responsibilities.
+- Permission checks and server-side tool enablement enforcement.
+- Rejection of disabled tools, unauthorised scan requests, overlapping scans and scan requests inside the cooldown period.
+- Input validation, bounded query results, pagination and defensive errors.
+- Snapshot-based reads: read-only MCP tools use persisted evidence rather than initiating live scans.
 
-| Version | Release | Package | Production / Developer Edition | Sandbox | Branch |
-| --- | --- | --- | --- | --- | --- |
-| **Version 3** | **Current stable** | 2GP unlocked | [Install V3](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000imKHAAY) | [Install V3 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000imKHAAY) | [`version-3-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-3-stable) |
-| Version 2 | Historical stable | Unmanaged | [Install V2](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT) | [Install V2 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000hugT) | [`version-2-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-2-stable) |
-| Version 1 | Historical stable | Unmanaged | [Install V1](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd) | [Install V1 in Sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000gRTd) | [`version-1-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-1-stable) |
+### 5. MCP audit logging and retention
 
-### Version 3 package details
+- `MCP_Tool_Log__c` records for tool invocation attempts, including tool, requested key, outcome, execution duration and bounded details.
+- `MCP_Settings__c` configuration storage.
+- MCP log retrieval, summary counts and CSV export from Studio.
+- `ErMcpLogRetention` batch and scheduling support for retention clean-up.
+- Logging designed not to interrupt successful read operations if audit insertion fails; transaction rollback behaviour still requires end-to-end verification.
 
-**Subscriber Package Version ID:** `04taj000000imKHAAY`  
-**Version:** `3.0.0.2`  
-**Release status:** Released  
-**Apex code coverage:** 91%
+### 6. Studio diagnostics and error visibility
 
-### After installing Version 3
+- Studio-scoped diagnostic events for relevant MCP, Field Usage and UI failures.
+- Central diagnostic handling through `ErStudioDiagnosticService`.
+- Configurable optional persistence to an administrator-selected existing Salesforce logging object.
+- Studio Settings diagnostics controls and a session Error Log view.
+- Clear distinction between session errors and historical persisted logs: the session Error Log **does not automatically reload** records from the configured logging object.
 
-1. Assign the **Diagram Studio User** permission set to ER Modeller users.
-2. Configure the **Salesforce Tooling API** Named Credential, External Credential and authenticated principal. See [Git/Salesforce CLI Deployment & Configuration](docs/GIT_SALESFORCE_CLI_DEPLOYMENT.md) or **Help → Configuration** inside the Studio.
-3. Open the **ER Modeller** tab.
-4. Run **Diagnostics** to verify the environment before running Field Usage scans.
+### 7. In-product setup and help
 
-> **Existing V1/V2 installations:** Versions 1 and 2 were distributed as unmanaged packages, while Version 3 is a new 2GP package lineage. Treat migration from an existing unmanaged installation separately rather than assuming V3 will overwrite the old package as an in-place upgrade.
+- **Help → Configuration → MCP Server Configuration:** dedicated Hosted MCP administrator walkthrough.
+- **Help → Configuration → Field Usage / Tooling API:** separate internal scanner connection guidance.
+- Instructions for tool registration, activation, permissions, OAuth, endpoint discovery, testing and troubleshooting.
+- [Detailed Salesforce Hosted MCP setup guide](docs/V4_MCP_SETUP.md).
+- [V4 requirements, scope and acceptance tracker](docs/V4_REQUIREMENTS.md).
+- [Diagnostic coverage and limitations](docs/DIAGNOSTIC_COVERAGE.md).
 
-## Version history
+### 8. Tests and development validation
 
-### Version 1: ER modelling foundation
+- Dedicated Apex regression tests for MCP action responses, snapshots, dependency comparisons, pagination, disabled tools, permissions, scan cooldown, concurrent scan rejection, settings, logging and retention.
+- Latest full Apex coverage run in development org `warden-dev`: **184/184 tests passed**, **86% org-wide coverage**, **87% test-run coverage**. Each of the eight production `ErMcp*` Apex classes reported **89–100% individual coverage**.
+- Latest JavaScript regression: **177 Jest tests passed**, **10 skipped**, across 30 passing suites.
+- These results demonstrate code-level testing; they **do not establish production readiness or successful external MCP interoperability**.
 
-Version 1 established the core Salesforce ER modelling workspace:
+## Still in development / not yet accepted
 
-- Visual Salesforce ER modelling canvas
-- Salesforce schema import
-- Lookup, Master-Detail and polymorphic relationship modelling
-- Drag-and-drop modelling
-- Bidirectional visual ↔ DSL modelling
-- DSL import/export and editor assistance
-- Data Dictionary
-- Basic sharing-model view
-- Record-count heatmap
-- PNG, Mermaid and Draw.io export
-- Multi-file diagram workspace
-- Themes and per-user preferences
+- Creation, activation and real-client verification of the Salesforce Hosted MCP custom server.
+- Authenticated external `tools/list` and `tools/call` requests for all four tools.
+- End-to-end permission and OAuth checks using actual integration users.
+- Retention scheduling, rollback/logging behaviour and large-scale snapshot comparisons under real operating conditions.
+- Browser-level acceptance and full operational verification.
 
-### Version 2: Architecture Intelligence
+Additional MCP tools and architecture rule engines are **not part of the currently implemented V4 feature set**. See the requirements tracker for proposals and unresolved decisions; they must not be mistaken for shipped features.
 
-Version 2 includes Version 1 and adds architecture-level analysis of the represented Salesforce data model:
+## Stable release
 
-- Architecture Overview and structural metrics
-- Object hotspots and connectivity analysis
-- Connected components and isolated objects
-- Relationship Path Finder
-- Bounded cycle analysis
-- Junction-object intelligence
-- Object Map & Impact
-- Blast-radius evidence
-- Object Usage & Change Readiness
-- Relationship Insights
-- Expanded Data Dictionary and architecture-oriented metadata exploration
+**For a stable installation, use [the `main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and install Version 3 following its README.** This `v4` branch is exclusively for ongoing development and testing.
 
-Architecture Intelligence provides evidence for architectural review. Structural signals are prompts for investigation, not automatic declarations of defects.
+## Licence
 
-### Version 3: Field Usage & Change Impact
-
-Version 3 includes Versions 1 and 2 and adds dependency analysis designed to answer a practical question before a Salesforce field is changed: **what could this change affect?**
-
-- Apex Class and Apex Trigger usage evidence through the Salesforce Tooling API
-- Active Flow dependency analysis
-- Formula-field dependency analysis
-- LWC and Aura field-reference analysis
-- Validation Rule field-reference analysis
-- Field Usage Map with evidence drill-down
-- Field Change Impact analysis
-- Improved Data Dictionary and Object Intelligence
-- Scheduled and manual Field Usage scans
-- Running-task monitoring and scan status
-- Durable asynchronous work units for larger environments
-- Sparse evidence persistence
-- Last-known-good snapshot protection: an incomplete or failed scan does not replace the current successful snapshot
-- Diagnostics and environment checks
-- System information
-- In-product configuration guidance and user help
-- **ER Modeller** Lightning tab
-- **Diagram Studio User** permission set
-
-> **Important:** An empty Field Usage result is not a guarantee that a field is safe to delete. The Studio reports the evidence it can discover within its documented analysis scope.
-
-## What the Studio is — and isn't
-
-ER Modeller Studio is intended to help with **data architecture discovery, visualisation and change investigation**. It is not a general-purpose static-code analyser, runtime observability platform or automated architecture judge.
-
-It deliberately stays close to the Salesforce data model and the dependencies that help an architect understand that model. Where the available evidence has limits, the UI and documentation should make those limits clear.
-
-That boundary matters. Useful architecture tooling should reduce uncertainty without creating false certainty.
-
-## Why open source?
-
-Architecture understanding should not necessarily require another expensive platform before a team can begin investigating its own Salesforce org.
-
-The project is therefore open source and free to use. The aim is to make genuinely useful Salesforce architecture capabilities available to teams that may not need, or may not be able to justify, a separate commercial architecture product.
-
-Free does not mean the engineering standard should be lower. The project is built with enterprise use in mind: permission-based access, Salesforce-native execution, diagnostics, asynchronous processing, test coverage, documented evidence boundaries and a release process.
-
-At the same time, the project does not claim to replace every commercial product. Different tools solve different problems. ER Modeller Studio focuses on doing its particular job well: **helping people understand Salesforce data architecture before they change it.**
-
-See [Business Use Cases](docs/BUSINESS-USE-CASES.md) for practical examples.
-
-## Documentation
-
-The `main` branch represents the current Version 3 release.
-
-| Document | Purpose |
-| --- | --- |
-| [Git/Salesforce CLI Deployment & Configuration](docs/GIT_SALESFORCE_CLI_DEPLOYMENT.md) | Source deployment, configuration, permissions and Tooling API setup |
-| [Architecture](docs/ARCHITECTURE.md) | Authoritative architecture for ER modelling, Architecture Intelligence and Field Usage Intelligence |
-| [DSL Reference](docs/DSL.md) | DSL syntax, examples and language reference |
-| [Business Use Cases](docs/BUSINESS-USE-CASES.md) | Practical Salesforce architecture use cases |
-| [Security](docs/SECURITY.md) | Security model and Tooling API trust boundary |
-| [Version 3 Release Notes](docs/RELEASE-NOTES-V3.md) | Version 3 release scope, package details and capabilities |
-
-Operational guidance and troubleshooting are also available through **Help** inside the Studio.
-
-For documentation corresponding specifically to an older release, use that release's stable branch rather than `main`.
-
-## Stable branches
-
-- [`main`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio) — current release, Version 3
-- [`version-3-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-3-stable) — preserved Version 3 stable release line
-- [`version-2-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-2-stable) — preserved Version 2 stable release
-- [`version-1-stable`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-1-stable) — preserved Version 1 stable release
-
-## Open Source & Licence
-
-Salesforce ER Modeller Studio is released under the **MIT Licence**. See [LICENSE](LICENSE).
-
-Developed and maintained by **Crius Consulting Architects**.  
-**Lead Architect & Author: Vikas Cohen**
+See [LICENSE](LICENSE) for the repository licence.
