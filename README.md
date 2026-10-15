@@ -201,5 +201,4 @@ For documentation corresponding specifically to an older release, use that relea
 
 Salesforce ER Modeller Studio is released under the **MIT Licence**. See [LICENSE](LICENSE).
 
-Developed and maintained by **Crius Consulting Architects**.  
 **Lead Architect & Author: Vikas Cohen**
