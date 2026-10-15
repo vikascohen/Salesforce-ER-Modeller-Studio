@@ -261,7 +261,6 @@ The existing Apex production and test classes remain the original Salesforce fou
 
 ## Contributors
 
-Developed and maintained by **Crius Consulting Architects**.
 
 **Lead Architect & Author:** Vikas Cohen
 
