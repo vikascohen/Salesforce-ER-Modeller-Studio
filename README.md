@@ -33,7 +33,6 @@ Version 3 Field Usage and selected metadata-intelligence capabilities require th
 
 ## Contributors
 
-Developed and maintained by **Crius Consulting Architects**.
 
 **Lead Architect & Author: Vikas Cohen**
 
