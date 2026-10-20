@@ -2,10 +2,18 @@
   "packageDirectories": [
     {
       "path": "force-app",
-      "default": true
+      "default": true,
+      "package": "Salesforce ER Modeller Studio V4",
+      "versionName": "V4",
+      "versionNumber": "4.0.0.NEXT",
+      "versionDescription": "Standalone cumulative V1-V4 application; separate from stable V3 package"
     }
   ],
   "namespace": "",
   "sourceApiVersion": "60.0",
-  "author": "Vikas Cohen"
+  "author": "Vikas Cohen",
+  "packageAliases": {
+    "Salesforce ER Modeller Studio": "0Hoaj0000006QmDCAU",
+    "Salesforce ER Modeller Studio V4": "0Hoaj0000006YgXCAU"
+  }
 }

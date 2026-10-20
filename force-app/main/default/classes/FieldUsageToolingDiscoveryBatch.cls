@@ -1,6 +1,8 @@
 /** Discovers Tooling metadata and checkpoints durable Field Usage work units. @author Vikas Cohen */
 public without sharing class FieldUsageToolingDiscoveryBatch implements Database.Batchable<String>, Database.AllowsCallouts {
     private static final Integer CHUNK_SIZE=12;
+    // Isolate Apex class scans per transaction to avoid cumulative regex governor failures.
+    private static final Integer APEX_CLASS_CHUNK_SIZE=1;
     private static final Integer FLOW_CHUNK_SIZE=4;
     private static final Integer VALIDATION_CHUNK_SIZE=20;
     @TestVisible private static Boolean suppressWorkerChainForTest=false;
@@ -28,9 +30,13 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
                 scannerType='Validation Rule Bulk'; chunkSize=VALIDATION_CHUNK_SIZE;
             } else {
                 List<FieldUsageToolingApiClient.SourceComponent> components=sourceType=='ApexClass'?FieldUsageToolingApiClient.getApexClassIndex():sourceType=='ApexTrigger'?FieldUsageToolingApiClient.getApexTriggerIndex():FieldUsageToolingApiClient.getFlowIndex();
-                for(FieldUsageToolingApiClient.SourceComponent c:components)ids.add(c.id);
+                Set<String> excluded=sourceType=='ApexClass'?FieldUsageExclusionService.excludedNames():new Set<String>();
+                Integer skipped=0;
+                for(FieldUsageToolingApiClient.SourceComponent c:components){if(sourceType=='ApexClass'&&FieldUsageExclusionService.shouldExclude(c.name,excluded)){skipped++;continue;}ids.add(c.id);}
+                if(skipped>0)System.debug(LoggingLevel.INFO,'Field Usage: excluded '+skipped+' configured Apex classes from work-unit discovery.');
                 scannerType=sourceType=='ApexClass'?'Apex Class Bulk':sourceType=='ApexTrigger'?'Apex Trigger Bulk':'Flow Bulk';
                 if(sourceType=='Flow')chunkSize=FLOW_CHUNK_SIZE;
+                if(sourceType=='ApexClass')chunkSize=APEX_CLASS_CHUNK_SIZE;
             }
             for(Integer offset=0;offset<ids.size();offset+=chunkSize){
                 Integer chunkEnd=Math.min(offset+chunkSize,ids.size()); List<String> chunkIds=new List<String>();

@@ -1,6 +1,6 @@
 # ER Modeller Studio V4 — Salesforce Hosted MCP setup and verification
 
-**Status (2026-10-11):** Four Apex invocable actions and MCP object metadata deployed successfully to `warden-dev`; 170 Apex tests passed. **No verified external MCP client invocation or activated custom server yet.** Salesforce hosts the MCP transport. ER Modeller supplies the intelligence and Apex actions; it does not run a standalone MCP server.
+**Status (updated 2026-10-20):** Four Apex invocable actions are deployed. Supplied developer-org screenshots show the custom Hosted MCP server **Active** with four registered tools and an active Agentforce Registry entry. A manual Field Usage scan completed with zero errors; full authenticated external MCP acceptance remains pending. Earlier 2026-10-11 validation included 170 passing Apex tests. Salesforce hosts the MCP transport. ER Modeller supplies the intelligence and Apex actions; it does not run a standalone MCP server.
 
 ## Architecture and what is reused
 
@@ -16,6 +16,8 @@ External MCP client → Salesforce Hosted MCP custom server → ER Modeller Apex
 | ER Modeller Run Scan | `ErMcpRunScan` | Queue existing V3 scan, enforcing scan-operator permission, active-run check and cooldown |
 
 These are deployed **application actions**, not proof of a live MCP endpoint. No standard Salesforce record/schema tools should be added to this custom server.
+
+See also the [V4 administrator walkthrough](V4_MCP_ADMIN_GUIDE.md) based on the 20 October 2026 screenshots.
 
 ## Administrator setup in Salesforce
 
@@ -39,7 +41,7 @@ These are deployed **application actions**, not proof of a live MCP endpoint. No
 
 **Verified:** On 2026-10-11, deployment of the MCP object metadata and related Apex classes to `warden-dev` succeeded, with **170 passing Apex tests, zero failures**. The source remains on branch `v4`.
 
-**Not verified:** A custom Hosted MCP server's creation/activation, external OAuth handshake, MCP tool discovery, external invocation, client app attribution, automated log-retention scheduling, end-to-end permission behaviour and authenticated visual UI checks. No production-readiness claim.
+**Not yet fully verified:** External OAuth handshake, MCP tool discovery, successful external read/scan invocations, client app attribution, automated log-retention scheduling, end-to-end permission behaviour and authenticated visual UI checks. No production-readiness claim.
 
 **Known limits:** Changed Fields refuses comparisons above 40,000 evidence rows; Field Usage cursor pagination is tied to the snapshot ID; log CSV covers displayed rows; historical Studio diagnostic events are not reloaded from arbitrary configured objects; logging in a rolled-back transaction may be lost. Snapshot coverage may be incomplete and must not be presented as proof a field is safe to modify.
 

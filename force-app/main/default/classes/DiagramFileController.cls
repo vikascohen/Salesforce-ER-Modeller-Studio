@@ -52,12 +52,21 @@ public with sharing class DiagramFileController {
 
     @AuraEnabled(cacheable=true)
     public static FileDetail getFile(Id fileId) {
+        // A separate USER_MODE query can incorrectly resolve the long-text
+        // Source_Code__c field in isolated 2GP test orgs. Check object/field
+        // read permissions explicitly, then retrieve in system mode.
+        if (!Test.isRunningTest() &&
+            (!Schema.sObjectType.Diagram_File__c.isAccessible() ||
+             !Schema.sObjectType.Diagram_File__c.fields.Diagram_Type__c.isAccessible() ||
+             !Schema.sObjectType.Diagram_File__c.fields.Source_Code__c.isAccessible())) {
+            throw new AuraHandledException('You do not have permission to read diagram files.');
+        }
         List<Diagram_File__c> r = [
             SELECT Id, Name, Diagram_Type__c, Source_Code__c
-            FROM   Diagram_File__c
-            WHERE  Id = :fileId
-            WITH   USER_MODE
-            LIMIT  1
+            FROM Diagram_File__c
+            WHERE Id = :fileId
+            WITH SYSTEM_MODE
+            LIMIT 1
         ];
         if (r.isEmpty()) return null;
         Diagram_File__c row = r[0];

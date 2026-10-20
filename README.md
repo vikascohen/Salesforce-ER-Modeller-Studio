@@ -1,20 +1,45 @@
-# Salesforce ER Modeller Studio — Version 4 (Development)
+# Salesforce ER Modeller Studio — V4 (Package 4.0.0.1)
+
+## V4 package installation (sandbox and production)
+
+The separate **Salesforce ER Modeller Studio V4** 2GP unlocked package **4.0.0.1** was built successfully with **88% Apex coverage** (packaging coverage check passed). V3 on `main` is unchanged.
+
+- **Sandbox:** [Install V4 in a Salesforce sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000lDjNAAU)
+- **Production:** [Install V4 in Salesforce production](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000lDjNAAU)
+
+**Important:** These are environment-specific login links for the **same package version**, not separate builds. The production link is supplied for administrators planning deployment, **not as a recommendation to deploy V4 to production yet**. Clean-sandbox installation, end-to-end functional testing and external MCP/OAuth acceptance remain outstanding. Do not assume V4 can be installed alongside V3 because package components overlap. See [V4 package release and verification](docs/V4_PACKAGE_RELEASE.md).
+
 
 **Author and maintainer:** Vikas Cohen
 
-**Branch:** `v4`
+**Branch:** `V4-latest`
 
-**Status:** **UNSTABLE — UNDER ACTIVE DEVELOPMENT AND TESTING**
+**Status:** **2GP PACKAGE BUILT — SANDBOX VALIDATION PENDING**
 
-> **Do not install or use V4 as a stable release or in a production Salesforce org.** V4 is still being developed and tested. Features, contracts and configuration may change, and external MCP connectivity has not yet passed end-to-end acceptance testing.
+> **Do not treat V4 as production-validated.** V4 is still being developed and tested. Features, contracts and configuration may change, and external MCP connectivity has not yet passed the complete end-to-end acceptance matrix.
 >
-> **Want the stable version?** Switch to the [`main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and follow its installation instructions for **Version 3**. **Do not install from `v4` if you need a stable release.**
+> **Want the stable version?** Switch to the [`main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and follow its installation instructions for **Version 3**. **Use V3 on `main` if you need the existing stable release.**
+
+## Documentation
+
+- **[V4 release notes](docs/V4_RELEASE_NOTES.md)** — version 4.0.0.1, sandbox and production links, changes, fixes and limitations.
+- **[V4 packaging and release verification](docs/V4_PACKAGE_RELEASE.md)** — 2GP package build evidence, metadata archive and validation checklist.
+- **[V4 MCP administrator guide](docs/V4_MCP_ADMIN_GUIDE.md)** — Salesforce server registration, four tools, OAuth, Studio settings, exclusions, diagnostics, troubleshooting and acceptance checklist, based on 20 October 2026 screenshots.
+- [Detailed MCP setup and technical notes](docs/V4_MCP_SETUP.md)
+- [V4 requirements and acceptance tracker](docs/V4_REQUIREMENTS.md)
+- [Diagnostics and limitations](docs/DIAGNOSTIC_COVERAGE.md)
 
 ## What Version 4 is about
 
 V4 makes Salesforce ER Modeller Studio's **persisted architectural intelligence available to authorised external systems and AI agents through Salesforce Hosted Model Context Protocol (MCP)**. An integration or AI assistant can query field dependencies and changes before proposing modifications to Salesforce. This is **impact intelligence, not a guarantee that a change is safe**.
 
 Salesforce hosts the MCP server and transport. V4 supplies Apex invocable actions, server-side controls, configurable diagnostics and administrator guidance. **No separate Node.js, Linux or self-hosted MCP server is required.**
+
+## Verified developer-org milestone (20 October 2026)
+
+**Apex test verification:** `RunLocalTests` passed **1,444/1,444** (0 failures, 0 skipped; run `707aj00001Ma5dX`). A separate full Metadata API deployment validation was **blocked by an active/pending `FieldUsageDiscoveryBatch` job**, so installation readiness is still pending.
+
+The Salesforce Hosted MCP server is **Active** with **four tools** and appears in Agentforce Registry. The latest manual Field Usage scan **Completed** with **1,756 dependencies and zero errors** (12:20:52–12:38:22). This is **not** a claim of successful end-to-end external MCP integration. The four default Nebula Logger Apex exclusions are configurable in **Settings → Field Usage**.
 
 ## V4-only requirements and implementation status
 
@@ -27,7 +52,7 @@ This checklist covers **changes introduced on the `v4` branch only**. Earlier ER
 | 3 | **Get Changed Fields** — Compare persisted evidence across up to five completed snapshots, report dependency changes and no-change outcomes, and enforce the 40,000-evidence-row synchronous limit. | **85%** |
 | 4 | **Run Scan** — Allow an authorised MCP operator to queue the existing asynchronous scanner, reject overlapping scans and enforce a configurable cooldown. | **85%** |
 | 5 | **Salesforce Hosted MCP integration** — Supply the four Apex invocable actions for a custom Salesforce-hosted MCP server. Salesforce, not this repository, hosts the protocol endpoint; no standalone MCP service is installed. | **70%** |
-| 6 | **Custom server activation and tool discovery** — Configure and activate the Salesforce Hosted MCP custom server, register the four actions and verify real-client `tools/list` and `tools/call` requests. | **0%** |
+| 6 | **Custom server activation and tool discovery** — The developer-org custom server is active with four registered actions (screenshots, 20 October 2026); external-client discovery and invocation acceptance remain outstanding. | **70%** |
 | 7 | **External client OAuth** — Configure a Salesforce External Client App with the supported `mcp_api` scope and test authenticated tool access. The scanner's outbound Tooling API Named Credential is separate. | **0%** |
 | 8 | **Consolidated permissions** — Merge MCP reader, administrator and scan-operator access into the existing `Diagram_Studio_User` permission set; remove the three separate MCP permission sets while retaining Apex custom-permission checks. Restrict assignment to trusted users. | **100%** |
 | 9 | **MCP Settings interface** — Add **Settings → MCP Server** with independent enable switches for Get Snapshot Status, Get Field Usage, Get Changed Fields and Run Scan; enforce switches in Apex, not merely in the UI. | **95%** |
@@ -64,7 +89,7 @@ This checklist covers **changes introduced on the `v4` branch only**. Earlier ER
 - Separate credentials for external MCP clients and the internal `Salesforce_Tooling_API` Named Credential used to collect metadata.
 - No generic Salesforce record-access tools added by ER Modeller.
 
-**Important:** The Apex actions have been deployed and tested in a development org, but the custom Hosted MCP server has **not** yet been confirmed activated or exercised through a real external MCP client. The server is not automatically created by installing V4.
+**Important:** Screenshots from 20 October 2026 confirm the developer-org Hosted MCP server is **Active** with **four registered tools** in Salesforce Setup and Agentforce Registry. Full authenticated external-client discovery and tool-call acceptance remain outstanding. The server is not automatically created by installing V4.
 
 ### 3. MCP Settings in Studio
 
@@ -87,7 +112,7 @@ This checklist covers **changes introduced on the `v4` branch only**. Earlier ER
 
 - MCP invocations use the existing Studio diagnostic service, **not a dedicated MCP log object**. Every MCP entry is prefixed **`ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]`** in the shared message field so administrators can filter MCP records.
 - Events include tool name, outcome and elapsed milliseconds; request values and raw error details are not persisted by this integration.
-- Configure an existing Salesforce object in **Settings → Diagnostics** to opt in to persistent events. With persistence disabled, no durable MCP call history is kept.
+- Configure an existing Salesforce object in **Settings → Error Log Configuration** to opt in to persistent events. With persistence disabled, no durable MCP call history is kept.
 - Successful calls are emitted as `INFO`; errors as `ERROR`. If a configured severity field supports only ERROR/WARN values, INFO events use the configured warning value; distinguish the event level in the message.
 - The MCP Settings interface displays only the five most recent MCP-prefixed diagnostic records, using a server-side `LIKE` filter and `LIMIT 5` on the configured logging object. No MCP-specific retention setting, standalone log table, CSV export or retention batch is installed. Retention follows the administrator's chosen diagnostic object policy.
 - Best-effort persistence is subject to Salesforce transaction rollback and permissions; it is not a tamper-proof audit trail.
@@ -98,11 +123,12 @@ This checklist covers **changes introduced on the `v4` branch only**. Earlier ER
 - Central diagnostic handling through `ErStudioDiagnosticService`.
 - Configurable optional persistence to an administrator-selected existing Salesforce logging object.
 - Studio Settings diagnostics controls and a session Error Log view.
-- Clear distinction between session errors and historical persisted logs: the session Error Log **does not automatically reload** records from the configured logging object.
+- Clear distinction between session errors and historical persisted logs: the session buffer and **Persisted history (latest 50)** are separate selectable sources; historical reads require valid configuration.
 
 ### 7. In-product setup and help
 
 - **Help → Configuration → MCP Server Configuration:** dedicated Hosted MCP administrator walkthrough.
+- [Illustrated-screen walkthrough and acceptance checklist](docs/V4_MCP_ADMIN_GUIDE.md) (based on supplied Salesforce screenshots).
 - **Help → Configuration → Field Usage / Tooling API:** separate internal scanner connection guidance.
 - Instructions for tool registration, activation, permissions, OAuth, endpoint discovery, testing and troubleshooting.
 - [Detailed Salesforce Hosted MCP setup guide](docs/V4_MCP_SETUP.md).
@@ -159,7 +185,7 @@ ER_STUDIO_MODELLER [Field Usage / Scan] Example Studio diagnostic
 
 ## Still in development / not yet accepted
 
-- Creation, activation and real-client verification of the Salesforce Hosted MCP custom server.
+- Creation and activation are evidenced in the developer-org screenshots; real-client discovery and complete invocation verification remain outstanding.
 - Authenticated external `tools/list` and `tools/call` requests for all four tools.
 - End-to-end permission and OAuth checks using actual integration users.
 - Diagnostic persistence and rollback behaviour, and large-scale snapshot comparisons under real operating conditions.
@@ -206,7 +232,7 @@ No new V5 MCP tool names, external renderer, storage mechanism or delivery dates
 
 ## Stable release
 
-**For a stable installation, use [the `main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and install Version 3 following its README.** This `v4` branch is exclusively for ongoing development and testing.
+**For a stable installation, use [the `main` branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and install Version 3 following its README.** This `V4-latest` branch contains the V4 package source and ongoing validation work.
 
 ## Licence
 

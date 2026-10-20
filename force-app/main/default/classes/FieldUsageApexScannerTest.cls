@@ -82,4 +82,22 @@ private class FieldUsageApexScannerTest {
         System.assert(lastName.Evidence__c.contains('Line 4'),lastName.Evidence__c);
         System.assert(lastName.Evidence__c.contains('Assignment'),lastName.Evidence__c);
     }
+    @IsTest
+    static void handlesLargeSourceAndKeepsLineOffsets() {
+        List<String> lines = new List<String>();
+        for (Integer i = 0; i < 1800; i++) {
+            lines.add('/* comment Account.Name */ String label' + i + ' = \'Contact.Email\';');
+        }
+        lines.add('Account acc = new Account();');
+        lines.add('acc.Name = \'safe\';');
+        lines.add('List<Account> records = [SELECT Name, OwnerId FROM Account];');
+        List<Field_Usage_Evidence__c> rows = FieldUsageApexScanner.scan(
+            null, 'Apex Class', 'LargeSource', '01p000000000004', String.join(lines, '\n')
+        );
+        Set<String> keys = new Set<String>();
+        for (Field_Usage_Evidence__c row : rows) keys.add(row.Field_Key__c);
+        System.assert(keys.contains('Account.Name'));
+        System.assert(keys.contains('Account.OwnerId'));
+        System.assert(!keys.contains('Contact.Email'), 'String literals must not be scanned');
+    }
 }

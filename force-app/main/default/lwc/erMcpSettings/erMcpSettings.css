@@ -26,3 +26,5 @@
 .mcp-tool-row { display:flex; align-items:center; justify-content:space-between; gap:20px; max-width:570px; padding:12px 0; border-bottom:1px solid var(--surface-border, #e4e7ec); }
 .mcp-tool-label { color:var(--surface-text-strong, #101828); font-size:13px; font-weight:600; line-height:1.5; }
 .mcp-tool-row lightning-input { flex-shrink:0; margin:0; }
+
+.mcp-scan-guard{margin-top:18px}.mcp-scan-label{display:block;font-size:13px;font-weight:650;color:var(--surface-text-strong,#101828);margin:12px 0 5px}.mcp-scan-help{font-size:12px;line-height:1.5;max-width:720px;margin:0 0 12px}.mcp-cooldown-input{display:block;width:100%;box-sizing:border-box;border:1px solid var(--surface-border-strong,#d0d5dd);background:var(--surface-bg-alt,#f9fafb);color:var(--surface-text-strong,#101828);padding:10px 12px;border-radius:6px;font:inherit}.mcp-cooldown-input:focus{outline:2px solid #6c4cff;outline-offset:1px}.mcp-logging-warning{padding:12px;border:1px solid var(--surface-border,#e4e7ec);border-radius:6px;color:var(--surface-text,#344054)!important}.mcp-logging-warning strong{color:var(--surface-text-strong,#101828)}

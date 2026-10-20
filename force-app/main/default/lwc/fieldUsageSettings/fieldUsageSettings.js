@@ -2,6 +2,8 @@
  * @author Vikas Cohen
  */
 import { LightningElement } from 'lwc';
+import getExcludedClassNames from '@salesforce/apex/FieldUsageExclusionService.getExcludedClassNames';
+import saveExcludedClassNames from '@salesforce/apex/FieldUsageExclusionService.saveExcludedClassNames';
 import getStatus from '@salesforce/apex/FieldUsageController.getStatus';
 import runNow from '@salesforce/apex/FieldUsageController.runNow';
 import saveSchedules from '@salesforce/apex/FieldUsageController.saveSchedules';
@@ -14,8 +16,16 @@ import getRecentRuns from '@salesforce/apex/FieldUsageController.getRecentRuns';
 import getErrorDetail from '@salesforce/apex/FieldUsageErrorController.getErrorDetail';
 
 export default class FieldUsageSettings extends LightningElement {
+    excludedClassNames=''; excludedClasses=[]; newExcludedClass=''; exclusionsLoaded=false;
     status; jobs=[]; sourceTypes=[]; schedules=[]; history=[]; busy=false; message=''; scheduleSeq=0; poller=null; activeRunId=null; expandedRunId=null; errorDetails={}; errorLoadingId=null; displayedProgress=0; progressRunId=null;
-    connectedCallback(){this.refresh();this.startPolling();}
+    connectedCallback(){this.refresh();this.loadExclusions();this.startPolling();}
+    async loadExclusions(){try{this.excludedClassNames=await getExcludedClassNames();this.excludedClasses=this.parseExcludedClasses(this.excludedClassNames);this.exclusionsLoaded=true;}catch(e){this.message=this.reportError(e,'Unable to load Apex exclusions.');}}
+    parseExcludedClasses(names){return [...new Set(String(names||'').split(/[,;\n]/).map(n=>n.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(name=>({name,key:name.toLowerCase()}));}
+    handleNewExcludedClass(e){this.newExcludedClass=e.target.value;}
+    handleAddExcludedClass(){const name=this.newExcludedClass.trim();if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)){this.message='Enter a valid exact Apex class name.';return;}if(this.excludedClasses.some(c=>c.key===name.toLowerCase())){this.message='This Apex class is already excluded.';return;}this.excludedClasses=[...this.excludedClasses,{name,key:name.toLowerCase()}].sort((a,b)=>a.name.localeCompare(b.name));this.newExcludedClass='';this.message='Exclusion added. Save changes to apply it to future scans.';}
+    handleRemoveExcludedClass(e){const key=e.currentTarget.dataset.key;this.excludedClasses=this.excludedClasses.filter(c=>c.key!==key);this.message='Exclusion removed. Save changes to apply it to future scans.';}
+
+    async handleSaveExclusions(){this.busy=true;try{await saveExcludedClassNames({names:this.excludedClasses.map(c=>c.name).join('\n')});this.message='Apex exclusions saved. They apply to future scans.';await this.loadExclusions();}catch(e){this.message=this.reportError(e,'Unable to save Apex exclusions.');}finally{this.busy=false;}}
     disconnectedCallback(){this.stopPolling();}
     startPolling(){this.stopPolling();this.poller=window.setInterval(async()=>{try{await this.refresh(false);}catch(_){/* retry next poll */}},3000);}
     stopPolling(){if(this.poller){window.clearInterval(this.poller);this.poller=null;}}
@@ -32,6 +42,7 @@ export default class FieldUsageSettings extends LightningElement {
     reportError(error,context){const message=this.errorText(error,context);this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Field Usage / '+context,message,severity:'ERROR'},bubbles:true,composed:true}));return message;}
     errorText(e,fallback){const body=e?.body;if(typeof body==='string'&&body.trim())return body;if(body?.message)return body.message;const pageErrors=body?.pageErrors||body?.output?.errors;if(Array.isArray(pageErrors)&&pageErrors.length){const messages=pageErrors.map(x=>x?.message||String(x)).filter(Boolean);if(messages.length)return messages.join(' | ');}const fieldErrors=body?.fieldErrors||body?.output?.fieldErrors;if(fieldErrors&&typeof fieldErrors==='object'){const messages=Object.values(fieldErrors).flat().map(x=>x?.message||String(x)).filter(Boolean);if(messages.length)return messages.join(' | ');}if(Array.isArray(body)){const messages=body.map(x=>x?.message||x?.errorCode||String(x)).filter(Boolean);if(messages.length)return messages.join(' | ');}if(e?.message)return e.message;try{const serialised=JSON.stringify(body||e);if(serialised&&serialised!=='{}')return serialised;}catch(_){/* use fallback */}return fallback;}
     field(row,apiName){if(!row)return undefined;if(Object.prototype.hasOwnProperty.call(row,apiName))return row[apiName];const key=Object.keys(row).find(k=>k.endsWith(apiName));return key?row[key]:undefined;}
+    get hasExcludedClasses(){return this.excludedClasses.length>0;}
     get run(){return this.status?.run||null;}
     get runStatus(){return this.field(this.run,'Status__c')||'Not scanned';}
     get asyncJobTerminal(){return ['Aborted','Failed','Completed'].includes(this.jobStatus);}

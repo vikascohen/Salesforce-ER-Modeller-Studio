@@ -25,7 +25,7 @@
   Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
   System.assertEquals(0,[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id],'Failed-run finalisation should release temporary work units.');
   Field_Usage_Run__c saved=[SELECT Status__c,Errors__c FROM Field_Usage_Run__c WHERE Id=:run.Id];
-  System.assertEquals('Completed With Errors',saved.Status__c);System.assert(saved.Errors__c.contains('Unsupported scanner type'));
+  System.assertEquals('Completed With Errors',saved.Status__c);System.assert(saved.Errors__c.contains('Unsupported scanner type'));System.assert(saved.Errors__c.contains('Scanner: Unknown'));System.assert(saved.Errors__c.contains('Target: bad-target'));
  }
 
  private class ApexBodyMock implements HttpCalloutMock {
