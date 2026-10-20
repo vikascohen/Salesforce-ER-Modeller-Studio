@@ -2,6 +2,8 @@
 
 > **Latest V4 source:** `main` and `V4-latest` (20 October 2026). The screenshots below are development-environment UI examples, not production acceptance evidence. Do not publish org-specific URLs, OAuth secrets or tokens.
 
+For the complete, reproducible package-to-OAuth registration sequence, including the exact four actions, activation checks and test flow, see **[V4 MCP setup: step-by-step](V4_MCP_SETUP.md)**.
+
 ## 1. What ER Modeller MCP provides
 
 ER Modeller Studio V4 uses **Salesforce Hosted MCP**. Salesforce hosts the protocol endpoint and handles server registration; ER Modeller contributes four Apex invocable actions. No standalone Node.js or custom Linux MCP service is needed. The actions expose **persisted Field Usage intelligence**, not arbitrary Salesforce record operations. They cannot guarantee a schema change is safe.
