@@ -1,6 +1,6 @@
 # V4 administrator guide: Salesforce Hosted MCP
 
-> **Development branch:** `v4` (20 October 2026). The stable V3 release is on `main`. Screenshots supplied during development show the Salesforce developer org, not a production acceptance test. Do not publish org-specific URLs, OAuth secrets or tokens.
+> **Latest V4 source:** `main` and `V4-latest` (20 October 2026). The screenshots below are development-environment UI examples, not production acceptance evidence. Do not publish org-specific URLs, OAuth secrets or tokens.
 
 ## 1. What ER Modeller MCP provides
 
@@ -37,6 +37,10 @@ ER Modeller Studio V4 uses **Salesforce Hosted MCP**. Salesforce hosts the proto
 
 Go to **ER Modeller Studio → Settings → MCP Server**. The four switches enable or disable execution **inside ER Modeller Apex**. They do **not** register or remove Salesforce Hosted MCP tools. The **MCP scan cooldown** field is measured in hours: `0` disables the waiting period for testing, `24` waits one day after the latest completed scan, and accepted values range from `0` to `8760`. Manual scans also reset the timer. Click **Save settings**. Restore a sensible nonzero cooldown after integration testing.
 
+![ER Modeller MCP Server settings showing four independent tool switches and a 24-hour scan cooldown](images/mcp/mcp-tool-controls.png)
+
+*Figure 1. MCP tool execution controls in ER Modeller Studio. Switches affect Apex execution, not Salesforce server registration.*
+
 ## 5. Configure Apex exclusions and run scans
 
 Go to **Settings → Field Usage → Apex Class Exclusions**. Enter an exact class name, click **+ Add Class**, repeat as needed, then **Save Exclusions**. Remove individual entries with **Remove**, then save again. Exclusions are applied at discovery time to future scans, whether started manually or through MCP. The initial four Nebula Logger exclusions are `Logger`, `Logger_Tests`, `LogEntryEventBuilder_Tests`, `LogEntryEventHandler_Tests`. These are **exact names**, not wildcard/namespace patterns. Other application classes calling Logger are still eligible for scanning.
@@ -48,7 +52,17 @@ The screenshot of **Last 10 Scans** shows a manual scan on 20 October 2026 from 
 - **Settings → Diagnostics** runs the application health check. Merely opening the page does not run it.
 - **Settings → Error Log Configuration** controls optional diagnostic persistence in an **existing Salesforce object**. Enable **Store diagnostic events in a Salesforce object** and configure a supported simple-object mapping or custom parent/child logging structure. Validate actual object and field API names, required fields, CRUD/FLS and save. Example names shown in screenshots (`Log__c`, `LogEntry__c`, `Message__c`) are configuration examples, **not proof those objects exist or are accessible**.
 - **Settings → MCP Server → Last 5 MCP calls** queries only the five newest persisted MCP-prefixed entries. If it displays **MCP call history is not enabled / No accessible diagnostic log object**, the configured destination is missing, invalid or inaccessible; **Refresh calls** cannot create historical records. Enable and validate logging, invoke a new MCP tool, then refresh.
+
+![ER Modeller Error Log Configuration with custom parent/child Salesforce logging structure selected](images/mcp/diagnostic-logging-configuration.png)
+
+*Figure 2. Example configuration for optional Salesforce-object diagnostic logging. The pictured API names are examples, not installation defaults.*
+
 - **View → Error Log** distinguishes **Session events** (browser-session buffer) from **Persisted history (latest 50)**. Filters such as **MCP errors** restrict what is displayed. **Clear session buffer** does not delete persisted Salesforce records. The pictured historical errors include `ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation] tool=Run Scan; outcome=Error`; these do not establish a failure of the latest healthy manual scan.
+
+![ER Modeller Error Log displaying persisted history, filters, diagnostic events and technical details](images/mcp/error-log-history.png)
+
+*Figure 3. Error Log explorer with persisted history, filters and event details. Entries are examples and are not evidence of a current V4 package failure.*
+
 - Persistence is best-effort and subject to permissions, validation and transaction rollback. It is not an immutable audit trail.
 
 ## 7. Troubleshooting
