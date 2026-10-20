@@ -33,10 +33,10 @@ export default class FieldUsageScannerCoverage extends LightningElement {
     }
 
     get healthyCount() {
-        return this.scanners.filter(item => ['Ready', 'Completed', 'Healthy'].includes(item.status)).length;
+        return this.scanners.filter(item => item.count > 0).length;
     }
 
     get coverageSummary() {
-        return `${this.healthyCount}/${this.scanners.length} scanners operational`;
+        return `${this.healthyCount}/${this.scanners.length} scanners with evidence`;
     }
 }

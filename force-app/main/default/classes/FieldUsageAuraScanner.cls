@@ -8,6 +8,27 @@ public without sharing class FieldUsageAuraScanner {
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();if(String.isBlank(body))return out;
         Map<String,Schema.SObjectType> gd=Schema.getGlobalDescribe();Map<String,Integer> counts=new Map<String,Integer>();Map<String,List<Integer>> lines=new Map<String,List<Integer>>();Matcher m=QUALIFIED_FIELD.matcher(body);
         while(m.find()){String objectName=canonicalObject(gd,m.group(1));if(objectName==null)continue;String fieldName=canonicalField(gd.get(objectName).getDescribe().fields.getMap(),m.group(2));if(fieldName==null)continue;String key=objectName+'.'+fieldName;counts.put(key,(counts.containsKey(key)?counts.get(key):0)+1);if(!lines.containsKey(key))lines.put(key,new List<Integer>());Integer line=lineNumber(body,m.start());if(!lines.get(key).contains(line))lines.get(key).add(line);}
+        // Resolve unqualified force:recordData fields from a typed Aura attribute.
+        Pattern attr=Pattern.compile('(?is)<aura:attribute\\b[^>]*\\bname\\s*=\\s*["]([A-Za-z_][A-Za-z0-9_]*)["][^>]*\\btype\\s*=\\s*["]([A-Za-z_][A-Za-z0-9_]*)["][^>]*>');
+        Map<String,String> attributeObjects=new Map<String,String>();Matcher am=attr.matcher(body);
+        while(am.find()){String obj=canonicalObject(gd,am.group(2));if(obj!=null)attributeObjects.put(am.group(1),obj);}
+        Pattern recordData=Pattern.compile('(?is)<force:recordData\\b[^>]*>');Matcher rm=recordData.matcher(body);
+        Pattern target=Pattern.compile('(?i)\\btargetFields\\s*=\\s*["]\\{!v\\.([A-Za-z_][A-Za-z0-9_]*)\\}["]');
+        Pattern fieldsAttr=Pattern.compile('(?i)\\bfields\\s*=\\s*["]([^"]*)["]');
+        while(rm.find()){
+            String tag=rm.group();Matcher tm=target.matcher(tag),fm=fieldsAttr.matcher(tag);
+            if(!tm.find()||!fm.find())continue;
+            String obj=attributeObjects.get(tm.group(1));if(obj==null)continue;
+            Map<String,Schema.SObjectField> objectFields=gd.get(obj).getDescribe().fields.getMap();
+            String fieldList=fm.group(1);
+            if(fieldList.contains('{!'))continue;
+            for(String token:fieldList.split(',')){
+                String field=canonicalField(objectFields,token.trim());if(field==null)continue;
+                String key=obj+'.'+field;counts.put(key,(counts.containsKey(key)?counts.get(key):0)+1);
+                if(!lines.containsKey(key))lines.put(key,new List<Integer>());
+                Integer line=lineNumber(body,rm.start()+fm.start(1));if(!lines.get(key).contains(line))lines.get(key).add(line);
+            }
+        }
         for(String key:counts.keySet()){Integer dot=key.indexOf('.');String obj=key.substring(0,dot),field=key.substring(dot+1);out.add(new Field_Usage_Evidence__c(Run__c=runId,Field_Key__c=key,Object_API_Name__c=obj,Field_API_Name__c=field,Source_Type__c='Aura',Component_Name__c=componentName,Component_Id__c=componentId,Evidence_Type__c='Aura Source Reference',Confidence__c='High',Observed_At__c=System.now(),Occurrence_Count__c=counts.get(key),Location__c='Aura: '+componentName+formatLines(lines.get(key)),Evidence__c=snippets(body,lines.get(key))));}
         return out;
     }
