@@ -18,7 +18,7 @@
 
 Both URLs use the **same** subscriber package version ID: `04taj000000lDjNAAU`. The login domain determines the target environment, not the package contents. **The production URL does not imply production readiness.**
 
-Salesforce reported a successful V4 package build on **20 October 2026**, with **88% Apex coverage**, a passed coverage gate and **238 packaged metadata files**. See [release notes](docs/V4_RELEASE_NOTES.md) for identifiers and verification details.
+The V4 package build passed with **88% Apex coverage**, a passed coverage gate and **238 packaged metadata files**. See [release notes](docs/V4_RELEASE_NOTES.md) for identifiers and verification details.
 
 ## Capabilities by version
 
@@ -54,7 +54,7 @@ The package also provides MCP settings, configurable diagnostic persistence to a
 | --- | --- |
 | V4 2GP package creation | **Passed** — version `4.0.0.1` |
 | Packaging Apex coverage | **88% — passed** |
-| Development-org `RunLocalTests` | **1,444 / 1,444 passed** on 20 October 2026 |
+| Development-org `RunLocalTests` | **1,444 / 1,444 passed** |
 | Developer-org Hosted MCP server | Active with four registered tools (screenshots) |
 | Clean-sandbox package installation | **Not yet verified** |
 | Authenticated external MCP client calls | **Not yet accepted end to end** |
