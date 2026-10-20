@@ -25,6 +25,18 @@ private class FieldUsageUiScannerTest {
         System.assertEquals(0,FieldUsageAuraScanner.scan(null,'x','x',null).size());
     }
     @IsTest
+    static void auraResolvesTypedRecordDataFields(){
+        String body='<aura:component><aura:attribute name="contactRecord" type="Contact"/>'+
+            '<force:recordData recordId="{!v.recordId}" fields="FirstName,LastName" targetFields="{!v.contactRecord}"/>'+
+            '<force:recordData fields="NotAField" targetFields="{!v.contactRecord}"/>'+
+            '</aura:component>';
+        List<Field_Usage_Evidence__c> rows=FieldUsageAuraScanner.scan(null,'contactAura','cmp',body);
+        System.assertEquals(2,rows.size());
+        Set<String> keys=new Set<String>();for(Field_Usage_Evidence__c row:rows)keys.add(row.Field_Key__c);
+        System.assert(keys.contains('Contact.FirstName'));
+        System.assert(keys.contains('Contact.LastName'));
+    }
+    @IsTest
     static void validationRuleFindsSameObjectFields() {
         List<Field_Usage_Evidence__c> rows=FieldUsageValidationRuleScanner.scan(null,'Account','RequireName','vr1','AND(ISBLANK(Name), Name = \'\')',true);
         System.assertEquals(1,rows.size());

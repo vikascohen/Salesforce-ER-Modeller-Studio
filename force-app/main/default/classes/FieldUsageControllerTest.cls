@@ -2,6 +2,15 @@
  * @author Vikas Cohen
  */
 @IsTest private class FieldUsageControllerTest {
+ @IsTest static void scannerCoverageReflectsPersistedEvidence(){
+  System.assertEquals(0,FieldUsageController.getScannerCoverage(null).size());
+  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed');insert run;
+  insert new Field_Usage_Evidence__c(Run__c=run.Id,Field_Key__c='Contact.LastName',Object_API_Name__c='Contact',Field_API_Name__c='LastName',Source_Type__c='LWC',Component_Name__c='TestComponent',Occurrence_Count__c=1);
+  Map<String,Integer> counts=FieldUsageController.getScannerCoverage(run.Id);
+  System.assertEquals(1,counts.get('LWC'));
+  System.assertEquals(1,counts.size());
+ }
+
  @IsTest static void readsCurrentSnapshotOnly(){
   Field_Usage_Run__c oldRun=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=false);insert oldRun;
   Field_Usage_Run__c currentRun=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Progress_Percent__c=100,Progress_Phase__c='Snapshot ready');insert currentRun;
