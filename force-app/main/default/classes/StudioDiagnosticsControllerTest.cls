@@ -8,7 +8,7 @@ private class StudioDiagnosticsControllerTest {
 
     @IsTest static void systemInfoIsReadOnlyAndOperationallyUseful(){
         Test.startTest();StudioDiagnosticsController.SystemInfoDTO dto=StudioDiagnosticsController.getSystemInfo();Test.stopTest();
-        System.assertEquals('3',dto.studioVersion);System.assertEquals('v60.0',dto.toolingApiVersion);System.assertEquals('60.0',dto.salesforceApiVersion);
+        System.assertEquals('4',dto.studioVersion);System.assertEquals('v60.0',dto.toolingApiVersion);System.assertEquals('60.0',dto.salesforceApiVersion);
         System.assertEquals(UserInfo.getOrganizationId(),dto.organisationId);System.assertEquals(UserInfo.getUserName(),dto.runningUser);
         System.assertNotEquals(null,dto.organisationName);System.assertNotEquals(null,dto.organisationType);System.assertNotEquals(null,dto.environmentType);
         System.assertNotEquals(null,dto.runningUserName);System.assertNotEquals(null,dto.userType);System.assertNotEquals(null,dto.profileName);

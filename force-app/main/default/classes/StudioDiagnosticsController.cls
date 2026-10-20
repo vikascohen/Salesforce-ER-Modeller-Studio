@@ -3,7 +3,7 @@
  * @author Vikas Cohen
  */
 public with sharing class StudioDiagnosticsController {
-    public static final String STUDIO_VERSION='3';
+    public static final String STUDIO_VERSION='4';
     public static final String TOOLING_API_VERSION='v60.0';
 
     public class SystemInfoDTO {
