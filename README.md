@@ -3,7 +3,7 @@
 **Salesforce data architecture intelligence, ER modelling and field-dependency analysis.**
 
 **Latest source:** V4 on [`main`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and [`V4-latest`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/V4-latest)
-**Package version:** `4.0.0.1` (2GP unlocked)
+**Package version:** `4.0.0.3` (2GP unlocked)
 **Maintainer:** Vikas Cohen
 **Release status:** Package build passed; clean-sandbox and end-to-end MCP acceptance pending.
 
@@ -13,10 +13,10 @@
 
 | Environment | Installation |
 | --- | --- |
-| **Salesforce sandbox** | [Install V4 in sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000lDjNAAU) |
-| **Salesforce production** | [Install V4 in production](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000lDjNAAU) |
+| **Salesforce sandbox** | [Install V4 in sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000lGvlAAE) |
+| **Salesforce production** | [Install V4 in production](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000lGvlAAE) |
 
-Both URLs use the **same** subscriber package version ID: `04taj000000lDjNAAU`. The login domain determines the target environment, not the package contents. **The production URL does not imply production readiness.**
+Both URLs use the **same** subscriber package version ID: `04taj000000lGvlAAE`. The login domain determines the target environment, not the package contents. **The production URL does not imply production readiness.**
 
 The V4 package build passed with **88% Apex coverage**, a passed coverage gate and **238 packaged metadata files**. See [release notes](docs/V4_RELEASE_NOTES.md) for identifiers and verification details.
 
@@ -52,7 +52,7 @@ The package also provides MCP settings, configurable diagnostic persistence to a
 
 | Check | Latest documented result |
 | --- | --- |
-| V4 2GP package creation | **Passed** — version `4.0.0.1` |
+| V4 2GP package creation | **Passed** — version `4.0.0.3` |
 | Packaging Apex coverage | **88% — passed** |
 | Development-org `RunLocalTests` | **1,444 / 1,444 passed** |
 | Developer-org Hosted MCP server | Active with four registered tools (screenshots) |
@@ -76,7 +76,7 @@ The development-org test run and package build are distinct verification events.
 
 `main` and `V4-latest` contain the V4 source. **Earlier V1, V2 and V3 functionality remains part of V4**, but the V4 2GP unlocked package has a separate package ID from the V3 package. A V3 installation is **not automatically upgraded** by installing V4. Review metadata ownership, component overlap, permissions and data preservation before migration; do not uninstall an existing package without a tested plan.
 
-V4 development and validation continue. Future MCP-driven DSL modelling, proposed-design assessment and design-review evidence retrieval are **proposals**, not features included in package `4.0.0.1`; see the [requirements tracker](docs/V4_REQUIREMENTS.md).
+V4 development and validation continue. Future MCP-driven DSL modelling, proposed-design assessment and design-review evidence retrieval are **proposals**, not features included in package `4.0.0.3`; see the [requirements tracker](docs/V4_REQUIREMENTS.md).
 
 ## Licence
 
