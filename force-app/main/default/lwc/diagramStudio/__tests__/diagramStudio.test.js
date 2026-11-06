@@ -719,6 +719,28 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.hover-card-title')).toBeNull();
     });
 
+    it('filters platform events and metadata in the palette before the display limit', async () => {
+        const el=createStudio();await flushPromises();
+        objectNamesAdapter.emit([...Array.from({length:100},(_,i)=>'A'+i),'Message__e','Config__mdt','Thing__c']);await flushPromises();
+        const select=el.shadowRoot.querySelector('.palette-type');
+        select.value='events';select.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        expect([...el.shadowRoot.querySelectorAll('.palette-chip')].map(x=>x.dataset.name)).toEqual(['Message__e']);
+        select.value='metadata';select.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        expect([...el.shadowRoot.querySelectorAll('.palette-chip')].map(x=>x.dataset.name)).toEqual(['Config__mdt']);
+    });
+    it('keeps metadata heatmap colour with sharing on, and skips event record-count queries', async () => {
+        getRecordCount.mockResolvedValue({count:3,lastModifiedDate:null});getSharingModels.mockResolvedValue({});
+        const el=createStudio();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity Config__mdt : Value__c\nentity Message__e : Payload__c';editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        for(const label of ['Heatmap','Sharing View']){
+            el.shadowRoot.querySelector('[data-menu="view"]').click();await flushPromises();
+            [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(x=>x.textContent.includes(label)).click();await new Promise(r=>setTimeout(r,450));
+        }
+        const rect=el.shadowRoot.querySelectorAll('.entity-group[data-name="Config__mdt"] rect')[1];
+        expect(rect.getAttribute('fill')).toBe('#cfe8fb');
+        expect(getRecordCount.mock.calls.some(([x])=>x.objectApiName==='Message__e')).toBe(false);
+        const event=el.shadowRoot.querySelector('.entity-group[data-name="Message__e"]');expect(event.textContent).toContain('N/A');
+    });
     it('populates the object palette once getAllObjectNames resolves', async () => {
         const el = createStudio();
         objectNamesAdapter.emit(['Account', 'Contact', 'Opportunity']);

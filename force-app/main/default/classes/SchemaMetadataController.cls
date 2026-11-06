@@ -48,7 +48,7 @@ public with sharing class SchemaMetadataController {
             // objects are describe-only), not a per-user permission, and
             // dropping it would surface objects nothing else in this app
             // can actually do anything useful with.
-            if (dr.isQueryable()) {
+            if (dr.isQueryable() || dr.getName().toLowerCase().endsWith('__e') || dr.getName().toLowerCase().endsWith('__mdt')) {
                 names.add(dr.getName());
             }
         }
@@ -501,6 +501,7 @@ public with sharing class SchemaMetadataController {
             if (String.isBlank(name)) {
                 continue;
             }
+            if (name.toLowerCase().endsWith('__e') || name.toLowerCase().endsWith('__mdt')) continue;
             try {
                 List<EntityDefinition> rows = [
                     SELECT InternalSharingModel, ExternalSharingModel
@@ -624,6 +625,7 @@ public with sharing class SchemaMetadataController {
      */
     public class RecordCountInfo {
         @AuraEnabled public Integer count;
+        @AuraEnabled public Boolean countIsLowerBound = false;
         // Deliberately left as a raw DateTime, not manually converted to a
         // String — Apex's own String.valueOf(DateTime) produces a
         // space-separated format that isn't reliably parseable by every
@@ -639,6 +641,15 @@ public with sharing class SchemaMetadataController {
         String name = objectApiName == null ? null : objectApiName.trim();
         if (!isSafeIdentifier(name)) {
             return null;
+        }
+        // Events are schema-only here. They cannot be counted with SOQL.
+        if (name.toLowerCase().endsWith('__e')) return null;
+        if (name.toLowerCase().endsWith('__mdt')) {
+            try {
+                List<SObject> rows=Database.query('SELECT Id FROM '+name+' LIMIT 10001',AccessLevel.USER_MODE);
+                RecordCountInfo info=new RecordCountInfo();info.count=rows.size();info.countIsLowerBound=rows.size()==10001;
+                return info; // Metadata records have no ordinary record freshness timestamp.
+            } catch(Exception ex) { return null; }
         }
         try {
             List<AggregateResult> agg = Database.query(

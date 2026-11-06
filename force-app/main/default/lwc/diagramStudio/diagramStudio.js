@@ -226,6 +226,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track importObjectNames = '';
     @track importPanelOpen   = false;
 
+    paletteType = 'all';
+    handlePaletteTypeChange(event) { this.paletteType = event.target.value; }
     @track paletteFilter  = '';
     @track paletteObjects = [];
 
@@ -514,7 +516,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get filteredPaletteObjects() {
         const f = (this.paletteFilter || '').toLowerCase();
         const list = f ? this.paletteObjects.filter((n) => n.toLowerCase().includes(f)) : this.paletteObjects;
-        return list.slice(0, 80);
+        return list.filter(name => {
+            const value=name.toLowerCase();
+            if(this.paletteType==='events')return value.endsWith('__e');
+            if(this.paletteType==='metadata')return value.endsWith('__mdt');
+            if(this.paletteType==='custom')return value.endsWith('__c');
+            if(this.paletteType==='standard')return !/__(c|e|mdt)$/.test(value);
+            return true;
+        }).slice(0, 80);
     }
 
     get svgViewBox() { return `0 0 ${this.svgWidth} ${this.svgHeight}`; }
@@ -544,7 +553,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const badgeY = b.y - 10;
             let bodyFill = '#ffffff';
 
-            if (this.heatmapOn) {
+            const eventObject=b.name.toLowerCase().endsWith('__e');
+            const noSharing=eventObject||b.name.toLowerCase().endsWith('__mdt');
+            if (this.heatmapOn && eventObject) {
+                badges.push({id:b.name+'-heat-na',cx:badgeX,cy:badgeY,fillColor:'#667085',strokeColor:'#667085',textColor:'#ffffff',filled:true,code:'N/A',title:'Platform events do not support ordinary SOQL record counts.'});badgeX+=32;
+            }
+            if (this.heatmapOn && !eventObject) {
                 const rc = this.recordCounts[b.name.toLowerCase()];
                 if (rc != null) {
                     const heatColor = this.heatColorFor(rc);
@@ -557,15 +571,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                         strokeColor: '#1e1e2e',
                         textColor: '#ffffff',
                         filled: true,
-                        code: this.formatCount(rc.count),
-                        title: `${rc.count.toLocaleString()} record${rc.count === 1 ? '' : 's'}`
+                        code: (rc.countIsLowerBound ? '≥' : '') + this.formatCount(rc.count),
+                        title: `${rc.countIsLowerBound ? 'At least ' : ''}${rc.count.toLocaleString()} record${rc.count === 1 ? '' : 's'}`
                             + (staleText ? ` — ${staleText}` : '')
                     });
                     badgeX += 32;
                 }
             }
 
-            if (this.sharingViewOn) {
+            if (this.sharingViewOn && noSharing) {
+                badges.push({id:b.name+'-sharing-na',cx:badgeX,cy:badgeY,fillColor:'#667085',strokeColor:'#667085',textColor:'#ffffff',filled:true,code:'N/A',title:'Record sharing does not apply to platform events or custom metadata.'});
+            }
+            if (this.sharingViewOn && !noSharing) {
                 const sm = this.sharingModels[b.name.toLowerCase()];
                 if (sm && sm.internal) {
                     const ib = this.sharingBadgeFor(sm.internal);
@@ -4021,7 +4038,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const existingNames = await this.checkMissingModelObjects(names, 'Sharing View');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || this._isDisconnected) return;
             this._sharingModelCache = this._sharingModelCache || {};
-            const uncachedNames = existingNames.filter(name=>!Object.prototype.hasOwnProperty.call(this._sharingModelCache,name.toLowerCase()));
+            const uncachedNames = existingNames.filter(name=>!/__(e|mdt)$/i.test(name)&&!Object.prototype.hasOwnProperty.call(this._sharingModelCache,name.toLowerCase()));
             const fresh = uncachedNames.length ? await getSharingModels({ objectApiNames: uncachedNames }) : {};
             for (const name of uncachedNames) {
                 const match = Object.keys(fresh||{}).find(key=>key.toLowerCase()===name.toLowerCase());
@@ -4116,7 +4133,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const existingNames = await this.checkMissingModelObjects(names, 'Heatmap');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || this._isDisconnected) return;
             this._heatmapUnavailableNames = this._heatmapUnavailableNames || new Set();
-            const pendingNames = existingNames.filter((name) => next[name.toLowerCase()] == null && !this._heatmapUnavailableNames.has(name.toLowerCase()));
+            const pendingNames = existingNames.filter((name) => !/__e$/i.test(name) && next[name.toLowerCase()] == null && !this._heatmapUnavailableNames.has(name.toLowerCase()));
             const concurrency = 4;
             let cursor = 0;
 
@@ -4221,7 +4238,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const recordCount = this.recordCounts[key];
         const sharing     = this.sharingModels[key];
         const signals     = this.sharingSignals[key];
-        if (this.sharingViewOn && !signals) this.fetchSharingSignalForObject(name);
+        if (this.sharingViewOn && !signals && !/__(e|mdt)$/i.test(name)) this.fetchSharingSignalForObject(name);
 
         this.hoverCard = {
             name,
@@ -4234,10 +4251,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // entity actually has. box.hiddenCount (the rows that don't
             // currently fit) has to be added back in for the true total.
             fieldCount: box.fields.length + (box.hiddenCount || 0),
-            objectTypeText: name.endsWith('__c') ? 'Custom Object' : 'Standard Object',
+            objectTypeText: /__e$/i.test(name) ? 'Platform Event' : /__mdt$/i.test(name) ? 'Custom Metadata Type' : /__c$/i.test(name) ? 'Custom Object' : 'Standard Object',
+            recordDataHint: /__e$/i.test(name) ? 'Not applicable — event messages cannot be counted with SOQL.' : 'Turn on Heatmap to see this',
+            sharingDataHint: /__(e|mdt)$/i.test(name) ? 'Not applicable to this object type' : 'Turn on Sharing View to see this',
 
             hasRecordData: this.heatmapOn && recordCount != null,
-            recordCountText: recordCount != null ? recordCount.count.toLocaleString() : '',
+            recordCountText: recordCount != null ? (recordCount.countIsLowerBound ? 'At least ' : '') + recordCount.count.toLocaleString() : '',
             // Shown alongside the count, not instead of it, so the hover
             // card gives the same "is this actually being used" signal
             // the heatmap's own color already does, in words rather than

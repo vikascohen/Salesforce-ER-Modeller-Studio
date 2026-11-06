@@ -24,7 +24,7 @@
                     <span class="hover-card-value">{hoverCard.recordCountText}</span>
                 </template>
                 <template if:false={hoverCard.hasRecordData}>
-                    <span class="hover-card-hint">Turn on Heatmap to see this</span>
+                    <span class="hover-card-hint">{hoverCard.recordDataHint}</span>
                 </template>
             </div>
             <template if:true={hoverCard.recordFreshnessText}>
@@ -40,7 +40,7 @@
                     <span class="hover-card-value">{hoverCard.internalSharingText}</span>
                 </template>
                 <template if:false={hoverCard.hasSharingData}>
-                    <span class="hover-card-hint">Turn on Sharing View to see this</span>
+                    <span class="hover-card-hint">{hoverCard.sharingDataHint}</span>
                 </template>
             </div>
             <template if:true={hoverCard.hasSharingData}>
@@ -618,6 +618,9 @@
 
             <div class="sidebar-section palette-section">
                 <div class="sidebar-sec-head">DRAG TO CANVAS</div>
+                <select class="palette-search palette-type" aria-label="Object type" onchange={handlePaletteTypeChange}>
+                    <option value="all">All object types</option><option value="standard">Standard objects</option><option value="custom">Custom objects</option><option value="events">Platform events (__e)</option><option value="metadata">Custom metadata (__mdt)</option>
+                </select>
                 <input class="palette-search" type="text"
                        placeholder="Search objects"
                        value={paletteFilter}
