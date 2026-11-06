@@ -1416,8 +1416,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const wrap=this.template.querySelector('.canvas-wrap');
         if(!wrap||!this.sourceText?.trim()) return;
         try {
-            const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[], appCards=model.components||[];
-            if(!entities.length&&!appCards.length) return;
+            const model=parseEr(this.sourceText), allEntities=model.entities||[], rels=model.relationships||[], appCards=model.components||[];
+            const entities=allEntities.filter(entity=>!/__(e|mdt)$/i.test(entity.name));
+            const schemaSections=[allEntities.filter(entity=>/__e$/i.test(entity.name)),allEntities.filter(entity=>/__mdt$/i.test(entity.name))];
+            if(!allEntities.length&&!appCards.length) return;
             const byName=new Map(entities.map(e=>[e.name,e])), adj=new Map(entities.map(e=>[e.name,new Set()]));
             rels.forEach(r=>{
                 if(r.childEntity!==r.parentEntity&&adj.has(r.childEntity)&&adj.has(r.parentEntity)){
@@ -1432,7 +1434,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 components.push(comp);
             }
             components.sort((a,b)=>b.length-a.length);
-            const dense=entities.length>=16, veryDense=entities.length>=32;
+            const dense=allEntities.length>=16, veryDense=allEntities.length>=32;
             const cardW=veryDense?150:dense?170:205, visibleRows=veryDense?4:dense?5:7;
             const positions={},widths={},heights={}; let componentTop=110, maxRight=0;
             components.filter(comp=>comp.length>1).forEach(comp=>{
@@ -1473,10 +1475,25 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 positions[name]={x:Math.round(islandLeft+(index%islandCols)*(cardW+islandGap)),y:componentTop+Math.floor(index/islandCols)*(islandHeight+60)};
                 widths[name]=cardW;heights[name]=Math.max(108,52+Math.min(visibleRows,(byName.get(name)?.fields?.length||0)+1)*22);
             });
+            // Events and custom metadata remain real schema entities, with their
+            // fields and declared relationships; only their presentation changes.
+            let schemaTop=entities.length?Math.max(...entities.map(e=>positions[e.name].y+heights[e.name]))+120:110;
+            for(const section of schemaSections){
+                if(!section.length)continue;
+                const sorted=[...section].sort((a,b)=>a.name.localeCompare(b.name));
+                const columns=Math.max(1,Math.min(6,sorted.length,Math.floor((layoutWidth-110)/(cardW+60))));
+                const rowHeight=Math.max(108,...sorted.map(entity=>52+Math.min(visibleRows,entity.fields.length+1)*22));
+                const span=columns*cardW+(columns-1)*60,left=Math.max(55,(layoutWidth-span)/2);
+                sorted.forEach((entity,index)=>{
+                    positions[entity.name]={x:Math.round(left+(index%columns)*(cardW+60)),y:schemaTop+Math.floor(index/columns)*(rowHeight+60)};
+                    widths[entity.name]=cardW;heights[entity.name]=Math.max(108,52+Math.min(visibleRows,entity.fields.length+1)*22);
+                });
+                schemaTop=Math.max(...sorted.map(entity=>positions[entity.name].y+heights[entity.name]))+120;
+            }
             // Component cards must never fall back to the parser's initial grid:
             // that can overlap objects or interleave them midway down the model.
-            const objectBottom=Math.max(0,...entities.map(e=>(positions[e.name]?.y||0)+(heights[e.name]||0)));
-            const cardTop=entities.length?objectBottom+120:110;
+            const objectBottom=Math.max(0,...allEntities.map(e=>(positions[e.name]?.y||0)+(heights[e.name]||0)));
+            const cardTop=allEntities.length?objectBottom+120:110;
             const cardGap=60,cardHeight=108;
             const cardCols=Math.max(1,Math.min(6,Math.floor((Math.max(wrap.clientWidth,720)-110)/(cardW+cardGap))));
             [...appCards].sort((a,b)=>a.componentType.localeCompare(b.componentType)||a.title.localeCompare(b.title)).forEach((card,index)=>{
@@ -1492,9 +1509,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     get canvasSectionHeadings() {
         if(!this.canvasFitActive)return [];
-        const boxes=this._erBoxes||[],objects=boxes.filter(b=>!b.componentType),cards=boxes.filter(b=>b.componentType);
-        if(!cards.length)return [];
-        return [{key:'objects',label:'OBJECTS',boxes:objects},{key:'components',label:'APEX & FLOW COMPONENTS',boxes:cards}].filter(section=>section.boxes.length).map(section=>({key:section.key,label:section.label+' · '+section.boxes.length,x:Math.min(...section.boxes.map(b=>b.x)),y:Math.max(30,Math.min(...section.boxes.map(b=>b.y))-22)}));
+        const boxes=this._erBoxes||[];
+        const sections=[
+            {key:'objects',label:'OBJECTS',boxes:boxes.filter(b=>!b.componentType&&!/__(e|mdt)$/i.test(b.name))},
+            {key:'events',label:'PLATFORM EVENTS',boxes:boxes.filter(b=>!b.componentType&&/__e$/i.test(b.name))},
+            {key:'metadata',label:'CUSTOM METADATA',boxes:boxes.filter(b=>!b.componentType&&/__mdt$/i.test(b.name))},
+            {key:'components',label:'APEX & FLOW COMPONENTS',boxes:boxes.filter(b=>b.componentType)}
+        ].filter(section=>section.boxes.length);
+        if(sections.length===1&&sections[0].key==='objects')return [];
+        return sections.map(section=>({key:section.key,label:section.label+' · '+section.boxes.length,x:Math.min(...section.boxes.map(b=>b.x)),y:Math.max(30,Math.min(...section.boxes.map(b=>b.y))-22)}));
     }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {

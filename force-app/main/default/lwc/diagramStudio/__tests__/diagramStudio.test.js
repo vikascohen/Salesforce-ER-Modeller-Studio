@@ -2421,6 +2421,27 @@ describe('V5 app generation', () => {
         expect(card.querySelector('title').textContent).toBe('VeryLongComponentNameThatMustRemainAvailable');
         expect(editor.value).toBe(source);
     });
+    it('fits event and metadata sections separately while preserving only declared relationships', async () => {
+        const el=createStudio();await flushPromises();
+        const source='entity Account : Name\nentity EntityDefinition : QualifiedApiName\nentity Message__e : RecordId__c\nentity Config__mdt : Value__c\nentity Parent__mdt : Value__c\nConfig__mdt.Parent__c -> Parent__mdt\nConfig__mdt.Object__c -> EntityDefinition\ncomponent ApexClass Logger';
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value=source;editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        const headers=[...el.shadowRoot.querySelectorAll('.canvas-section-heading')].map(h=>h.textContent);
+        expect(headers).toEqual(['OBJECTS · 2','PLATFORM EVENTS · 1','CUSTOM METADATA · 2','APEX & FLOW COMPONENTS · 1']);
+        const y=name=>Number(el.shadowRoot.querySelector('.entity-group[data-name="'+name+'"] rect.drag-header').getAttribute('y'));
+        expect(y('Message__e')).toBeGreaterThan(y('Account')+108);
+        expect(y('Config__mdt')).toBeGreaterThan(y('Message__e')+108);
+        expect(y('@ApexClass:Logger')).toBeGreaterThan(Math.max(y('Config__mdt'),y('Parent__mdt'))+108);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(2);
+        expect(editor.value).toBe(source);
+    });
+    it('fits a platform-event-only diagram without requiring business objects or component cards', async () => {
+        const el=createStudio();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity Notice__e : Payload__c';editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.canvas-section-heading').textContent).toBe('PLATFORM EVENTS · 1');
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();
