@@ -2232,7 +2232,7 @@ describe('V5 app generation', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
-        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockImplementation(async ({componentsJson}) => JSON.stringify({fieldUsage:JSON.parse(componentsJson).filter(c=>c.type==='Object').flatMap(c=>[{objectApiName:c.name,fieldApiName:'Name',sourceType:'LWC',componentName:'AppComponent'},...(c.name==='Contact'?[{objectApiName:'Contact',fieldApiName:'AccountId',sourceType:'ApexClass',componentName:'AppService'}]:[])])}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockImplementation(async ({componentsJson}) => JSON.stringify({verifiedComponents:JSON.parse(componentsJson).filter(c=>['ApexClass','Flow'].includes(c.type)),fieldUsage:JSON.parse(componentsJson).filter(c=>c.type==='Object').flatMap(c=>[{objectApiName:c.name,fieldApiName:'Name',sourceType:'LWC',componentName:'AppComponent'},...(c.name==='Contact'?[{objectApiName:'Contact',fieldApiName:'AccountId',sourceType:'ApexClass',componentName:'AppService'}]:[])])}));
     });
     async function openAppDialog(el) {
         el.shadowRoot.querySelector('button[data-menu="file"]').click(); await flushPromises();

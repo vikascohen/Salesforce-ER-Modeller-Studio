@@ -23,6 +23,7 @@ public with sharing class AppModelController {
     }
     public class Expansion {
         @AuraEnabled public List<FieldUse> fieldUsage=new List<FieldUse>();
+        @AuraEnabled public List<Component> verifiedComponents=new List<Component>();
         @AuraEnabled public List<Component> components=new List<Component>();
         @AuraEnabled public List<String> reasons=new List<String>();
         @AuraEnabled public String nextCursor;
@@ -125,6 +126,7 @@ public with sharing class AppModelController {
         if(runId!=null){List<Field_Usage_Run__c> runs=[SELECT Id FROM Field_Usage_Run__c WHERE Id=:runId AND Status__c='Completed' AND Object_Scan_Version__c=5 LIMIT 1];if(runs.isEmpty())throw new AuraHandledException('The selected V5 snapshot is no longer available. Run the org scan again.');}
         Expansion result=new Expansion();
         resolveComponentIds(components,result.warnings);
+        for(Component c:components)if(c!=null&&c.id!=null&&Pattern.matches('^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$',c.id)&&((c.type=='ApexClass'&&c.id.startsWith('01p'))||(c.type=='Flow'&&c.id.startsWith('301'))))result.verifiedComponents.add(c);
         Set<String> names=new Set<String>(),objectNames=new Set<String>(),sourceKeys=new Set<String>(),sourceIds=new Set<String>();
         for(Component c:components){
             if(c==null||String.isBlank(c.name)||c.name.length()>255||Pattern.compile('[\\r\\n]').matcher(c.name).find())continue;

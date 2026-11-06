@@ -79,3 +79,9 @@ it('keeps metadata tables hidden while emitting only typed reached Apex and Flow
     expect(selected.hidden).toHaveLength(3);
     expect(buildAppComponentSource([{type:'ApexClass',name:'Logger'},{type:'Flow',name:'Save_Log'},{type:'Object',name:'ApexClass'},{type:'ApexClass',name:'Logger'}])).toBe('component ApexClass Logger\ncomponent Flow Save_Log');
 });
+
+it('does not turn unverified metadata type names into component cards', async () => {
+    const result=await collectAppScope({components:[comp('Object','Account'),comp('ApexClass','ApexClass'),comp('ApexClass','Logger')]},async()=>({verifiedComponents:[{type:'ApexClass',name:'Logger',id:'01p000000000001'}]}));
+    expect(result.components.map(c=>c.name)).toEqual(['Logger']);
+    expect(buildAppComponentSource(result.components)).not.toContain('component ApexClass ApexClass');
+});

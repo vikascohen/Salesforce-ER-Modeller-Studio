@@ -36,6 +36,7 @@
     @IsTest static void dependencyTypesDoNotLeakAcrossSameNamedComponents(){
         Test.setMock(HttpCalloutMock.class,new ApiMock());AppModelController.Expansion result=AppModelController.expandScope(null,new List<AppModelController.Component>{comp('LightningComponentBundle','salesPanel')},null,false);
         System.assertEquals(1,result.components.size());System.assertEquals('SalesService',result.components[0].name);
+        System.assertEquals(0,result.verifiedComponents.size(),'LWC itself is not an Apex/Flow card.');
     }
     @IsTest static void invalidInputsAreRejected(){
         Boolean rejected=false;try{AppModelController.getAppScope('../bad',false);}catch(AuraHandledException expected){rejected=true;}System.assert(rejected);
@@ -112,6 +113,14 @@
         AppModelController.Expansion result=AppModelController.expandScope(currentRun.Id,new List<AppModelController.Component>{comp('ApexClass','SalesService'),comp('LightningComponentBundle','sales_panel')},null,false);
         Test.stopTest();Set<String> fields=new Set<String>();for(AppModelController.FieldUse usage:result.fieldUsage)fields.add(usage.fieldApiName);
         System.assertEquals(new Set<String>{'Name','Description'},fields,'Only exact app source type/name and current snapshot may contribute fields.');
+    }
+
+    @IsTest static void componentCardsRequireResolvedIdentity(){
+        Test.setMock(HttpCalloutMock.class,new ApiMock());
+        AppModelController.Expansion expansion=AppModelController.expandScope(null,new List<AppModelController.Component>{comp('ApexClass','SalesService'),comp('ApexClass','ApexClass')},null,false);
+        System.assertEquals(1,expansion.verifiedComponents.size());
+        System.assertEquals('SalesService',expansion.verifiedComponents[0].name);
+        System.assert(expansion.verifiedComponents[0].id.startsWith('01p'));
     }
 
 }

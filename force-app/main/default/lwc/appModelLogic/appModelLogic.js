@@ -5,6 +5,7 @@ export function componentKey(component) {
 export async function collectAppScope(scope, expand, { includeAutomation = true, onProgress = () => {} } = {}) {
     const seen = new Map();
     const fieldUsage = new Map();
+    const verifiedComponents = new Map();
     const reasons = new Set();
     const warnings = new Set(scope.warnings || []);
     let frontier = scope.components || [];
@@ -28,6 +29,7 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
                 onProgress(`Discovering app dependencies (${seen.size} components, request ${requests})`);
                 const page = await expand({ runId: scope.runId, components, cursor, includeAutomation });
                 next.push(...(page.components || []));
+                for (const component of page.verifiedComponents || []) verifiedComponents.set(componentKey(component), component);
                 for (const field of page.fieldUsage || []) {
                     if (!field.objectApiName || !field.fieldApiName) continue;
                     const key = `${field.objectApiName}.${field.fieldApiName}`.toLowerCase();
@@ -54,7 +56,7 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
         error.coverageWarnings = [...warnings];
         throw error;
     }
-    return { objects, components: [...seen.values()].filter(component => ['ApexClass','Flow'].includes(component.type)), fields: [...fieldUsage.values()].map(field => ({...field,sources:[...field.sources]})), reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
+    return { objects, components: [...verifiedComponents.values()], fields: [...fieldUsage.values()].map(field => ({...field,sources:[...field.sources]})), reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
 }
 export async function describeInChunks(names, describe, onProgress = () => {}) {
     const objects = [];
