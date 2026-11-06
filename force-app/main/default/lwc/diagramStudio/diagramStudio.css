@@ -1955,3 +1955,6 @@
 .app-model-error p{margin:6px 0 0}
 .app-model-open-scan{margin-top:10px;border:1px solid #d92d20;border-radius:5px;background:#fff;color:#912018;padding:7px 12px;font-weight:600;cursor:pointer}
 .app-model-generate-hint{display:inline-flex}
+
+.app-model-type-filter{display:block;width:100%;margin-bottom:6px}
+.app-model-type-summary{font-size:12px;line-height:1.5;color:#475467;margin:0 0 16px}

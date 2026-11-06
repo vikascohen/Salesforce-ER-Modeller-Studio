@@ -38,4 +38,21 @@
         Boolean rejected=false;try{AppModelController.getAppScope('../bad',false);}catch(AuraHandledException expected){rejected=true;}System.assert(rejected);
         rejected=false;try{AppModelController.expandScope(null,new List<AppModelController.Component>(),null,false);}catch(AuraHandledException expected){rejected=true;}System.assert(rejected);
     }
+    private class AppTypesMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){
+            HttpResponse response=new HttpResponse();response.setStatusCode(200);
+            if(request.getEndpoint().contains('/query/'))response.setBody('{"done":true,"records":[{"DurableId":"06m000000000001AAA","NamespacePrefix":"standard"},{"DurableId":"06m000000000002AAA","NamespacePrefix":null},{"DurableId":"06m000000000003AAA","NamespacePrefix":"pkg"}]}');
+            else response.setBody('{"apps":[{"appId":"06m000000000001","label":"Sales"},{"appId":"06m000000000002","label":"Sales"},{"appId":"06m000000000003","label":"Packaged App"},{"appId":"06m000000000004","label":"Unknown App"}]}');
+            return response;
+        }
+    }
+    @IsTest static void classifiesFromMetadataRatherThanLabels(){
+        Test.setMock(HttpCalloutMock.class,new AppTypesMock());List<AppModelController.AppOption> options=AppModelController.listApps();
+        System.assertEquals(4,options.size());System.assertEquals('standard',options[0].appType);System.assertEquals('custom',options[1].appType);System.assertEquals('custom',options[2].appType);System.assertEquals('unknown',options[3].appType);
+    }
+    private class AppTypeFailureMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){HttpResponse response=new HttpResponse();if(request.getEndpoint().contains('/query/')){response.setStatusCode(403);response.setBody('Forbidden');}else{response.setStatusCode(200);response.setBody('{"apps":[{"appId":"06m000000000001","label":"Still Available"}]}');}return response;}
+    }
+    @IsTest static void failedClassificationDoesNotHideTheAppList(){Test.setMock(HttpCalloutMock.class,new AppTypeFailureMock());List<AppModelController.AppOption> options=AppModelController.listApps();System.assertEquals(1,options.size());System.assertEquals('unknown',options[0].appType);}
+
 }

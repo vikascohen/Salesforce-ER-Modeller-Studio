@@ -6,7 +6,7 @@ public with sharing class AppModelController {
         @AuraEnabled public String name;
         @AuraEnabled public String id;
     }
-    public class AppOption { @AuraEnabled public String label; @AuraEnabled public String value; }
+    public class AppOption { @AuraEnabled public String label; @AuraEnabled public String value; @AuraEnabled public String appType; }
     public class Scope {
         @AuraEnabled public String appLabel;
         @AuraEnabled public Id runId;
@@ -22,9 +22,37 @@ public with sharing class AppModelController {
     }
     @AuraEnabled public static List<AppOption> listApps() {
         Map<String,Object> payload=get('/ui-api/apps?formFactor=Large&userCustomizations=false');
+        Map<String,String> appTypes=loadAppTypes();
         List<AppOption> options=new List<AppOption>();
-        for(Object raw:items(payload.get('apps'))){Map<String,Object> app=(Map<String,Object>)raw;AppOption option=new AppOption();option.label=str(app.get('label'));option.value=str(app.get('appId'));if(!String.isBlank(option.value))options.add(option);}
+        for(Object raw:items(payload.get('apps'))){Map<String,Object> app=(Map<String,Object>)raw;AppOption option=new AppOption();option.label=str(app.get('label'));option.value=str(app.get('appId'));option.appType=appTypes.get(appKey(option.value));if(option.appType==null)option.appType='unknown';if(!String.isBlank(option.value))options.add(option);}
         return options;
+    }
+    private static String appKey(String id){return String.isBlank(id)?null:(id.length()>=15?id.substring(0,15):id);}
+    private static Map<String,String> loadAppTypes(){
+        Map<String,String> types=new Map<String,String>();
+        // Query under the same Named Credential principal as UI API app discovery.
+        // Labels and Classic/Lightning UI types do not identify standard apps.
+        String path='/query/?q='+EncodingUtil.urlEncode('SELECT DurableId,NamespacePrefix FROM AppDefinition','UTF-8');
+        try{
+            Integer pages=0;
+            while(path!=null){
+                if(++pages>20)break;
+                Map<String,Object> page=get(path);
+                for(Object raw:items(page.get('records'))){
+                    Map<String,Object> definition=(Map<String,Object>)raw;
+                    String id=appKey(str(definition.get('DurableId')));
+                    if(id!=null&&definition.containsKey('NamespacePrefix'))types.put(id,str(definition.get('NamespacePrefix'))=='standard'?'standard':'custom');
+                }
+                String next=str(page.get('nextRecordsUrl'));
+                if(next==null)path=null;
+                else if(next.startsWith('/services/data/v60.0/query/'))path=next.substring('/services/data/v60.0'.length());
+                else path=null;
+            }
+        }catch(Exception ignored){
+            // App discovery remains usable when classification is unavailable.
+            // Unknown apps are only shown under All apps, never guessed custom.
+        }
+        return types;
     }
     @AuraEnabled public static Scope getAppScope(String appId,Boolean includeUsage) {
         if(String.isBlank(appId)||!Pattern.matches('^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$',appId))throw new AuraHandledException('Select a valid Salesforce app.');

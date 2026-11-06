@@ -3220,7 +3220,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.clearAppModelError();
         this.appModelStatus = 'Select an app to create a new ER model and its DSL.';
         requestAnimationFrame(() => this.template.querySelector('.app-model-dialog')?.focus());
-        if (!this.appOptions.length) await this.handleLoadSalesforceApps();
+        if (!this.allAppOptions.length) await this.handleLoadSalesforceApps();
     }
     handleCloseAppModel() {
         if (this.appModelBusy) return;
@@ -3250,7 +3250,21 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             else if (!event.shiftKey && current.includes(last)) { event.preventDefault(); first?.focus(); }
         }
     }
-    appOptions = [];
+    allAppOptions = [];
+    appTypeFilter = 'all';
+    appTypeOptions = [{label:'All apps',value:'all'},{label:'Custom apps',value:'custom'},{label:'Standard apps',value:'standard'}];
+    get appOptions() { return this.allAppOptions.filter(app => this.appTypeFilter === 'all' || app.appType === this.appTypeFilter); }
+    get appTypeSummary() {
+        const kind = this.appTypeFilter === 'all' ? 'apps' : this.appTypeFilter + ' apps';
+        const unknown = this.allAppOptions.filter(app => !app.appType || app.appType === 'unknown').length;
+        return `${this.appOptions.length} ${kind} available.` + (unknown ? ` ${unknown} with an unidentified type are shown under All apps only.` : '');
+    }
+    handleAppTypeFilterChange(event) {
+        this.appTypeFilter = event.detail.value;
+        if (!this.appOptions.some(app => app.value === this.selectedSalesforceApp)) this.selectedSalesforceApp = '';
+        this.clearAppModelError();
+        this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : `No ${this.appTypeFilter} apps are available for the configured API user.`;
+    }
     selectedSalesforceApp = '';
     appUsageEnabled = true;
     appFieldScope = 'relationships';
@@ -3303,8 +3317,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.clearAppModelError();
         this.appModelStatus = 'Loading Salesforce apps…';
         try {
-            this.appOptions = (await listSalesforceApps() || []).sort((a,b) => a.label.localeCompare(b.label));
-            this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : 'No Salesforce apps were returned for the configured API user.';
+            this.allAppOptions = (await listSalesforceApps() || []).sort((a,b) => a.label.localeCompare(b.label));
+            if (!this.appOptions.some(app => app.value === this.selectedSalesforceApp)) this.selectedSalesforceApp = '';
+            this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : 'No apps match this filter for the configured API user. Try All apps.';
         } catch (error) { this.showAppModelError(error); this.appModelError = 'Could not load Salesforce apps.'; }
         finally { this.appModelBusy = false; }
     }

@@ -5,7 +5,7 @@ V5 is a source preview on `v5-app-er-model`. It does not replace the published V
 ## Using the feature
 
 1. Save any diagram you are editing.
-2. Choose **File → Generate ER Model from App…**. The dialog loads available apps automatically; select a Salesforce app.
+2. Choose **File → Generate ER Model from App…**. The dialog loads available apps automatically. Choose **All apps**, **Custom apps** or **Standard apps** in the App type filter, then select a Salesforce app. Salesforce AppDefinition namespace metadata identifies standard apps; packaged apps with other namespaces are custom. Apps whose type cannot be identified remain available under All apps only.
 3. Keep **Include Flow, LWC and Apex object usage from org scan** enabled for dependency expansion. Run a successful V5 org scan first; V4 snapshots contain field evidence and are not a substitute.
 4. Optionally include object-triggered automation. This follows triggers and record-triggered flows for reached objects, including downstream objects; these are possible execution paths, not evidence of execution.
 5. Choose **Relationships and name** (the compact default) or **All fields**, then click **Generate ER Model**.

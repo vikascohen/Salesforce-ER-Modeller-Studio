@@ -274,6 +274,8 @@
                 </div>
                 <div class="modal-body">
                     <p class="app-model-intro">Create a new diagram and its editable DSL from a Salesforce app. Save your current diagram first.</p>
+                    <lightning-combobox class="app-model-type-filter" label="App type" value={appTypeFilter} options={appTypeOptions} onchange={handleAppTypeFilterChange} disabled={appModelBusy}></lightning-combobox>
+                    <p class="app-model-type-summary">{appTypeSummary}</p>
                     <lightning-combobox class="app-model-select" label="Salesforce app" placeholder="Select a Salesforce app" options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy} dropdown-alignment="auto"></lightning-combobox>
                     <button class="app-model-reload" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Refresh app list</button>
                     <lightning-combobox class="app-model-select" label="Fields" options={appFieldOptions} value={appFieldScope} onchange={handleAppFieldScopeChange} disabled={appModelBusy}></lightning-combobox>

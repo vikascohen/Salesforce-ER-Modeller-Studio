@@ -2383,4 +2383,35 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
     });
 
+    it('filters custom and standard apps and clears a selection hidden by the filter', async () => {
+        require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([
+            {label:'Sales',value:'standard-app',appType:'standard'},
+            {label:'Sales',value:'custom-app',appType:'custom'},
+            {label:'Package App',value:'package-app',appType:'custom'},
+            {label:'Unknown App',value:'unknown-app',appType:'unknown'}
+        ]);
+        const el=await createAppStudio();
+        const picker=el.shadowRoot.querySelector('lightning-combobox.app-model-select');
+        const filter=el.shadowRoot.querySelector('.app-model-type-filter');
+        expect(picker.options).toHaveLength(4);
+        picker.dispatchEvent(new CustomEvent('change',{detail:{value:'standard-app'}}));await flushPromises();
+        filter.dispatchEvent(new CustomEvent('change',{detail:{value:'custom'}}));await flushPromises();
+        expect(picker.options.map(app=>app.value)).toEqual(['package-app','custom-app']);
+        expect(picker.value).toBe('');expect(el.shadowRoot.querySelector('.app-model-generate').disabled).toBe(true);
+        filter.dispatchEvent(new CustomEvent('change',{detail:{value:'standard'}}));await flushPromises();
+        expect(picker.options.map(app=>app.value)).toEqual(['standard-app']);
+        filter.dispatchEvent(new CustomEvent('change',{detail:{value:'all'}}));await flushPromises();
+        expect(picker.options).toHaveLength(4);
+        expect(el.shadowRoot.querySelector('.app-model-type-summary').textContent).toContain('unidentified type');
+    });
+    it('explains an empty custom-app filter without making another server request', async () => {
+        const listApps=require('@salesforce/apex/AppModelController.listApps').default;
+        listApps.mockResolvedValue([{label:'Sales',value:'standard-app',appType:'standard'}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('.app-model-type-filter').dispatchEvent(new CustomEvent('change',{detail:{value:'custom'}}));await flushPromises();
+        expect(el.shadowRoot.querySelector('lightning-combobox.app-model-select').options).toHaveLength(0);
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('No custom apps');
+        expect(listApps).toHaveBeenCalledTimes(1);
+    });
+
 });
