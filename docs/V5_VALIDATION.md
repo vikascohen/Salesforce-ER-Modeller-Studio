@@ -28,3 +28,11 @@ Regression checks include preserving unsaved work, preserving edits during async
 - Create and validate a V5 package before providing an installation link. No V5 package has been built or published by this change.
 
 Passing compilation and automated tests does not replace these interactive acceptance steps. See [V5 app modelling](V5_APP_MODELLING.md) for behavior, setup and limits.
+
+## Development-org deployment
+
+On 6 November 2026, the user requested installation into the validated development org. Quick deployment `0Afaj00000qZX4pCAG` succeeded with `checkOnly=false`; 156/156 metadata components were accepted.
+
+The first live app-list check exposed missing external-credential principal access for the operator. A separate org-specific permission set, `ER_Studio_Tooling_Access`, was deployed and assigned to that operator. It grants access only to the existing `Salesforce_Tooling_API-ToolingAPIPrincipal` principal. It is separate from the reusable application permission set, so application source deployments do not remove the org-specific mapping. No OAuth secrets were changed.
+
+Post-deployment live Apex smoke checks passed: Studio version 5, object-evidence schema present, 24 apps returned by the configured API principal, and Service app navigation scope resolved. A fresh V5 org scan and interactive generation acceptance remain required; no new scan was started as part of deployment.
