@@ -3,6 +3,10 @@
  */
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
+import getAppScope from '@salesforce/apex/AppModelController.getAppScope';
+import expandAppScope from '@salesforce/apex/AppModelController.expandScope';
+import { collectAppScope, describeInChunks } from 'c/appModelLogic';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
@@ -3197,6 +3201,68 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleImportNamesChange(event) {
         this.importObjectNames = event.target.value;
+    }
+
+    appOptions = [];
+    selectedSalesforceApp = '';
+    appUsageEnabled = true;
+    appAutomationEnabled = true;
+    appModelBusy = false;
+    appModelStatus = '';
+    appModelWarnings = [];
+    appModelEvidence = [];
+    appModelScannedAt = '';
+    get appGenerateDisabled() { return this.appModelBusy || !this.selectedSalesforceApp; }
+    get appHasWarnings() { return this.appModelWarnings.length > 0; }
+    get appHasEvidence() { return this.appModelEvidence.length > 0; }
+    handleAppChange(event) { this.selectedSalesforceApp = event.detail.value; }
+    handleAppUsageChange(event) { this.appUsageEnabled = event.target.checked; }
+    handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
+    async handleLoadSalesforceApps() {
+        this.appModelBusy = true;
+        this.appModelStatus = 'Loading Salesforce apps…';
+        try {
+            this.appOptions = (await listSalesforceApps() || []).sort((a,b) => a.label.localeCompare(b.label));
+            this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : 'No Salesforce apps were returned for the configured API user.';
+        } catch (error) { this.appModelStatus = this.reduceError(error); }
+        finally { this.appModelBusy = false; }
+    }
+    async handleGenerateAppModel() {
+        if (this.appGenerateDisabled) return;
+        this.appModelBusy = true;
+        this.appModelWarnings = [];
+        this.appModelEvidence = [];
+        const originalTab = this.activeTabId;
+        const originalSource = this.sourceText;
+        const progress = message => { this.appModelStatus = message; };
+        try {
+            const scope = await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: this.appUsageEnabled });
+            const result = this.appUsageEnabled
+                ? await collectAppScope(scope, expandAppScope, { includeAutomation: this.appAutomationEnabled, onProgress: progress })
+                : { objects: [...new Set(scope.components.filter(c => c.type === 'Object').map(c => c.name))], reasons: [], warnings: [] };
+            if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
+            const objects = await describeInChunks(result.objects, describeObjects, progress);
+            const source = this.buildErSource(objects);
+            // Validate the whole generated model before changing any editor state.
+            parseEr(source);
+            if (this.activeTabId !== originalTab || this.sourceText !== originalSource) throw new Error('The active diagram changed during discovery. Generate again when you are ready.');
+            // Existing unsaved-tab handling does not retain its source. Save dirty
+            // work before creating a new tab instead of risking silent data loss.
+            if (this.isDirty) throw new Error('Save the current diagram before generating an app model. Your diagram has been preserved.');
+            this.openNewUnsaved();
+            this.fileName = (scope.appLabel || 'Salesforce App') + ' ER Model';
+            this._renameTabLabel(this.activeTabId, this.fileName);
+            this.sourceText = source;
+            this.isDirty = true;
+            this._markTabDirty(this.activeTabId, true);
+            this.renderDiagram();
+            this.appModelScannedAt = scope.scannedAt || '';
+            this.appModelWarnings = result.warnings.map((message,index) => ({ key: String(index), message }));
+            this.appModelEvidence = result.reasons.map((message,index) => ({ key: String(index), message }));
+            this.appModelStatus = `Generated ${objects.length} objects. ${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
+            requestAnimationFrame(() => this.handleFitModel());
+        } catch (error) { this.appModelStatus = this.reduceError(error); }
+        finally { this.appModelBusy = false; }
     }
 
     async handleImportSchema() {

@@ -48,6 +48,7 @@ public without sharing class FieldUsageApexScanner {
         Map<String, List<Integer>> linesByKey = new Map<String, List<Integer>>();
         Map<String, Set<String>> usageTypesByKey = new Map<String, Set<String>>();
         String cleanedBody=stripCommentsAndStrings(body);
+        ObjectUsageScanner.apexCode(runId,sourceType,componentName,componentId,cleanedBody);
         List<SourceToken> tokens=tokenize(cleanedBody);
         Map<String,String> variableTypes=new Map<String,String>();
         // Discover typed local variables before resolving their field references.
@@ -210,7 +211,7 @@ public without sharing class FieldUsageApexScanner {
     // Linear lexical masking avoids regex engine limits on large Apex sources.
     // Preserve offsets and line breaks so evidence locations remain accurate.
     @TestVisible
-    private static String stripCommentsAndStrings(String source) {
+    public static String stripCommentsAndStrings(String source) {
         List<String> output = new List<String>();
         Integer state = 0; // 0 code, 1 line comment, 2 block comment, 3 string
         Integer length = source.length();

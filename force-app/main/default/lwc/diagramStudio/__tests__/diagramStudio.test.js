@@ -9,6 +9,10 @@ import listFiles from '@salesforce/apex/DiagramFileController.listFiles';
 import getAllObjectNames from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import DiagramStudio from 'c/diagramStudio';
 
+jest.mock('@salesforce/apex/AppModelController.listApps', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/AppModelController.getAppScope', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/AppModelController.expandScope', () => ({ default: jest.fn(() => Promise.resolve({})) }), { virtual: true });
+
 // Imperative Apex calls — mocked as jest.fn() so each test controls what
 // they resolve/reject with. { virtual: true } is required because these
 // modules don't really exist outside a Salesforce org at test time.

@@ -1929,3 +1929,12 @@
 .er-diagnostic-indicator { background:#991b1b; color:#ffffff; border:1px solid #dc2626; font-weight:700; }
 .er-diagnostic-indicator:hover { background:#7f1d1d; border-color:#f87171; }
 .er-diagnostic-indicator:focus-visible { outline:2px solid #fca5a5; outline-offset:2px; }
+
+/* V5 app model controls sit in document flow, outside canvas overlays. */
+.app-model-panel{flex:none;padding:10px 16px;border-bottom:1px solid #d0d5dd;background:#fff;color:#101828;max-height:240px;overflow:auto}
+.app-model-controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.app-model-select{min-width:240px;flex:1;max-width:420px}
+.app-model-status{font-size:12px;margin:6px 0 0}
+.app-model-details{font-size:12px;margin-top:6px}
+.app-model-details summary{cursor:pointer;font-weight:600}
+.app-model-details p{margin:5px 0;overflow-wrap:anywhere}
