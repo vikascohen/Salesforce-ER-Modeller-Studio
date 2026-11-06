@@ -716,7 +716,7 @@
 
 
             <!-- Zoom controls -->
-            <div class="zoom-controls">
+            <div class="zoom-controls" role="toolbar" aria-label="Canvas zoom and layout">
                 <button class="zoom-btn zoom-btn-wide" onclick={handleToggleCanvasMaximise} title="Maximise or restore canvas">{canvasMaximiseLabel}</button>
                 <template if:true={canvasHasModel}><button class="zoom-btn zoom-btn-wide" onclick={handleFitModel} title="Fit the complete model into the visible canvas">Fit Model</button></template>
                 <template lwc:if={showCanvasFitExport}><button class="zoom-btn zoom-btn-wide" onclick={handleOpenExport} title="Export the current diagram">Export</button></template>
@@ -761,6 +761,7 @@
 
                     <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#f4f6f9" onclick={handleCanvasBackgroundClick}></rect>
 
+                    <template for:each={canvasSectionHeadings} for:item="section"><text key={section.key} x={section.x} y={section.y} class="canvas-section-heading">{section.label}</text></template>
                     <!-- Connectors rendered under boxes -->
                     <template for:each={connectorsView} for:item="c">
                         <g key={c.key} opacity={c.connOpacity} class="conn-group">
@@ -782,6 +783,7 @@
                            class="entity-group"
                            onmouseenter={handleBoxMouseEnter}
                            onmouseleave={handleBoxMouseLeave}>
+                            <title>{b.title}</title>
 
                             <!-- Shadow -->
                             <rect x={b.shadowX} y={b.shadowY} width={b.width} height={b.height} rx="7" fill="#c8cdd6"></rect>
@@ -792,7 +794,7 @@
                             <!-- Header bottom strip (covers rounded corners gap) -->
                             <rect x={b.x} y={b.headerBodyY} width={b.width} height="10" fill={b.headerFill}></rect>
                             <!-- Entity name -->
-                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.title}</text>
+                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.displayTitle}</text>
                             <!-- Delete button -->
                             <g data-name={b.name} class="delete-btn" onclick={handleDeleteEntity} transform={b.deleteTransform}>
                                 <circle cx="0" cy="0" r="10" fill="#c23934"></circle>

@@ -1980,3 +1980,8 @@
 .er-wait-spinner{display:inline-block;flex-shrink:0;width:20px;height:20px;border:3px solid #b9ccec;border-top-color:#175cd3;border-radius:50%;animation:er-wait-spin .8s linear infinite;}
 @keyframes er-wait-spin{to{transform:rotate(360deg);}}
 @media(prefers-reduced-motion:reduce){.er-wait-spinner{animation:none;border-top-color:#175cd3;}}
+
+/* Presentation-only canvas refinements. Controls remain outside the scroller. */
+.zoom-controls{max-width:calc(100% - 32px);overflow-x:auto;scrollbar-width:thin;}
+.zoom-controls .zoom-btn{flex-shrink:0;white-space:nowrap;}
+.canvas-section-heading{font-size:13px;font-weight:700;letter-spacing:1.1px;fill:#475467;pointer-events:none;}

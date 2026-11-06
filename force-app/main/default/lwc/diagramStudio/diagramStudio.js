@@ -610,8 +610,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 }
             }
 
+            const titleLimit=Math.max(8,Math.floor((b.width-36)/7));
             return {
                 ...b,
+                displayTitle:(b.title||b.name).length>titleLimit?(b.title||b.name).slice(0,titleLimit-1)+'…':(b.title||b.name),
                 pkFields,
                 relFields,
                 plainFields,
@@ -1432,8 +1434,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             components.sort((a,b)=>b.length-a.length);
             const dense=entities.length>=16, veryDense=entities.length>=32;
             const cardW=veryDense?150:dense?170:205, visibleRows=veryDense?4:dense?5:7;
-            const positions={},widths={},heights={}; let componentTop=70, maxRight=0;
-            components.forEach(comp=>{
+            const positions={},widths={},heights={}; let componentTop=110, maxRight=0;
+            components.filter(comp=>comp.length>1).forEach(comp=>{
                 const root=[...comp].sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b))[0];
                 const levels=[[root]],seen=new Set([root]);
                 for(let li=0;li<levels.length;li++){
@@ -1459,14 +1461,26 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 });
                 componentTop=levelTop+90;
             });
+            // Pack disconnected objects together instead of allocating a whole
+            // vertical relationship section to every singleton.
+            const islands=components.filter(comp=>comp.length===1).map(comp=>comp[0]).sort((a,b)=>a.localeCompare(b));
+            const layoutWidth=Math.max(wrap.clientWidth,900),islandGap=60;
+            const islandCols=Math.max(1,Math.min(6,islands.length||1,Math.floor((layoutWidth-110)/(cardW+islandGap))));
+            const islandSpan=islandCols*cardW+(islandCols-1)*islandGap;
+            const islandLeft=Math.max(55,(layoutWidth-islandSpan)/2);
+            const islandHeight=Math.max(108,...islands.map(n=>52+Math.min(visibleRows,(byName.get(n)?.fields?.length||0)+1)*22));
+            islands.forEach((name,index)=>{
+                positions[name]={x:Math.round(islandLeft+(index%islandCols)*(cardW+islandGap)),y:componentTop+Math.floor(index/islandCols)*(islandHeight+60)};
+                widths[name]=cardW;heights[name]=Math.max(108,52+Math.min(visibleRows,(byName.get(name)?.fields?.length||0)+1)*22);
+            });
             // Component cards must never fall back to the parser's initial grid:
             // that can overlap objects or interleave them midway down the model.
             const objectBottom=Math.max(0,...entities.map(e=>(positions[e.name]?.y||0)+(heights[e.name]||0)));
-            const cardTop=entities.length?objectBottom+120:70;
+            const cardTop=entities.length?objectBottom+120:110;
             const cardGap=60,cardHeight=108;
             const cardCols=Math.max(1,Math.min(6,Math.floor((Math.max(wrap.clientWidth,720)-110)/(cardW+cardGap))));
             [...appCards].sort((a,b)=>a.componentType.localeCompare(b.componentType)||a.title.localeCompare(b.title)).forEach((card,index)=>{
-                positions[card.name]={x:55+(index%cardCols)*(cardW+cardGap),y:cardTop+Math.floor(index/cardCols)*(cardHeight+60)};
+                positions[card.name]={x:Math.max(55,(layoutWidth-(cardCols*cardW+(cardCols-1)*cardGap))/2)+(index%cardCols)*(cardW+cardGap),y:cardTop+Math.floor(index/cardCols)*(cardHeight+60)};
                 widths[card.name]=cardW;heights[card.name]=cardHeight;
             });
             this.erPositions=positions;this.boxWidthOverrides=widths;this.boxHeightOverrides=heights;this.zoomLevel=1;this.renderDiagram();
@@ -1475,6 +1489,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.zoomLevel=Math.max(0.65,Math.round(fit*20)/20);wrap.scrollLeft=0;wrap.scrollTop=0;
             });
         } catch(e){this.errorMessage=e?.message||'Could not fit the model.';}
+    }
+    get canvasSectionHeadings() {
+        if(!this.canvasFitActive)return [];
+        const boxes=this._erBoxes||[],objects=boxes.filter(b=>!b.componentType),cards=boxes.filter(b=>b.componentType);
+        if(!cards.length)return [];
+        return [{key:'objects',label:'OBJECTS',boxes:objects},{key:'components',label:'APEX & FLOW COMPONENTS',boxes:cards}].filter(section=>section.boxes.length).map(section=>({key:section.key,label:section.label+' · '+section.boxes.length,x:Math.min(...section.boxes.map(b=>b.x)),y:Math.max(30,Math.min(...section.boxes.map(b=>b.y))-22)}));
     }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {

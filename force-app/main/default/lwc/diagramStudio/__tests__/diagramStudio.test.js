@@ -2405,6 +2405,22 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('1 navigation/configuration objects');
     });
+    it('packs isolated objects without overlap and preserves DSL relationships and full-name tooltips', async () => {
+        const el=createStudio();await flushPromises();
+        const source=['Account','Contact','Case','Opportunity','Asset','Campaign','Lead','Product2'].map(name=>'entity '+name+' : Name').join('\n')+'\nContact.AccountId -> Account\ncomponent ApexClass VeryLongComponentNameThatMustRemainAvailable';
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value=source;editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        const edgeCount=el.shadowRoot.querySelectorAll('.conn-group').length;
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        const bounds=[...el.shadowRoot.querySelectorAll('.entity-group')].map(g=>{const r=g.querySelector('rect.drag-header');const body=g.querySelectorAll('rect')[1];return {name:g.dataset.name,x:Number(r.getAttribute('x')),y:Number(r.getAttribute('y')),w:Number(r.getAttribute('width')),h:Number(body.getAttribute('height'))};});
+        for(let i=0;i<bounds.length;i++)for(let j=i+1;j<bounds.length;j++){const a=bounds[i],b=bounds[j];expect(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y).toBe(true);}
+        const islands=bounds.filter(b=>!['Account','Contact'].includes(b.name)&&!b.name.startsWith('@'));
+        expect(new Set(islands.map(b=>b.y)).size).toBeLessThan(islands.length);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(edgeCount);
+        expect(el.shadowRoot.querySelectorAll('.canvas-section-heading')).toHaveLength(2);
+        const card=el.shadowRoot.querySelector('.entity-group[data-name="@ApexClass:VeryLongComponentNameThatMustRemainAvailable"]');
+        expect(card.querySelector('title').textContent).toBe('VeryLongComponentNameThatMustRemainAvailable');
+        expect(editor.value).toBe(source);
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();
