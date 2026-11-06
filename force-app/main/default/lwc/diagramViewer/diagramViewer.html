@@ -43,8 +43,9 @@
                     <template if:true={isEr}>
                         <template for:each={erConnectors} for:item="c">
                             <g key={c.key}>
+                            <title>{c.title}</title>
                                 <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
-                                <text x={c.midX} y={c.midY} dy="-8" text-anchor="middle" font-size="10" fill={c.stroke} class="halo-text">{c.label}</text>
+                                <text x={c.midX} y={c.midY} text-anchor="middle" font-size="10" fill={c.stroke} class="halo-text">{c.label}</text>
                                 <circle cx={c.cardStartX} cy={c.cardStartY} r="8" fill="#ffffff" stroke={c.stroke} stroke-width="1"></circle>
                                 <text x={c.cardStartX} y={c.cardStartY} dy="3" text-anchor="middle" font-size="9" font-weight="bold" fill={c.stroke}>{c.cardStartText}</text>
                                 <circle cx={c.cardEndX} cy={c.cardEndY} r="8" fill="#ffffff" stroke={c.stroke} stroke-width="1"></circle>

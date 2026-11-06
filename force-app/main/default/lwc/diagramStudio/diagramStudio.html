@@ -765,6 +765,7 @@
                     <!-- Connectors rendered under boxes -->
                     <template for:each={connectorsView} for:item="c">
                         <g key={c.key} opacity={c.connOpacity} class="conn-group">
+                            <title>{c.title}</title>
                             <path d={c.d} fill="none" stroke="rgba(0,0,0,0)" stroke-width="10"></path>
                             <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
                             <text x={c.midX} y={c.midY} text-anchor="middle" font-size="10" class="conn-label" fill={c.stroke}>{c.label}</text>

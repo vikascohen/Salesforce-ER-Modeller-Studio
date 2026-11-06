@@ -364,3 +364,29 @@ describe('V5 typed app component cards', () => {
         expect(parseEr('component Flow MyFlow').entities).toHaveLength(0);
     });
 });
+
+
+describe('connector visibility and direction',()=>{
+    const source='entity Account : Name, Description\nentity Contact : Name, Email\nentity Opportunity : Name, Amount, CloseDate\nContact.AccountId -> Account\nOpportunity.AccountId -> Account';
+    it('keeps horizontal and vertical arrow tips clear of parent borders, badges and labels',()=>{
+        const model=parseEr(source), geo=buildErGeometry(model);
+        expect(parseEr(source)).toEqual(model);
+        for(const c of geo.connectors){
+            const child=geo.boxes.find(b=>b.name===c.childEntity),parent=geo.boxes.find(b=>b.name===c.parentEntity);
+            const coordinates=c.d.match(/-?\d+(?:\.\d+)?/g).map(Number),[endX,endY]=coordinates.slice(-2);
+            expect(coordinates).toHaveLength(4); // aligned cards use a straight route
+            if(child.x===parent.x){expect(endY).toBe(parent.y+parent.height+12);expect(c.cardEndX-endX).toBe(19);expect(c.midX).toBeLessThan(endX);}
+            else{expect(endX).toBe(parent.x+parent.width+12);expect(endY-c.cardEndY).toBe(19);expect(c.midY).toBeGreaterThan(endY);}
+            expect(Math.hypot(c.cardEndX-endX,c.cardEndY-endY)).toBeGreaterThan(20);
+            expect(c.title).toContain(c.childEntity+'.AccountId → Account');
+            expect(c.markerEnd).toBe('url(#er-arrow)');
+        }
+    });
+    it.each([{x:500,y:60},{x:0,y:60},{x:60,y:500},{x:60,y:0}])('keeps arrow tips outside targets in either direction: %j',(parentPosition)=>{
+        const geo=buildErGeometry(parseEr('entity Child : Name\nentity Parent : Name\nChild.ParentId -> Parent'),{Child:{x:260,y:260},Parent:parentPosition});
+        const c=geo.connectors[0],p=geo.boxes.find(b=>b.name==='Parent');
+        const [x,y]=c.d.match(/-?\d+(?:\.\d+)?/g).map(Number).slice(-2);
+        expect(x<p.x||x>p.x+p.width||y<p.y||y>p.y+p.height).toBe(true);
+        expect(c.title).toContain('arrow points to referenced parent');
+    });
+});

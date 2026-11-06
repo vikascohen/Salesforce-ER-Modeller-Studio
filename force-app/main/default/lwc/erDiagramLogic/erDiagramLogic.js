@@ -220,34 +220,45 @@ function elbowPath(childBox, parentBox, laneIndex, laneCount) {
     const dx = bCx - aCx;
     const dy = bCy - aCy;
 
+    // Keep target markers clear of the card border/shadow. Cardinality
+    // badges sit beside the route, never over the arrow or its final segment.
+    const sourceGap = 4, targetGap = 12, badgeAlong = 28, badgeSide = 19;
     if (Math.abs(dx) >= Math.abs(dy)) {
-        const aEdgeX = dx >= 0 ? childBox.x + childBox.width : childBox.x;
-        const bEdgeX = dx >= 0 ? parentBox.x : parentBox.x + parentBox.width;
-        const aY = clamp(bCy + spread, childBox.y + 14, childBox.y + childBox.height - 14);
-        const bY = clamp(aCy + spread, parentBox.y + 14, parentBox.y + parentBox.height - 14);
-        const midX = (aEdgeX + bEdgeX) / 2;
+        const direction = dx >= 0 ? 1 : -1;
+        const aEdgeX = direction > 0 ? childBox.x + childBox.width : childBox.x;
+        const bEdgeX = direction > 0 ? parentBox.x : parentBox.x + parentBox.width;
+        const low = Math.max(childBox.y + HEADER_HEIGHT + 10, parentBox.y + HEADER_HEIGHT + 10);
+        const high = Math.min(childBox.y + childBox.height - 14, parentBox.y + parentBox.height - 14);
+        const sharedY = low <= high ? clamp((aCy + bCy) / 2 + spread, low, high) : null;
+        const aY = sharedY == null ? clamp(aCy + spread, childBox.y + HEADER_HEIGHT + 10, childBox.y + childBox.height - 14) : sharedY;
+        const bY = sharedY == null ? clamp(bCy + spread, parentBox.y + HEADER_HEIGHT + 10, parentBox.y + parentBox.height - 14) : sharedY;
+        const startX = aEdgeX + direction * sourceGap;
+        const endX = bEdgeX - direction * targetGap;
+        const midX = (startX + endX) / 2;
         return {
-            d: `M ${aEdgeX} ${aY} L ${midX} ${aY} L ${midX} ${bY} L ${bEdgeX} ${bY}`,
-            midX, midY: (aY + bY) / 2,
-            cardStartX: aEdgeX + (dx >= 0 ? 18 : -18),
-            cardStartY: aY - 10,
-            cardEndX: bEdgeX + (dx >= 0 ? -18 : 18),
-            cardEndY: bY - 10
+            d: aY === bY ? `M ${startX} ${aY} L ${endX} ${bY}` : `M ${startX} ${aY} L ${midX} ${aY} L ${midX} ${bY} L ${endX} ${bY}`,
+            midX, midY: (aY + bY) / 2, orientation: aY === bY ? 'horizontal' : 'elbow',
+            cardStartX: aEdgeX + direction * badgeAlong, cardStartY: aY - badgeSide,
+            cardEndX: bEdgeX - direction * badgeAlong, cardEndY: bY - badgeSide
         };
     }
 
-    const aEdgeY = dy >= 0 ? childBox.y + childBox.height : childBox.y;
-    const bEdgeY = dy >= 0 ? parentBox.y : parentBox.y + parentBox.height;
-    const aX = clamp(bCx + spread, childBox.x + 14, childBox.x + childBox.width - 14);
-    const bX = clamp(aCx + spread, parentBox.x + 14, parentBox.x + parentBox.width - 14);
-    const midY = (aEdgeY + bEdgeY) / 2;
+    const direction = dy >= 0 ? 1 : -1;
+    const aEdgeY = direction > 0 ? childBox.y + childBox.height : childBox.y;
+    const bEdgeY = direction > 0 ? parentBox.y : parentBox.y + parentBox.height;
+    const low = Math.max(childBox.x + 18, parentBox.x + 18);
+    const high = Math.min(childBox.x + childBox.width - 18, parentBox.x + parentBox.width - 18);
+    const sharedX = low <= high ? clamp((aCx + bCx) / 2 + spread, low, high) : null;
+    const aX = sharedX == null ? clamp(aCx + spread, childBox.x + 18, childBox.x + childBox.width - 18) : sharedX;
+    const bX = sharedX == null ? clamp(bCx + spread, parentBox.x + 18, parentBox.x + parentBox.width - 18) : sharedX;
+    const startY = aEdgeY + direction * sourceGap;
+    const endY = bEdgeY - direction * targetGap;
+    const midY = (startY + endY) / 2;
     return {
-        d: `M ${aX} ${aEdgeY} L ${aX} ${midY} L ${bX} ${midY} L ${bX} ${bEdgeY}`,
-        midX: (aX + bX) / 2, midY,
-        cardStartX: aX + 10,
-        cardStartY: aEdgeY + (dy >= 0 ? 16 : -14),
-        cardEndX: bX + 10,
-        cardEndY: bEdgeY + (dy >= 0 ? -14 : 16)
+        d: aX === bX ? `M ${aX} ${startY} L ${bX} ${endY}` : `M ${aX} ${startY} L ${aX} ${midY} L ${bX} ${midY} L ${bX} ${endY}`,
+        midX: (aX + bX) / 2, midY, orientation: aX === bX ? 'vertical' : 'elbow',
+        cardStartX: aX + badgeSide, cardStartY: aEdgeY + direction * badgeAlong,
+        cardEndX: bX + badgeSide, cardEndY: bEdgeY - direction * badgeAlong
     };
 }
 
@@ -261,16 +272,16 @@ function selfLoopPath(box, laneIndex) {
     const loopSize = SELF_LOOP_BASE + idx * SELF_LOOP_STEP;
     const startX = box.x + box.width;
     const startY = box.y + 46 + idx * 28;
-    const endY   = startY + 30;
+    const endY   = startY + 42;
     const ctrlX  = startX + loopSize;
     return {
-        d: `M ${startX} ${startY} C ${ctrlX} ${startY} ${ctrlX} ${endY} ${startX} ${endY}`,
+        d: `M ${startX} ${startY} C ${ctrlX} ${startY} ${ctrlX} ${endY} ${startX + 12} ${endY}`,
         midX: startX + loopSize - 6,
         midY: (startY + endY) / 2,
-        cardStartX: startX + 14,
-        cardStartY: startY - 6,
-        cardEndX: startX + 14,
-        cardEndY: endY + 12
+        cardStartX: startX + 28,
+        cardStartY: startY - 19,
+        cardEndX: startX + 28,
+        cardEndY: endY + 19
     };
 }
 
@@ -385,9 +396,10 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
             childEntity: r.childEntity,
             parentEntity: r.parentEntity,
             d: route.d,
-            midX: route.midX,
-            midY: route.midY - 8,
+            midX: route.orientation === 'vertical' ? route.midX - Math.max(30, r.childField.length * 3 + 12) : route.midX,
+            midY: route.orientation === 'horizontal' ? route.midY + 20 : route.midY - 8,
             label: `${r.childField}`,
+            title: `${r.childEntity}.${r.childField} → ${r.parentEntity} (${kindLabel(r.kind)}; arrow points to referenced parent)`,
             stroke,
             strokeWidth: isMaster ? 2.5 : 1.75,
             dashArray: isPoly ? '5,3' : '0',
