@@ -1973,6 +1973,23 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(getSchemaReferences.mock.calls.length).toBe(callsAfterArchitectureLoad);
     });
 
+    it('Relationship Insights keeps master-detail purple and lookup blue on distinct routes', async () => {
+        const el=createStudio();await flushPromises();
+        const source=[
+            'entity Log__c : Name','entity LogEntry__c : Name','entity LogEntryTag__c : Name','entity LoggerTag__c : Name','entity Log__Share : Name','entity LoggerScenario__c : Name',
+            'LogEntry__c.Log__c => Log__c','LogEntryTag__c.LogEntry__c => LogEntry__c','LogEntryTag__c.Tag__c => LoggerTag__c',
+            'Log__Share.ParentId -> Log__c','Log__c.Scenario__c -> LoggerScenario__c','LogEntry__c.Scenario__c -> LoggerScenario__c'
+        ].join('\n');
+        await loadArchitectureModel(el,source);await openArchitectureQuestion(el,'Open Relationship Insights');
+        const workspace=el.shadowRoot.querySelector('.arch-workspace-relationships');
+        const masters=[...workspace.querySelectorAll('path.arch-rel-graph-master')],lookups=[...workspace.querySelectorAll('path.arch-rel-graph-lookup')];
+        expect(masters).toHaveLength(3);expect(lookups).toHaveLength(3);
+        masters.forEach(edge=>{expect(edge.getAttribute('stroke')).toBe('#c65cff');expect(edge.dataset.kind).toBe('Master Detail');expect(edge.parentElement.querySelector('title').textContent).toContain('Master Detail');});
+        lookups.forEach(edge=>{expect(edge.getAttribute('stroke')).toBe('#4aa3ff');expect(edge.dataset.kind).toBe('Lookup');});
+        const routes=[...masters,...lookups].map(edge=>edge.getAttribute('d'));expect(new Set(routes).size).toBe(6);
+        expect(routes.every(route=>route.includes('C')||route.includes(' H '))).toBe(true);
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe(source);
+    });
     it('Relationship Insights omits self relationships from the visual and detailed dependency report', async () => {
         const el = createStudio(); await flushPromises();
         await loadArchitectureModel(el, [

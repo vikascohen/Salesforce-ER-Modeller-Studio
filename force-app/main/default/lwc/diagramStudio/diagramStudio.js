@@ -2704,7 +2704,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             layer.sort((x,y)=>((incoming.get(y.name)||0)+(outgoing.get(y.name)||0))-((incoming.get(x.name)||0)+(outgoing.get(x.name)||0))||x.name.localeCompare(y.name));
             for(let i=0;i<layer.length;i+=maxPerRow)balanced.push(layer.slice(i,i+maxPerRow));
         });
-        const cellW=230,cellH=155,padX=80,padY=65,nodeW=170,nodeH=58;
+        const cellW=230,cellH=220,padX=80,padY=65,nodeW=170,nodeH=58;
         const widest=Math.max(...balanced.map(x=>x.length),1);
         const width=Math.max(900,padX*2+(widest-1)*cellW+nodeW);
         const nodes=[];
@@ -2717,30 +2717,41 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             });
         });
         const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])),edges=[];
+        const incident=new Map(nodes.map(n=>[n.name.toLowerCase(),[]]));
+        relationships.forEach((rel,index)=>{for(const name of [rel.childEntity,rel.parentEntity])incident.get((name||'').toLowerCase())?.push(index);});
+        const port=(node,index)=>{const slots=incident.get(node.name.toLowerCase())||[],slot=slots.indexOf(index)+1;return node.x+14+(nodeW-28)*slot/(slots.length+1);};
         relationships.forEach((rel,i)=>{
             const child=pos.get((rel.childEntity||'').toLowerCase()),parent=pos.get((rel.parentEntity||'').toLowerCase());
             if(!child||!parent||child===parent)return;
-            const raw=(rel.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
-            // Anchor vertically between layers where possible, falling back to side
-            // anchors for same-row relationships.
-            let sx,sy,tx,ty;
-            if(Math.abs(child.y-parent.y)>20){
-                const childBelow=child.y>parent.y;
-                sx=child.x+nodeW/2;sy=childBelow?child.y:child.y+nodeH;
-                tx=parent.x+nodeW/2;ty=childBelow?parent.y+nodeH:parent.y;
+            const raw=(rel.kind||'lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            const sx=port(child,i),tx=port(parent,i),sameRow=child.y===parent.y,childBelow=child.y>parent.y;
+            const sy=sameRow?child.y+nodeH:childBelow?child.y:child.y+nodeH;
+            const ty=sameRow?parent.y+nodeH:childBelow?parent.y+nodeH:parent.y;
+            let d;
+            if(sameRow){
+                const bend=Math.max(sy,ty)+44+Math.min(i,10)*8;
+                d=`M ${sx} ${sy} C ${sx} ${bend}, ${tx} ${bend}, ${tx} ${ty}`;
+            }else if(Math.abs(child.y-parent.y)>cellH+1){
+                const direction=childBelow?-1:1,gutter=width+24+i*12;
+                const exit=sy+direction*(20+(i%5)*6),entry=ty-direction*(20+((i+2)%5)*6);
+                d=`M ${sx} ${sy} V ${exit} H ${gutter} V ${entry} H ${tx} V ${ty}`;
             }else{
-                const childRight=child.x>parent.x;
-                sx=childRight?child.x:child.x+nodeW;sy=child.y+nodeH/2;
-                tx=childRight?parent.x+nodeW:parent.x;ty=parent.y+nodeH/2;
+                const mid=(sy+ty)/2;
+                d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`;
             }
-            const dx=tx-sx,dy=ty-sy,len=Math.max(24,Math.sqrt(dx*dx+dy*dy)),angle=Math.atan2(dy,dx)*180/Math.PI;
-            edges.push({key:'re-'+i,kind,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),style:'left:'+sx+'px;top:'+sy+'px;width:'+len+'px;transform:rotate('+angle+'deg)',title:child.name+' → '+parent.name+' · '+kind});
+            const arrowUp=sameRow||childBelow,wingY=ty+(arrowUp?7:-7);
+            d+=` M ${tx-4} ${wingY} L ${tx} ${ty} L ${tx+4} ${wingY}`;
+            const field=rel.childField||rel.fieldName||rel.field||'';
+            edges.push({key:'re-'+i,kind,field,d,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),stroke:kind==='Master Detail'?'#c65cff':kind==='Polymorphic'?'#ff4f70':'#4aa3ff',dash:kind==='Polymorphic'?'7 5':'',title:child.name+'.'+field+' → '+parent.name+' · '+kind});
         });
-        const height=Math.max(430,padY*2+(balanced.length-1)*cellH+nodeH);
-        return {nodes,edges,style:'width:'+width+'px;height:'+height+'px'};
+        const height=Math.max(430,padY*2+(balanced.length-1)*cellH+nodeH+130);
+        const graphWidth=width+(edges.some(edge=>edge.d.includes(' H '))?48+relationships.length*12:0);
+        return {nodes,edges,width:graphWidth,height,style:'width:'+graphWidth+'px;height:'+height+'px'};
     }
     get architectureRelationshipGraphNodes(){return this.architectureRelationshipGraph.nodes;}
     get architectureRelationshipGraphEdges(){return this.architectureRelationshipGraph.edges;}
+    get architectureRelationshipGraphWidth(){return this.architectureRelationshipGraph.width||900;}
+    get architectureRelationshipGraphHeight(){return this.architectureRelationshipGraph.height||430;}
     get architectureRelationshipGraphStyle(){return this.architectureRelationshipGraph.style;}
     get architectureRelationshipExplanation(){
         const a=this.architectureAnalysis;if(!a)return '';

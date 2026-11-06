@@ -1985,3 +1985,10 @@
 .zoom-controls{max-width:calc(100% - 32px);overflow-x:auto;scrollbar-width:thin;}
 .zoom-controls .zoom-btn{flex-shrink:0;white-space:nowrap;}
 .canvas-section-heading{font-size:13px;font-weight:700;letter-spacing:1.1px;fill:#475467;pointer-events:none;}
+
+/* SVG routes keep same-row relationship types from masking one another. */
+.arch-rel-graph-svg{position:absolute;inset:0;overflow:visible;z-index:1;}
+.arch-rel-graph-svg .arch-rel-graph-edge{position:static;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;opacity:1;pointer-events:stroke;}
+.arch-rel-legend .arch-rel-lookup:before{background:#4aa3ff;}
+.arch-rel-legend .arch-rel-master:before{background:#c65cff;}
+.arch-rel-legend .arch-rel-poly:before{background:repeating-linear-gradient(90deg,#ff4f70 0 7px,transparent 7px 11px);}
