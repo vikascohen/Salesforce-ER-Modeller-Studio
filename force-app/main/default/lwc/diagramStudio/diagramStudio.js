@@ -3347,6 +3347,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.appModelErrorHelp = 'The generator will not substitute every field on the object. Check that the scan includes readable Flow, LWC or Apex field references for the selected app. Dynamic references may not be resolvable.';
             this.appModelScanRequired = false;
         }
+        if (error?.code === 'DATA_CLOUD_FIELD_COVERAGE') {
+            this.appModelError = 'Data Cloud field discovery is not supported by this scan.';
+            this.appModelErrorHelp = 'The app navigation resolved, but no app-used fields were found. Modelling Data Cloud data model objects and relationships requires a dedicated Data Cloud metadata integration, which V5 does not currently implement. Rerunning the same org scan will not add that coverage. Your diagram and DSL have been preserved.';
+            this.appModelScanRequired = false;
+        }
         if (error?.code === 'APP_PLATFORM_ONLY') {
             this.appModelError = 'This app resolves only to Salesforce system objects in the selected scope.';
             this.appModelErrorHelp = 'Enable Include Salesforce system, security and licensing objects and generate again. Your completed scan can be reused.';
@@ -3405,7 +3410,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
             const selection = selectAppObjects(result, { includePlatform: this.appIncludePlatform, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
             const objects = await describeInChunks(selection.visible, describeObjects, progress);
-            const displayObjects = prepareAppSchema(objects, { visibleNames: selection.visible, fieldUsage: result.fields });
+            let displayObjects;
+            try { displayObjects = prepareAppSchema(objects, { visibleNames: selection.visible, fieldUsage: result.fields }); }
+            catch (error) {
+                if (error.code === 'APP_FIELDS_NOT_RESOLVED' && scope.components.some(component => component.type === 'CustomApplication' && component.name === 'Audience360')) {
+                    error.code = 'DATA_CLOUD_FIELD_COVERAGE';
+                    error.message = `Data Cloud resolved ${selection.visible.length} navigation/configuration objects, but no app-used fields in this scope. V5 does not currently discover Data Cloud data model fields and relationships through its Flow, LWC and Apex scan.`;
+                }
+                throw error;
+            }
             const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
             const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Model scope: ${this.appIncludePlatform ? 'Full technical dependencies' : 'Application data objects'}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
             const componentSource = this.appIncludeComponents ? buildAppComponentSource(result.components) : '';

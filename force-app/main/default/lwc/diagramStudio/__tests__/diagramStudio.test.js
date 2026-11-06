@@ -2391,6 +2391,20 @@ describe('V5 app generation', () => {
         expect(error.querySelector('.app-model-open-scan')).toBeNull();
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
     });
+    it('explains Data Cloud field coverage without guessing fields or recommending the same scan again', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Data Cloud',runId:'run',components:[{type:'CustomApplication',name:'Audience360'},{type:'Object',name:'DataStream'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[]}));
+        describeObjects.mockResolvedValue([{apiName:'DataStream',fields:[{apiName:'Name'},{apiName:'Status'}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error');
+        expect(error.textContent).toContain('Data Cloud field discovery is not supported by this scan');
+        expect(error.textContent).toContain('dedicated Data Cloud metadata integration');
+        expect(error.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('1 navigation/configuration objects');
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();
