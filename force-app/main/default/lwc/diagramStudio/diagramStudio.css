@@ -1970,3 +1970,13 @@
 .app-object-included{color:#067647}.app-object-hidden{color:#667085}
 
 .app-used-fields{margin:14px 0;font-size:13px}.app-used-fields lightning-helptext{margin-left:8px}.app-used-fields p{font-size:12px;color:#475467;margin:5px 0}
+
+/* Indeterminate progress: discovery cannot honestly predict a percentage. */
+.diagram-load-progress,.app-generation-progress{display:flex;align-items:center;gap:12px;padding:12px 16px;color:#16325c;background:#eef4ff;border:1px solid #b9ccec;border-radius:6px;font-size:13px;line-height:1.4;}
+.diagram-load-progress{flex-shrink:0;margin:8px 12px;}
+.app-generation-progress{flex:1 0 100%;text-align:left;}
+.app-model-controls{flex-wrap:wrap;}
+.er-wait-detail{display:block;margin-top:3px;}
+.er-wait-spinner{display:inline-block;flex-shrink:0;width:20px;height:20px;border:3px solid #b9ccec;border-top-color:#175cd3;border-radius:50%;animation:er-wait-spin .8s linear infinite;}
+@keyframes er-wait-spin{to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){.er-wait-spinner{animation:none;border-top-color:#175cd3;}}

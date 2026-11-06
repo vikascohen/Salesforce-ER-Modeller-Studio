@@ -271,6 +271,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
+    diagramLoading = false;
+    diagramLoadingMessage = '';
     _fileLoadToken    = 0;
     _sharingRequestToken = 0;
     _heatmapRequestToken = 0;
@@ -3099,6 +3101,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async loadById(id) {
         const myToken = ++this._fileLoadToken;
+        this.diagramLoading = true;
+        this.diagramLoadingMessage = 'Please wait — loading ER diagram…';
         try {
             const rec = await getFile({ fileId: id });
             if (myToken !== this._fileLoadToken || this._isDisconnected) return;
@@ -3113,6 +3117,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.errorMessage = '';
                 this.dismissedSuggestionKeys = new Set();
                 this.focusedEntity = null;
+                this.diagramLoadingMessage = 'Please wait — preparing diagram and canvas…';
+                await new Promise(resolve => setTimeout(resolve, 0));
+                if (myToken !== this._fileLoadToken || this._isDisconnected) return;
                 this.renderDiagram();
                 this._addTab({ id: rec.id, name: rec.name, dirty: false, isUnsaved: false });
                 this._activateTabId(rec.id);
@@ -3122,6 +3129,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
         } catch (e) {
             if (myToken === this._fileLoadToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
+        } finally {
+            if (myToken === this._fileLoadToken) this.diagramLoading = false;
         }
     }
 
@@ -3358,6 +3367,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const originalTab = this.activeTabId;
         const originalSource = this.sourceText;
         const progress = message => { this.appModelStatus = message; };
+        progress('Reading the selected app and org scan…');
         try {
             const scope = JSON.parse(await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: true }));
             const result = await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress });
@@ -3370,6 +3380,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const componentSource = this.appIncludeComponents ? buildAppComponentSource(result.components) : '';
             const source = header + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component cards (potential dependencies, not execution)\n' + componentSource : '');
             if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
+            // Let the progress message paint before synchronous DSL/layout work.
+            progress('Validating DSL and preparing the ER canvas…');
+            await new Promise(resolve => setTimeout(resolve, 0));
             // Validate the whole generated model before changing any editor state.
             parseEr(source);
             if (this.activeTabId !== originalTab || this.sourceText !== originalSource) throw new Error('The active diagram changed during discovery. Generate again when you are ready.');

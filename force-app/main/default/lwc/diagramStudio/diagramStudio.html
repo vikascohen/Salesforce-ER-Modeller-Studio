@@ -292,9 +292,10 @@
                             <template if:true={appModelScanRequired}><button class="app-model-open-scan" onclick={handleAppModelOpenScan}>Open Org Scan</button></template>
                         </div>
                     </template>
-                    <p class="app-model-status" role="status" aria-live="polite">{appModelStatus}</p>
+                    <template if:false={appModelBusy}><p class="app-model-status" role="status" aria-live="polite">{appModelStatus}</p></template>
                 </div>
                 <div class="modal-footer app-model-controls">
+                    <template if:true={appModelBusy}><div class="app-generation-progress" role="status" aria-live="polite"><span class="er-wait-spinner" aria-hidden="true"></span><span><strong>Please wait…</strong><span class="er-wait-detail">{appModelStatus}</span></span></div></template>
                     <button class="app-model-cancel" onclick={handleCloseAppModel} disabled={appModelBusy}>Cancel</button>
                     <span class="app-model-generate-hint" title={appGenerateHint}><button class="app-model-generate" title={appGenerateHint} onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button></span>
                 </div>
@@ -740,7 +741,8 @@
             </div>
 
             <!-- Scrollable canvas -->
-            <div class="canvas-wrap" ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
+            <template if:true={diagramLoading}><div class="diagram-load-progress" role="status" aria-live="polite"><span class="er-wait-spinner" aria-hidden="true"></span><span>{diagramLoadingMessage}</span></div></template>
+            <div class="canvas-wrap" aria-busy={diagramLoading} ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
               <div class="svg-scale-wrap" style={svgScaleWrapStyle}>
                 <svg data-role="er-svg"
                      viewBox={svgViewBox}

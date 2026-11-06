@@ -1836,6 +1836,22 @@ describe('c-diagram-studio', () => {
 });
 
 describe('Phase 2 async hardening',()=> {
+    it('keeps the loading indicator for the newest request and clears it on failure', async () => {
+        let resolveA,rejectB;
+        getFile.mockImplementation(({fileId})=>new Promise((resolve,reject)=>{if(fileId==='a01')resolveA=resolve;else rejectB=reject;}));
+        const el=createStudio();await flushPromises();
+        listFilesAdapter.emit([{id:'a01',name:'A',diagramType:'ER'},{id:'a02',name:'B',diagramType:'ER'}]);await flushPromises();
+        const rows=el.shadowRoot.querySelectorAll('.file-row');rows[0].click();rows[1].click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress').textContent).toContain('Please wait');
+        expect(el.shadowRoot.querySelector('.canvas-wrap').getAttribute('aria-busy')).toBe('true');
+        resolveA({id:'a01',name:'A',sourceCode:'entity Account'});await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress')).not.toBeNull();
+        rejectB(new Error('Diagram unavailable'));await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress')).toBeNull();
+        expect(el.shadowRoot.querySelector('.canvas-wrap').getAttribute('aria-busy')).toBe('false');
+        expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).not.toBeNull();
+    });
+
     it('keeps the newest diagram when file loads resolve out of order', async()=> {
         let resolveA, resolveB;
         getFile.mockImplementation(({fileId})=>new Promise((resolve)=>{ if(fileId==='a01') resolveA=resolve; else resolveB=resolve; }));
@@ -1845,6 +1861,8 @@ describe('Phase 2 async hardening',()=> {
         rows[0].dispatchEvent(new CustomEvent('click',{bubbles:true})); rows[1].dispatchEvent(new CustomEvent('click',{bubbles:true}));
         resolveB({id:'a02',name:'B',sourceCode:'entity Contact : Name'}); await flushPromises();
         resolveA({id:'a01',name:'A',sourceCode:'entity Account : Name'}); await flushPromises();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress')).toBeNull();
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('B');
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('Contact');
     });
@@ -2311,6 +2329,19 @@ describe('V5 app generation', () => {
         expect(source).toContain('component ApexClass SalesService');expect(source).toContain('component Flow SalesFlow');
         expect(describeObjects).toHaveBeenCalledWith({objectApiNames:['Account']});
         expect([...el.shadowRoot.querySelectorAll('.entity-group')].map(card=>card.dataset.name)).toContain('@ApexClass:SalesService');
+    });
+    it('shows prominent progress while app discovery waits and removes it on failure', async () => {
+        let rejectScope;
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockImplementation(()=>new Promise((resolve,reject)=>{rejectScope=reject;}));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const progress=el.shadowRoot.querySelector('.app-generation-progress');
+        expect(progress.textContent).toContain('Please wait');expect(progress.textContent).toContain('Reading the selected app');
+        expect(el.shadowRoot.querySelector('.app-model-generate').disabled).toBe(true);
+        rejectScope(new Error('Discovery unavailable'));await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-generation-progress')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-error')).not.toBeNull();
     });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
