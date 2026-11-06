@@ -2227,3 +2227,61 @@ describe('Settings workspace', () => {
     });
 
 });
+
+describe('V5 app generation', () => {
+    beforeEach(() => { jest.clearAllMocks(); });
+    afterEach(() => { while(document.body.firstChild)document.body.removeChild(document.body.firstChild); });
+    it('V5 loads apps, generates into a new tab and uses the existing renderer', async () => {
+        const listApps = require('@salesforce/apex/AppModelController.listApps').default;
+        const getScope = require('@salesforce/apex/AppModelController.getAppScope').default;
+        listApps.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
+        getScope.mockResolvedValue({appLabel:'Sales',components:[{type:'Object',name:'Account'}],warnings:['Static evidence only'],scannedAt:'2026-11-06T00:00:00Z',runId:'run'});
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Industry',dataType:'PICKLIST'}]}]);
+        const el=createStudio(); await flushPromises();
+        el.shadowRoot.querySelector('.app-model-controls button').click(); await flushPromises();
+        const picker=el.shadowRoot.querySelector('lightning-combobox.app-model-select');
+        expect(picker.options).toHaveLength(1);
+        picker.dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}})); await flushPromises();
+        const generate=[...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate'));
+        generate.click(); await flushPromises(); await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
+        expect(el.shadowRoot.querySelector('.code-editor').value).not.toContain('Industry');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('Generated 1 objects');
+        expect(el.shadowRoot.querySelector('.app-model-details').textContent).toContain('Static evidence only');
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Sales ER Model');
+    });
+    it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
+        const getScope = require('@salesforce/apex/AppModelController.getAppScope').default;
+        const el=createStudio(); await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity MyUnsavedObject : Name';editor.dispatchEvent(new CustomEvent('input'));await flushPromises();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
+        expect(getScope).not.toHaveBeenCalled();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity MyUnsavedObject : Name');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('Save the current diagram');
+    });
+
+    it('V5 leaves the editor intact when app discovery fails', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        getScope.mockRejectedValue(new Error('V5 scan required'));
+        const el=createStudio();await flushPromises();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Untitled ER Diagram');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('V5 scan required');
+    });
+    it('V5 does not overwrite edits made while discovery is in progress', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        let finish;getScope.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
+        const el=createStudio();await flushPromises();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity KeepMyEdit : Name';editor.dispatchEvent(new CustomEvent('input'));
+        finish({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]});await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity KeepMyEdit : Name');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('changed during discovery');
+    });
+
+});

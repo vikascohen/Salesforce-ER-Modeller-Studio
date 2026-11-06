@@ -41,7 +41,7 @@ public without sharing class ObjectUsageScanner {
             Pattern.compile('(?i)\\b(?:from|new|on)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b'),
             Pattern.compile('(?i)\\b(?:List|Set)\\s*<\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*>'),
             Pattern.compile('(?i)\\bMap\\s*<[^,<>]+,\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*>'),
-            Pattern.compile('\\b([A-Za-z_][A-Za-z0-9_]*)\\s+[A-Za-z_][A-Za-z0-9_]*\\s*(?:[=;,){]|$)'),
+            Pattern.compile('\\b([A-Za-z_][A-Za-z0-9_]*)\\s+[A-Za-z_][A-Za-z0-9_]*\\s*(?:[=;,)({]|$)'),
             Pattern.compile('(?i)\\b([A-Za-z_][A-Za-z0-9_]*)\\s*\\.\\s*(?:SObjectType|Fields)\\b')
         };
         for(Pattern pattern:patterns){Matcher m=pattern.matcher(code);while(m.find())add(runId,source,name,componentId,'Object',m.group(1),entry,'Static Apex object reference: '+m.group(0).left(250));}
@@ -50,7 +50,7 @@ public without sharing class ObjectUsageScanner {
     public static void lwc(Id runId,String name,String componentId,String body) {
         if(!enabled||String.isBlank(body))return;
         // Strip JS and HTML comments before inspecting literal imports and properties.
-        String code=body.replaceAll('(?s)/\\*.*?\\*/',' ').replaceAll('(?m)^\\s*//.*$',' ').replaceAll('(?s)<!--.*?-->',' ');
+        String code=stripUiComments(body);
         Matcher schema=Pattern.compile('@salesforce/schema/([A-Za-z_][A-Za-z0-9_]*)').matcher(code);
         while(schema.find())add(runId,'LWC',name,componentId,'Object',schema.group(1),null,'Salesforce schema import');
         Matcher objectName=Pattern.compile('(?i)(?:object-api-name|objectApiName)\\s*[:=]\\s*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]').matcher(code);
@@ -63,6 +63,20 @@ public without sharing class ObjectUsageScanner {
             for(Integer i=1;i<parts.size();i++)target+=parts[i].substring(0,1).toUpperCase()+parts[i].substring(1);
             add(runId,'LWC',name,componentId,'LightningComponentBundle',target,null,'Nested LWC tag');
         }
+    }
+    private static String stripUiComments(String body) {
+        List<String> output=new List<String>();Integer state=0;String quote;
+        for(Integer i=0;i<body.length();i++){
+            String ch=body.substring(i,i+1),next=i+1<body.length()?body.substring(i+1,i+2):'';
+            if(state==1){if(ch=='\n'){state=0;output.add(ch);}else output.add(' ');continue;}
+            if(state==2){if(ch=='*'&&next=='/'){output.add('  ');i++;state=0;}else output.add(ch=='\n'?ch:' ');continue;}
+            if(state==3){output.add(ch);if(ch=='\\'&&i+1<body.length()){output.add(next);i++;}else if(ch==quote)state=0;continue;}
+            if(ch=='/'&&next=='/'){output.add('  ');i++;state=1;}
+            else if(ch=='/'&&next=='*'){output.add('  ');i++;state=2;}
+            else if(ch=='\''||ch=='"'||ch=='`'){quote=ch;state=3;output.add(ch);}
+            else output.add(ch);
+        }
+        return String.join(output,'').replaceAll('(?s)<!--.*?-->',' ');
     }
     public static void flow(Id runId,String name,String componentId,Object metadata) {
         if(!enabled||metadata==null)return;

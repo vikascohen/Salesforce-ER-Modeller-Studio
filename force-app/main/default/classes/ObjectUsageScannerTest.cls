@@ -22,4 +22,10 @@
         ObjectUsageScanner.reset(true);ObjectUsageScanner.fromFields(null,new List<Field_Usage_Evidence__c>{new Field_Usage_Evidence__c(Source_Type__c='LWC',Component_Name__c='panel / panel.js',Object_API_Name__c='Account',Field_Key__c='Account.Name')});
         System.assertEquals(new Set<String>{'Object:Account'},targets());
     }
+    @IsTest static void lwcCommentsDoNotBecomeEvidence(){
+        ObjectUsageScanner.reset(true);
+        ObjectUsageScanner.lwc(null,'panel',null,'// import X from "@salesforce/schema/Lead";\nimport A from "@salesforce/schema/Account"; /* @salesforce/schema/Contact */ const url="https://example.test"; const objectApiName="Case"; // @salesforce/schema/Opportunity\n<!-- <c-fake-panel> -->');
+        System.assertEquals(new Set<String>{'Object:Account','Object:Case'},targets());
+    }
+
 }

@@ -3206,6 +3206,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appOptions = [];
     selectedSalesforceApp = '';
     appUsageEnabled = true;
+    appFieldScope = 'relationships';
+    appFieldOptions = [{ label: 'Relationships and name', value: 'relationships' }, { label: 'All fields', value: 'all' }];
+    handleAppFieldScopeChange(event) { this.appFieldScope = event.detail.value; }
     appAutomationEnabled = true;
     appModelBusy = false;
     appModelStatus = '';
@@ -3229,6 +3232,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
     async handleGenerateAppModel() {
         if (this.appGenerateDisabled) return;
+        if (this.isDirty) { this.appModelStatus = 'Save the current diagram before generating an app model. Your diagram has been preserved.'; return; }
         this.appModelBusy = true;
         this.appModelWarnings = [];
         this.appModelEvidence = [];
@@ -3242,7 +3246,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 : { objects: [...new Set(scope.components.filter(c => c.type === 'Object').map(c => c.name))], reasons: [], warnings: [] };
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
             const objects = await describeInChunks(result.objects, describeObjects, progress);
-            const source = this.buildErSource(objects);
+            const displayObjects = this.appFieldScope === 'all' ? objects : objects.map(object => ({ ...object, fields: object.fields.filter(field => field.isRelationship || field.apiName === 'Name') }));
+            const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
+            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
+            const source = header + '\n\n' + this.buildErSource(displayObjects);
+            if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Choose Relationships and name instead of All fields.');
             // Validate the whole generated model before changing any editor state.
             parseEr(source);
             if (this.activeTabId !== originalTab || this.sourceText !== originalSource) throw new Error('The active diagram changed during discovery. Generate again when you are ready.');

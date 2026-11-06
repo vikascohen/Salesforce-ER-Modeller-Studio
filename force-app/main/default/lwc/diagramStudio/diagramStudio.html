@@ -652,6 +652,7 @@
                     <strong>V5 · ER from App</strong>
                     <button class="dsl-head-btn" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Load apps</button>
                     <lightning-combobox class="app-model-select" label="Salesforce app" placeholder="Select a Salesforce app" options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy}></lightning-combobox>
+                    <lightning-combobox class="app-model-select" label="Fields" options={appFieldOptions} value={appFieldScope} onchange={handleAppFieldScopeChange} disabled={appModelBusy}></lightning-combobox>
                     <button class="dsl-head-btn" onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button>
                 </div>
                 <div class="app-model-controls">

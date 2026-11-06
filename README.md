@@ -1,5 +1,8 @@
 # Salesforce ER Modeller Studio
 
+
+**V5 source preview:** app-based ER generation and object-level org scanning are being developed on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model). See [V5 app modelling](docs/V5_APP_MODELLING.md) for behavior, validation and coverage limits. The V4 installation links below remain the released package.
+
 **Salesforce data architecture intelligence, ER modelling and field-dependency analysis.**
 
 **Latest source:** V4 on [`main`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and [`V4-latest`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/V4-latest)

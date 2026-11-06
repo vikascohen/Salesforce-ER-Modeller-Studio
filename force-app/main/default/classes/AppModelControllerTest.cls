@@ -15,7 +15,7 @@
     @IsTest static void oldSnapshotRequiresRescan(){
         insert new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true);
         Test.setMock(HttpCalloutMock.class,new ApiMock());Boolean rejected=false;
-        try{AppModelController.getAppScope('06m000000000001',true);}catch(AuraHandledException expected){rejected=true;}System.assert(rejected);
+        Test.startTest();try{AppModelController.getAppScope('06m000000000001',true);}catch(AuraHandledException expected){rejected=true;}Test.stopTest();System.assert(rejected);
     }
     @IsTest static void scopedEvidenceAndAutomation(){
         Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Object_Scan_Version__c=5);insert run;
@@ -25,10 +25,10 @@
             new Object_Usage_Evidence__c(Run__c=run.Id,Source_Type__c='Flow',Component_Name__c='AccountFlow',Target_Type__c='Object',Target_Name__c='Contact',Entry_Object__c='Account')
         };
         Test.setMock(HttpCalloutMock.class,new ApiMock());
-        AppModelController.Expansion expansion=AppModelController.expandScope(run.Id,new List<AppModelController.Component>{comp('ApexClass','SalesService'),comp('Object','Account')},null,true);
+        Test.startTest();AppModelController.Expansion expansion=AppModelController.expandScope(run.Id,new List<AppModelController.Component>{comp('ApexClass','SalesService'),comp('Object','Account')},null,true);
         Set<String> names=new Set<String>();for(AppModelController.Component c:expansion.components)names.add(c.name);
         System.assert(names.containsAll(new Set<String>{'Opportunity','AccountFlow','Contact'}));System.assert(!names.contains('Lead'));
-        expansion=AppModelController.expandScope(run.Id,new List<AppModelController.Component>{comp('Object','Account')},null,false);System.assertEquals(0,expansion.components.size());
+        expansion=AppModelController.expandScope(run.Id,new List<AppModelController.Component>{comp('Object','Account')},null,false);System.assertEquals(0,expansion.components.size());Test.stopTest();
     }
     @IsTest static void dependencyTypesDoNotLeakAcrossSameNamedComponents(){
         Test.setMock(HttpCalloutMock.class,new ApiMock());AppModelController.Expansion result=AppModelController.expandScope(null,new List<AppModelController.Component>{comp('LightningComponentBundle','salesPanel')},null,false);
