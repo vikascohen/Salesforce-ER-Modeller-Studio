@@ -106,7 +106,9 @@ public with sharing class DiagramFileController {
 
     @AuraEnabled
     public static Id saveFile(Id fileId, String fileName, String diagramType, String sourceCode) {
+        DslFileService.key(fileName);
         assertNameIsUnique(fileId, fileName);
+        String bindings=JSON.serialize(DslFileService.bind(fileId,sourceCode));
         if (fileId == null) {
             if (!Schema.sObjectType.Diagram_File__c.isCreateable()) {
                 throw new AuraHandledException('You do not have permission to create diagram files.');
@@ -114,7 +116,8 @@ public with sharing class DiagramFileController {
             Diagram_File__c row = new Diagram_File__c(
                 Name = fileName,
                 Diagram_Type__c = diagramType,
-                Source_Code__c = sourceCode
+                Source_Code__c = sourceCode,
+                Import_Bindings__c = bindings
             );
             insert row;
             return row.Id;
@@ -127,7 +130,8 @@ public with sharing class DiagramFileController {
             Id = fileId,
             Name = fileName,
             Diagram_Type__c = diagramType,
-            Source_Code__c = sourceCode
+            Source_Code__c = sourceCode,
+                Import_Bindings__c = bindings
         );
         update row;
         return row.Id;

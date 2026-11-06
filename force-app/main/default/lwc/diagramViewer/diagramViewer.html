@@ -12,6 +12,7 @@
             </p>
         </template>
 
+        <template if:true={importsLoading}><p role="status" class="slds-p-around_small">Please wait — loading imported DSL modules…</p></template>
         <template if:true={errorMessage}>
             <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-horizontal_small" role="alert">
                 {errorMessage}

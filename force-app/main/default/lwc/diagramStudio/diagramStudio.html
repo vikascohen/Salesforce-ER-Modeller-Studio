@@ -640,7 +640,7 @@
         <!-- DSL EDITOR PANEL -->
         <div class={dslPanelClass} style={dslPanelStyle}>
             <div class="dsl-panel-head">
-                <span>DSL EDITOR</span>
+                <span>DSL EDITOR</span><template if:true={hasDslImports}><button class="dsl-head-btn" onclick={handleRefreshDslImports}>Refresh imports</button></template>
                 <div class="dsl-panel-head-actions">
                     <button class="dsl-head-btn" onclick={handleToggleDslWrap} title="Toggle editor word wrapping without changing the DSL">{dslWrapLabel}</button>
                     <button class="dsl-head-btn" onclick={handleToggleDslMaximise} title="Maximise or restore the editor without changing the DSL">{dslMaximiseLabel}</button>
@@ -744,8 +744,8 @@
             </div>
 
             <!-- Scrollable canvas -->
-            <template if:true={diagramLoading}><div class="diagram-load-progress" role="status" aria-live="polite"><span class="er-wait-spinner" aria-hidden="true"></span><span>{diagramLoadingMessage}</span></div></template>
-            <div class="canvas-wrap" aria-busy={diagramLoading} ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
+            <template if:true={diagramBusy}><div class="diagram-load-progress" role="status" aria-live="polite"><span class="er-wait-spinner" aria-hidden="true"></span><span>{diagramBusyMessage}</span></div></template>
+            <div class="canvas-wrap" aria-busy={diagramBusy} ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
               <div class="svg-scale-wrap" style={svgScaleWrapStyle}>
                 <svg data-role="er-svg"
                      viewBox={svgViewBox}

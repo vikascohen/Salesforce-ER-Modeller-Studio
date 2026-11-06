@@ -1,3 +1,4 @@
+import { compileModuleSource } from 'c/dslModules';
 /**
  * Pure parsing/layout logic for the ER Diagram DSL.
  *
@@ -67,7 +68,12 @@ export function splitFieldList(raw) {
     return parts;
 }
 
-export function parseEr(text) {
+export function parseEr(text, options = {}) {
+    const compiled=compileModuleSource(text,options);
+    try { return parseErCore(compiled.modular ? compiled.source : text,compiled.modular); }
+    catch(error){const match=error.message.match(/Line (\d+)/);if(compiled.modular&&match){const origin=compiled.origins[Number(match[1])-1];if(origin)throw new Error(`${origin.file}:${origin.line}: ${error.message}`);}throw error;}
+}
+function parseErCore(text, allowEmpty = false) {
     const entities = new Map();      // keyed by lowercase name; preserves first-seen casing
     const components = new Map();
     const relationships = [];
@@ -141,6 +147,7 @@ export function parseEr(text) {
                 const field = ensureField(ent.name, name);
                 if (isRollupSummary) field.isRollupSummary = true;
                 if (isRequired) field.isRequired = true;
+                if (allowEmpty && dataType && field.dataType && dataType.toLowerCase() !== field.dataType.toLowerCase()) throw new Error(`Line ${idx+1}: Conflicting data type for ${ent.name}.${name}.`);
                 if (dataType) field.dataType = dataType;
             });
             return;
@@ -158,6 +165,7 @@ export function parseEr(text) {
             if (relSeen.has(dedupeKey)) return; // exact duplicate line — skip silently
             relSeen.add(dedupeKey);
 
+            if (allowEmpty && field.isRelationship && (field.kind !== kind || (kind !== 'poly' && !field.relatesTo.includes(parentEnt.name)))) throw new Error(`Line ${idx+1}: Conflicting relationship for ${childEnt.name}.${field.name}.`);
             field.isRelationship = true;
             field.kind = kind;
             if (!field.relatesTo.includes(parentEnt.name)) field.relatesTo.push(parentEnt.name);
@@ -168,7 +176,7 @@ export function parseEr(text) {
         throw new Error(`Line ${idx + 1} not understood: "${line}". Try: entity Account : Name  or  Contact.AccountId => Account`);
     });
 
-    if (entities.size === 0 && components.size === 0) {
+    if (entities.size === 0 && components.size === 0 && !allowEmpty) {
         throw new Error('No entities found. Start with: entity Account : Name, Industry');
     }
 

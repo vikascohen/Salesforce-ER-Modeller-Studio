@@ -7,6 +7,9 @@ import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
 import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
 import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
 import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource } from 'c/appModelLogic';
+import resolveDslImports from '@salesforce/apex/DslFileService.resolveImports';
+import listDslComponentNames from '@salesforce/apex/AppModelController.listDslComponentNames';
+import { importStatements, exportedModuleNames, dslFileKey } from 'c/dslModules';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
@@ -1416,7 +1419,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const wrap=this.template.querySelector('.canvas-wrap');
         if(!wrap||!this.sourceText?.trim()) return;
         try {
-            const model=parseEr(this.sourceText), allEntities=model.entities||[], rels=model.relationships||[], appCards=model.components||[];
+            const model=this.parseCurrentModel(), allEntities=model.entities||[], rels=model.relationships||[], appCards=model.components||[];
             const entities=allEntities.filter(entity=>!/__(e|mdt)$/i.test(entity.name));
             const schemaSections=[allEntities.filter(entity=>/__e$/i.test(entity.name)),allEntities.filter(entity=>/__mdt$/i.test(entity.name))];
             if(!allEntities.length&&!appCards.length) return;
@@ -2909,7 +2912,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if(!source.trim()){ this._architectureSource=''; this._architectureAnalysis=null; return; }
         if(!force && this._architectureSource===source && this._architectureAnalysis) return;
         try {
-            const parsed=parseEr(source);
+            const parsed=this.parseCurrentModel();
             this._architectureAnalysis=analyseArchitecture(parsed);
             this._architectureSource=source;
         } catch (e) {
@@ -3164,6 +3167,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
             await refreshApex(this.wiredFilesResult);
             this.refreshFileList();
+            if(this.hasDslImports){this._dslImportSignature='';this._dslImportFailure='';this.renderDiagram();}
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
@@ -3191,6 +3195,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.currentId  = rec.id;
                 this.fileName   = rec.name;
                 this.sourceText = rec.sourceCode || '';
+                this._dslImportSignature='';this._dslImportFailure='';
                 this.erPositions = {};
                 this.boxHeightOverrides = {};
                 this.boxWidthOverrides  = {};
@@ -3633,7 +3638,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleCopyMermaid() {
         try {
-            const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
+            const mmd = buildMermaidErDiagram(this.parseCurrentModel());
             if (navigator.clipboard) navigator.clipboard.writeText(mmd).catch(() => {});
         } catch (e) {
             this.errorMessage = 'Could not build Mermaid diagram: ' + e.message;
@@ -3655,7 +3660,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async handleDownloadMermaid() {
         try {
-            const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
+            const mmd = buildMermaidErDiagram(this.parseCurrentModel());
             await this.downloadDiagramText(mmd, 'mmd');
         } catch (e) {
             this.errorMessage = 'Could not download Mermaid diagram: ' + this.reduceError(e);
@@ -3664,7 +3669,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleCopyDrawio() {
         try {
-            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            const xml = buildDrawioXml(this.parseCurrentModel(), this._erBoxes);
             if (navigator.clipboard) navigator.clipboard.writeText(xml).catch(() => {});
         } catch (e) {
             this.errorMessage = 'Could not build draw.io diagram: ' + e.message;
@@ -3673,7 +3678,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async handleDownloadDrawio() {
         try {
-            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            const xml = buildDrawioXml(this.parseCurrentModel(), this._erBoxes);
             await this.downloadDiagramText(xml, 'drawio');
         } catch (e) {
             this.errorMessage = 'Could not download draw.io diagram: ' + this.reduceError(e);
@@ -3766,7 +3771,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try {
             let existingNames = [];
             if (this.sourceText.trim()) {
-                try { existingNames = parseEr(this.sourceText).entities.map((e) => e.name); } catch (_) {}
+                try { existingNames = this.parseCurrentModel().entities.map((e) => e.name); } catch (_) {}
             }
             if (existingNames.includes(name)) return;
 
@@ -3797,6 +3802,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleDeleteEntity(event) {
         event.stopPropagation();
+        if (/^\s*(?:export\s+)?module\s|^\s*import\s/im.test(this.sourceText)) { this.errorMessage = 'Edit the DSL module definition to remove an entity or component. Shared module definitions are preserved.'; return; }
         this.hideHoverCard(); // the box under the cursor is about to disappear
         const name = event.currentTarget.dataset.name;
         try {
@@ -4738,7 +4744,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const after  = value.substring(this.dslReplaceEnd);
         const insert = suggestion.insertText + (suggestion.appendText || '');
         const next   = before + insert + after;
-        const caretPos = before.length + insert.length;
+        const caretPos = before.length + (suggestion.cursorOffset == null ? insert.length : suggestion.cursorOffset);
 
         textareaEl.value = next;
         textareaEl.setSelectionRange(caretPos, caretPos);
@@ -4851,7 +4857,23 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     detectDslContext(linePrefix, fullText, lineStart) {
+        const indent=linePrefix.match(/^\s*/)[0].length;linePrefix=linePrefix.slice(indent);lineStart+=indent;
         let m;
+        const modules=this.moduleSuggestionNames(fullText);
+        m=linePrefix.match(/^(?:use\s+|(?:export\s+)?module\s+\w+\s+extends\s+)(\w*)$/i);
+        if(m)return {replaceStart:lineStart+linePrefix.length-m[1].length,items:modules.filter(name=>name.toLowerCase().startsWith(m[1].toLowerCase())).map(name=>({id:'mod-'+name,label:name,detail:'Exported module',insertText:name}))};
+        m=linePrefix.match(/^import\s+(?:\w+\s+from\s+)?(.*)$/i);
+        if(m){const partial=m[1].toLowerCase();return {replaceStart:lineStart+linePrefix.length-m[1].length,items:(this.files||[]).filter(file=>file.id!==this.currentId).map(file=>{let name;try{name=dslFileKey(file.name);}catch(_){return null;}return {id:'import-'+file.id,label:name,detail:'Saved DSL file',insertText:name};}).filter(item=>item&&item.label.startsWith(partial)).slice(0,50)};}
+        m=linePrefix.match(/^component\s+(\w*)$/i);
+        if(m)return {replaceStart:lineStart+linePrefix.length-m[1].length,items:['ApexClass','Flow'].filter(type=>type.toLowerCase().startsWith(m[1].toLowerCase())).map(type=>({id:'component-'+type,label:type,detail:'Component type',insertText:type+' '}))};
+        m=linePrefix.match(/^component\s+(ApexClass|Flow)\s+(\w*)$/i);
+        if(m){const type=m[1].toLowerCase()==='flow'?'Flow':'ApexClass';this.ensureDslComponentNames(type);const local=[...fullText.matchAll(new RegExp('component\\s+'+type+'\\s+(\\w+)','gi'))].map(match=>match[1]);return {replaceStart:lineStart+linePrefix.length-m[2].length,items:[...new Set([...(this._dslComponentNames[type]||[]),...local])].filter(name=>name.toLowerCase().startsWith(m[2].toLowerCase())).map(name=>({id:'component-name-'+name,label:name,detail:type+' developer name',insertText:name}))};}
+        if(/^export\s+$/i.test(linePrefix))return {replaceStart:lineStart+linePrefix.length,items:[{id:'kw-module',label:'module',detail:'Export a reusable module',insertText:'module '}]};
+        if(/^(?:export\s+)?module\s+\w+\s+$/i.test(linePrefix))return {replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body (rendered only through use)',insertText:'{\n  \n}',cursorOffset:4},{id:'module-extends',label:'extends',detail:'Extend an exported module',insertText:'extends '}]};
+        if(/^(?:export\s+)?module\s+\w+\s+extends\s+\w+\s+$/i.test(linePrefix))return {replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body',insertText:'{\n  \n}',cursorOffset:4}]};
+        m=linePrefix.match(/^([A-Za-z]+)$/);
+        if(m){const keywords=[['entity','Declare an entity'],['export module','Define an inert exported module'],['module','Define a private module'],['use','Render an exported module'],['import','Import exported modules from a saved file'],['component','Declare an ApexClass or Flow card']];const items=keywords.filter(([word])=>word.startsWith(m[1].toLowerCase())).map(([word,detail])=>({id:'kw-'+word,label:word,detail,insertText:word+' '}));if(items.length)return {replaceStart:lineStart,items};}
+
 
         // 1) Partial "entity" keyword at the start of an otherwise-empty line.
         m = linePrefix.match(/^([A-Za-z]{0,6})$/);
@@ -5001,7 +5023,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const items = names
                 .filter((n) => n.toLowerCase().startsWith(partial))
                 .slice(0, 50)
-                .map((n) => ({ id: 'target-' + n, label: n, detail: declared.includes(n) ? 'On canvas' : 'Object', insertText: n }));
+                .map((n) => ({ id: 'target-' + n, label: n, detail: declared.includes(n) ? 'Declared in DSL' : 'Object', insertText: n }));
             return { replaceStart: start, items };
         }
 
@@ -5055,7 +5077,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
         let model;
         try {
-            model = parseEr(this.sourceText);
+            model = this.parseCurrentModel();
         } catch (_) {
             return; // mid-typing / invalid DSL — leave whatever suggestions were showing
         }
@@ -5130,7 +5152,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async checkSchemaDrift() {
         let model;
         try {
-            model = parseEr(this.sourceText);
+            model = this.parseCurrentModel();
         } catch (e) {
             this.driftModalOpen = false;
             this.errorMessage = e.message;
@@ -5229,6 +5251,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     addFieldToEntity(entityName, fieldName, skipRender, markerSuffix) {
+        if (/^\s*(?:export\s+)?module\s|^\s*import\s/im.test(this.sourceText)) { this.errorMessage = 'Edit fields in the DSL module definition. Shared module definitions are preserved.'; return; }
         const fieldText = fieldName + (markerSuffix || '');
         const lines = this.sourceText.split('\n');
         let found = false;
@@ -5249,6 +5272,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     removeFieldFromEntity(entityName, fieldName) {
+        if (/^\s*(?:export\s+)?module\s|^\s*import\s/im.test(this.sourceText)) { this.errorMessage = 'Edit fields in the DSL module definition. Shared module definitions are preserved.'; return; }
         const lines = this.sourceText.split('\n').map((line) => {
             const m = line.match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)(.*)$/i);
             if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
@@ -5272,7 +5296,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     rerenderGeometry() {
         if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
         try {
-            const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            const geo = buildErGeometry(this.parseCurrentModel(), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
             this.erConnectors = geo.connectors;
             this.svgWidth     = geo.svgWidth;
@@ -5280,10 +5304,53 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         } catch (_) {}
     }
 
+    dslImportsLoading=false;
+    _dslImportBundle={files:{},edges:{}};
+    _dslImportSignature='';
+    _dslImportPending='';
+    _dslImportFailure='';
+    _dslImportError='';
+    _dslImportToken=0;
+    _dslComponentNames={};
+    _dslComponentPending={};
+    get hasDslImports(){return importStatements(this.sourceText).length>0;}
+    get diagramBusy(){return this.diagramLoading||this.dslImportsLoading;}
+    get diagramBusyMessage(){return this.dslImportsLoading?'Please wait — loading imported DSL modules…':this.diagramLoadingMessage;}
+    get currentImportSignature(){return (this.currentId||'@root')+'|'+importStatements(this.sourceText).map(imp=>(imp.module||'*').toLowerCase()+':'+imp.file.trim().toLowerCase()).join('|');}
+    parseCurrentModel(){
+        if(this.hasDslImports&&this._dslImportSignature!==this.currentImportSignature)throw new Error('Imported modules are loading. Please wait.');
+        return parseEr(this.sourceText,{fileName:this.fileName||'current.dsl',rootId:this.currentId||'@root',resolveImport:(owner,name)=>this._dslImportBundle.files[this._dslImportBundle.edges[owner+'|'+name]]});
+    }
+    async loadDslImports(signature){
+        const token=++this._dslImportToken;this._dslImportPending=signature;this.dslImportsLoading=true;
+        try{
+            const bundle=JSON.parse(await resolveDslImports({fileId:this.currentId,sourceCode:this.sourceText}));
+            if(token!==this._dslImportToken||signature!==this.currentImportSignature||this._isDisconnected)return;
+            this._dslImportBundle=bundle;this._dslImportSignature=signature;this._dslImportFailure='';this._architectureSource=null;this._architectureAnalysis=null;
+            this.renderDiagram();
+            const editor=this.template.querySelector('.code-editor');if(editor&&this.dslSuggestOpen)this.updateDslSuggestions(editor);
+        }catch(error){if(token===this._dslImportToken&&signature===this.currentImportSignature){this._dslImportFailure=signature;this._dslImportError=this.reduceError(error);this.errorMessage=this._dslImportError;}}
+        finally{if(token===this._dslImportToken){this.dslImportsLoading=false;this._dslImportPending='';}}
+    }
+    handleRefreshDslImports(){this._dslImportSignature='';this._dslImportFailure='';this.renderDiagram();}
+    moduleSuggestionNames(text){
+        const imported=[];for(const imp of importStatements(text)){
+            let key;try{key=dslFileKey(imp.file);}catch(_){continue;}
+            const entry=this._dslImportBundle.files[this._dslImportBundle.edges[(this.currentId||'@root')+'|'+key]];
+            if(entry)imported.push(...exportedModuleNames(entry.sourceCode).filter(name=>!imp.module||name.toLowerCase()===imp.module.toLowerCase()));
+        }
+        return exportedModuleNames(text,imported);
+    }
+    ensureDslComponentNames(type){
+        if(this._dslComponentNames[type]||this._dslComponentPending[type])return;
+        this._dslComponentPending[type]=true;
+        listDslComponentNames({componentType:type}).then(names=>{this._dslComponentNames={...this._dslComponentNames,[type]:names||[]};const editor=this.template.querySelector('.code-editor');if(editor&&(this.dslSuggestOpen||this.template.activeElement===editor))this.updateDslSuggestions(editor);}).catch(()=>{this._dslComponentNames={...this._dslComponentNames,[type]:[]};}).finally(()=>{this._dslComponentPending[type]=false;});
+    }
     renderDiagram() {
+        if(this.hasDslImports){const signature=this.currentImportSignature;if(this._dslImportFailure===signature){this.errorMessage=this._dslImportError;return;}if(this._dslImportSignature!==signature){if(this._dslImportPending!==signature)this.loadDslImports(signature);return;}}
         if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
         try {
-            const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            const geo = buildErGeometry(this.parseCurrentModel(), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
             this.erConnectors = geo.connectors;
             this.svgWidth     = geo.svgWidth;

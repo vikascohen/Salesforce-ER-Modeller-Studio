@@ -9,6 +9,8 @@ import listFiles from '@salesforce/apex/DiagramFileController.listFiles';
 import getAllObjectNames from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import DiagramStudio from 'c/diagramStudio';
 
+jest.mock('@salesforce/apex/DslFileService.resolveImports',()=>({default:jest.fn(()=>Promise.resolve('{\"files\":{},\"edges\":{}}'))}),{virtual:true});
+jest.mock('@salesforce/apex/AppModelController.listDslComponentNames',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
 jest.mock('@salesforce/apex/AppModelController.listApps', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
 jest.mock('@salesforce/apex/AppModelController.getAppScopeJson', () => ({ default: jest.fn() }), { virtual: true });
 jest.mock('@salesforce/apex/AppModelController.expandScopeJson', () => ({ default: jest.fn(() => Promise.resolve('{}')) }), { virtual: true });
@@ -2629,6 +2631,56 @@ describe('V5 app generation', () => {
         const sent=expand.mock.calls[0][0];expect(typeof sent.componentsJson).toBe('string');expect(sent.components).toBeUndefined();expect(JSON.parse(sent.componentsJson)).toEqual(roots);
         expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Contact');
         expect(el.shadowRoot.querySelector('.entity-group[data-name="Contact"]')).not.toBeNull();
+    });
+
+});
+
+
+describe('DSL modules and IntelliSense integration',()=>{
+    afterEach(()=>{while(document.body.firstChild)document.body.removeChild(document.body.firstChild);});
+    async function edit(el,text){const editor=el.shadowRoot.querySelector('.code-editor');editor.value=text;editor.setSelectionRange(text.length,text.length);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));return editor;}
+    it('keeps export-only definitions off canvas and combines use with ordinary top-level entities',async()=>{
+        const el=createStudio();await flushPromises();
+        const definition='export module Customer {\n  entity Account : Name\n  entity Contact : Email\n  Contact.AccountId -> Account\n}';
+        await edit(el,definition);expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
+        await edit(el,definition+'\nUse Customer\nentity account : Industry');
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(1);
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="Account"]').textContent).toContain('Industry');
+        const before=el.shadowRoot.querySelector('.code-editor').value;
+        el.shadowRoot.querySelector('.delete-btn[data-name="Account"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe(before);
+        el.shadowRoot.querySelector('.er-diagnostic-indicator').click();await flushPromises();
+        el.shadowRoot.querySelector('.er-error-log-list button').click();await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('Shared module definitions are preserved');
+    });
+    it('loads imports without drawing them until use and offers only exported module names',async()=>{
+        const source='export module Customer {\nentity Account : Name\n}\nmodule Private {\nentity Hidden\n}';
+        require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue(JSON.stringify({files:{lib:{id:'lib',name:'customer.dsl',sourceCode:source}},edges:{'@root|customer.dsl':'lib'}}));
+        const el=createStudio();await flushPromises();await edit(el,'import customer.dsl');await flushPromises();
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
+        await edit(el,'import customer.dsl\nuse C');
+        expect([...el.shadowRoot.querySelectorAll('.dsl-suggest-row')].some(x=>x.textContent.includes('Customer'))).toBe(true);
+        await edit(el,'import customer.dsl\nuse Customer\nentity Local : Name');await flushPromises();
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="Hidden"]')).toBeNull();
+    });
+    it('completes module keywords, indented declarations and Apex/Flow component types and names',async()=>{
+        require('@salesforce/apex/AppModelController.listDslComponentNames').default.mockResolvedValue(['Logger','LogService']);
+        const el=createStudio();await flushPromises();
+        await edit(el,'exp');expect(el.shadowRoot.textContent).toContain('export module');
+        objectNamesAdapter.emit(['Account']);await flushPromises();await edit(el,'export module Customer {\n  entity Acc');
+        expect(el.shadowRoot.textContent).toContain('Account');
+        await edit(el,'component Ap');expect(el.shadowRoot.textContent).toContain('ApexClass');
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.focus();await edit(el,'component ApexClass Log');await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('LogService');
+    });
+    it('reports invalid import paths without crashing the editor suggestions',async()=>{
+        require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue('{"files":{},"edges":{}}');
+        const el=createStudio();await flushPromises();await edit(el,'import ./customer.dsl\nuse Customer');await flushPromises();
+        el.shadowRoot.querySelector('.er-diagnostic-indicator').click();await flushPromises();
+        el.shadowRoot.querySelector('.er-error-log-list button').click();await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('without a path');
     });
 
 });

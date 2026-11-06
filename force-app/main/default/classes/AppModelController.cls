@@ -29,6 +29,12 @@ public with sharing class AppModelController {
         @AuraEnabled public String nextCursor;
         @AuraEnabled public List<String> warnings=new List<String>();
     }
+    @AuraEnabled(cacheable=true) public static List<String> listDslComponentNames(String componentType){
+        List<String> names=new List<String>();
+        if(componentType!='ApexClass'&&componentType!='Flow')throw new AuraHandledException('Unsupported DSL component type.');
+        List<FieldUsageToolingApiClient.SourceComponent> rows=componentType=='ApexClass'?FieldUsageToolingApiClient.getApexClassIndex():FieldUsageToolingApiClient.getFlowIndex();
+        for(FieldUsageToolingApiClient.SourceComponent row:rows)if(!String.isBlank(row.name)&&names.size()<1000)names.add(row.name);names.sort();return names;
+    }
     @AuraEnabled public static List<AppOption> listApps() {
         Map<String,Object> payload=get('/ui-api/apps?formFactor=Large&userCustomizations=false');
         Map<String,String> appTypes=loadAppTypes();
