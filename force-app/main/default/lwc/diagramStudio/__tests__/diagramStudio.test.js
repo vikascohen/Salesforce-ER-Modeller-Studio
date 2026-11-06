@@ -2343,6 +2343,20 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.app-generation-progress')).toBeNull();
         expect(el.shadowRoot.querySelector('.app-model-error')).not.toBeNull();
     });
+    it('Fit Model puts every object above all Apex and Flow cards without changing DSL', async () => {
+        const el=createStudio();await flushPromises();
+        const source='entity Account : Name\nentity Contact : Name\ncomponent ApexClass Logger\ncomponent Flow Save_Log';
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value=source;editor.dispatchEvent(new CustomEvent('input'));
+        await new Promise(resolve=>setTimeout(resolve,300));
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        const groups=[...el.shadowRoot.querySelectorAll('.entity-group')];
+        const bounds=groups.map(g=>{const rect=g.querySelector('rect.drag-header');return {name:g.dataset.name,y:Number(rect.getAttribute('y'))};});
+        const objectYs=bounds.filter(b=>!b.name.startsWith('@')).map(b=>b.y);
+        const cardYs=bounds.filter(b=>b.name.startsWith('@')).map(b=>b.y);
+        expect(objectYs).toHaveLength(2);expect(cardYs).toHaveLength(2);
+        expect(Math.min(...cardYs)).toBeGreaterThan(Math.max(...objectYs)+108);
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe(source);
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();

@@ -85,3 +85,12 @@ it('does not turn unverified metadata type names into component cards', async ()
     expect(result.components.map(c=>c.name)).toEqual(['Logger']);
     expect(buildAppComponentSource(result.components)).not.toContain('component ApexClass ApexClass');
 });
+
+
+it('hides presentation and cache metadata by default but retains it in the optional technical scope', () => {
+    const result={objects:['Image','Dashboard','Report','PlatformCachePartitionType','Account','Image__c']};
+    const normal=selectAppObjects(result);
+    expect(normal.visible).toEqual(['Account','Image__c']);
+    expect(normal.hidden).toHaveLength(4);
+    expect(selectAppObjects(result,{includePlatform:true}).visible).toHaveLength(6);
+});

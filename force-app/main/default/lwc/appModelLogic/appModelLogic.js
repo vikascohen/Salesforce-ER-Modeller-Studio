@@ -77,7 +77,8 @@ const PLATFORM_OBJECT_GROUPS = {
     'Identity and sharing': ['User','UserRole','UserLogin','UserRecordAccess','Group','GroupMember','Name','UserPreference','UserAppInfo','UserAppMenuCustomization'],
     'Licensing': ['UserLicense','PackageLicense','UserPackageLicense','PermissionSetLicense','PermissionSetLicenseAssign'],
     'Platform metadata': ['ApexClass','ApexTrigger','Flow','FlowDefinition','FlowDefinitionView','FlowVersionView','FlowInterview','FlowRecordRelation','LightningComponentBundle','AuraDefinitionBundle','EntityDefinition','FieldDefinition','EntityParticle','RelationshipDomain','RelationshipInfo','AppDefinition','AppMenuItem','RecordType','CustomPermission','Organization'],
-    'Platform operations': ['ApexLog','AsyncApexJob','CronTrigger','CronJobDetail','SetupAuditTrail','LoginHistory','LoginGeo','AuthSession','EventLogFile']
+    'Presentation metadata': ['Image','Report','Dashboard'],
+    'Platform operations': ['PlatformCachePartitionType','ApexLog','AsyncApexJob','CronTrigger','CronJobDetail','SetupAuditTrail','LoginHistory','LoginGeo','AuthSession','EventLogFile']
 };
 const PLATFORM_CATEGORIES = new Map();
 Object.entries(PLATFORM_OBJECT_GROUPS).forEach(([category,names]) => names.forEach(name => PLATFORM_CATEGORIES.set(name.toLowerCase(),category)));

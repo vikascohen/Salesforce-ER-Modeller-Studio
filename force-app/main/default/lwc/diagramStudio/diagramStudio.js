@@ -1393,12 +1393,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleFitModel(){
         if(!this.canvasHasModel){ this.canvasFitActive=false; return; }
         this.canvasFitActive=true;
-        // Relationship-aware presentation layout only. DSL/parser/compiler remain untouched.
+        // Relationship-aware object layout, followed by a separate component-card section.
         const wrap=this.template.querySelector('.canvas-wrap');
         if(!wrap||!this.sourceText?.trim()) return;
         try {
-            const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[];
-            if(!entities.length) return;
+            const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[], appCards=model.components||[];
+            if(!entities.length&&!appCards.length) return;
             const byName=new Map(entities.map(e=>[e.name,e])), adj=new Map(entities.map(e=>[e.name,new Set()]));
             rels.forEach(r=>{
                 if(r.childEntity!==r.parentEntity&&adj.has(r.childEntity)&&adj.has(r.parentEntity)){
@@ -1441,6 +1441,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                     levelTop+=rowMaxH+rowGap;
                 });
                 componentTop=levelTop+90;
+            });
+            // Component cards must never fall back to the parser's initial grid:
+            // that can overlap objects or interleave them midway down the model.
+            const objectBottom=Math.max(0,...entities.map(e=>(positions[e.name]?.y||0)+(heights[e.name]||0)));
+            const cardTop=entities.length?objectBottom+120:70;
+            const cardGap=60,cardHeight=108;
+            const cardCols=Math.max(1,Math.min(6,Math.floor((Math.max(wrap.clientWidth,720)-110)/(cardW+cardGap))));
+            [...appCards].sort((a,b)=>a.componentType.localeCompare(b.componentType)||a.title.localeCompare(b.title)).forEach((card,index)=>{
+                positions[card.name]={x:55+(index%cardCols)*(cardW+cardGap),y:cardTop+Math.floor(index/cardCols)*(cardHeight+60)};
+                widths[card.name]=cardW;heights[card.name]=cardHeight;
             });
             this.erPositions=positions;this.boxWidthOverrides=widths;this.boxHeightOverrides=heights;this.zoomLevel=1;this.renderDiagram();
             requestAnimationFrame(()=>{
