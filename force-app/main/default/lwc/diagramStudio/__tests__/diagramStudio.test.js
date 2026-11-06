@@ -2232,6 +2232,7 @@ describe('V5 app generation', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockImplementation(async ({componentsJson}) => JSON.stringify({fieldUsage:JSON.parse(componentsJson).filter(c=>c.type==='Object').flatMap(c=>[{objectApiName:c.name,fieldApiName:'Name',sourceType:'LWC',componentName:'AppComponent'},...(c.name==='Contact'?[{objectApiName:'Contact',fieldApiName:'AccountId',sourceType:'ApexClass',componentName:'AppService'}]:[])])}));
     });
     async function openAppDialog(el) {
         el.shadowRoot.querySelector('button[data-menu="file"]').click(); await flushPromises();
@@ -2263,6 +2264,22 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.app-model-details').textContent).toContain('Static evidence only');
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Sales ER Model');
     });
+    it('generates only evidenced app fields and records hidden system object provenance', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'User'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({fieldUsage:[{objectApiName:'Account',fieldApiName:'Description',sourceType:'ApexClass',componentName:'SalesService'},{objectApiName:'User',fieldApiName:'Name',sourceType:'ApexClass',componentName:'SalesService'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'},{apiName:'Description'},{apiName:'Industry'},{apiName:'OwnerId',isRelationship:true,referenceTo:['User']}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const dsl=el.shadowRoot.querySelector('.code-editor').value;
+        expect(dsl).toContain('entity Account : Description');
+        expect(dsl).not.toMatch(/entity User|Industry|OwnerId/);
+        expect(dsl).not.toMatch(/entity Account[^\n]*Name/);
+        expect(describeObjects).toHaveBeenCalledWith({objectApiNames:['Account']});
+        await openDetails(el);
+        const details=el.shadowRoot.querySelector('.app-object-details-table').textContent;
+        expect(details).toContain('Hidden by scope');expect(details).toContain('SalesService');expect(details).toContain('Description');
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();
@@ -2287,7 +2304,7 @@ describe('V5 app generation', () => {
     it('V5 does not overwrite edits made while discovery is in progress', async () => {
         const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         let finish;getScope.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
-        describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'}]}]);
         const el=await createAppStudio();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
@@ -2365,24 +2382,18 @@ describe('V5 app generation', () => {
         expect(error.querySelector('.app-model-open-scan')).toBeNull();
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('No resolvable Salesforce objects');
     });
-    it('clears scan guidance when switching to app-navigation-only generation', async () => {
+    it('blocks generation without field evidence rather than substituting the whole schema', async () => {
         const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
-        getScope.mockRejectedValueOnce(new Error('V5 scan required'));
-        const el=await createAppStudio();
-        expect(el.shadowRoot.querySelector('.app-model-generate').title).toContain('Select a Salesforce app first');
-        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
-        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
-        const usage=el.shadowRoot.querySelector('.app-model-options lightning-input');
-        expect(usage.fieldLevelHelp).toContain('Wait for it to complete successfully');
-        usage.checked=false;usage.dispatchEvent(new CustomEvent('change'));await flushPromises();
-        expect(el.shadowRoot.querySelector('.app-model-error')).toBeNull();
-        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('an org scan is not required');
-        getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Sales',components:[{type:'Object',name:'Account'}]}));describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
+        const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
+        getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        expand.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'},{apiName:'Description'},{apiName:'Industry'}]}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
-        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
-        expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
+        expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('App-used fields could not be established');
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        expect(el.shadowRoot.querySelector('.app-model-options lightning-input').label).not.toContain('All fields');
     });
-
     it('filters custom and standard apps and clears a selection hidden by the filter', async () => {
         require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([
             {label:'Sales',value:'standard-app',appType:'standard'},
@@ -2432,7 +2443,7 @@ describe('V5 app generation', () => {
         const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
         const roots=[{type:'CustomTab',name:'Warden_Studio',id:'01r000000000001'},{type:'LightningComponentBundle',name:'wardenApp',id:'0Rb000000000001'}];
         getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Warden Studio',runId:'run',components:roots}));
-        expand.mockImplementation(async params=>JSON.stringify({components:JSON.parse(params.componentsJson).some(c=>c.name==='wardenApp')?[{type:'Object',name:'Contact'}]:[],reasons:[],warnings:[]}));
+        expand.mockImplementation(async params=>JSON.stringify({components:JSON.parse(params.componentsJson).some(c=>c.name==='wardenApp')?[{type:'Object',name:'Contact'}]:[],fieldUsage:[{objectApiName:'Contact',fieldApiName:'Name',sourceType:'LWC',componentName:'wardenApp'}],reasons:[],warnings:[]}));
         describeObjects.mockResolvedValue([{apiName:'Contact',fields:[{apiName:'Name',dataType:'STRING'}]}]);
         const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();

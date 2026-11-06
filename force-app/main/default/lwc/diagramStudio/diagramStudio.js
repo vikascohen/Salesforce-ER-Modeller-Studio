@@ -6,7 +6,7 @@ import { NavigationMixin } from 'lightning/navigation';
 import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
 import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
 import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
-import { collectAppScope, describeInChunks } from 'c/appModelLogic';
+import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema } from 'c/appModelLogic';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
@@ -3210,7 +3210,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appModelDetailsMatch() { return !!this.appModelGeneratedSource && this.sourceText === this.appModelGeneratedSource; }
     get appModelDetailSummary() {
         if (this.appModelDetailsMatch) return this.appModelSummary;
-        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Snapshot:|Coverage:)/.test(line));
+        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Snapshot:|Coverage:|Model scope:|Hidden platform objects:|Omitted audit fields:|Field scope:)/.test(line));
         return notes.length ? notes.map(line => line.substring(2)).join('\n') : 'No app-generation details are attached to the current diagram.';
     }
     async handleOpenAppModel() {
@@ -3266,11 +3266,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : `No ${this.appTypeFilter} apps are available for the configured API user.`;
     }
     selectedSalesforceApp = '';
-    appUsageEnabled = true;
-    appFieldScope = 'relationships';
-    appFieldOptions = [{ label: 'Relationships and name', value: 'relationships' }, { label: 'All fields', value: 'all' }];
-    handleAppFieldScopeChange(event) { this.appFieldScope = event.detail.value; }
+    appUsedFieldsHelp = 'Only fields with recorded usage in components reached from the selected app are shown. Name is not added automatically. Id remains the structural key. Dynamic or unresolved field references are not guessed.';
     appAutomationEnabled = true;
+    appIncludePlatform = false;
+    appPlatformHelp = 'Hide known Salesforce system, security and licensing tables by default. Standard business objects such as Account, Contact and Case remain eligible. Enable this option for the full technical dependency model.';
+    appModelObjectDetails = [];
+    get appHasObjectDetails() { return this.appModelObjectDetails.length > 0; }
+    handleAppPlatformChange(event) { this.appIncludePlatform = event.target.checked; this.clearAppModelError(); }
     appModelBusy = false;
     appModelStatus = '';
     appModelWarnings = [];
@@ -3283,7 +3285,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appGenerateHint() {
         if (this.appModelBusy) return 'Please wait for the current operation to finish.';
         if (!this.selectedSalesforceApp) return 'Select a Salesforce app first.';
-        return this.appUsageEnabled ? 'Requires a successfully completed V5 org scan when Flow, LWC and Apex usage is included.' : 'Generate from the app navigation objects.';
+        return 'Requires a successful V5 org scan to identify fields used by the selected app.';
     }
     clearAppModelError() { this.appModelError = ''; this.appModelErrorHelp = ''; this.appModelScanRequired = false; }
     showAppModelError(error) {
@@ -3291,12 +3293,22 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.appModelScanRequired = /successful V5 org scan|V5 scan required|V4 field snapshots|V5 snapshot|snapshot is no longer available|run the org scan/i.test(message);
         this.appModelError = this.appModelScanRequired ? 'Please run the org scan first.' : 'Could not generate the ER model.';
         this.appModelErrorHelp = this.appModelScanRequired
-            ? 'Open Org Scan, run a new scan and wait for it to complete successfully. Then return to File → Generate ER Model from App and try again. You can also turn off Flow, LWC and Apex usage to generate from app navigation only.'
+            ? 'Open Org Scan, run a new scan and wait for it to complete successfully. Then return to File → Generate ER Model from App and try again. Only app-used fields will be generated; a successful scan is required.'
             : /credential|HTTP 401|HTTP 403/i.test(message)
                 ? 'Ask your Salesforce administrator to check the Salesforce_Tooling_API credential and your access to its principal, then retry.'
                 : /no.*objects|no.*navigation/i.test(message)
                     ? 'Select an app with object navigation items, or include Flow, LWC and Apex usage after completing an org scan.'
                     : 'Review the error below, correct the indicated issue, then try again. Your current diagram and DSL have been preserved.';
+        if (error?.code === 'APP_FIELDS_NOT_RESOLVED') {
+            this.appModelError = 'App-used fields could not be established for this model.';
+            this.appModelErrorHelp = 'The generator will not substitute every field on the object. Check that the scan includes readable Flow, LWC or Apex field references for the selected app. Dynamic references may not be resolvable.';
+            this.appModelScanRequired = false;
+        }
+        if (error?.code === 'APP_PLATFORM_ONLY') {
+            this.appModelError = 'This app resolves only to Salesforce system objects in the selected scope.';
+            this.appModelErrorHelp = 'Enable Include Salesforce system, security and licensing objects and generate again. Your completed scan can be reused.';
+            this.appModelScanRequired = false;
+        }
         if (error?.code === 'APP_OBJECTS_NOT_RESOLVED' && error.scanAvailable) {
             this.appModelScanRequired = false;
             this.appModelError = 'The scan completed, but this app’s object dependencies could not be resolved.';
@@ -3316,7 +3328,6 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appHasWarnings() { return this.appModelWarnings.length > 0; }
     get appHasEvidence() { return this.appModelEvidence.length > 0; }
     handleAppChange(event) { this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
-    handleAppUsageChange(event) { this.appUsageEnabled = event.target.checked; this.clearAppModelError(); this.appModelStatus = this.appUsageEnabled ? 'Including Flow, LWC and Apex usage requires a successful V5 org scan.' : 'App navigation only: an org scan is not required.'; }
     handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
     async handleLoadSalesforceApps() {
         this.appModelBusy = true;
@@ -3341,17 +3352,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const originalSource = this.sourceText;
         const progress = message => { this.appModelStatus = message; };
         try {
-            const scope = JSON.parse(await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: this.appUsageEnabled }));
-            const result = this.appUsageEnabled
-                ? await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress })
-                : { objects: [...new Set(scope.components.filter(c => c.type === 'Object').map(c => c.name))], reasons: [], warnings: [] };
+            const scope = JSON.parse(await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: true }));
+            const result = await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress });
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
-            const objects = await describeInChunks(result.objects, describeObjects, progress);
-            const displayObjects = this.appFieldScope === 'all' ? objects : objects.map(object => ({ ...object, fields: object.fields.filter(field => field.isRelationship || field.apiName === 'Name') }));
+            const selection = selectAppObjects(result, { includePlatform: this.appIncludePlatform, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
+            const objects = await describeInChunks(selection.visible, describeObjects, progress);
+            const displayObjects = prepareAppSchema(objects, { visibleNames: selection.visible, fieldUsage: result.fields });
             const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
-            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
+            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Model scope: ${this.appIncludePlatform ? 'Full technical dependencies' : 'Application data objects'}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
             const source = header + '\n\n' + this.buildErSource(displayObjects);
-            if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Choose Relationships and name instead of All fields.');
+            if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
             // Validate the whole generated model before changing any editor state.
             parseEr(source);
             if (this.activeTabId !== originalTab || this.sourceText !== originalSource) throw new Error('The active diagram changed during discovery. Generate again when you are ready.');
@@ -3370,8 +3380,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.renderDiagram();
             this.appModelScannedAt = scope.scannedAt || '';
             this.appModelWarnings = result.warnings.map((message,index) => ({ key: String(index), message }));
+            this.appModelObjectDetails = selection.details.map(row => {
+                const used = (result.fields || []).filter(field => field.objectApiName.toLowerCase() === row.apiName.toLowerCase());
+                return {...row,fieldSummary: used.length ? 'App-used fields: ' + used.map(field => field.fieldApiName).sort().join(', ') : 'Primary key only; no resolved app field usage for this object.'};
+            });
             this.appModelEvidence = result.reasons.map((message,index) => ({ key: String(index), message }));
-            this.appModelStatus = `Generated ${objects.length} objects. ${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
+            this.appModelStatus = `Generated ${objects.length} objects. ${selection.hidden.length ? selection.hidden.length + ' system objects hidden by scope. ' : ''}${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
             this.appModelGeneratedSource = source;
             this.appModelSummary = this.appModelStatus;
             this.appModelModalOpen = false;

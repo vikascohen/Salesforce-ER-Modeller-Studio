@@ -6,16 +6,16 @@ V5 is a source preview on `v5-app-er-model`. It does not replace the published V
 
 1. Save any diagram you are editing.
 2. Choose **File → Generate ER Model from App…**. The dialog loads available apps automatically. Choose **All apps**, **Custom apps** or **Standard apps** in the App type filter, then select a Salesforce app. Salesforce AppDefinition namespace metadata identifies standard apps; packaged apps with other namespaces are custom. Apps whose type cannot be identified remain available under All apps only.
-3. Keep **Include Flow, LWC and Apex object usage from org scan** enabled for dependency expansion. Run a successful V5 org scan first; V4 snapshots contain field evidence and are not a substitute.
+3. Run a successful V5 org scan first. Generation always follows scoped Flow, LWC and Apex evidence; it requires field evidence as well as object discovery.
 4. Optionally include object-triggered automation. This follows triggers and record-triggered flows for reached objects, including downstream objects; these are possible execution paths, not evidence of execution.
-5. Choose **Relationships and name** (the compact default) or **All fields**, then click **Generate ER Model**.
+5. Fields are fixed to **Fields used by this app only**. Name, audit fields and relationship fields appear only when the reached app components reference them. Id remains the structural key. System, security and licensing objects are hidden by default; enable the explicit checkbox for a technical model. Standard business objects such as Account and Contact remain eligible. Click **Generate ER Model**.
 6. The complete schema is loaded and parsed before a new diagram tab is created. The dialog closes, the DSL editor opens, and the canvas renders from that same editable source. Use **Diagram → Model Details…** to inspect inclusion evidence and coverage, then save normally. DSL edits continue to update the canvas; saving stores the same DSL source.
 
 Generation does not write object definitions or Salesforce business records. It uses the existing DSL compiler, renderer, fitting controls and diagram save path. Failed discovery, missing metadata, excessive scope or edits made during discovery leave the current model intact. The existing unsaved-tab implementation cannot recover unsaved source after switching tabs, so generation requires the current model to be saved first.
 
 ## Generation errors and recovery
 
-Generation failures keep the dialog open and show a focused error banner, a help tooltip and the original error detail. Missing or incompatible scan evidence shows **Please run the org scan first** with an **Open Org Scan** shortcut to **Settings → Field Usage**. Choose **Run Scan Now**, wait for successful completion, then return to generation. Opening the shortcut does not start a scan automatically. For an app-navigation-only model, turn off the Flow, LWC and Apex usage option; that mode does not require a scan. This metadata scan is separate from error logging.
+Generation failures keep the dialog open and show a focused error banner, a help tooltip and the original error detail. Missing or incompatible scan evidence shows **Please run the org scan first** with an **Open Org Scan** shortcut to **Settings → Field Usage**. Choose **Run Scan Now**, wait for successful completion, then return to generation. Opening the shortcut does not start a scan automatically. There is no whole-schema or navigation-only fallback. Missing field evidence blocks generation with guidance rather than silently including every field. This metadata scan is separate from error logging.
 
 Credential and empty-app failures have their own guidance. When a successful scan exists but app dependencies cannot be resolved, the error explicitly identifies an app-discovery issue, retains dependency coverage warnings and does not prescribe rerunning the scan. A disabled Generate button explains that an app must be selected, or that the current operation must finish. Failed attempts preserve the active diagram and DSL.
 
@@ -63,3 +63,7 @@ sf project deploy report --use-most-recent --target-org er-v5-validation
 ```
 
 A dry run does not install V5. A package build, actual deployment and interactive end-to-end org scan/app-generation acceptance remain separate release steps. `sfdx-project.json` intentionally has no V5 2GP package ID, so a build cannot accidentally publish this source as the existing V4 package.
+
+## Strict field scope and object provenance
+
+Field evidence is read from the selected snapshot only for reached component type/name pairs, including LWC/Aura bundle resource paths. Other classes using the same object cannot contribute fields. Fields are intersected with live schema before DSL generation. A missing scanned field fails explicitly; no schema expansion is substituted. Objects without field evidence can have only their structural Id when other app objects have resolved fields. Model Details lists included and hidden objects, categories, source evidence and app-used fields. These are schema dependencies, not names of permission-set or licence records, nor proof of required assignments. Dynamic references and inaccessible source remain coverage limits.

@@ -99,4 +99,19 @@
         }
     }
 
+    @IsTest static void fieldEvidenceIsLimitedToReachedSourcesAndSnapshot(){
+        Field_Usage_Run__c currentRun=new Field_Usage_Run__c(Status__c='Completed',Object_Scan_Version__c=5),oldRun=new Field_Usage_Run__c(Status__c='Completed');
+        insert new List<Field_Usage_Run__c>{currentRun,oldRun};
+        List<Field_Usage_Evidence__c> rows=new List<Field_Usage_Evidence__c>();
+        for(String spec:new List<String>{'Apex Class|SalesService|Description','Apex Class|Unrelated|Industry','Flow|SalesService|Phone','LWC|sales_panel / sales_panel.js|Name','LWC|salesXpanel / salesXpanel.js|Website'}){
+            List<String> parts=spec.split('\\|');
+            rows.add(new Field_Usage_Evidence__c(Run__c=currentRun.Id,Source_Type__c=parts[0],Component_Name__c=parts[1],Object_API_Name__c='Account',Field_API_Name__c=parts[2]));
+        }
+        rows.add(new Field_Usage_Evidence__c(Run__c=oldRun.Id,Source_Type__c='Apex Class',Component_Name__c='SalesService',Object_API_Name__c='Account',Field_API_Name__c='Fax'));insert rows;
+        Test.setMock(HttpCalloutMock.class,new ApiMock());Test.startTest();
+        AppModelController.Expansion result=AppModelController.expandScope(currentRun.Id,new List<AppModelController.Component>{comp('ApexClass','SalesService'),comp('LightningComponentBundle','sales_panel')},null,false);
+        Test.stopTest();Set<String> fields=new Set<String>();for(AppModelController.FieldUse usage:result.fieldUsage)fields.add(usage.fieldApiName);
+        System.assertEquals(new Set<String>{'Name','Description'},fields,'Only exact app source type/name and current snapshot may contribute fields.');
+    }
+
 }

@@ -4,6 +4,7 @@ export function componentKey(component) {
 }
 export async function collectAppScope(scope, expand, { includeAutomation = true, onProgress = () => {} } = {}) {
     const seen = new Map();
+    const fieldUsage = new Map();
     const reasons = new Set();
     const warnings = new Set(scope.warnings || []);
     let frontier = scope.components || [];
@@ -27,6 +28,15 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
                 onProgress(`Discovering app dependencies (${seen.size} components, request ${requests})`);
                 const page = await expand({ runId: scope.runId, components, cursor, includeAutomation });
                 next.push(...(page.components || []));
+                for (const field of page.fieldUsage || []) {
+                    if (!field.objectApiName || !field.fieldApiName) continue;
+                    const key = `${field.objectApiName}.${field.fieldApiName}`.toLowerCase();
+                    if (!fieldUsage.has(key)) fieldUsage.set(key, {objectApiName:field.objectApiName,fieldApiName:field.fieldApiName,sources:new Set()});
+                    const source = `${field.sourceType || 'Component'} ${field.componentName || ''}${field.location ? ' — ' + field.location : ''}`.trim();
+                    fieldUsage.get(key).sources.add(source);
+                    next.push({type:'Object',name:field.objectApiName});
+                    reasons.add(`${source} → ${field.objectApiName}: uses ${field.fieldApiName}`);
+                }
                 for (const reason of page.reasons || []) reasons.add(reason);
                 for (const warning of page.warnings || []) warnings.add(warning);
                 cursor = page.nextCursor || null;
@@ -37,7 +47,6 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
         frontier = next;
     }
     const objects = [...seen.values()].filter(component => component.type === 'Object').map(component => component.name).sort();
-    if (objects.length > 150) throw new Error('This app reaches more than 150 objects. Generate a narrower model.');
     if (!objects.length) {
         const error = new Error('No resolvable Salesforce objects were found for this app. Review component coverage.');
         error.code = 'APP_OBJECTS_NOT_RESOLVED';
@@ -45,7 +54,7 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
         error.coverageWarnings = [...warnings];
         throw error;
     }
-    return { objects, reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
+    return { objects, fields: [...fieldUsage.values()].map(field => ({...field,sources:[...field.sources]})), reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
 }
 export async function describeInChunks(names, describe, onProgress = () => {}) {
     const objects = [];
@@ -57,4 +66,66 @@ export async function describeInChunks(names, describe, onProgress = () => {}) {
     const missing = names.filter(name => !found.has(name.toLowerCase()));
     if (missing.length) throw new Error(`Object metadata could not be loaded for: ${missing.join(', ')}. No partial diagram was created.`);
     return objects;
+}
+
+// Deliberately explicit and conservative. Standard business tables and custom
+// objects stay visible; an object's being standard is not a reason to hide it.
+const PLATFORM_OBJECT_GROUPS = {
+    'Security and access': ['PermissionSet','PermissionSetAssignment','PermissionSetGroup','PermissionSetGroupComponent','PermissionSetLicense','PermissionSetLicenseAssign','MutingPermissionSet','PermissionSetTabSetting','PermissionSetApplicationVisibility','ObjectPermissions','FieldPermissions','Profile','SetupEntityAccess','UserPermissionAccess'],
+    'Identity and sharing': ['User','UserRole','UserLogin','UserRecordAccess','Group','GroupMember','Name','UserPreference','UserAppInfo','UserAppMenuCustomization'],
+    'Licensing': ['UserLicense','PackageLicense','UserPackageLicense','PermissionSetLicense','PermissionSetLicenseAssign'],
+    'Platform metadata': ['EntityDefinition','FieldDefinition','EntityParticle','RelationshipDomain','RelationshipInfo','AppDefinition','AppMenuItem','RecordType','CustomPermission','Organization'],
+    'Platform operations': ['ApexLog','AsyncApexJob','CronTrigger','CronJobDetail','SetupAuditTrail','LoginHistory','LoginGeo','AuthSession','EventLogFile']
+};
+const PLATFORM_CATEGORIES = new Map();
+Object.entries(PLATFORM_OBJECT_GROUPS).forEach(([category,names]) => names.forEach(name => PLATFORM_CATEGORIES.set(name.toLowerCase(),category)));
+
+export function selectAppObjects(result, { includePlatform = false, navigationObjects = [], appLabel = 'the selected app' } = {}) {
+    const names = [...new Map((result.objects || []).map(name => [name.toLowerCase(),name])).values()].sort();
+    const reasons = new Map(names.map(name => [name.toLowerCase(),new Set()]));
+    for (const reason of result.reasons || []) {
+        const arrow = reason.indexOf(' → ');
+        if (arrow < 0) continue;
+        const target = reason.substring(arrow + 3).match(/^([A-Za-z_][A-Za-z0-9_]*)(?=[:\s(]|$)/)?.[1];
+        if (target && reasons.has(target.toLowerCase())) reasons.get(target.toLowerCase()).add(reason);
+    }
+    for (const name of navigationObjects) if (reasons.has(name.toLowerCase())) reasons.get(name.toLowerCase()).add(`Object navigation item in ${appLabel}.`);
+    const details = names.map(apiName => {
+        const category = PLATFORM_CATEGORIES.get(apiName.toLowerCase()) || 'Application data';
+        const platform = PLATFORM_CATEGORIES.has(apiName.toLowerCase());
+        const included = includePlatform || !platform;
+        const evidence = [...reasons.get(apiName.toLowerCase())];
+        if (!evidence.length) evidence.push('Reached through the app dependency graph; detailed source evidence was not returned.');
+        return { apiName, category, included, status: included ? 'Included' : 'Hidden by scope', scopeClass: included ? 'app-object-included' : 'app-object-hidden', evidence: evidence.map((message,index) => ({key:`${apiName}-${index}`,message})) };
+    });
+    const visible = details.filter(row => row.included).map(row => row.apiName);
+    const hidden = details.filter(row => !row.included);
+    if (!visible.length) {
+        const error = new Error('No application data objects remain after hiding Salesforce system objects. Turn on Include Salesforce system, security and licensing objects to view this app’s technical dependencies.');
+        error.code = 'APP_PLATFORM_ONLY';
+        throw error;
+    }
+    if (visible.length > 150) throw new Error('The selected model scope contains more than 150 objects. Generate a narrower model.');
+    return { visible, hidden, details };
+}
+
+export function prepareAppSchema(objects, { visibleNames, fieldUsage = [] } = {}) {
+    const names = new Set(visibleNames.map(name => name.toLowerCase()));
+    const used = new Map();
+    for (const field of fieldUsage) {
+        const object = field.objectApiName.toLowerCase();
+        if (!used.has(object)) used.set(object,new Set());
+        used.get(object).add(field.fieldApiName.toLowerCase());
+    }
+    if (![...used.keys()].some(object => names.has(object))) {
+        const error = new Error('No field-level usage could be established for this app in the selected object scope. No model was created. The app needs resolvable field evidence in the org scan; fields will not be guessed or expanded to the full object schema.');
+        error.code = 'APP_FIELDS_NOT_RESOLVED';throw error;
+    }
+    return objects.filter(object => names.has(object.apiName.toLowerCase())).map(object => {
+        const fields = used.get(object.apiName.toLowerCase()) || new Set();
+        const described = new Set((object.fields || []).map(field => field.apiName.toLowerCase()));
+        const missing = [...fields].filter(field => field !== 'id' && !described.has(field));
+        if (missing.length) throw new Error(`Scanned app fields no longer match the org schema: ${object.apiName}.${missing.join(', ')}. Refresh the org scan before generating.`);
+        return {...object,fields:(object.fields || []).filter(field => fields.has(field.apiName.toLowerCase()))};
+    });
 }

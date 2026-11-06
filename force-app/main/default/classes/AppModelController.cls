@@ -14,7 +14,15 @@ public with sharing class AppModelController {
         @AuraEnabled public List<Component> components=new List<Component>();
         @AuraEnabled public List<String> warnings=new List<String>();
     }
+    public class FieldUse {
+        @AuraEnabled public String objectApiName;
+        @AuraEnabled public String fieldApiName;
+        @AuraEnabled public String sourceType;
+        @AuraEnabled public String componentName;
+        @AuraEnabled public String location;
+    }
     public class Expansion {
+        @AuraEnabled public List<FieldUse> fieldUsage=new List<FieldUse>();
         @AuraEnabled public List<Component> components=new List<Component>();
         @AuraEnabled public List<String> reasons=new List<String>();
         @AuraEnabled public String nextCursor;
@@ -126,6 +134,7 @@ public with sharing class AppModelController {
         // Persisted scanner evidence is scoped to reached components, never every
         // component in the org that happens to mention the same object.
         if(cursor==null&&runId!=null){
+            result.fieldUsage=scopedFields(runId,names,sourceKeys);
             List<Object_Usage_Evidence__c> evidence=[SELECT Source_Type__c,Component_Name__c,Component_Id__c,Target_Type__c,Target_Name__c,Entry_Object__c,Evidence__c FROM Object_Usage_Evidence__c WHERE Run__c=:runId AND (Component_Name__c IN :names OR Entry_Object__c IN :objectNames) LIMIT 2001];
             if(evidence.size()>2000)throw new AuraHandledException('This expansion exceeds 2,000 evidence rows. Generate a smaller model; no partial diagram was created.');
             for(Object_Usage_Evidence__c row:evidence){
@@ -173,6 +182,28 @@ public with sharing class AppModelController {
             if(payload.get('done')==false&&String.isBlank(result.nextCursor))throw new AuraHandledException('Salesforce returned an incomplete dependency page without a continuation cursor.');
         }catch(Exception ex){result.warnings.add('Salesforce component dependency coverage is unavailable for this expansion: '+ex.getMessage().left(400)+'. App-only component links may be missing.');}
         return result;
+    }
+    private static List<FieldUse> scopedFields(Id runId,Set<String> names,Set<String> sourceKeys){
+        List<FieldUse> fields=new List<FieldUse>();if(names.isEmpty())return fields;
+        List<String> predicates=new List<String>{'Component_Name__c IN :names'};
+        Map<String,Object> binds=new Map<String,Object>{'runId'=>runId,'names'=>names};
+        Integer index=0;
+        for(String name:names){
+            // LWC/Aura field evidence is stored per resource as bundle / path.
+            String prefix=name.replace('_','\\_')+' / %';
+            String parameter='prefix'+index++;binds.put(parameter,prefix);predicates.add('Component_Name__c LIKE :'+parameter);
+        }
+        String soql='SELECT Object_API_Name__c,Field_API_Name__c,Source_Type__c,Component_Name__c,Location__c FROM Field_Usage_Evidence__c WHERE Run__c=:runId AND ('+String.join(predicates,' OR ')+') LIMIT 2001';
+        List<Field_Usage_Evidence__c> evidence=Database.queryWithBinds(soql,binds,AccessLevel.SYSTEM_MODE);
+        if(evidence.size()>2000)throw new AuraHandledException('The app field-evidence request exceeds 2,000 rows. No partial model was created.');
+        for(Field_Usage_Evidence__c row:evidence){
+            String source=ObjectUsageScanner.sourceType(row.Source_Type__c);
+            String name=row.Component_Name__c;
+            if(source=='LightningComponentBundle'||source=='AuraDefinitionBundle')name=name.substringBefore(' / ');
+            if(!sourceKeys.contains(key(source,name)))continue;
+            FieldUse usage=new FieldUse();usage.objectApiName=row.Object_API_Name__c;usage.fieldApiName=row.Field_API_Name__c;usage.sourceType=source;usage.componentName=name;usage.location=row.Location__c;fields.add(usage);
+        }
+        return fields;
     }
     private static void resolveComponentIds(List<Component> components,List<String> warnings){
         Map<String,String> prefixes=new Map<String,String>{'CustomApplication'=>'02u','CustomTab'=>'01r','LightningComponentBundle'=>'0Rb','AuraDefinitionBundle'=>'0Ab','ApexClass'=>'01p','ApexTrigger'=>'01q','Flow'=>'301','FlexiPage'=>'0M0'};

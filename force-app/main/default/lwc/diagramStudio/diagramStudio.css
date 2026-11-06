@@ -1958,3 +1958,15 @@
 
 .app-model-type-filter{display:block;width:100%;margin-bottom:6px}
 .app-model-type-summary{font-size:12px;line-height:1.5;color:#475467;margin:0 0 16px}
+
+.app-object-details-scroll{overflow:auto;margin:12px 0}
+.app-object-details-table{width:100%;border-collapse:collapse;font-size:12px;line-height:1.5}
+.app-object-details-table th,.app-object-details-table td{text-align:left;vertical-align:top;padding:9px 7px;border-bottom:1px solid #eaecf0}
+.app-object-details-table th{background:#f9fafb;color:#344054}
+.app-object-details-table td:first-child{overflow-wrap:anywhere;min-width:130px}
+.app-object-details-table details{min-width:130px}
+.app-object-details-table summary{cursor:pointer;color:#175cd3}
+.app-object-details-table p{margin:6px 0;overflow-wrap:anywhere}
+.app-object-included{color:#067647}.app-object-hidden{color:#667085}
+
+.app-used-fields{margin:14px 0;font-size:13px}.app-used-fields lightning-helptext{margin-left:8px}.app-used-fields p{font-size:12px;color:#475467;margin:5px 0}
