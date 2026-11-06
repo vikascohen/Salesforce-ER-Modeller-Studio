@@ -2334,4 +2334,53 @@ describe('V5 app generation', () => {
         expect(saveFile.mock.calls.at(-1)[0].sourceCode).toBe(editor.value);
     });
 
+    it('shows a missing-scan error, tooltip and a shortcut without starting a scan', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        getScope.mockRejectedValue({body:{message:'Run a successful V5 org scan first to include Flow, LWC and Apex object usage. Existing V4 field snapshots do not contain object-level evidence.'}});
+        getFieldUsageStatus.mockResolvedValue({run:null,schedules:[]});
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error[role="alert"]');
+        expect(error.textContent).toContain('Please run the org scan first.');
+        expect(error.title).toContain('wait for it to complete successfully');
+        expect(error.querySelector('lightning-helptext').content).toContain('Open Org Scan');
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        error.querySelector('.app-model-open-scan').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.settings-page')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('c-field-usage-settings')).not.toBeNull();
+        expect(runFieldUsageNow).not.toHaveBeenCalled();
+    });
+    it('shows an actionable generic generation error without prescribing the wrong fix', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        getScope.mockRejectedValue(new Error('No resolvable Salesforce objects were found for this app.'));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error');
+        expect(error.textContent).toContain('Could not generate the ER model.');
+        expect(error.textContent).toContain('Select an app with object navigation');
+        expect(error.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('No resolvable Salesforce objects');
+    });
+    it('clears scan guidance when switching to app-navigation-only generation', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        getScope.mockRejectedValueOnce(new Error('V5 scan required'));
+        const el=await createAppStudio();
+        expect(el.shadowRoot.querySelector('.app-model-generate').title).toContain('Select a Salesforce app first');
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const usage=el.shadowRoot.querySelector('.app-model-options lightning-input');
+        expect(usage.fieldLevelHelp).toContain('Wait for it to complete successfully');
+        usage.checked=false;usage.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-error')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('an org scan is not required');
+        getScope.mockResolvedValueOnce({appLabel:'Sales',components:[{type:'Object',name:'Account'}]});describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
+    });
+
 });

@@ -13,6 +13,12 @@ V5 is a source preview on `v5-app-er-model`. It does not replace the published V
 
 Generation does not write object definitions or Salesforce business records. It uses the existing DSL compiler, renderer, fitting controls and diagram save path. Failed discovery, missing metadata, excessive scope or edits made during discovery leave the current model intact. The existing unsaved-tab implementation cannot recover unsaved source after switching tabs, so generation requires the current model to be saved first.
 
+## Generation errors and recovery
+
+Generation failures keep the dialog open and show a focused error banner, a help tooltip and the original error detail. Missing or incompatible scan evidence shows **Please run the org scan first** with an **Open Org Scan** shortcut to **Settings → Field Usage**. Choose **Run Scan Now**, wait for successful completion, then return to generation. Opening the shortcut does not start a scan automatically. For an app-navigation-only model, turn off the Flow, LWC and Apex usage option; that mode does not require a scan. This metadata scan is separate from error logging.
+
+Credential and empty-app failures have their own guidance. A disabled Generate button explains that an app must be selected, or that the current operation must finish. Failed attempts preserve the active diagram and DSL.
+
 ## What the org scan adds
 
 The existing discovery and resumable work units are reused. A V5 run is marked with `Field_Usage_Run__c.Object_Scan_Version__c = 5`. The worker captures new evidence into `Object_Usage_Evidence__c` in the same savepoint as field evidence. A source chunk replaces its own prior object evidence on retry. Field evidence counts and the published field-usage MCP response contract remain unchanged.

@@ -3217,6 +3217,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.openMenu = null;
         this.appModelModalOpen = true;
         this.appModelDetailsOpen = false;
+        this.clearAppModelError();
         this.appModelStatus = 'Select an app to create a new ER model and its DSL.';
         requestAnimationFrame(() => this.template.querySelector('.app-model-dialog')?.focus());
         if (!this.appOptions.length) await this.handleLoadSalesforceApps();
@@ -3261,24 +3262,57 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appModelWarnings = [];
     appModelEvidence = [];
     appModelScannedAt = '';
+    appModelError = '';
+    appModelErrorHelp = '';
+    appModelScanRequired = false;
+    appScanHelp = 'Run an org scan to collect object references from Flow, LWC and Apex. Wait for it to complete successfully, then return here and generate the model. Logs alone do not provide this evidence.';
+    get appGenerateHint() {
+        if (this.appModelBusy) return 'Please wait for the current operation to finish.';
+        if (!this.selectedSalesforceApp) return 'Select a Salesforce app first.';
+        return this.appUsageEnabled ? 'Requires a successfully completed V5 org scan when Flow, LWC and Apex usage is included.' : 'Generate from the app navigation objects.';
+    }
+    clearAppModelError() { this.appModelError = ''; this.appModelErrorHelp = ''; this.appModelScanRequired = false; }
+    showAppModelError(error) {
+        const message = error ? this.reduceError(error) : 'Salesforce did not return an error description.';
+        this.appModelScanRequired = /successful V5 org scan|V5 scan required|V4 field snapshots|V5 snapshot|snapshot is no longer available|run the org scan/i.test(message);
+        this.appModelError = this.appModelScanRequired ? 'Please run the org scan first.' : 'Could not generate the ER model.';
+        this.appModelErrorHelp = this.appModelScanRequired
+            ? 'Open Org Scan, run a new scan and wait for it to complete successfully. Then return to File → Generate ER Model from App and try again. You can also turn off Flow, LWC and Apex usage to generate from app navigation only.'
+            : /credential|HTTP 401|HTTP 403/i.test(message)
+                ? 'Ask your Salesforce administrator to check the Salesforce_Tooling_API credential and your access to its principal, then retry.'
+                : /no.*objects|no.*navigation/i.test(message)
+                    ? 'Select an app with object navigation items, or include Flow, LWC and Apex usage after completing an org scan.'
+                    : 'Review the error below, correct the indicated issue, then try again. Your current diagram and DSL have been preserved.';
+        this.appModelStatus = message;
+        requestAnimationFrame(() => this.template.querySelector('.app-model-error')?.focus());
+    }
+    handleAppModelOpenScan() {
+        if (this.appModelBusy) return;
+        this.appModelModalOpen = false;
+        this.handleMenuSettings();
+    }
+
     get appGenerateDisabled() { return this.appModelBusy || !this.selectedSalesforceApp; }
     get appHasWarnings() { return this.appModelWarnings.length > 0; }
     get appHasEvidence() { return this.appModelEvidence.length > 0; }
-    handleAppChange(event) { this.selectedSalesforceApp = event.detail.value; }
-    handleAppUsageChange(event) { this.appUsageEnabled = event.target.checked; }
+    handleAppChange(event) { this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
+    handleAppUsageChange(event) { this.appUsageEnabled = event.target.checked; this.clearAppModelError(); this.appModelStatus = this.appUsageEnabled ? 'Including Flow, LWC and Apex usage requires a successful V5 org scan.' : 'App navigation only: an org scan is not required.'; }
     handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
     async handleLoadSalesforceApps() {
         this.appModelBusy = true;
+        this.clearAppModelError();
         this.appModelStatus = 'Loading Salesforce apps…';
         try {
             this.appOptions = (await listSalesforceApps() || []).sort((a,b) => a.label.localeCompare(b.label));
             this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : 'No Salesforce apps were returned for the configured API user.';
-        } catch (error) { this.appModelStatus = this.reduceError(error); }
+        } catch (error) { this.showAppModelError(error); this.appModelError = 'Could not load Salesforce apps.'; }
         finally { this.appModelBusy = false; }
     }
     async handleGenerateAppModel() {
-        if (this.appGenerateDisabled) return;
-        if (this.isDirty) { this.appModelStatus = 'Save the current diagram before generating an app model. Your diagram has been preserved.'; return; }
+        if (this.appModelBusy) return;
+        this.clearAppModelError();
+        if (!this.selectedSalesforceApp) { this.showAppModelError(new Error('Select a Salesforce app before generating an ER model.')); return; }
+        if (this.isDirty) { this.showAppModelError(new Error('Save the current diagram before generating an app model. Your diagram has been preserved.')); return; }
         this.appModelBusy = true;
         this.appModelWarnings = [];
         this.appModelEvidence = [];
@@ -3321,7 +3355,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.appModelSummary = this.appModelStatus;
             this.appModelModalOpen = false;
             requestAnimationFrame(() => { this.handleFitModel(); this.template.querySelector('.code-editor')?.focus(); });
-        } catch (error) { this.appModelStatus = this.reduceError(error); }
+        } catch (error) { this.showAppModelError(error); }
         finally { this.appModelBusy = false; }
     }
 

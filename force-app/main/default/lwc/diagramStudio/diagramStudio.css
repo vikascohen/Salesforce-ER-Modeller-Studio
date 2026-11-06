@@ -1948,3 +1948,10 @@
 .app-model-details{font-size:12px;margin-top:14px}
 .app-model-details summary{cursor:pointer;font-weight:600}
 .app-model-details p{margin:6px 0;overflow-wrap:anywhere}
+
+.app-model-error{border:1px solid #fda29b;border-left:4px solid #d92d20;background:#fef3f2;color:#912018;border-radius:6px;padding:12px;margin-top:16px;font-size:13px;line-height:1.5}
+.app-model-error:focus{outline:2px solid #d92d20;outline-offset:2px}
+.app-model-error-heading{display:flex;align-items:center;gap:8px}
+.app-model-error p{margin:6px 0 0}
+.app-model-open-scan{margin-top:10px;border:1px solid #d92d20;border-radius:5px;background:#fff;color:#912018;padding:7px 12px;font-weight:600;cursor:pointer}
+.app-model-generate-hint{display:inline-flex}

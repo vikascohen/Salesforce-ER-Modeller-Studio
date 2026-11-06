@@ -278,14 +278,21 @@
                     <button class="app-model-reload" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Refresh app list</button>
                     <lightning-combobox class="app-model-select" label="Fields" options={appFieldOptions} value={appFieldScope} onchange={handleAppFieldScopeChange} disabled={appModelBusy}></lightning-combobox>
                     <div class="app-model-options">
-                        <lightning-input type="checkbox" label="Include Flow, LWC and Apex object usage from org scan" checked={appUsageEnabled} onchange={handleAppUsageChange} disabled={appModelBusy}></lightning-input>
+                        <lightning-input type="checkbox" label="Include Flow, LWC and Apex object usage from org scan" field-level-help={appScanHelp} checked={appUsageEnabled} onchange={handleAppUsageChange} disabled={appModelBusy}></lightning-input>
                         <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
                     </div>
+                    <template if:true={appModelError}>
+                        <div class="app-model-error" role="alert" tabindex="-1" title={appModelErrorHelp}>
+                            <div class="app-model-error-heading"><strong>{appModelError}</strong><lightning-helptext content={appModelErrorHelp}></lightning-helptext></div>
+                            <p>{appModelErrorHelp}</p>
+                            <template if:true={appModelScanRequired}><button class="app-model-open-scan" onclick={handleAppModelOpenScan}>Open Org Scan</button></template>
+                        </div>
+                    </template>
                     <p class="app-model-status" role="status" aria-live="polite">{appModelStatus}</p>
                 </div>
                 <div class="modal-footer app-model-controls">
                     <button class="app-model-cancel" onclick={handleCloseAppModel} disabled={appModelBusy}>Cancel</button>
-                    <button class="app-model-generate" onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button>
+                    <span class="app-model-generate-hint" title={appGenerateHint}><button class="app-model-generate" title={appGenerateHint} onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button></span>
                 </div>
             </section>
         </div>
