@@ -2414,4 +2414,17 @@ describe('V5 app generation', () => {
         expect(listApps).toHaveBeenCalledTimes(1);
     });
 
+    it('does not tell the user to rerun a completed scan when component discovery fails', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        const expand=require('@salesforce/apex/AppModelController.expandScope').default;
+        getScope.mockResolvedValue({appLabel:'Component App',runId:'completed-scan',components:[{type:'CustomTab',name:'ComponentTab'}]});
+        expand.mockResolvedValueOnce({components:[],warnings:['Salesforce component dependency coverage is unavailable: HTTP 400']});
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('The scan completed');
+        expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('not a missing scan');
+        expect(el.shadowRoot.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('HTTP 400');
+    });
+
 });

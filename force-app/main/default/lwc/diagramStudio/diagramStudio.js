@@ -3297,7 +3297,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 : /no.*objects|no.*navigation/i.test(message)
                     ? 'Select an app with object navigation items, or include Flow, LWC and Apex usage after completing an org scan.'
                     : 'Review the error below, correct the indicated issue, then try again. Your current diagram and DSL have been preserved.';
-        this.appModelStatus = message;
+        if (error?.code === 'APP_OBJECTS_NOT_RESOLVED' && error.scanAvailable) {
+            this.appModelScanRequired = false;
+            this.appModelError = 'The scan completed, but this app’s object dependencies could not be resolved.';
+            this.appModelErrorHelp = 'This is an app-to-component discovery issue, not a missing scan. Check the app’s custom tabs and component dependencies. Your diagram and DSL have been preserved.';
+            const details = (error.coverageWarnings || []).filter(note => /unavailable|could not|could be resolved|limit/i.test(note));
+            this.appModelStatus = [message, ...details].join('\n');
+        } else this.appModelStatus = message;
         requestAnimationFrame(() => this.template.querySelector('.app-model-error')?.focus());
     }
     handleAppModelOpenScan() {

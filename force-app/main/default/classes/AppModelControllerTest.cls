@@ -2,6 +2,9 @@
     private class ApiMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest request){
             HttpResponse response=new HttpResponse();response.setStatusCode(200);
+            String decoded=EncodingUtil.urlDecode(request.getEndpoint(),'UTF-8');
+            if(decoded.contains('FROM LightningComponentBundle')){response.setBody('{"done":true,"records":[{"Id":"0Rb000000000001","DeveloperName":"salesPanel"}]}');return response;}
+            if(decoded.contains('FROM ApexClass')){response.setBody('{"done":true,"records":[{"Id":"01p000000000001","Name":"SalesService"}]}');return response;}
             if(request.getEndpoint().contains('/tooling/query/'))response.setBody('{"done":true,"records":[{"MetadataComponentName":"salesPanel","MetadataComponentType":"LightningComponentBundle","RefMetadataComponentName":"SalesService","RefMetadataComponentType":"ApexClass"},{"MetadataComponentName":"salesPanel","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Lead","RefMetadataComponentType":"StandardEntity"}]}');
             else if(request.getEndpoint().contains('/apps/'))response.setBody('{"label":"Sales","developerName":"Sales","navItems":[{"objectApiName":"Account","apiName":"standard-Account"},{"apiName":"Home"}]}');
             else response.setBody('{"apps":[{"appId":"06m000000000001","label":"Sales"}]}');return response;
@@ -54,5 +57,31 @@
         public HttpResponse respond(HttpRequest request){HttpResponse response=new HttpResponse();if(request.getEndpoint().contains('/query/')){response.setStatusCode(403);response.setBody('Forbidden');}else{response.setStatusCode(200);response.setBody('{"apps":[{"appId":"06m000000000001","label":"Still Available"}]}');}return response;}
     }
     @IsTest static void failedClassificationDoesNotHideTheAppList(){Test.setMock(HttpCalloutMock.class,new AppTypeFailureMock());List<AppModelController.AppOption> options=AppModelController.listApps();System.assertEquals(1,options.size());System.assertEquals('unknown',options[0].appType);}
+
+    private class ComponentTabMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){
+            HttpResponse r=new HttpResponse();r.setStatusCode(200);String decoded=EncodingUtil.urlDecode(request.getEndpoint(),'UTF-8');
+            if(decoded.contains('/apps/'))r.setBody('{"label":"Warden Studio","developerName":"Warden_Studio","startUrl":"https://example.test/home?tsid=02u000000000001","navItems":[{"custom":true,"developerName":"Warden_Studio","objectApiName":"0Rb000000000001","itemType":"TabAura"}]}');
+            else if(decoded.contains('FROM LightningComponentBundle'))r.setBody('{"done":true,"records":[{"Id":"0Rb000000000001","DeveloperName":"wardenApp"}]}');
+            else if(decoded.contains('FROM CustomTab'))r.setBody('{"done":true,"records":[{"Id":"01r000000000001","DeveloperName":"Warden_Studio"}]}');
+            else if(decoded.contains('FROM MetadataComponentDependency')){
+                System.assert(!decoded.substringAfter(' WHERE ').contains('MetadataComponentName'),'Dependency requests must filter on component IDs.');
+                System.assert(decoded.contains('MetadataComponentId IN'));
+                r.setBody('{"done":true,"records":[{"MetadataComponentId":"0Rb000000000001","MetadataComponentName":"wardenApp","MetadataComponentType":"LightningComponentBundle","RefMetadataComponentId":"01p000000000001","RefMetadataComponentName":"WardenController","RefMetadataComponentType":"ApexClass"}]}');
+            }else r.setBody('{"done":true,"records":[]}');return r;
+        }
+    }
+    @IsTest static void customComponentTabReachesObjectsFromTheExistingScan(){
+        Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Object_Scan_Version__c=5);insert run;
+        insert new Object_Usage_Evidence__c(Run__c=run.Id,Source_Type__c='ApexClass',Component_Name__c='WardenController',Target_Type__c='Object',Target_Name__c='Contact',Evidence__c='Static Apex object reference');
+        Test.setMock(HttpCalloutMock.class,new ComponentTabMock());Test.startTest();
+        AppModelController.Scope scope=AppModelController.getAppScope('06m000000000001',true);
+        Boolean found=false;for(AppModelController.Component c:scope.components)if(c.type=='LightningComponentBundle'&&c.name=='wardenApp'&&c.id=='0Rb000000000001')found=true;
+        System.assert(found,'Tab component IDs must resolve to their bundle names before reading scanner evidence.');
+        AppModelController.Expansion first=AppModelController.expandScope(run.Id,scope.components,null,false);
+        AppModelController.Expansion second=AppModelController.expandScope(run.Id,first.components,null,false);
+        Boolean contact=false;for(AppModelController.Component c:second.components)if(c.type=='Object'&&c.name=='Contact')contact=true;
+        System.assert(contact,'App → LWC → Apex → scanned sObject must resolve using the existing V5 scan.');Test.stopTest();
+    }
 
 }

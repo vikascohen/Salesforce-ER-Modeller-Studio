@@ -17,7 +17,7 @@ Generation does not write object definitions or Salesforce business records. It 
 
 Generation failures keep the dialog open and show a focused error banner, a help tooltip and the original error detail. Missing or incompatible scan evidence shows **Please run the org scan first** with an **Open Org Scan** shortcut to **Settings → Field Usage**. Choose **Run Scan Now**, wait for successful completion, then return to generation. Opening the shortcut does not start a scan automatically. For an app-navigation-only model, turn off the Flow, LWC and Apex usage option; that mode does not require a scan. This metadata scan is separate from error logging.
 
-Credential and empty-app failures have their own guidance. A disabled Generate button explains that an app must be selected, or that the current operation must finish. Failed attempts preserve the active diagram and DSL.
+Credential and empty-app failures have their own guidance. When a successful scan exists but app dependencies cannot be resolved, the error explicitly identifies an app-discovery issue, retains dependency coverage warnings and does not prescribe rerunning the scan. A disabled Generate button explains that an app must be selected, or that the current operation must finish. Failed attempts preserve the active diagram and DSL.
 
 ## What the org scan adds
 
@@ -30,7 +30,7 @@ The existing discovery and resumable work units are reused. A V5 run is marked w
 | LWC | Object-only and field schema imports, literal object API names, existing validated field references | Apex imports and nested `c-*` components |
 | App navigation and pages | Object navigation items | Custom tabs, app dependencies, FlexiPages, utility pages and component chains exposed by Salesforce |
 
-App discovery uses UI API app details and Salesforce's Tooling dependency graph. Source IDs are used where available; developer names and labels are included because the dependency API can expose an app's display name instead of its developer name. Non-object navigation items do not become fake ER entities. Only reached components contribute their scanned object references; arbitrary org-wide classes mentioning the same object are not treated as app members.
+App discovery uses UI API app details and Salesforce's Tooling dependency graph. Custom component tabs can expose a bundle ID in objectApiName rather than an sObject name. V5 resolves that ID to the real LWC/Aura bundle name and follows its scanned references. Dependency queries filter by component ID; missing IDs are resolved through type-specific Tooling lookups, since Salesforce can reject name predicates on MetadataComponentDependency even when describe marks them filterable. Non-object navigation items do not become fake ER entities. Only reached components contribute their scanned object references; arbitrary org-wide classes mentioning the same object are not treated as app members.
 
 The existing Named Credential, `Salesforce_Tooling_API`, must support the UI API and Tooling API under its configured principal. The dropdown reflects apps available to that API principal. Users need `Diagram_Studio_User`, including the new controller and read-only object-evidence access. Source code and credentials are not sent to an external service.
 

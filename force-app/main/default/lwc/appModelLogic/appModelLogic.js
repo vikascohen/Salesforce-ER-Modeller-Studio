@@ -38,7 +38,13 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
     }
     const objects = [...seen.values()].filter(component => component.type === 'Object').map(component => component.name).sort();
     if (objects.length > 150) throw new Error('This app reaches more than 150 objects. Generate a narrower model.');
-    if (!objects.length) throw new Error('No resolvable Salesforce objects were found for this app. Review component coverage.');
+    if (!objects.length) {
+        const error = new Error('No resolvable Salesforce objects were found for this app. Review component coverage.');
+        error.code = 'APP_OBJECTS_NOT_RESOLVED';
+        error.scanAvailable = !!scope.runId;
+        error.coverageWarnings = [...warnings];
+        throw error;
+    }
     return { objects, reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
 }
 export async function describeInChunks(names, describe, onProgress = () => {}) {

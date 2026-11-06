@@ -38,3 +38,14 @@ it('rejects empty and oversized scope',async()=>{
     await expect(collectAppScope({components:[]},async()=>({}))).rejects.toThrow('No resolvable');
     await expect(collectAppScope({components:Array.from({length:151},(_,i)=>comp('Object',`Object${i}`))},async()=>({}))).rejects.toThrow('150 objects');
 });
+
+it('preserves dependency warnings when a completed scan resolves no app objects', async () => {
+    try {
+        await collectAppScope({runId:'completed-scan',components:[{type:'CustomTab',name:'ComponentOnlyTab'}]},async()=>({warnings:['Salesforce component dependency coverage is unavailable: HTTP 400']}));
+        throw new Error('Expected unresolved scope');
+    } catch(error) {
+        expect(error.code).toBe('APP_OBJECTS_NOT_RESOLVED');
+        expect(error.scanAvailable).toBe(true);
+        expect(error.coverageWarnings).toContain('Salesforce component dependency coverage is unavailable: HTTP 400');
+    }
+});

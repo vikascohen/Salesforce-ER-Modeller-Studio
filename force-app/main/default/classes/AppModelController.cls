@@ -69,6 +69,11 @@ public with sharing class AppModelController {
             String objectName=ObjectUsageScanner.canonical(str(tab.get('objectApiName')));
             if(objectName!=null)scope.components.add(component('Object',objectName,null));
             else {
+                String tabTarget=str(tab.get('objectApiName'));
+                if(tabTarget!=null&&Pattern.matches('^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$',tabTarget)){
+                    if(tabTarget.startsWith('0Rb'))scope.components.add(component('LightningComponentBundle',null,tabTarget));
+                    else if(tabTarget.startsWith('0Ab'))scope.components.add(component('AuraDefinitionBundle',null,tabTarget));
+                }
                 String tabName=str(tab.get('apiName'));if(String.isBlank(tabName))tabName=str(tab.get('developerName'));
                 if(!String.isBlank(tabName)&&tab.get('custom')==true)scope.components.add(component('CustomTab',tabName,str(tab.get('id'))));
                 // Old API responses and test fixtures can expose apiName directly.
@@ -84,6 +89,7 @@ public with sharing class AppModelController {
                 }
             }
         }
+        resolveComponentIds(scope.components,scope.warnings);
         if(includeUsage==true){
             List<Field_Usage_Run__c> runs=[SELECT Id,Completed_At__c,Object_Scan_Version__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
             if(runs.isEmpty()||runs[0].Object_Scan_Version__c!=5)throw new AuraHandledException('Run a successful V5 org scan first to include Flow, LWC and Apex object usage. Existing V4 field snapshots do not contain object-level evidence.');
@@ -96,7 +102,9 @@ public with sharing class AppModelController {
     @AuraEnabled public static Expansion expandScope(Id runId,List<Component> components,String cursor,Boolean includeAutomation) {
         if(components==null||components.isEmpty()||components.size()>40)throw new AuraHandledException('Expand between 1 and 40 components per request.');
         if(runId!=null){List<Field_Usage_Run__c> runs=[SELECT Id FROM Field_Usage_Run__c WHERE Id=:runId AND Status__c='Completed' AND Object_Scan_Version__c=5 LIMIT 1];if(runs.isEmpty())throw new AuraHandledException('The selected V5 snapshot is no longer available. Run the org scan again.');}
-        Expansion result=new Expansion();Set<String> names=new Set<String>(),objectNames=new Set<String>(),sourceKeys=new Set<String>(),sourceIds=new Set<String>();
+        Expansion result=new Expansion();
+        resolveComponentIds(components,result.warnings);
+        Set<String> names=new Set<String>(),objectNames=new Set<String>(),sourceKeys=new Set<String>(),sourceIds=new Set<String>();
         for(Component c:components){
             if(c==null||String.isBlank(c.name)||c.name.length()>255||Pattern.compile('[\\r\\n]').matcher(c.name).find())continue;
             if(c.type=='Object'){objectNames.add(c.name);continue;}
@@ -123,17 +131,21 @@ public with sharing class AppModelController {
                 if(!Pattern.matches('^/services/data/v60\\.0/tooling/query/[A-Za-z0-9-]+$',cursor))throw new AuraHandledException('Invalid dependency page cursor.');
                 path=cursor.substring('/services/data/v60.0'.length());
             }else{
-                List<String> quoted=new List<String>();for(String name:names)quoted.add('\''+String.escapeSingleQuotes(name)+'\'');
-                String whereClause='MetadataComponentName IN ('+String.join(quoted,',')+')';
-                if(!sourceIds.isEmpty()){List<String> quotedIds=new List<String>();for(String id:sourceIds)quotedIds.add('\''+id+'\'');whereClause+=' OR MetadataComponentId IN ('+String.join(quotedIds,',')+')';}
-                String soql='SELECT MetadataComponentId,MetadataComponentName,MetadataComponentType,RefMetadataComponentId,RefMetadataComponentName,RefMetadataComponentType FROM MetadataComponentDependency WHERE '+whereClause;
+                if(sourceIds.isEmpty()){
+                    result.warnings.add('No Salesforce component IDs could be resolved for this expansion. Scanned references were retained.');
+                    return result;
+                }
+                List<String> quotedIds=new List<String>();for(String id:sourceIds)quotedIds.add('\''+id+'\'');
+                // The dependency service rejects name predicates in some orgs,
+                // despite describe reporting those fields as filterable.
+                String soql='SELECT MetadataComponentId,MetadataComponentName,MetadataComponentType,RefMetadataComponentId,RefMetadataComponentName,RefMetadataComponentType FROM MetadataComponentDependency WHERE MetadataComponentId IN ('+String.join(quotedIds,',')+')';
                 path='/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8');
             }
             Map<String,Object> payload=get(path);
             for(Object raw:items(payload.get('records'))){
                 Map<String,Object> edge=(Map<String,Object>)raw;
                 String sourceId=str(edge.get('MetadataComponentId'));
-                Boolean matchedId=sourceId!=null&&sourceIds.contains(sourceId.substring(0,15));
+                Boolean matchedId=sourceId!=null&&sourceId.length()>=15&&sourceIds.contains(sourceId.substring(0,15));
                 if(!matchedId&&!sourceKeys.contains(key(str(edge.get('MetadataComponentType')),str(edge.get('MetadataComponentName')))))continue;
                 String type=str(edge.get('RefMetadataComponentType')),name=str(edge.get('RefMetadataComponentName'));
                 if(type=='CustomObject'||type=='StandardEntity'||type=='EntityDefinition')type='Object';
@@ -149,14 +161,54 @@ public with sharing class AppModelController {
         }catch(Exception ex){result.warnings.add('Salesforce component dependency coverage is unavailable for this expansion: '+ex.getMessage().left(400)+'. App-only component links may be missing.');}
         return result;
     }
+    private static void resolveComponentIds(List<Component> components,List<String> warnings){
+        Map<String,String> prefixes=new Map<String,String>{'CustomApplication'=>'02u','CustomTab'=>'01r','LightningComponentBundle'=>'0Rb','AuraDefinitionBundle'=>'0Ab','ApexClass'=>'01p','ApexTrigger'=>'01q','Flow'=>'301','FlexiPage'=>'0M0'};
+        Map<String,List<Component>> groups=new Map<String,List<Component>>();
+        for(Component c:components){
+            if(c==null||!prefixes.containsKey(c.type))continue;
+            Boolean validId=c.id!=null&&Pattern.matches('^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$',c.id)&&c.id.startsWith(prefixes.get(c.type));
+            if(validId&&!String.isBlank(c.name))continue;
+            if(!validId)c.id=null;
+            if(!groups.containsKey(c.type))groups.put(c.type,new List<Component>());
+            groups.get(c.type).add(c);
+        }
+        for(String type:groups.keySet()){
+            String entity=type=='Flow'?'FlowDefinition':type;
+            String nameField=(type=='ApexClass'||type=='ApexTrigger')?'Name':'DeveloperName';
+            Set<String> names=new Set<String>(),ids=new Set<String>();
+            for(Component c:groups.get(type)){
+                if(!String.isBlank(c.name)&&c.name.length()<=255)names.add('\''+String.escapeSingleQuotes(c.name)+'\'');
+                if(c.id!=null)ids.add('\''+c.id+'\'');
+            }
+            List<String> predicates=new List<String>();
+            if(!names.isEmpty())predicates.add(nameField+' IN ('+String.join(new List<String>(names),',')+')');
+            if(!ids.isEmpty())predicates.add('Id IN ('+String.join(new List<String>(ids),',')+')');
+            if(predicates.isEmpty())continue;
+            String soql='SELECT Id,'+nameField+(type=='Flow'?',ActiveVersionId':'')+' FROM '+entity+' WHERE '+String.join(predicates,' OR ');
+            try{
+                Map<String,Object> page=get('/tooling/query/?q='+EncodingUtil.urlEncode(soql,'UTF-8'));
+                for(Object raw:items(page.get('records'))){
+                    Map<String,Object> record=(Map<String,Object>)raw;
+                    String name=str(record.get(nameField)),id=str(record.get(type=='Flow'?'ActiveVersionId':'Id'));
+                    if(id==null||name==null)continue;
+                    for(Component c:groups.get(type)){
+                        Boolean sameId=c.id!=null&&appKey(c.id)==appKey(str(record.get('Id')));
+                        if(sameId||(c.name!=null&&c.name.equalsIgnoreCase(name))){c.id=id;c.name=name;}
+                    }
+                }
+                if(page.get('done')==false)warnings.add('Component identity lookup exceeded a Salesforce page; unresolved components remain a coverage limit.');
+            }catch(Exception ex){warnings.add('Could not resolve '+type+' identities: '+ex.getMessage().left(300));}
+        }
+    }
     private static String key(String type,String name){if(type=='FlowDefinition')type='Flow';return String.valueOf(type).toLowerCase()+'|'+String.valueOf(name).toLowerCase();}
     private static Component component(String type,String name,String id){Component c=new Component();c.type=type;c.name=name;c.id=id;return c;}
     private static String str(Object value){return value instanceof String?(String)value:null;}
     private static List<Object> items(Object value){return value instanceof List<Object>?(List<Object>)value:new List<Object>();}
+    private class MetadataRequestException extends Exception {}
     private static Map<String,Object> get(String path){
         HttpRequest request=new HttpRequest();request.setEndpoint(ROOT+path);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(120000);
         HttpResponse response=new Http().send(request);
-        if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new AuraHandledException('Salesforce metadata request failed (HTTP '+response.getStatusCode()+'). Check the Salesforce_Tooling_API Named Credential and API permissions.');
+        if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new MetadataRequestException('Salesforce metadata request failed (HTTP '+response.getStatusCode()+'). Check the Salesforce_Tooling_API Named Credential and API permissions.');
         return (Map<String,Object>)JSON.deserializeUntyped(response.getBody());
     }
 }
