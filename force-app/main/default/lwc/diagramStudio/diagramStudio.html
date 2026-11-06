@@ -264,6 +264,51 @@
         </div>
     </template>
 
+    <!-- APP MODEL GENERATION -->
+    <template if:true={appModelModalOpen}>
+        <div class="modal-backdrop app-model-backdrop" onclick={handleCloseAppModel}>
+            <section class="modal-box app-model-dialog" role="dialog" aria-modal="true" aria-labelledby="appModelTitle" tabindex="-1" onclick={stopProp} onkeydown={handleAppDialogKeyDown}>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="appModelTitle">Generate ER Model from App</h2>
+                    <button class="modal-close" aria-label="Close app generation" onclick={handleCloseAppModel} disabled={appModelBusy}>×</button>
+                </div>
+                <div class="modal-body">
+                    <p class="app-model-intro">Create a new diagram and its editable DSL from a Salesforce app. Save your current diagram first.</p>
+                    <lightning-combobox class="app-model-select" label="Salesforce app" placeholder="Select a Salesforce app" options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy} dropdown-alignment="auto"></lightning-combobox>
+                    <button class="app-model-reload" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Refresh app list</button>
+                    <lightning-combobox class="app-model-select" label="Fields" options={appFieldOptions} value={appFieldScope} onchange={handleAppFieldScopeChange} disabled={appModelBusy}></lightning-combobox>
+                    <div class="app-model-options">
+                        <lightning-input type="checkbox" label="Include Flow, LWC and Apex object usage from org scan" checked={appUsageEnabled} onchange={handleAppUsageChange} disabled={appModelBusy}></lightning-input>
+                        <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
+                    </div>
+                    <p class="app-model-status" role="status" aria-live="polite">{appModelStatus}</p>
+                </div>
+                <div class="modal-footer app-model-controls">
+                    <button class="app-model-cancel" onclick={handleCloseAppModel} disabled={appModelBusy}>Cancel</button>
+                    <button class="app-model-generate" onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button>
+                </div>
+            </section>
+        </div>
+    </template>
+    <template if:true={appModelDetailsOpen}>
+        <div class="modal-backdrop app-model-backdrop" onclick={handleCloseAppModelDetails}>
+            <section class="modal-box app-model-dialog" role="dialog" aria-modal="true" aria-labelledby="appModelDetailsTitle" tabindex="-1" onclick={stopProp} onkeydown={handleAppDialogKeyDown}>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="appModelDetailsTitle">Model Details</h2>
+                    <button class="modal-close" aria-label="Close model details" onclick={handleCloseAppModelDetails}>×</button>
+                </div>
+                <div class="modal-body">
+                    <p class="app-model-status">{appModelDetailSummary}</p>
+                    <template if:true={appModelDetailsMatch}>
+                        <template if:true={appHasWarnings}><details class="app-model-details" open><summary>Coverage and limitations</summary><template for:each={appModelWarnings} for:item="warning"><p key={warning.key}>{warning.message}</p></template></details></template>
+                        <template if:true={appHasEvidence}><details class="app-model-details"><summary>Why objects were included</summary><template for:each={appModelEvidence} for:item="evidence"><p key={evidence.key}>{evidence.message}</p></template></details></template>
+                    </template>
+                </div>
+                <div class="modal-footer"><button class="app-model-cancel" onclick={handleCloseAppModelDetails}>Close</button></div>
+            </section>
+        </div>
+    </template>
+
     <!-- EXPORT MODAL -->
     <template if:true={exportModalOpen}>
         <div class="modal-backdrop" onclick={handleCloseExport}>
@@ -417,6 +462,7 @@
                     <div class="dd-menu-item" onclick={handleMenuSave}>Save <span class="dd-menu-shortcut">Ctrl+S</span></div>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item" onclick={handleMenuImport}>Import from Org</div>
+                    <button class="dd-menu-item app-model-menu-item" onclick={handleOpenAppModel}>Generate ER Model from App…</button>
                     <div class="dd-menu-item" onclick={handleMenuExport}>Export...</div>
                 </div>
             </template>
@@ -429,6 +475,7 @@
                 <div class="dd-menu-dropdown" onclick={stopProp}>
                     <div class="dd-menu-item" onclick={handleMenuMimic}>Mimic New ER</div>
                     <div class="dd-menu-item" onclick={handleMenuCompareOrg}>Compare with Org</div>
+                    <button class="dd-menu-item app-model-menu-item" onclick={handleOpenAppModelDetails}>Model Details…</button>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item dd-menu-item-danger" onclick={handleMenuClearCanvas}>Clear Canvas</div>
                 </div>
@@ -646,23 +693,6 @@
         <!-- CANVAS AREA -->
         <div class={canvasOuterClass}>
 
-
-            <section class="app-model-panel" aria-label="Generate ER model from Salesforce app">
-                <div class="app-model-controls">
-                    <strong>V5 · ER from App</strong>
-                    <button class="dsl-head-btn" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Load apps</button>
-                    <lightning-combobox class="app-model-select" label="Salesforce app" placeholder="Select a Salesforce app" options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy}></lightning-combobox>
-                    <lightning-combobox class="app-model-select" label="Fields" options={appFieldOptions} value={appFieldScope} onchange={handleAppFieldScopeChange} disabled={appModelBusy}></lightning-combobox>
-                    <button class="dsl-head-btn" onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button>
-                </div>
-                <div class="app-model-controls">
-                    <lightning-input type="checkbox" label="Include Flow, LWC and Apex object usage from org scan" checked={appUsageEnabled} onchange={handleAppUsageChange} disabled={appModelBusy}></lightning-input>
-                    <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
-                </div>
-                <p class="app-model-status" role="status" aria-live="polite">{appModelStatus}</p>
-                <template if:true={appHasWarnings}><details class="app-model-details"><summary>Coverage and limitations</summary><template for:each={appModelWarnings} for:item="warning"><p key={warning.key}>{warning.message}</p></template></details></template>
-                <template if:true={appHasEvidence}><details class="app-model-details"><summary>Why objects were included</summary><template for:each={appModelEvidence} for:item="evidence"><p key={evidence.key}>{evidence.message}</p></template></details></template>
-            </section>
 
             <!-- Zoom controls -->
             <div class="zoom-controls">

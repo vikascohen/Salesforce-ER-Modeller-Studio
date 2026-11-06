@@ -2229,7 +2229,19 @@ describe('Settings workspace', () => {
 });
 
 describe('V5 app generation', () => {
-    beforeEach(() => { jest.clearAllMocks(); });
+    beforeEach(() => {
+        jest.clearAllMocks();
+        require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
+    });
+    async function openAppDialog(el) {
+        el.shadowRoot.querySelector('button[data-menu="file"]').click(); await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.includes('Generate ER Model from App')).click(); await flushPromises();
+    }
+    async function createAppStudio() { const el=createStudio(); await flushPromises(); await openAppDialog(el); return el; }
+    async function openDetails(el) {
+        el.shadowRoot.querySelector('button[data-menu="diagram"]').click();await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.includes('Model Details')).click();await flushPromises();
+    }
     afterEach(() => { while(document.body.firstChild)document.body.removeChild(document.body.firstChild); });
     it('V5 loads apps, generates into a new tab and uses the existing renderer', async () => {
         const listApps = require('@salesforce/apex/AppModelController.listApps').default;
@@ -2237,8 +2249,7 @@ describe('V5 app generation', () => {
         listApps.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
         getScope.mockResolvedValue({appLabel:'Sales',components:[{type:'Object',name:'Account'}],warnings:['Static evidence only'],scannedAt:'2026-11-06T00:00:00Z',runId:'run'});
         describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Industry',dataType:'PICKLIST'}]}]);
-        const el=createStudio(); await flushPromises();
-        el.shadowRoot.querySelector('.app-model-controls button').click(); await flushPromises();
+        const el=await createAppStudio();
         const picker=el.shadowRoot.querySelector('lightning-combobox.app-model-select');
         expect(picker.options).toHaveLength(1);
         picker.dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}})); await flushPromises();
@@ -2246,13 +2257,15 @@ describe('V5 app generation', () => {
         generate.click(); await flushPromises(); await flushPromises();
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
         expect(el.shadowRoot.querySelector('.code-editor').value).not.toContain('Industry');
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        await openDetails(el);
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('Generated 1 objects');
         expect(el.shadowRoot.querySelector('.app-model-details').textContent).toContain('Static evidence only');
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Sales ER Model');
     });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScope').default;
-        const el=createStudio(); await flushPromises();
+        const el=await createAppStudio();
         const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity MyUnsavedObject : Name';editor.dispatchEvent(new CustomEvent('input'));await flushPromises();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
@@ -2264,7 +2277,7 @@ describe('V5 app generation', () => {
     it('V5 leaves the editor intact when app discovery fails', async () => {
         const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
         getScope.mockRejectedValue(new Error('V5 scan required'));
-        const el=createStudio();await flushPromises();
+        const el=await createAppStudio();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
@@ -2275,13 +2288,50 @@ describe('V5 app generation', () => {
         const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
         let finish;getScope.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
         describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
-        const el=createStudio();await flushPromises();
+        const el=await createAppStudio();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
         const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity KeepMyEdit : Name';editor.dispatchEvent(new CustomEvent('input'));
         finish({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]});await flushPromises();await flushPromises();
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity KeepMyEdit : Name');
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('changed during discovery');
+    });
+
+    it('keeps app controls off the canvas and supports cancelling the dialog', async () => {
+        const el=createStudio();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.canvas-outer .app-model-select')).toBeNull();
+        await openAppDialog(el);
+        expect(el.shadowRoot.querySelector('[role="dialog"]').getAttribute('aria-modal')).toBe('true');
+        el.shadowRoot.querySelector('.app-model-cancel').click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+    });
+    it('writes every generated entity and relationship to the DSL and renders edits from that DSL', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        getScope.mockResolvedValue({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'Contact'}]});
+        describeObjects.mockResolvedValue([
+            {apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]},
+            {apiName:'Contact',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'AccountId',isRelationship:true,relatesTo:'Account',relationshipType:'Lookup'}]}
+        ]);
+        const el=await createAppStudio();
+        // Hide the DSL before generation; generation must make its new source visible.
+        const toggle=el.shadowRoot.querySelector('button[title="Toggle DSL editor"]');toggle.click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.dsl-panel-closed')).not.toBeNull();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');
+        expect(el.shadowRoot.querySelector('.dsl-panel-open')).not.toBeNull();
+        expect(editor.value).toContain('entity Account');expect(editor.value).toContain('entity Contact');expect(editor.value).toContain('Contact.AccountId -> Account');
+        expect([...el.shadowRoot.querySelectorAll('.entity-group')].map(node=>node.dataset.name).sort()).toEqual(['Account','Contact']);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(1);
+        editor.value+='\nentity AdditionalObject : Name';editor.dispatchEvent(new CustomEvent('input'));
+        await new Promise(resolve=>setTimeout(resolve,250));
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="AdditionalObject"]')).not.toBeNull();
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(1);
+        el.shadowRoot.querySelector('button[data-menu="file"]').click();await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.trim().startsWith('Save')).click();await flushPromises();
+        expect(saveFile.mock.calls.at(-1)[0].sourceCode).toBe(editor.value);
     });
 
 });

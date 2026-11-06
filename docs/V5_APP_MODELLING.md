@@ -5,11 +5,11 @@ V5 is a source preview on `v5-app-er-model`. It does not replace the published V
 ## Using the feature
 
 1. Save any diagram you are editing.
-2. In the new row above the canvas, click **Load apps** and select a Salesforce app.
+2. Choose **File → Generate ER Model from App…**. The dialog loads available apps automatically; select a Salesforce app.
 3. Keep **Include Flow, LWC and Apex object usage from org scan** enabled for dependency expansion. Run a successful V5 org scan first; V4 snapshots contain field evidence and are not a substitute.
 4. Optionally include object-triggered automation. This follows triggers and record-triggered flows for reached objects, including downstream objects; these are possible execution paths, not evidence of execution.
 5. Choose **Relationships and name** (the compact default) or **All fields**, then click **Generate ER Model**.
-6. The complete schema is loaded and parsed before a new diagram tab is created. Inspect **Why objects were included** and **Coverage and limitations**, then save the generated model normally.
+6. The complete schema is loaded and parsed before a new diagram tab is created. The dialog closes, the DSL editor opens, and the canvas renders from that same editable source. Use **Diagram → Model Details…** to inspect inclusion evidence and coverage, then save normally. DSL edits continue to update the canvas; saving stores the same DSL source.
 
 Generation does not write object definitions or Salesforce business records. It uses the existing DSL compiler, renderer, fitting controls and diagram save path. Failed discovery, missing metadata, excessive scope or edits made during discovery leave the current model intact. The existing unsaved-tab implementation cannot recover unsaved source after switching tabs, so generation requires the current model to be saved first.
 

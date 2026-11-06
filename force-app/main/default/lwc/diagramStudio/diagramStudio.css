@@ -1930,11 +1930,21 @@
 .er-diagnostic-indicator:hover { background:#7f1d1d; border-color:#f87171; }
 .er-diagnostic-indicator:focus-visible { outline:2px solid #fca5a5; outline-offset:2px; }
 
-/* V5 app model controls sit in document flow, outside canvas overlays. */
-.app-model-panel{flex:none;padding:10px 16px;border-bottom:1px solid #d0d5dd;background:#fff;color:#101828;max-height:240px;overflow:auto}
-.app-model-controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-.app-model-select{min-width:240px;flex:1;max-width:420px}
-.app-model-status{font-size:12px;margin:6px 0 0}
-.app-model-details{font-size:12px;margin-top:6px}
+/* V5 app-generation dialogs leave the entire canvas available for modelling. */
+.app-model-menu-item{display:block;width:100%;text-align:left;border:0;background:transparent;font:inherit;color:inherit}
+.app-model-backdrop{z-index:2200}
+.app-model-dialog{width:560px;background:#fff;color:#101828;--lwc-colorTextLabel:#344054;--slds-c-input-text-color:#101828;--slds-c-form-element-label-color:#344054}
+.app-model-dialog .modal-title{color:#101828;margin:0;font-size:17px}
+.app-model-dialog .modal-close{color:#475467}
+.app-model-intro{margin:0 0 16px;font-size:13px;line-height:1.5;color:#475467}
+.app-model-select{display:block;width:100%;margin:0 0 12px}
+.app-model-reload{background:transparent;border:0;color:#175cd3;cursor:pointer;padding:0;margin:0 0 16px;font-size:12px}
+.app-model-options{display:flex;flex-direction:column;gap:12px;margin:20px 0}
+.app-model-status{font-size:12px;line-height:1.6;white-space:pre-line;margin:8px 0 0}
+.app-model-controls{gap:10px}
+.app-model-cancel,.app-model-generate{border:1px solid #d0d5dd;border-radius:6px;padding:9px 15px;font-size:13px;cursor:pointer;background:#fff;color:#344054}
+.app-model-generate{background:#175cd3;border-color:#175cd3;color:#fff;font-weight:600}
+.app-model-dialog button:disabled{opacity:.5;cursor:default}
+.app-model-details{font-size:12px;margin-top:14px}
 .app-model-details summary{cursor:pointer;font-weight:600}
-.app-model-details p{margin:5px 0;overflow-wrap:anywhere}
+.app-model-details p{margin:6px 0;overflow-wrap:anywhere}

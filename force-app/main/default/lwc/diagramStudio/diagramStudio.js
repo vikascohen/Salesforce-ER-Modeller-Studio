@@ -3203,6 +3203,52 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.importObjectNames = event.target.value;
     }
 
+    appModelModalOpen = false;
+    appModelDetailsOpen = false;
+    appModelGeneratedSource = '';
+    appModelSummary = '';
+    get appModelDetailsMatch() { return !!this.appModelGeneratedSource && this.sourceText === this.appModelGeneratedSource; }
+    get appModelDetailSummary() {
+        if (this.appModelDetailsMatch) return this.appModelSummary;
+        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Snapshot:|Coverage:)/.test(line));
+        return notes.length ? notes.map(line => line.substring(2)).join('\n') : 'No app-generation details are attached to the current diagram.';
+    }
+    async handleOpenAppModel() {
+        this.openMenu = null;
+        this.appModelModalOpen = true;
+        this.appModelDetailsOpen = false;
+        this.appModelStatus = 'Select an app to create a new ER model and its DSL.';
+        requestAnimationFrame(() => this.template.querySelector('.app-model-dialog')?.focus());
+        if (!this.appOptions.length) await this.handleLoadSalesforceApps();
+    }
+    handleCloseAppModel() {
+        if (this.appModelBusy) return;
+        this.appModelModalOpen = false;
+        requestAnimationFrame(() => this.template.querySelector('button[data-menu="file"]')?.focus());
+    }
+    handleOpenAppModelDetails() {
+        this.openMenu = null;
+        this.appModelDetailsOpen = true;
+        requestAnimationFrame(() => this.template.querySelector('.app-model-dialog')?.focus());
+    }
+    handleCloseAppModelDetails() {
+        this.appModelDetailsOpen = false;
+        requestAnimationFrame(() => this.template.querySelector('button[data-menu="diagram"]')?.focus());
+    }
+    handleAppDialogKeyDown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            if (this.appModelDetailsOpen) this.handleCloseAppModelDetails();
+            else this.handleCloseAppModel();
+        }
+        if (event.key === 'Tab') {
+            const controls = [...event.currentTarget.querySelectorAll('button, lightning-combobox, lightning-input')].filter(control => !control.disabled);
+            const current = event.composedPath();
+            const first = controls[0], last = controls[controls.length - 1];
+            if (event.shiftKey && (current.includes(first) || event.target === event.currentTarget)) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && current.includes(last)) { event.preventDefault(); first?.focus(); }
+        }
+    }
     appOptions = [];
     selectedSalesforceApp = '';
     appUsageEnabled = true;
@@ -3261,6 +3307,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.fileName = (scope.appLabel || 'Salesforce App') + ' ER Model';
             this._renameTabLabel(this.activeTabId, this.fileName);
             this.sourceText = source;
+            this.dslPanelOpen = true;
+            this.dslMaximised = false;
+            this.canvasMaximised = false;
             this.isDirty = true;
             this._markTabDirty(this.activeTabId, true);
             this.renderDiagram();
@@ -3268,7 +3317,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.appModelWarnings = result.warnings.map((message,index) => ({ key: String(index), message }));
             this.appModelEvidence = result.reasons.map((message,index) => ({ key: String(index), message }));
             this.appModelStatus = `Generated ${objects.length} objects. ${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
-            requestAnimationFrame(() => this.handleFitModel());
+            this.appModelGeneratedSource = source;
+            this.appModelSummary = this.appModelStatus;
+            this.appModelModalOpen = false;
+            requestAnimationFrame(() => { this.handleFitModel(); this.template.querySelector('.code-editor')?.focus(); });
         } catch (error) { this.appModelStatus = this.reduceError(error); }
         finally { this.appModelBusy = false; }
     }
