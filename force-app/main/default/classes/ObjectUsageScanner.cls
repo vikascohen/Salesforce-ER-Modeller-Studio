@@ -13,6 +13,8 @@ public without sharing class ObjectUsageScanner {
         if(value=='Apex Class')return 'ApexClass';
         if(value=='Apex Trigger')return 'ApexTrigger';
         if(value=='LWC')return 'LightningComponentBundle';
+        if(value=='Integration Procedure')return 'IntegrationProcedure';
+        if(value=='Omni Data Mapper')return 'OmniDataMapper';
         if(value=='Aura')return 'AuraDefinitionBundle';
         return value;
     }
@@ -51,6 +53,7 @@ public without sharing class ObjectUsageScanner {
         if(!enabled||String.isBlank(body))return;
         // Strip JS and HTML comments before inspecting literal imports and properties.
         String code=stripUiComments(body);
+        omniUi(runId,'LWC',name,componentId,body);
         Matcher schema=Pattern.compile('@salesforce/schema/([A-Za-z_][A-Za-z0-9_]*)').matcher(code);
         while(schema.find())add(runId,'LWC',name,componentId,'Object',schema.group(1),null,'Salesforce schema import');
         Matcher objectName=Pattern.compile('(?i)(?:object-api-name|objectApiName)\\s*[:=]\\s*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]').matcher(code);
@@ -62,6 +65,15 @@ public without sharing class ObjectUsageScanner {
             List<String> parts=child.group(1).split('-');String target=parts[0];
             for(Integer i=1;i<parts.size();i++)target+=parts[i].substring(0,1).toUpperCase()+parts[i].substring(1);
             add(runId,'LWC',name,componentId,'LightningComponentBundle',target,null,'Nested LWC tag');
+        }
+    }
+    public static void omniUi(Id runId,String source,String name,String id,String body){
+        if(!enabled||String.isBlank(body))return;
+        String code=stripUiComments(body);
+        Map<String,String> keys=new Map<String,String>{'omni-script-key'=>'OmniScript','omniScriptKey'=>'OmniScript','integration-procedure-key'=>'IntegrationProcedure','integrationProcedureKey'=>'IntegrationProcedure','data-raptor-bundle'=>'OmniDataMapper','dataRaptorBundleName'=>'OmniDataMapper'};
+        for(String key:keys.keySet()){
+            Matcher literal=Pattern.compile('(?i)'+key+'[\\s]*[:=][\\s]*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]').matcher(code);
+            while(literal.find())add(runId,source,name,id,keys.get(key),literal.group(1),null,'Explicit OmniStudio UI configuration');
         }
     }
     private static String stripUiComments(String body) {
@@ -94,6 +106,9 @@ public without sharing class ObjectUsageScanner {
                 Object value=item.get(key);
                 if(value instanceof String){
                     if(new Set<String>{'object','objectName','sObjectType','recordObject','objectType'}.contains(key))add(runId,'Flow',name,componentId,'Object',(String)value,entry,'Flow metadata: '+key);
+                    if(key=='integrationProcedureKey')add(runId,'Flow',name,componentId,'IntegrationProcedure',(String)value,entry,'Explicit OmniStudio Integration Procedure');
+                    if(key=='omniScriptKey')add(runId,'Flow',name,componentId,'OmniScript',(String)value,entry,'Explicit OmniScript reference');
+                    if(key=='dataRaptorBundleName')add(runId,'Flow',name,componentId,'OmniDataMapper',(String)value,entry,'Explicit OmniStudio Data Mapper');
                     if(key=='flowName')add(runId,'Flow',name,componentId,'Flow',(String)value,entry,'Subflow reference');
                     if(key=='actionName'&&item.get('actionType')=='apex')add(runId,'Flow',name,componentId,'ApexClass',(String)value,entry,'Invocable Apex action');
                     if(key=='extensionName'&&((String)value).startsWith('c:'))add(runId,'Flow',name,componentId,'LightningComponentBundle',((String)value).substring(2),entry,'Flow screen component');

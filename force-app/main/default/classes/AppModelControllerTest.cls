@@ -123,4 +123,19 @@
         System.assert(expansion.verifiedComponents[0].id.startsWith('01p'));
     }
 
+    @IsTest static void omniTraversalRetainsAppScopedFieldsOnly(){
+        Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed',Object_Scan_Version__c=5);insert run;
+        insert new List<Object_Usage_Evidence__c>{
+            new Object_Usage_Evidence__c(Run__c=run.Id,Source_Type__c='OmniScript',Component_Name__c='Case_Open_English',Target_Type__c='OmniDataMapper',Target_Name__c='ReadAccount'),
+            new Object_Usage_Evidence__c(Run__c=run.Id,Source_Type__c='OmniDataMapper',Component_Name__c='ReadAccount',Target_Type__c='Object',Target_Name__c='Account')};
+        insert new List<Field_Usage_Evidence__c>{
+            new Field_Usage_Evidence__c(Run__c=run.Id,Source_Type__c='Omni Data Mapper',Component_Name__c='ReadAccount',Object_API_Name__c='Account',Field_API_Name__c='Description'),
+            new Field_Usage_Evidence__c(Run__c=run.Id,Source_Type__c='Omni Data Mapper',Component_Name__c='UnrelatedMapper',Object_API_Name__c='Account',Field_API_Name__c='Industry')};
+        AppModelController.Expansion first=AppModelController.expandScope(run.Id,new List<AppModelController.Component>{comp('OmniScript','Case_Open_English')},null,false);
+        System.assertEquals('OmniDataMapper',first.components[0].type);
+        AppModelController.Expansion second=AppModelController.expandScope(run.Id,first.components,null,false);
+        System.assertEquals(1,second.fieldUsage.size());System.assertEquals('Description',second.fieldUsage[0].fieldApiName);
+        System.assertEquals('Account',second.components[0].name);
+    }
+
 }

@@ -5,6 +5,7 @@
 public without sharing class FieldUsageAuraScanner {
     private static final Pattern QUALIFIED_FIELD=Pattern.compile('(?i)\\b([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)\\b');
     public static List<Field_Usage_Evidence__c> scan(Id runId,String componentName,String componentId,String body){
+        ObjectUsageScanner.omniUi(runId,'Aura',componentName,componentId,body);
         List<Field_Usage_Evidence__c> out=new List<Field_Usage_Evidence__c>();if(String.isBlank(body))return out;
         Map<String,Schema.SObjectType> gd=Schema.getGlobalDescribe();Map<String,Integer> counts=new Map<String,Integer>();Map<String,List<Integer>> lines=new Map<String,List<Integer>>();Matcher m=QUALIFIED_FIELD.matcher(body);
         while(m.find()){String objectName=canonicalObject(gd,m.group(1));if(objectName==null)continue;String fieldName=canonicalField(gd.get(objectName).getDescribe().fields.getMap(),m.group(2));if(fieldName==null)continue;String key=objectName+'.'+fieldName;counts.put(key,(counts.containsKey(key)?counts.get(key):0)+1);if(!lines.containsKey(key))lines.put(key,new List<Integer>());Integer line=lineNumber(body,m.start());if(!lines.get(key).contains(line))lines.get(key).add(line);}

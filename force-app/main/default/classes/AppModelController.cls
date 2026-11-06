@@ -175,7 +175,9 @@ public with sharing class AppModelController {
                 if(type=='CustomObject'||type=='StandardEntity'||type=='EntityDefinition')type='Object';
                 if(type=='CustomField'||type=='StandardField'){name=name==null?null:name.substringBefore('.');type='Object';}
                 if(type=='Object'){name=ObjectUsageScanner.canonical(name);if(name==null)continue;}
-                if(!new Set<String>{'Object','ApexClass','ApexTrigger','Flow','FlowDefinition','LightningComponentBundle','AuraDefinitionBundle','FlexiPage','CustomTab','CustomApplication','UtilityBar'}.contains(type))continue;
+                if(type=='OmniIntegrationProcedure')type='IntegrationProcedure';
+                if(type=='OmniDataTransform')type='OmniDataMapper';
+                if(!new Set<String>{'OmniScript','IntegrationProcedure','OmniDataMapper','Object','ApexClass','ApexTrigger','Flow','FlowDefinition','LightningComponentBundle','AuraDefinitionBundle','FlexiPage','CustomTab','CustomApplication','UtilityBar'}.contains(type))continue;
                 if(type=='FlowDefinition')type='Flow';
                 result.components.add(component(type,name,str(edge.get('RefMetadataComponentId'))));
                 result.reasons.add(str(edge.get('MetadataComponentName'))+' → '+name+' (Salesforce metadata dependency)');
