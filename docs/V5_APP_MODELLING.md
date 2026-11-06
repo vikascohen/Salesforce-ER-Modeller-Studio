@@ -85,3 +85,5 @@ Drag to Canvas includes describable platform events and custom metadata, with ob
 ## Data Cloud coverage boundary
 
 Data Cloud's standard Audience360 app can resolve configuration/navigation objects without exposing the field references used by Salesforce's platform screens. V5's Flow/LWC/Apex scanner does not implement Data Cloud DMO/DLO schema, mapping or data-graph discovery. When that app resolves no app-used field evidence, generation explains this coverage limit, does not prescribe the same scan again, and preserves the current DSL. It does not substitute all fields from DataStream/DataGraph configuration objects or claim those tables are the actual Data Cloud data model. A separate Data Cloud metadata integration is required for that capability; catalog schema by itself is not proof of app-used fields.
+
+AggregateResult and ApexEmailNotification are also hidden from default app models as platform types. The explicit technical-scope option can include them; similarly named custom objects remain eligible. Regenerate existing app diagrams to apply this scope change.

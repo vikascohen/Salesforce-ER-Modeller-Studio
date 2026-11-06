@@ -94,3 +94,11 @@ it('hides presentation and cache metadata by default but retains it in the optio
     expect(normal.hidden).toHaveLength(4);
     expect(selectAppObjects(result,{includePlatform:true}).visible).toHaveLength(6);
 });
+
+
+it('hides aggregate and Apex notification system types without hiding similarly named custom objects', () => {
+    const result={objects:['AggregateResult','ApexEmailNotification','Account','AggregateResult__c']};
+    expect(selectAppObjects(result).visible).toEqual(['Account','AggregateResult__c']);
+    expect(selectAppObjects(result).hidden.map(row=>row.apiName)).toEqual(['AggregateResult','ApexEmailNotification']);
+    expect(selectAppObjects(result,{includePlatform:true}).visible).toHaveLength(4);
+});
