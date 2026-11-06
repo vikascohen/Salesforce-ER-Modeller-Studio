@@ -2357,6 +2357,18 @@ describe('V5 app generation', () => {
         expect(Math.min(...cardYs)).toBeGreaterThan(Math.max(...objectYs)+108);
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe(source);
     });
+    it('explains a welcome-only app with no object evidence without blaming switching or requiring a rescan', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Developer Edition',runId:'run',components:[{type:'LightningComponentBundle',name:'welcome'},{type:'CustomTab',name:'devedapp__Welcome'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[],warnings:[]}));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error');
+        expect(error.textContent).toContain('No data model could be resolved for Developer Edition');
+        expect(error.textContent).toContain('Welcome-only apps');
+        expect(error.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();

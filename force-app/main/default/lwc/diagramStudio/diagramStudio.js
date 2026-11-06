@@ -3340,6 +3340,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.appModelError = 'The scan completed, but this app’s object dependencies could not be resolved.';
             this.appModelErrorHelp = 'This is an app-to-component discovery issue, not a missing scan. Check the app’s custom tabs and component dependencies. Your diagram and DSL have been preserved.';
             const details = (error.coverageWarnings || []).filter(note => /unavailable|could not|could be resolved|limit/i.test(note));
+            if (!details.length) {
+                this.appModelError = `No data model could be resolved for ${error.appLabel || 'this app'}.`;
+                this.appModelErrorHelp = 'The scan is complete, but no object or field evidence was resolved from this app’s pages and components. Welcome-only apps and inaccessible managed components may not expose an ER model. Choose an app with resolvable data usage. Your diagram and DSL have been preserved.';
+            }
             this.appModelStatus = [message, ...details].join('\n');
         } else this.appModelStatus = message;
         requestAnimationFrame(() => this.template.querySelector('.app-model-error')?.focus());

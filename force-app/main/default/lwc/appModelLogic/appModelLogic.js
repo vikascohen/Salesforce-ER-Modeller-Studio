@@ -53,6 +53,7 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
         const error = new Error('No resolvable Salesforce objects were found for this app. Review component coverage.');
         error.code = 'APP_OBJECTS_NOT_RESOLVED';
         error.scanAvailable = !!scope.runId;
+        error.appLabel = scope.appLabel || 'the selected app';
         error.coverageWarnings = [...warnings];
         throw error;
     }
