@@ -10,8 +10,8 @@ import getAllObjectNames from '@salesforce/apex/SchemaMetadataController.getAllO
 import DiagramStudio from 'c/diagramStudio';
 
 jest.mock('@salesforce/apex/AppModelController.listApps', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
-jest.mock('@salesforce/apex/AppModelController.getAppScope', () => ({ default: jest.fn() }), { virtual: true });
-jest.mock('@salesforce/apex/AppModelController.expandScope', () => ({ default: jest.fn(() => Promise.resolve({})) }), { virtual: true });
+jest.mock('@salesforce/apex/AppModelController.getAppScopeJson', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/AppModelController.expandScopeJson', () => ({ default: jest.fn(() => Promise.resolve('{}')) }), { virtual: true });
 
 // Imperative Apex calls — mocked as jest.fn() so each test controls what
 // they resolve/reject with. { virtual: true } is required because these
@@ -2245,9 +2245,9 @@ describe('V5 app generation', () => {
     afterEach(() => { while(document.body.firstChild)document.body.removeChild(document.body.firstChild); });
     it('V5 loads apps, generates into a new tab and uses the existing renderer', async () => {
         const listApps = require('@salesforce/apex/AppModelController.listApps').default;
-        const getScope = require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         listApps.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
-        getScope.mockResolvedValue({appLabel:'Sales',components:[{type:'Object',name:'Account'}],warnings:['Static evidence only'],scannedAt:'2026-11-06T00:00:00Z',runId:'run'});
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Sales',components:[{type:'Object',name:'Account'}],warnings:['Static evidence only'],scannedAt:'2026-11-06T00:00:00Z',runId:'run'}));
         describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Industry',dataType:'PICKLIST'}]}]);
         const el=await createAppStudio();
         const picker=el.shadowRoot.querySelector('lightning-combobox.app-model-select');
@@ -2264,7 +2264,7 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Sales ER Model');
     });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
-        const getScope = require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();
         const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity MyUnsavedObject : Name';editor.dispatchEvent(new CustomEvent('input'));await flushPromises();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
@@ -2275,7 +2275,7 @@ describe('V5 app generation', () => {
     });
 
     it('V5 leaves the editor intact when app discovery fails', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         getScope.mockRejectedValue(new Error('V5 scan required'));
         const el=await createAppStudio();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
@@ -2285,14 +2285,14 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('V5 scan required');
     });
     it('V5 does not overwrite edits made while discovery is in progress', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         let finish;getScope.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
         describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
         const el=await createAppStudio();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
         const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity KeepMyEdit : Name';editor.dispatchEvent(new CustomEvent('input'));
-        finish({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]});await flushPromises();await flushPromises();
+        finish(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]}));await flushPromises();await flushPromises();
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity KeepMyEdit : Name');
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('changed during discovery');
     });
@@ -2308,8 +2308,8 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
     });
     it('writes every generated entity and relationship to the DSL and renders edits from that DSL', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
-        getScope.mockResolvedValue({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'Contact'}]});
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'Contact'}]}));
         describeObjects.mockResolvedValue([
             {apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]},
             {apiName:'Contact',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'AccountId',isRelationship:true,relatesTo:'Account',relationshipType:'Lookup'}]}
@@ -2335,7 +2335,7 @@ describe('V5 app generation', () => {
     });
 
     it('shows a missing-scan error, tooltip and a shortcut without starting a scan', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         getScope.mockRejectedValue({body:{message:'Run a successful V5 org scan first to include Flow, LWC and Apex object usage. Existing V4 field snapshots do not contain object-level evidence.'}});
         getFieldUsageStatus.mockResolvedValue({run:null,schedules:[]});
         const el=await createAppStudio();
@@ -2354,7 +2354,7 @@ describe('V5 app generation', () => {
         expect(runFieldUsageNow).not.toHaveBeenCalled();
     });
     it('shows an actionable generic generation error without prescribing the wrong fix', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         getScope.mockRejectedValue(new Error('No resolvable Salesforce objects were found for this app.'));
         const el=await createAppStudio();
         el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
@@ -2366,7 +2366,7 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('No resolvable Salesforce objects');
     });
     it('clears scan guidance when switching to app-navigation-only generation', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         getScope.mockRejectedValueOnce(new Error('V5 scan required'));
         const el=await createAppStudio();
         expect(el.shadowRoot.querySelector('.app-model-generate').title).toContain('Select a Salesforce app first');
@@ -2377,7 +2377,7 @@ describe('V5 app generation', () => {
         usage.checked=false;usage.dispatchEvent(new CustomEvent('change'));await flushPromises();
         expect(el.shadowRoot.querySelector('.app-model-error')).toBeNull();
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('an org scan is not required');
-        getScope.mockResolvedValueOnce({appLabel:'Sales',components:[{type:'Object',name:'Account'}]});describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
+        getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Sales',components:[{type:'Object',name:'Account'}]}));describeObjects.mockResolvedValue([{apiName:'Account',fields:[]}]);
         el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
         expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
@@ -2415,16 +2415,30 @@ describe('V5 app generation', () => {
     });
 
     it('does not tell the user to rerun a completed scan when component discovery fails', async () => {
-        const getScope=require('@salesforce/apex/AppModelController.getAppScope').default;
-        const expand=require('@salesforce/apex/AppModelController.expandScope').default;
-        getScope.mockResolvedValue({appLabel:'Component App',runId:'completed-scan',components:[{type:'CustomTab',name:'ComponentTab'}]});
-        expand.mockResolvedValueOnce({components:[],warnings:['Salesforce component dependency coverage is unavailable: HTTP 400']});
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Component App',runId:'completed-scan',components:[{type:'CustomTab',name:'ComponentTab'}]}));
+        expand.mockResolvedValueOnce(JSON.stringify({components:[],warnings:['Salesforce component dependency coverage is unavailable: HTTP 400']}));
         const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
         el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
         expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('The scan completed');
         expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('not a missing scan');
         expect(el.shadowRoot.querySelector('.app-model-open-scan')).toBeNull();
         expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('HTTP 400');
+    });
+
+    it('round-trips browser component metadata through primitive JSON Apex parameters', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
+        const roots=[{type:'CustomTab',name:'Warden_Studio',id:'01r000000000001'},{type:'LightningComponentBundle',name:'wardenApp',id:'0Rb000000000001'}];
+        getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Warden Studio',runId:'run',components:roots}));
+        expand.mockImplementation(async params=>JSON.stringify({components:JSON.parse(params.componentsJson).some(c=>c.name==='wardenApp')?[{type:'Object',name:'Contact'}]:[],reasons:[],warnings:[]}));
+        describeObjects.mockResolvedValue([{apiName:'Contact',fields:[{apiName:'Name',dataType:'STRING'}]}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const sent=expand.mock.calls[0][0];expect(typeof sent.componentsJson).toBe('string');expect(sent.components).toBeUndefined();expect(JSON.parse(sent.componentsJson)).toEqual(roots);
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Contact');
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="Contact"]')).not.toBeNull();
     });
 
 });

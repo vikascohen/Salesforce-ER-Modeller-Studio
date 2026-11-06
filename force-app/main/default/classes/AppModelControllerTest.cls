@@ -84,4 +84,19 @@
         System.assert(contact,'App → LWC → Apex → scanned sObject must resolve using the existing V5 scan.');Test.stopTest();
     }
 
+    @IsTest static void browserJsonBoundaryRetainsComponentMetadata(){
+        Test.setMock(HttpCalloutMock.class,new ApiMock());
+        Map<String,Object> scope=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.getAppScopeJson('06m000000000001',false));
+        System.assertEquals('Sales',(String)scope.get('appLabel'));System.assert(scope.get('components') instanceof List<Object>);
+        String browserPayload='[{"type":"LightningComponentBundle","name":"salesPanel","id":"0Rb000000000001"}]';
+        Map<String,Object> expansion=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.expandScopeJson(null,browserPayload,null,false));
+        List<Object> components=(List<Object>)expansion.get('components');System.assertEquals(1,components.size());
+        Map<String,Object> target=(Map<String,Object>)components[0];System.assertEquals('ApexClass',(String)target.get('type'));System.assertEquals('SalesService',(String)target.get('name'));
+    }
+    @IsTest static void browserJsonBoundaryRejectsMissingFieldsInsteadOfEmptyModel(){
+        for(String payload:new List<String>{null,'not-json','[]','null','[{"type":"ApexClass"}]','[null]'}){
+            Boolean rejected=false;try{AppModelController.expandScopeJson(null,payload,null,false);}catch(AuraHandledException expected){rejected=true;}System.assert(rejected,'Invalid browser data must fail explicitly: '+payload);
+        }
+    }
+
 }

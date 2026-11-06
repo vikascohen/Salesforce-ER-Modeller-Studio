@@ -4,8 +4,8 @@
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
-import getAppScope from '@salesforce/apex/AppModelController.getAppScope';
-import expandAppScope from '@salesforce/apex/AppModelController.expandScope';
+import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
+import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
 import { collectAppScope, describeInChunks } from 'c/appModelLogic';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
@@ -3341,9 +3341,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const originalSource = this.sourceText;
         const progress = message => { this.appModelStatus = message; };
         try {
-            const scope = await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: this.appUsageEnabled });
+            const scope = JSON.parse(await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: this.appUsageEnabled }));
             const result = this.appUsageEnabled
-                ? await collectAppScope(scope, expandAppScope, { includeAutomation: this.appAutomationEnabled, onProgress: progress })
+                ? await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress })
                 : { objects: [...new Set(scope.components.filter(c => c.type === 'Object').map(c => c.name))], reasons: [], warnings: [] };
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
             const objects = await describeInChunks(result.objects, describeObjects, progress);

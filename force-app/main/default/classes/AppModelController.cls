@@ -54,6 +54,19 @@ public with sharing class AppModelController {
         }
         return types;
     }
+    /** Primitive-only LWC boundary: inner Apex classes are not a supported input contract. */
+    @AuraEnabled public static String getAppScopeJson(String appId,Boolean includeUsage){
+        return JSON.serialize(getAppScope(appId,includeUsage));
+    }
+    @AuraEnabled public static String expandScopeJson(Id runId,String componentsJson,String cursor,Boolean includeAutomation){
+        if(String.isBlank(componentsJson)||componentsJson.length()>32000)throw new AuraHandledException('App component data is missing or too large. Reload the page and try again.');
+        List<Component> components;
+        try{components=(List<Component>)JSON.deserialize(componentsJson,List<Component>.class);}
+        catch(Exception ex){throw new AuraHandledException('App component data could not be read. Reload the page and try again.');}
+        if(components==null||components.isEmpty()||components.size()>40)throw new AuraHandledException('App component data must contain between 1 and 40 components.');
+        for(Component c:components)if(c==null||String.isBlank(c.type)||String.isBlank(c.name))throw new AuraHandledException('App components arrived without type or name metadata. Reload the page and try again.');
+        return JSON.serialize(expandScope(runId,components,cursor,includeAutomation));
+    }
     @AuraEnabled public static Scope getAppScope(String appId,Boolean includeUsage) {
         if(String.isBlank(appId)||!Pattern.matches('^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$',appId))throw new AuraHandledException('Select a valid Salesforce app.');
         Map<String,Object> app=get('/ui-api/apps/'+appId+'?formFactor=Large&userCustomizations=false');
