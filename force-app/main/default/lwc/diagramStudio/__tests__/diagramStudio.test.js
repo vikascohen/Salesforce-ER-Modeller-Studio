@@ -2300,6 +2300,18 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.app-model-error')).toBeNull();
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Nebula ER Model');
     });
+    it('optionally renders named app components from DSL while keeping them out of schema queries', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'ApexClass',name:'SalesService'},{type:'Flow',name:'SalesFlow'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'}]}]);
+        const el=await createAppStudio();
+        const toggle=el.shadowRoot.querySelector('.app-components-toggle');toggle.checked=true;toggle.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const source=el.shadowRoot.querySelector('.code-editor').value;
+        expect(source).toContain('component ApexClass SalesService');expect(source).toContain('component Flow SalesFlow');
+        expect(describeObjects).toHaveBeenCalledWith({objectApiNames:['Account']});
+        expect([...el.shadowRoot.querySelectorAll('.entity-group')].map(card=>card.dataset.name)).toContain('@ApexClass:SalesService');
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();

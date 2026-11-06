@@ -1,4 +1,4 @@
-import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema } from 'c/appModelLogic';
+import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource } from 'c/appModelLogic';
 const comp = (type,name) => ({type,name});
 it('follows only reached components, handles cycles and keeps inclusion evidence', async () => {
     const expand = jest.fn(async ({components}) => ({components: components.flatMap(c => ({
@@ -70,4 +70,12 @@ it('shows only app-used Account fields, without adding Name or unused relationsh
 it('aggregates field evidence only from reached components and records provenance', async()=>{
     const result=await collectAppScope({runId:'run',components:[comp('LightningComponentBundle','appPanel')]},async({components})=>components.some(c=>c.name==='appPanel')?{fieldUsage:[{objectApiName:'Account',fieldApiName:'Description',sourceType:'LWC',componentName:'appPanel'}]}:{});
     expect(result.objects).toEqual(['Account']);expect(result.fields).toHaveLength(1);expect(result.fields[0].fieldApiName).toBe('Description');expect(result.fields[0].sources).toContain('LWC appPanel');
+});
+
+
+it('keeps metadata tables hidden while emitting only typed reached Apex and Flow component names', () => {
+    const selected=selectAppObjects({objects:['ApexClass','FlowDefinitionView','FlowVersionView','LogEntryEvent__e','Rule__mdt']});
+    expect(selected.visible).toEqual(['LogEntryEvent__e','Rule__mdt']);
+    expect(selected.hidden).toHaveLength(3);
+    expect(buildAppComponentSource([{type:'ApexClass',name:'Logger'},{type:'Flow',name:'Save_Log'},{type:'Object',name:'ApexClass'},{type:'ApexClass',name:'Logger'}])).toBe('component ApexClass Logger\ncomponent Flow Save_Log');
 });

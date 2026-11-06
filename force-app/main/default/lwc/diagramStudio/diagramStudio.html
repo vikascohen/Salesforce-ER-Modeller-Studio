@@ -281,6 +281,7 @@
                     <div class="app-used-fields"><strong>Fields used by this app only</strong><lightning-helptext content={appUsedFieldsHelp}></lightning-helptext><p>Based on scoped scan evidence. Name is included only when used; Id remains the key.</p></div>
                     <div class="app-model-options">
                         <p class="app-model-intro">Requires a successful org scan of Flow, LWC and Apex usage.</p>
+                        <lightning-input class="app-components-toggle" type="checkbox" label="Show Apex class and Flow names as component cards" field-level-help="Adds reached Apex classes and Flows as named component cards, separate from sObject entities. Saved in the DSL. These are potential dependencies, not proof of execution." checked={appIncludeComponents} onchange={handleAppComponentsChange} disabled={appModelBusy}></lightning-input>
                         <lightning-input class="app-platform-toggle" type="checkbox" label="Include Salesforce system, security and licensing objects" field-level-help={appPlatformHelp} checked={appIncludePlatform} onchange={handleAppPlatformChange} disabled={appModelBusy}></lightning-input>
                         <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
                     </div>
@@ -786,7 +787,7 @@
                             <!-- Header bottom strip (covers rounded corners gap) -->
                             <rect x={b.x} y={b.headerBodyY} width={b.width} height="10" fill={b.headerFill}></rect>
                             <!-- Entity name -->
-                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.name}</text>
+                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.title}</text>
                             <!-- Delete button -->
                             <g data-name={b.name} class="delete-btn" onclick={handleDeleteEntity} transform={b.deleteTransform}>
                                 <circle cx="0" cy="0" r="10" fill="#c23934"></circle>

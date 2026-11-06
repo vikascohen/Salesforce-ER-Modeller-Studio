@@ -54,7 +54,7 @@
                             <g key={b.name}>
                                 <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="6" fill="#ffffff" stroke="#d8dde6" stroke-width="1"></rect>
                                 <rect x={b.x} y={b.y} width={b.width} height="34" rx="6" fill={b.headerFill}></rect>
-                                <text x={b.x} y={b.y} dx="12" dy="22" font-size="13" font-weight="bold" fill="#ffffff">{b.name}</text>
+                                <text x={b.x} y={b.y} dx="12" dy="22" font-size="13" font-weight="bold" fill="#ffffff">{b.title}</text>
                                 <template for:each={b.fields} for:item="fld">
                                     <g key={fld.key}>
                                         <template if:true={fld.isPrimaryKey}>

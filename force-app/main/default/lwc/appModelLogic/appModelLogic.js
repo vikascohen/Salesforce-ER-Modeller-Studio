@@ -54,7 +54,7 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
         error.coverageWarnings = [...warnings];
         throw error;
     }
-    return { objects, fields: [...fieldUsage.values()].map(field => ({...field,sources:[...field.sources]})), reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
+    return { objects, components: [...seen.values()].filter(component => ['ApexClass','Flow'].includes(component.type)), fields: [...fieldUsage.values()].map(field => ({...field,sources:[...field.sources]})), reasons: [...reasons].sort(), warnings: [...warnings], componentCount: seen.size };
 }
 export async function describeInChunks(names, describe, onProgress = () => {}) {
     const objects = [];
@@ -74,7 +74,7 @@ const PLATFORM_OBJECT_GROUPS = {
     'Security and access': ['PermissionSet','PermissionSetAssignment','PermissionSetGroup','PermissionSetGroupComponent','PermissionSetLicense','PermissionSetLicenseAssign','MutingPermissionSet','PermissionSetTabSetting','PermissionSetApplicationVisibility','ObjectPermissions','FieldPermissions','Profile','SetupEntityAccess','UserPermissionAccess'],
     'Identity and sharing': ['User','UserRole','UserLogin','UserRecordAccess','Group','GroupMember','Name','UserPreference','UserAppInfo','UserAppMenuCustomization'],
     'Licensing': ['UserLicense','PackageLicense','UserPackageLicense','PermissionSetLicense','PermissionSetLicenseAssign'],
-    'Platform metadata': ['EntityDefinition','FieldDefinition','EntityParticle','RelationshipDomain','RelationshipInfo','AppDefinition','AppMenuItem','RecordType','CustomPermission','Organization'],
+    'Platform metadata': ['ApexClass','ApexTrigger','Flow','FlowDefinition','FlowDefinitionView','FlowVersionView','FlowInterview','FlowRecordRelation','LightningComponentBundle','AuraDefinitionBundle','EntityDefinition','FieldDefinition','EntityParticle','RelationshipDomain','RelationshipInfo','AppDefinition','AppMenuItem','RecordType','CustomPermission','Organization'],
     'Platform operations': ['ApexLog','AsyncApexJob','CronTrigger','CronJobDetail','SetupAuditTrail','LoginHistory','LoginGeo','AuthSession','EventLogFile']
 };
 const PLATFORM_CATEGORIES = new Map();
@@ -128,4 +128,15 @@ export function prepareAppSchema(objects, { visibleNames, fieldUsage = [] } = {}
         if (missing.length) throw new Error(`Scanned app fields no longer match the org schema: ${object.apiName}.${missing.join(', ')}. Refresh the org scan before generating.`);
         return {...object,fields:(object.fields || []).filter(field => fields.has(field.apiName.toLowerCase()))};
     });
+}
+
+// Typed cards preserve component identity separately from Salesforce entities.
+export function buildAppComponentSource(components = []) {
+    const unique = new Map();
+    for (const component of components) {
+        if (!['ApexClass','Flow'].includes(component.type) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(component.name)) continue;
+        unique.set(`${component.type}:${component.name}`.toLowerCase(),component);
+    }
+    if (unique.size > 300) throw new Error('The app exceeds 300 component cards. Turn off Show Apex and Flow component names and generate the data model only.');
+    return [...unique.values()].sort((a,b) => `${a.type}:${a.name}`.localeCompare(`${b.type}:${b.name}`)).map(component => `component ${component.type} ${component.name}`).join('\n');
 }

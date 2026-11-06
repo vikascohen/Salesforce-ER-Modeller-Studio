@@ -69,6 +69,7 @@ export function splitFieldList(raw) {
 
 export function parseEr(text) {
     const entities = new Map();      // keyed by lowercase name; preserves first-seen casing
+    const components = new Map();
     const relationships = [];
     const relSeen = new Set();       // dedupe exact-duplicate relationship lines
 
@@ -95,6 +96,14 @@ export function parseEr(text) {
         const line = rawLine.trim();
         if (!line || line.startsWith('#')) return;
 
+        const componentMatch = line.match(/^component\s+(ApexClass|Flow)\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+        if (componentMatch) {
+            const type = componentMatch[1].toLowerCase() === 'flow' ? 'Flow' : 'ApexClass';
+            const title = componentMatch[2];
+            const name = `@${type}:${title}`;
+            components.set(name.toLowerCase(), {name, title, componentType:type, fields:[]});
+            return;
+        }
         const entityMatch = line.match(/^entity\s+(\w+)\s*(:\s*(.*))?$/i);
         if (entityMatch) {
             const ent = ensureEntity(entityMatch[1]);
@@ -159,11 +168,11 @@ export function parseEr(text) {
         throw new Error(`Line ${idx + 1} not understood: "${line}". Try: entity Account : Name  or  Contact.AccountId => Account`);
     });
 
-    if (entities.size === 0) {
+    if (entities.size === 0 && components.size === 0) {
         throw new Error('No entities found. Start with: entity Account : Name, Industry');
     }
 
-    return { entities: Array.from(entities.values()), relationships };
+    return { entities: Array.from(entities.values()), relationships, ...(components.size ? {components:[...components.values()]} : {}) };
 }
 
 function kindLabel(kind) {
@@ -177,7 +186,7 @@ function fieldLabel(f) {
 }
 
 function isCustom(name) {
-    return /__c$/i.test(name);
+    return /__(c|e|mdt)$/i.test(name);
 }
 
 function clamp(v, min, max) {
@@ -261,10 +270,11 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
     const positions = existingPositions || {};
     const heights = boxHeightOverrides || {};
     const widths = boxWidthOverrides || {};
-    const cols = Math.max(1, Math.ceil(Math.sqrt(model.entities.length)));
+    const nodes = [...model.entities, ...(model.components || [])];
+    const cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
 
-    const boxes = model.entities.map((ent, i) => {
-        const naturalRowCount = ent.fields.length + 1; // +1 for Id
+    const boxes = nodes.map((ent, i) => {
+        const naturalRowCount = ent.componentType ? 1 : ent.fields.length + 1; // +1 for Id
         const naturalBodyHeight = naturalRowCount * ROW_HEIGHT + 12;
         const naturalHeight = HEADER_HEIGHT + naturalBodyHeight;
 
@@ -277,7 +287,7 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
         const width  = widths[ent.name]  != null ? Math.max(widths[ent.name],  80)             : BOX_WIDTH;
         const visibleRows = Math.floor((height - HEADER_HEIGHT - 12) / ROW_HEIGHT);
 
-        const allFieldRows = [
+        const allFieldRows = ent.componentType ? [{key:ent.name+'-type',text:ent.componentType === 'Flow' ? 'Flow' : 'Apex class',isPrimaryKey:false,isRelationship:false,isPlain:true}] : [
             { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false, isRollupSummary: false, isRequired: false }
         ].concat(ent.fields.map((f, fi) => ({
             key: ent.name + '-' + fi,
@@ -299,13 +309,15 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
 
         return {
             name: ent.name,
+            title: ent.title || ent.name,
+            componentType: ent.componentType,
             x: saved ? saved.x : gridX,
             y: saved ? saved.y : gridY,
             width,
             height,
             naturalHeight,
             isCustom: custom,
-            headerFill: custom ? '#5c2d91' : '#0070d2',
+            headerFill: ent.componentType ? '#137c70' : custom ? '#5c2d91' : '#0070d2',
             // A dx offset (relative to the box's own left edge, x) for the
             // red "R" required-field marker, positioned near the box's
             // right edge regardless of the row's other content — keeps it
@@ -422,7 +434,7 @@ function mermaidSafeType(type) {
 }
 
 export function buildMermaidErDiagram(model) {
-    const lines = ['erDiagram'];
+    const lines = ['erDiagram', ...(model.components || []).map(c => `    %% ${c.componentType}: ${c.title} (component card; omitted from ER-only export)` )];
 
     model.relationships.forEach((r) => {
         const lineStyle = r.kind === 'master' ? '--' : '..';
@@ -467,11 +479,12 @@ function drawioEntityLabelHtml(ent) {
     // values here first to avoid HTML injection when draw.io renders them.
     const safe = (value) => escapeXml(value);
     const custom = isCustom(ent.name);
-    const header = custom ? '#5c2d91' : '#145a9c';
+    const header = ent.componentType ? '#137c70' : custom ? '#5c2d91' : '#145a9c';
     const rows = [
-        `<div style="background-color:${header};color:#ffffff;padding:10px 12px;font-size:14px;font-weight:bold;">${safe(ent.name)}</div>`,
+        `<div style="background-color:${header};color:#ffffff;padding:10px 12px;font-size:14px;font-weight:bold;">${safe(ent.title || ent.name)}</div>`,
         '<div style="padding:7px 12px;background-color:#eef3f8;border-bottom:1px solid #d6dfe9;color:#44546a;font-size:11px;">Id <b>PK</b></div>'
     ];
+    if (ent.componentType) rows.splice(1,1,`<div style="padding:7px 12px;">${ent.componentType === 'Flow' ? 'Flow' : 'Apex class'}</div>`);
     ent.fields.forEach((f, i) => {
         let detail = '';
         if (f.isRelationship) {
@@ -510,6 +523,7 @@ function drawioEdgeStyle(kind) {
  * @param boxes  buildErGeometry(...).boxes — {name, x, y, width, height}[]
  */
 export function buildDrawioXml(model, boxes) {
+    model = {...model,entities:[...model.entities,...(model.components || [])]};
     const idOf = {};
     model.entities.forEach((ent, i) => { idOf[ent.name] = 'n' + i; });
     const boxByName = {};

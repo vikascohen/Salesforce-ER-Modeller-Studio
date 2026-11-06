@@ -337,3 +337,30 @@ describe('buildLegendGroup', () => {
         expect(g.querySelectorAll('text').length).toBeGreaterThanOrEqual(4); // title + 3 rows
     });
 });
+
+describe('V5 typed app component cards', () => {
+    it('keeps Apex, Flow and sObject identities separate, without fake primary keys', () => {
+        const model=parseEr('entity Logger : Name\ncomponent ApexClass Logger\ncomponent Flow Logger\ncomponent ApexClass logger');
+        expect(model.entities).toHaveLength(1);
+        expect(model.components).toHaveLength(2);
+        const geo=buildErGeometry(model,{});
+        expect(geo.boxes).toHaveLength(3);
+        for(const box of geo.boxes.filter(b=>b.componentType)) {
+            expect(box.title).toBeTruthy();expect(box.fields).toHaveLength(1);
+            expect(box.fields.some(f=>f.isPrimaryKey)).toBe(false);
+            expect(box.headerFill).toBe('#137c70');
+        }
+        expect(buildDrawioXml(model,geo.boxes)).toContain('Apex class');
+        expect(buildMermaidErDiagram(model)).toContain('component card; omitted from ER-only export');
+    });
+    it('colours custom objects, platform events and custom metadata consistently', () => {
+        const boxes=buildErGeometry(parseEr('entity Custom__c\nentity pkg__Event__e\nentity Config__mdt\nentity Account'),{}).boxes;
+        expect(boxes.slice(0,3).map(b=>b.headerFill)).toEqual(['#5c2d91','#5c2d91','#5c2d91']);
+        expect(boxes[3].isCustom).toBe(false);
+    });
+    it('rejects malformed component declarations rather than creating fake sObjects', () => {
+        expect(()=>parseEr('component ApexClass bad-name')).toThrow();
+        expect(()=>parseEr('component ApexTrigger Trigger')).toThrow();
+        expect(parseEr('component Flow MyFlow').entities).toHaveLength(0);
+    });
+});

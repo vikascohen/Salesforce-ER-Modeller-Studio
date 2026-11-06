@@ -6,7 +6,7 @@ import { NavigationMixin } from 'lightning/navigation';
 import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
 import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
 import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
-import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema } from 'c/appModelLogic';
+import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource } from 'c/appModelLogic';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
@@ -3269,6 +3269,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     selectedSalesforceApp = '';
     appUsedFieldsHelp = 'Only fields with recorded usage in components reached from the selected app are shown. Name is not added automatically. Id remains the structural key. Dynamic or unresolved field references are not guessed.';
     appAutomationEnabled = true;
+    appIncludeComponents = false;
+    handleAppComponentsChange(event) { this.appIncludeComponents = event.target.checked; }
     appIncludePlatform = false;
     appPlatformHelp = 'Hide known Salesforce system, security and licensing tables by default. Standard business objects such as Account, Contact and Case remain eligible. Enable this option for the full technical dependency model.';
     appModelObjectDetails = [];
@@ -3365,7 +3367,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const displayObjects = prepareAppSchema(objects, { visibleNames: selection.visible, fieldUsage: result.fields });
             const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
             const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Model scope: ${this.appIncludePlatform ? 'Full technical dependencies' : 'Application data objects'}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
-            const source = header + '\n\n' + this.buildErSource(displayObjects);
+            const componentSource = this.appIncludeComponents ? buildAppComponentSource(result.components) : '';
+            const source = header + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component cards (potential dependencies, not execution)\n' + componentSource : '');
             if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
             // Validate the whole generated model before changing any editor state.
             parseEr(source);
@@ -3689,6 +3692,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const filtered = this.sourceText.split('\n').filter((line) => {
                 const t = line.trim();
                 if (!t || t.startsWith('#')) return true;
+                const cm = t.match(/^component\s+(ApexClass|Flow)\s+(\w+)$/i);
+                if (cm && (`@${cm[1]}:${cm[2]}`).toLowerCase() === name.toLowerCase()) return false;
                 const em = t.match(/^entity\s+(\w+)/i);
                 if (em && em[1].toLowerCase() === name.toLowerCase()) return false;
                 const rm = t.match(/^(\w+)\.(\w+)\s*(=>|~>|->)\s*(\w+)\s*$/);
@@ -3696,7 +3701,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 return true;
             });
             const remaining  = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-            const hasEntity  = /^\s*entity\s+\w+/im.test(remaining);
+            const hasEntity  = /^\s*(entity|component)\s+\w+/im.test(remaining);
             delete this.erPositions[name];
             delete this.boxHeightOverrides[name];
             delete this.boxWidthOverrides[name];
@@ -3978,7 +3983,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async fetchSharingModels() {
         if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._sharingRequestToken;
-        const names = this._erBoxes.map((b) => b.name);
+        const names = this._erBoxes.filter(b => !b.componentType).map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
             // OWD/sharing models are cheap metadata and are needed for every
@@ -3995,7 +4000,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 const match = Object.keys(fresh||{}).find(key=>key.toLowerCase()===name.toLowerCase());
                 this._sharingModelCache[name.toLowerCase()] = match ? fresh[match] : null;
             }
-            const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+            const currentKey = (this._erBoxes || []).filter(b => !b.componentType).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
             existingNames.forEach(name=>{
@@ -4073,7 +4078,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async fetchRecordCounts() {
         if (!this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._heatmapRequestToken;
-        const names = this._erBoxes.map((b) => b.name);
+        const names = this._erBoxes.filter(b => !b.componentType).map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
             // Keep record counts for objects already fetched during this
@@ -4092,7 +4097,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 while (cursor < pendingNames.length) {
                     const name = pendingNames[cursor++];
                     const value = await getRecordCount({ objectApiName: name });
-                    const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+                    const currentKey = (this._erBoxes || []).filter(b => !b.componentType).map((b)=>b.name.toLowerCase()).sort().join('|');
                     if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
 
                     if (value == null) {
@@ -4112,7 +4117,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 Array.from({ length: Math.min(concurrency, pendingNames.length) }, () => worker())
             );
 
-            const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+            const currentKey = (this._erBoxes || []).filter(b => !b.componentType).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
             this.recordCounts = { ...next };
         } catch (e) {
@@ -4183,6 +4188,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     showHoverCard(name, clientX, clientY) {
         const box = this._erBoxes && this._erBoxes.find((b) => b.name === name);
         if (!box) return;
+        if (box.componentType) return;
         const key = name.toLowerCase();
 
         const recordCount = this.recordCounts[key];
@@ -4928,7 +4934,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.missingRelationshipSuggestions = [];
             return;
         }
-        const boxes = this._erBoxes;
+        const boxes = this._erBoxes.filter(b => !b.componentType);
         // Make sure every entity currently on canvas has its schema fetched
         // (a no-op for anything already cached, or anything that isn't a
         // real org object — that just resolves to an empty field list).
