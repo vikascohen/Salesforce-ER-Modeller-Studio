@@ -1617,9 +1617,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // eslint-disable-next-line no-alert
             if (!window.confirm(`"${tab.name}" has unsaved changes. Close anyway?`)) return;
         }
+        const wasActive = this.activeTabId === tabId;
         const remaining = this.openTabs.filter((t) => t.id !== tabId);
         this.openTabs   = remaining;
-        if (this.activeTabId === tabId || !remaining.length) {
+        if (wasActive || !remaining.length) {
             if (remaining.length) {
                 const last = remaining[remaining.length - 1];
                 this._activateTabId(last.id);
@@ -3299,6 +3300,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 : /no.*objects|no.*navigation/i.test(message)
                     ? 'Select an app with object navigation items, or include Flow, LWC and Apex usage after completing an org scan.'
                     : 'Review the error below, correct the indicated issue, then try again. Your current diagram and DSL have been preserved.';
+        if (/Save the current diagram before generating/i.test(message)) {
+            this.appModelError = 'Save or close the current diagram first.';
+            this.appModelErrorHelp = 'The active tab has unsaved changes. Cancel this dialog, save the diagram or close its tab and discard changes, then generate again. Clearing the canvas also creates unsaved changes.';
+        }
         if (error?.code === 'APP_FIELDS_NOT_RESOLVED') {
             this.appModelError = 'App-used fields could not be established for this model.';
             this.appModelErrorHelp = 'The generator will not substitute every field on the object. Check that the scan includes readable Flow, LWC or Apex field references for the selected app. Dynamic references may not be resolvable.';

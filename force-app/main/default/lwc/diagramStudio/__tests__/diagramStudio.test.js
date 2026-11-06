@@ -2280,6 +2280,26 @@ describe('V5 app generation', () => {
         const details=el.shadowRoot.querySelector('.app-object-details-table').textContent;
         expect(details).toContain('Hidden by scope');expect(details).toContain('SalesService');expect(details).toContain('Description');
     });
+    it('clears the dirty editor state when the active generated tab is closed before generating another app', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Warden',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.status-label').textContent).toContain('Unsaved');
+        const confirm=jest.spyOn(window,'confirm').mockReturnValue(true);
+        const tabs=[...el.shadowRoot.querySelectorAll('.tab-close')];tabs[tabs.length-1].click();await flushPromises();confirm.mockRestore();
+        expect(el.shadowRoot.querySelector('.status-label').textContent).toContain('Saved');
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        await openAppDialog(el);
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Nebula',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(getScope).toHaveBeenCalledTimes(2);
+        expect(el.shadowRoot.querySelector('.app-model-error')).toBeNull();
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Nebula ER Model');
+    });
     it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
         const el=await createAppStudio();
