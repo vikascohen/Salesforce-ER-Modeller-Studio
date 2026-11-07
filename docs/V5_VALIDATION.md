@@ -1,12 +1,38 @@
 # V5 validation record
 
+## Latest V5 source-preview checks — 7 November 2026
+
+| Check | Result |
+| --- | --- |
+| Development workspace JavaScript suite | 32 suites; 266 passed; 10 existing skips |
+| Connected Linux desktop JavaScript suite | 32 suites; 266 passed; 10 existing skips |
+| Named-access Apex fixture tests | 3/3 passed; no coverage warnings |
+| Named-access developer-org deployment | Succeeded: `0Afaj00000qh4FJCAY` |
+| Final IntelliSense/help LWC deployment | Succeeded: `0Afaj00000qhACfCAM` |
+| Documentation examples | 16 runnable DSL examples passed; one intentionally invalid example rejected |
+| Documentation links | Local README/reference/guide links checked |
+| V5 manifest | Salesforce CLI source-to-metadata conversion passed; new access/DSL/Omni dependencies included and obsolete V4 package name removed |
+| Whitespace/XML/source references | Checked |
+
+The latest suite covers inert exports, explicit use alongside top-level declarations, named imports/from/extends, visibility and cycles, all six component types, labels/JSON escaping, label snippets, saved/imported access-name candidates, keyboard acceptance, identifier/quote replacement, schema/card separation and existing diagram/routing regressions. Empty display-label snippets remain valid while being filled, using their identifier as the interim title. Invalid JSON and conflicting activated labels report source errors.
+
+The desktop run used a 15-second per-test allowance after an earlier existing Relationship Insights test exceeded its default five-second limit on that device. All assertions then passed; the test was not skipped. The final deployment initially failed at network transfer before a Salesforce job was created; retry succeeded with the ID above.
+
+Live read-only access discovery resolved Warden Studio User, Nebula Logger: Admin and Nebula Logger: Log Viewer from app visibility grants. Those permission sets had no explicit licence binding. Permission-set/user licence and installed-package label paths also have fixture coverage; this is not a claim that a live app was found to require those licences. A final live client check serialised these actual names into labelled component DSL, verified that exported definitions alone render nothing, then activated them with `use` and checked exact labels with zero schema entities. Discovery did not read user assignments or modify business records.
+
+Earlier module deployment `0Afaj00000qgspFCAQ` passed 53 selected Apex tests. Its rollback-only live check verified import binding across rename, canonical filename uniqueness, import-only empty rendering, explicit use, top-level field merging and an Apex card. Canvas deployment `0Afaj00000qgzHFCAY` passed 250 JavaScript tests, including arrow clearance in four directions; its Chrome-rendered three-object geometry preview was visually inspected. The latest suite retains those regressions. Browser interaction through every Salesforce feature has not been visually re-exercised.
+
+V5 remains a source preview. The historical checks below are retained with their original scope; their initial test counts and acceptance notes are not the latest totals. Clean-org/package acceptance and a V5 package release remain outstanding. See [V5 release notes](V5_RELEASE_NOTES.md), [DSL reference](DSL.md), [architecture](ARCHITECTURE.md#23-v5-composition-app-models-and-named-access) and [app modelling](V5_APP_MODELLING.md).
+
+## Initial validation baseline — 6 November 2026
+
 Validated on 6 November 2026. Implementation commit: `8f4e57210fd25c2b38f3ee0aeb3a0c8a19d807af` (tree `41b992ac084dae74180d292d42a97839962db426`).
 
 | Check | Result |
 | --- | --- |
 | Baseline V4 Jest run | 30 suites, 184 passed, 10 pre-existing skipped |
-| Final V5 Jest run in development workspace | 31 suites, 195 passed, 10 pre-existing skipped |
-| Final V5 Jest run on connected Linux desktop | 31 suites, 195 passed, 10 pre-existing skipped |
+| Initial V5 Jest run in development workspace | 31 suites, 195 passed, 10 pre-existing skipped |
+| Initial V5 Jest run on connected Linux desktop | 31 suites, 195 passed, 10 pre-existing skipped |
 | Salesforce full-source dry-run deployment | Succeeded; checkOnly=true; 156/156 metadata components accepted |
 | Salesforce RunLocalTests | 196/196 Apex tests passed; zero failures |
 | Coverage in returned class-coverage entries | 85.19%; no coverage warnings |

@@ -9,6 +9,8 @@ import listFiles from '@salesforce/apex/DiagramFileController.listFiles';
 import getAllObjectNames from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import DiagramStudio from 'c/diagramStudio';
 
+jest.mock('@salesforce/apex/AppAccessService.discover',()=>({default:jest.fn(()=>Promise.resolve('{"cards":[],"warnings":[],"reasons":[]}'))}),{virtual:true});
+
 jest.mock('@salesforce/apex/DslFileService.resolveImports',()=>({default:jest.fn(()=>Promise.resolve('{\"files\":{},\"edges\":{}}'))}),{virtual:true});
 jest.mock('@salesforce/apex/AppModelController.listDslComponentNames',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
 jest.mock('@salesforce/apex/AppModelController.listApps', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
@@ -2633,6 +2635,22 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.entity-group[data-name="Contact"]')).not.toBeNull();
     });
 
+    it('generates named access cards without expanding platform schema tables and preserves them in DSL',async()=>{
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Logger',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'PermissionSet'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]}]);
+        const discover=require('@salesforce/apex/AppAccessService.discover').default;
+        discover.mockResolvedValue(JSON.stringify({cards:[{type:'PermissionSet',name:'Access_0PS1',label:'Logger Admin',evidence:'App visibility grant'},{type:'UserLicense',name:'Access_1001',label:'Salesforce',evidence:'Bound licence'}],warnings:['Assignments are not inferred.'],reasons:['Logger Admin grants app access.']}));
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        const toggle=el.shadowRoot.querySelector('.app-platform-toggle');toggle.checked=true;toggle.dispatchEvent(new CustomEvent('change'));
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();await flushPromises();
+        const source=el.shadowRoot.querySelector('.code-editor').value;
+        expect(discover).toHaveBeenCalled();expect(source).toContain('component PermissionSet Access_0PS1 label "Logger Admin"');expect(source).toContain('component UserLicense Access_1001 label "Salesforce"');expect(source).not.toContain('entity PermissionSet');
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="@PermissionSet:Access_0PS1"]').textContent).toContain('Logger Admin');
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="@UserLicense:Access_1001"]').textContent).toContain('User licence');
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('PERMISSION SETS & LICENCES');
+    });
+
 });
 
 
@@ -2681,6 +2699,58 @@ describe('DSL modules and IntelliSense integration',()=>{
         el.shadowRoot.querySelector('.er-diagnostic-indicator').click();await flushPromises();
         el.shadowRoot.querySelector('.er-error-log-list button').click();await flushPromises();
         expect(el.shadowRoot.textContent).toContain('without a path');
+    });
+
+    it('completes export, inheritance, named-import and label keywords without changing surrounding text',async()=>{
+        const el=createStudio();await flushPromises();
+        for(const [prefix,expected] of [['export m','module'],['export module Sales ex','extends'],['import Customer f','from'],['component PermissionSet Admin l','label']]){
+            await edit(el,prefix);const rows=[...el.shadowRoot.querySelectorAll('.dsl-suggest-row')];expect(rows.some(row=>row.querySelector('.dsl-suggest-label').textContent===expected)).toBe(true);
+        }
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await flushPromises();
+        expect(editor.value).toBe('component PermissionSet Admin label ""');
+        expect(editor.selectionStart).toBe(editor.value.length-1);
+    });
+    it('completes all access types from saved declarations and inserts JSON-safe labels using Tab',async()=>{
+        const el=createStudio();await flushPromises();
+        for(const type of ['PermissionSet','PermissionSetLicense','UserLicense','PackageLicense']){
+            const label='Readable "Core" {Name}';const declaration='component '+type+' Existing label '+JSON.stringify(label);
+            const editor=await edit(el,declaration+'\ncomponent '+type+' Read');
+            expect(el.shadowRoot.querySelector('.dsl-suggest-label').textContent).toBe(label);
+            editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+            expect(editor.value).toBe(declaration+'\n'+declaration);
+            expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+        }
+    });
+    it('completes saved display labels with escaping and closes suggestions on Escape',async()=>{
+        const el=createStudio();await flushPromises();const label='Salesforce "Core"';
+        const declaration='component UserLicense Existing label '+JSON.stringify(label);
+        const editor=await edit(el,declaration+'\ncomponent UserLicense Existing label "Sales');
+        expect(el.shadowRoot.querySelector('.dsl-suggest-label').textContent).toBe(label);
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toBe(declaration+'\n'+declaration);
+        await edit(el,'component Perm');editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await flushPromises();expect(el.shadowRoot.querySelector('.dsl-suggestions')).toBeNull();
+    });
+
+    it('offers readable access names from imported modules without activating their definitions',async()=>{
+        require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue(JSON.stringify({files:{security:{id:'security',name:'security.dsl',sourceCode:'export module Access {\ncomponent PermissionSet SavedAdmin label "Saved Admin"\n}'}},edges:{'@root|security.dsl':'security'}}));
+        const el=createStudio();await flushPromises();await edit(el,'import security.dsl');await flushPromises();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
+        const editor=await edit(el,'import security.dsl\ncomponent PermissionSet Saved');
+        expect(el.shadowRoot.querySelector('.dsl-suggest-label').textContent).toBe('Saved Admin');
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toContain('component PermissionSet SavedAdmin label "Saved Admin"');
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+    });
+
+    it('replaces identifier suffixes and existing quoted labels instead of duplicating them',async()=>{
+        const el=createStudio();await flushPromises();
+        const declaration='component UserLicense Existing label "Salesforce"';
+        let text=declaration+'\ncomponent UserLicense ExWrong label "Custom title"';
+        let editor=await edit(el,text);let caret=text.lastIndexOf('ExWrong')+2;editor.setSelectionRange(caret,caret);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toBe(declaration+'\ncomponent UserLicense Existing label "Custom title"');
+        text=declaration+'\ncomponent UserLicense Existing label "SaOLD"';editor=await edit(el,text);caret=text.lastIndexOf('SaOLD')+2;editor.setSelectionRange(caret,caret);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toBe(declaration+'\n'+declaration);
     });
 
 });

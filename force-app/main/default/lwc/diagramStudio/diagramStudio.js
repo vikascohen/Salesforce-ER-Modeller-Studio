@@ -5,11 +5,12 @@ import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
 import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
+import discoverAppAccess from '@salesforce/apex/AppAccessService.discover';
 import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
 import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource } from 'c/appModelLogic';
 import resolveDslImports from '@salesforce/apex/DslFileService.resolveImports';
 import listDslComponentNames from '@salesforce/apex/AppModelController.listDslComponentNames';
-import { importStatements, exportedModuleNames, dslFileKey } from 'c/dslModules';
+import { importStatements, exportedModuleNames, dslFileKey, DSL_COMPONENT_TYPES, componentDeclarations } from 'c/dslModules';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
@@ -1499,10 +1500,16 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const cardTop=allEntities.length?objectBottom+120:110;
             const cardGap=60,cardHeight=108;
             const cardCols=Math.max(1,Math.min(6,Math.floor((Math.max(wrap.clientWidth,720)-110)/(cardW+cardGap))));
-            [...appCards].sort((a,b)=>a.componentType.localeCompare(b.componentType)||a.title.localeCompare(b.title)).forEach((card,index)=>{
-                positions[card.name]={x:Math.max(55,(layoutWidth-(cardCols*cardW+(cardCols-1)*cardGap))/2)+(index%cardCols)*(cardW+cardGap),y:cardTop+Math.floor(index/cardCols)*(cardHeight+60)};
+            const technicalCards=appCards.filter(card=>['ApexClass','Flow'].includes(card.componentType));
+            const accessCards=appCards.filter(card=>!['ApexClass','Flow'].includes(card.componentType));
+            let sectionTop=cardTop;
+            for(const section of [technicalCards,accessCards]){
+            [...section].sort((a,b)=>a.componentType.localeCompare(b.componentType)||a.title.localeCompare(b.title)).forEach((card,index)=>{
+                positions[card.name]={x:Math.max(55,(layoutWidth-(cardCols*cardW+(cardCols-1)*cardGap))/2)+(index%cardCols)*(cardW+cardGap),y:sectionTop+Math.floor(index/cardCols)*(cardHeight+60)};
                 widths[card.name]=cardW;heights[card.name]=cardHeight;
             });
+            if(section.length)sectionTop+=Math.ceil(section.length/cardCols)*(cardHeight+60)+60;
+            }
             this.erPositions=positions;this.boxWidthOverrides=widths;this.boxHeightOverrides=heights;this.zoomLevel=1;this.renderDiagram();
             requestAnimationFrame(()=>{
                 const fit=Math.min((wrap.clientWidth-30)/this.svgWidth,(wrap.clientHeight-30)/this.svgHeight,1);
@@ -1517,7 +1524,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             {key:'objects',label:'OBJECTS',boxes:boxes.filter(b=>!b.componentType&&!/__(e|mdt)$/i.test(b.name))},
             {key:'events',label:'PLATFORM EVENTS',boxes:boxes.filter(b=>!b.componentType&&/__e$/i.test(b.name))},
             {key:'metadata',label:'CUSTOM METADATA',boxes:boxes.filter(b=>!b.componentType&&/__mdt$/i.test(b.name))},
-            {key:'components',label:'APEX & FLOW COMPONENTS',boxes:boxes.filter(b=>b.componentType)}
+            {key:'components',label:'APEX & FLOW COMPONENTS',boxes:boxes.filter(b=>['ApexClass','Flow'].includes(b.componentType))},
+            {key:'access',label:'PERMISSION SETS & LICENCES',boxes:boxes.filter(b=>b.componentType&&!['ApexClass','Flow'].includes(b.componentType))}
         ].filter(section=>section.boxes.length);
         if(sections.length===1&&sections[0].key==='objects')return [];
         return sections.map(section=>({key:section.key,label:section.label+' · '+section.boxes.length,x:Math.min(...section.boxes.map(b=>b.x)),y:Math.max(30,Math.min(...section.boxes.map(b=>b.y))-22)}));
@@ -3367,7 +3375,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appIncludeComponents = false;
     handleAppComponentsChange(event) { this.appIncludeComponents = event.target.checked; }
     appIncludePlatform = false;
-    appPlatformHelp = 'Hide known Salesforce system, security and licensing tables by default. Standard business objects such as Account, Contact and Case remain eligible. Enable this option for the full technical dependency model.';
+    _appAccessCards = [];
+    appPlatformHelp = 'Show named permission sets granting app visibility or access to reached Apex classes, their bound user/permission-set licences, and the selected app package licence. These are access configuration cards, not sObjects or proof of mandatory user assignments. Coverage depends on readable metadata.';
     appModelObjectDetails = [];
     get appHasObjectDetails() { return this.appModelObjectDetails.length > 0; }
     handleAppPlatformChange(event) { this.appIncludePlatform = event.target.checked; this.clearAppModelError(); }
@@ -3413,7 +3422,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
         if (error?.code === 'APP_PLATFORM_ONLY') {
             this.appModelError = 'This app resolves only to Salesforce system objects in the selected scope.';
-            this.appModelErrorHelp = 'Enable Include Salesforce system, security and licensing objects and generate again. Your completed scan can be reused.';
+            this.appModelErrorHelp = 'This scope contains no application data objects. Named access cards do not substitute for an app-used data model. Choose another app or review scanner coverage.';
             this.appModelScanRequired = false;
         }
         if (error?.code === 'APP_OBJECTS_NOT_RESOLVED' && error.scanAvailable) {
@@ -3438,7 +3447,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appGenerateDisabled() { return this.appModelBusy || !this.selectedSalesforceApp; }
     get appHasWarnings() { return this.appModelWarnings.length > 0; }
     get appHasEvidence() { return this.appModelEvidence.length > 0; }
-    handleAppChange(event) { this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
+    handleAppChange(event) { this._appAccessCards=[];this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
     handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
     async handleLoadSalesforceApps() {
         this.appModelBusy = true;
@@ -3467,7 +3476,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const scope = JSON.parse(await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: true }));
             const result = await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress });
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
-            const selection = selectAppObjects(result, { includePlatform: this.appIncludePlatform, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
+            const selection = selectAppObjects(result, { includePlatform: false, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
             const objects = await describeInChunks(selection.visible, describeObjects, progress);
             let displayObjects;
             try { displayObjects = prepareAppSchema(objects, { visibleNames: selection.visible, fieldUsage: result.fields }); }
@@ -3479,9 +3488,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 throw error;
             }
             const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
-            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Model scope: ${this.appIncludePlatform ? 'Full technical dependencies' : 'Application data objects'}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
-            const componentSource = this.appIncludeComponents ? buildAppComponentSource(result.components) : '';
-            const source = header + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component cards (potential dependencies, not execution)\n' + componentSource : '');
+            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
+            let access={cards:[],warnings:[],reasons:[]};
+            if(this.appIncludePlatform){progress('Reading named permission sets and licences…');access=JSON.parse(await discoverAppAccess({appId:this.selectedSalesforceApp,componentsJson:JSON.stringify(result.components)}));this._appAccessCards=access.cards;result.warnings.push(...access.warnings);result.reasons.push(...access.reasons);}
+            const componentSource = buildAppComponentSource([...(this.appIncludeComponents ? result.components : []),...access.cards]);
+            const source = header + access.warnings.map(warning=>'\n# Access coverage: '+comment(warning)).join('') + access.cards.map(card=>'\n# '+card.type+' '+comment(card.label)+': '+comment(card.evidence)).join('') + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component and access cards (configuration, not execution or required assignments)\n' + componentSource : '');
             if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
             // Let the progress message paint before synchronous DSL/layout work.
             progress('Validating DSL and preparing the ER canvas…');
@@ -3509,7 +3520,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 return {...row,fieldSummary: used.length ? 'App-used fields: ' + used.map(field => field.fieldApiName).sort().join(', ') : 'Primary key only; no resolved app field usage for this object.'};
             });
             this.appModelEvidence = result.reasons.map((message,index) => ({ key: String(index), message }));
-            this.appModelStatus = `Generated ${objects.length} objects. ${selection.hidden.length ? selection.hidden.length + ' system objects hidden by scope. ' : ''}${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
+            this.appModelStatus = `Generated ${objects.length} objects. ${this.appIncludePlatform ? access.cards.length + ' named access cards. ' : ''}${selection.hidden.length ? selection.hidden.length + ' system objects hidden by scope. ' : ''}${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
             this.appModelGeneratedSource = source;
             this.appModelSummary = this.appModelStatus;
             this.appModelModalOpen = false;
@@ -3809,7 +3820,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const filtered = this.sourceText.split('\n').filter((line) => {
                 const t = line.trim();
                 if (!t || t.startsWith('#')) return true;
-                const cm = t.match(/^component\s+(ApexClass|Flow)\s+(\w+)$/i);
+                const cm = t.match(/^component\s+(ApexClass|Flow|PermissionSet|PermissionSetLicense|UserLicense|PackageLicense)\s+(\w+)(?:\s+label\s+.*)?$/i);
                 if (cm && (`@${cm[1]}:${cm[2]}`).toLowerCase() === name.toLowerCase()) return false;
                 const em = t.match(/^entity\s+(\w+)/i);
                 if (em && em[1].toLowerCase() === name.toLowerCase()) return false;
@@ -4784,7 +4795,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             return;
         }
         this.dslReplaceStart      = ctx.replaceStart;
-        this.dslReplaceEnd        = caret;
+        this.dslReplaceEnd        = ctx.replaceEnd == null ? caret : ctx.replaceEnd;
         this.dslSuggestions       = ctx.items;
         this.dslSuggestActiveIndex = 0;
         this.dslSuggestStyle      = this.computeDslSuggestStyle(textareaEl, caret);
@@ -4857,22 +4868,39 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     detectDslContext(linePrefix, fullText, lineStart) {
+        const statementStart=lineStart;const lineEnd=fullText.indexOf('\n',statementStart);
+        const completionSource=fullText.slice(0,statementStart)+'\n'+(lineEnd<0?'':fullText.slice(lineEnd+1));
         const indent=linePrefix.match(/^\s*/)[0].length;linePrefix=linePrefix.slice(indent);lineStart+=indent;
+        const caret=lineStart+linePrefix.length;let tokenEnd=caret;while(tokenEnd<fullText.length&&/[A-Za-z0-9_]/.test(fullText[tokenEnd]))tokenEnd++;
         let m;
         const modules=this.moduleSuggestionNames(fullText);
         m=linePrefix.match(/^(?:use\s+|(?:export\s+)?module\s+\w+\s+extends\s+)(\w*)$/i);
-        if(m)return {replaceStart:lineStart+linePrefix.length-m[1].length,items:modules.filter(name=>name.toLowerCase().startsWith(m[1].toLowerCase())).map(name=>({id:'mod-'+name,label:name,detail:'Exported module',insertText:name}))};
+        if(m)return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:modules.filter(name=>name.toLowerCase().startsWith(m[1].toLowerCase())).map(name=>({id:'mod-'+name,label:name,detail:'Exported module',insertText:name}))};
+        m=linePrefix.match(/^import\s+\w+\s+(f\w*)?$/i);
+        if(m&&'from'.startsWith((m[1]||'').toLowerCase()))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-(m[1]||'').length,items:[{id:'import-from',label:'from',detail:'Named module import',insertText:'from '}]};
         m=linePrefix.match(/^import\s+(?:\w+\s+from\s+)?(.*)$/i);
-        if(m){const partial=m[1].toLowerCase();return {replaceStart:lineStart+linePrefix.length-m[1].length,items:(this.files||[]).filter(file=>file.id!==this.currentId).map(file=>{let name;try{name=dslFileKey(file.name);}catch(_){return null;}return {id:'import-'+file.id,label:name,detail:'Saved DSL file',insertText:name};}).filter(item=>item&&item.label.startsWith(partial)).slice(0,50)};}
+        if(m){const partial=m[1].toLowerCase();return {replaceEnd:lineEnd<0?fullText.length:lineEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:(this.files||[]).filter(file=>file.id!==this.currentId).map(file=>{let name;try{name=dslFileKey(file.name);}catch(_){return null;}return {id:'import-'+file.id,label:name,detail:'Saved DSL file',insertText:name};}).filter(item=>item&&item.label.startsWith(partial)).slice(0,50)};}
         m=linePrefix.match(/^component\s+(\w*)$/i);
-        if(m)return {replaceStart:lineStart+linePrefix.length-m[1].length,items:['ApexClass','Flow'].filter(type=>type.toLowerCase().startsWith(m[1].toLowerCase())).map(type=>({id:'component-'+type,label:type,detail:'Component type',insertText:type+' '}))};
+        if(m)return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:DSL_COMPONENT_TYPES.filter(type=>type.toLowerCase().startsWith(m[1].toLowerCase())).map(type=>({id:'component-'+type,label:type,detail:'Component type',insertText:type+' '}))};
         m=linePrefix.match(/^component\s+(ApexClass|Flow)\s+(\w*)$/i);
-        if(m){const type=m[1].toLowerCase()==='flow'?'Flow':'ApexClass';this.ensureDslComponentNames(type);const local=[...fullText.matchAll(new RegExp('component\\s+'+type+'\\s+(\\w+)','gi'))].map(match=>match[1]);return {replaceStart:lineStart+linePrefix.length-m[2].length,items:[...new Set([...(this._dslComponentNames[type]||[]),...local])].filter(name=>name.toLowerCase().startsWith(m[2].toLowerCase())).map(name=>({id:'component-name-'+name,label:name,detail:type+' developer name',insertText:name}))};}
-        if(/^export\s+$/i.test(linePrefix))return {replaceStart:lineStart+linePrefix.length,items:[{id:'kw-module',label:'module',detail:'Export a reusable module',insertText:'module '}]};
-        if(/^(?:export\s+)?module\s+\w+\s+$/i.test(linePrefix))return {replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body (rendered only through use)',insertText:'{\n  \n}',cursorOffset:4},{id:'module-extends',label:'extends',detail:'Extend an exported module',insertText:'extends '}]};
-        if(/^(?:export\s+)?module\s+\w+\s+extends\s+\w+\s+$/i.test(linePrefix))return {replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body',insertText:'{\n  \n}',cursorOffset:4}]};
+        if(m){const type=m[1].toLowerCase()==='flow'?'Flow':'ApexClass';this.ensureDslComponentNames(type);const local=[...completionSource.matchAll(new RegExp('component\\s+'+type+'\\s+(\\w+)','gi'))].map(match=>match[1]);return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[2].length,items:[...new Set([...(this._dslComponentNames[type]||[]),...local])].filter(name=>name.toLowerCase().startsWith(m[2].toLowerCase())).map(name=>({id:'component-name-'+name,label:name,detail:type+' developer name',insertText:name}))};}
+        const importedDeclarations=Object.keys(this._dslImportBundle.files||{}).sort().flatMap(key=>componentDeclarations(this._dslImportBundle.files[key].sourceCode));
+        const declarations=componentDeclarations(completionSource);
+        const accessCandidates=[...new Map([...(this._appAccessCards||[]),...importedDeclarations,...declarations].map(c=>[(c.type+':'+c.name).toLowerCase(),c])).values()].sort((a,b)=>a.label.localeCompare(b.label)||a.name.localeCompare(b.name));
+        m=linePrefix.match(/^component\s+(PermissionSet|PermissionSetLicense|UserLicense|PackageLicense)\s+(\w*)$/i);
+        if(m){const type=DSL_COMPONENT_TYPES.find(t=>t.toLowerCase()===m[1].toLowerCase());return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[2].length,items:accessCandidates.filter(c=>c.type===type&&(c.name.toLowerCase().startsWith(m[2].toLowerCase())||c.label.toLowerCase().startsWith(m[2].toLowerCase()))).map(c=>({id:'access-'+c.name,label:c.label,detail:type+' declaration',insertText:c.name+(/^\s+label\s+"/i.test(fullText.slice(tokenEnd,lineEnd<0?fullText.length:lineEnd))?'':' label '+JSON.stringify(c.label))}))};}
+        m=linePrefix.match(/^component\s+(\w+)\s+(\w+)\s+label\s+"((?:[^"\\]|\\.)*)$/i);
+        if(m){const type=DSL_COMPONENT_TYPES.find(t=>t.toLowerCase()===m[1].toLowerCase());let prefix;try{prefix=JSON.parse('"'+m[3]+'"');}catch(_){return null;}let labelEnd=caret,escaped=false;for(let i=caret;i<(lineEnd<0?fullText.length:lineEnd);i++){const ch=fullText[i];if(ch==='"'&&!escaped){labelEnd=i+1;break;}escaped=ch==='\\'&&!escaped;}return {replaceEnd:labelEnd,replaceStart:lineStart+linePrefix.length-m[3].length-1,items:accessCandidates.filter(c=>c.type===type&&c.name.toLowerCase()===m[2].toLowerCase()&&c.label.toLowerCase().startsWith(prefix.toLowerCase())).map(c=>({id:'label-'+c.name,label:c.label,detail:'Saved display label',insertText:JSON.stringify(c.label)}))};}
+        m=linePrefix.match(/^component\s+\w+\s+\w+\s+([A-Za-z]*)$/i);
+        if(m&&'label'.startsWith(m[1].toLowerCase())){const existing=/^\s*"/.test(fullText.slice(tokenEnd,lineEnd<0?fullText.length:lineEnd));return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:[{id:'component-label',label:'label',detail:'Display a readable card name',insertText:existing?'label':'label ""',cursorOffset:existing?5:7}]};}
+        m=linePrefix.match(/^export\s+(m\w*)?$/i);
+        if(m&&'module'.startsWith((m[1]||'').toLowerCase()))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-(m[1]||'').length,items:[{id:'kw-module',label:'module',detail:'Export a reusable module',insertText:'module '}]};
+        m=linePrefix.match(/^(?:export\s+)?module\s+\w+\s+(e\w*)$/i);
+        if(m&&'extends'.startsWith(m[1].toLowerCase()))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:[{id:'module-extends',label:'extends',detail:'Extend an exported module',insertText:'extends '}]};
+        if(/^(?:export\s+)?module\s+\w+\s+$/i.test(linePrefix))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body (rendered only through use)',insertText:'{\n  \n}',cursorOffset:4},{id:'module-extends',label:'extends',detail:'Extend an exported module',insertText:'extends '}]};
+        if(/^(?:export\s+)?module\s+\w+\s+extends\s+\w+\s+$/i.test(linePrefix))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body',insertText:'{\n  \n}',cursorOffset:4}]};
         m=linePrefix.match(/^([A-Za-z]+)$/);
-        if(m){const keywords=[['entity','Declare an entity'],['export module','Define an inert exported module'],['module','Define a private module'],['use','Render an exported module'],['import','Import exported modules from a saved file'],['component','Declare an ApexClass or Flow card']];const items=keywords.filter(([word])=>word.startsWith(m[1].toLowerCase())).map(([word,detail])=>({id:'kw-'+word,label:word,detail,insertText:word+' '}));if(items.length)return {replaceStart:lineStart,items};}
+        if(m){const keywords=[['entity','Declare an entity'],['export module','Define an inert exported module'],['module','Define a private module'],['use','Render an exported module'],['import','Import exported modules from a saved file'],['component','Declare a named component or access card']];const items=keywords.filter(([word])=>word.startsWith(m[1].toLowerCase())).map(([word,detail])=>({id:'kw-'+word,label:word,detail,insertText:word+' '}));if(items.length)return {replaceEnd:tokenEnd,replaceStart:lineStart,items};}
 
 
         // 1) Partial "entity" keyword at the start of an otherwise-empty line.

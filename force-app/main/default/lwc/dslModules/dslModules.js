@@ -13,8 +13,13 @@ function document(text,name,id) {
     // Braces in field marker brackets are display text, not block delimiters.
     String(text||'').split('\n').forEach((raw,index)=>{
         if(raw.trim().startsWith('#'))return;
-        let bracket=0,part='';const tokens=[];
-        for(const ch of raw){if(ch==='[')bracket++;if(ch===']')bracket=Math.max(0,bracket-1);if(!bracket&&(ch==='{'||ch==='}')){if(part.trim())tokens.push(part.trim());tokens.push(ch);part='';}else part+=ch;}
+        let bracket=0,part='',quoted=false,escaped=false;const tokens=[];
+        for(const ch of raw){
+            if(ch==='"'&&!escaped)quoted=!quoted;
+            if(!quoted){if(ch==='[')bracket++;if(ch===']')bracket=Math.max(0,bracket-1);}
+            if(!quoted&&!bracket&&(ch==='{'||ch==='}')){if(part.trim())tokens.push(part.trim());tokens.push(ch);part='';}else part+=ch;
+            escaped=ch==='\\'&&!escaped;
+        }
         if(part.trim())tokens.push(part.trim());
         for(const line of tokens){
             const at={text:line,file:name,line:index+1};
@@ -68,4 +73,21 @@ export function compileModuleSource(text,options={}) {
 }
 export function exportedModuleNames(text,imported=[]) {
     return [...new Set([...String(text||'').matchAll(/^\s*export\s+module\s+(\w+)/gim)].map(m=>m[1]).concat(imported))];
+}
+
+export const DSL_COMPONENT_TYPES = ['ApexClass','Flow','PermissionSet','PermissionSetLicense','UserLicense','PackageLicense'];
+/** Tolerant completion index: incomplete/invalid lines never break editing. */
+export function componentDeclarations(text) {
+    const result=[];
+    let lines=String(text||'').split('\n');
+    try{const doc=document(String(text||''),'completion.dsl','@completion');lines=[...doc.top,...[...doc.modules.values()].flatMap(module=>module.body)].map(line=>line.text);}catch(_){/* An unfinished module still offers complete declarations on earlier lines. */}
+    for(const line of lines){
+        const match=line.trim().match(/^component\s+(\w+)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+label\s+("(?:[^"\\]|\\.)*"))?\s*$/i);
+        if(!match)continue;
+        const type=DSL_COMPONENT_TYPES.find(value=>value.toLowerCase()===match[1].toLowerCase());if(!type)continue;
+        let label=match[2];try{if(match[3])label=JSON.parse(match[3]);}catch(_){continue;}
+        if(!label.trim())label=match[2];
+        result.push({type,name:match[2],label});
+    }
+    return result;
 }

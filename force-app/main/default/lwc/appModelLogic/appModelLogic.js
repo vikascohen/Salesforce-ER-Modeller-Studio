@@ -105,7 +105,7 @@ export function selectAppObjects(result, { includePlatform = false, navigationOb
     const visible = details.filter(row => row.included).map(row => row.apiName);
     const hidden = details.filter(row => !row.included);
     if (!visible.length) {
-        const error = new Error('No application data objects remain after hiding Salesforce system objects. Turn on Include Salesforce system, security and licensing objects to view this app’s technical dependencies.');
+        const error = new Error('No application data objects remain after hiding Salesforce system objects. Named access cards do not substitute for an application data model. Review app scope and scanner coverage.');
         error.code = 'APP_PLATFORM_ONLY';
         throw error;
     }
@@ -138,9 +138,9 @@ export function prepareAppSchema(objects, { visibleNames, fieldUsage = [] } = {}
 export function buildAppComponentSource(components = []) {
     const unique = new Map();
     for (const component of components) {
-        if (!['ApexClass','Flow'].includes(component.type) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(component.name)) continue;
+        if (!['ApexClass','Flow','PermissionSet','PermissionSetLicense','UserLicense','PackageLicense'].includes(component.type) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(component.name)) continue;
         unique.set(`${component.type}:${component.name}`.toLowerCase(),component);
     }
-    if (unique.size > 300) throw new Error('The app exceeds 300 component cards. Turn off Show Apex and Flow component names and generate the data model only.');
-    return [...unique.values()].sort((a,b) => `${a.type}:${a.name}`.localeCompare(`${b.type}:${b.name}`)).map(component => `component ${component.type} ${component.name}`).join('\n');
+    if (unique.size > 300) throw new Error('The app exceeds 300 component cards. Turn off component or access cards and generate a narrower model.');
+    return [...unique.values()].sort((a,b) => `${a.type}:${a.name}`.localeCompare(`${b.type}:${b.name}`)).map(component => `component ${component.type} ${component.name}${component.label ? ' label ' + JSON.stringify(String(component.label)) : ''}`).join('\n');
 }

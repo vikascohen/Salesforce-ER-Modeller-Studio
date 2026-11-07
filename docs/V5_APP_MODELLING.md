@@ -8,7 +8,7 @@ V5 is a source preview on `v5-app-er-model`. It does not replace the published V
 2. Choose **File → Generate ER Model from App…**. The dialog loads available apps automatically. Choose **All apps**, **Custom apps** or **Standard apps** in the App type filter, then select a Salesforce app. Salesforce AppDefinition namespace metadata identifies standard apps; packaged apps with other namespaces are custom. Apps whose type cannot be identified remain available under All apps only.
 3. Run a successful V5 org scan first. Generation always follows scoped Flow, LWC and Apex evidence; it requires field evidence as well as object discovery.
 4. Optionally include object-triggered automation. This follows triggers and record-triggered flows for reached objects, including downstream objects; these are possible execution paths, not evidence of execution.
-5. Fields are fixed to **Fields used by this app only**. Name, audit fields and relationship fields appear only when the reached app components reference them. Id remains the structural key. System, security and licensing objects are hidden by default; enable the explicit checkbox for a technical model. Standard business objects such as Account and Contact remain eligible. Click **Generate ER Model**.
+5. Fields are fixed to **Fields used by this app only**. Name, audit fields and relationship fields appear only when the reached app components reference them. Id remains the structural key. Known system, security and licensing tables remain hidden in app-generated data models. The optional **Show permission set and licence names as access cards** resolves named access records separately; it does not turn those tables into entities. Standard business objects such as Account and Contact remain eligible. Click **Generate ER Model**.
 6. The complete schema is loaded and parsed before a new diagram tab is created. The dialog closes, the DSL editor opens, and the canvas renders from that same editable source. Use **Diagram → Model Details…** to inspect inclusion evidence and coverage, then save normally. DSL edits continue to update the canvas; saving stores the same DSL source.
 
 Generation does not write object definitions or Salesforce business records. It uses the existing DSL compiler, renderer, fitting controls and diagram save path. Failed discovery, missing metadata, excessive scope or edits made during discovery leave the current model intact. The existing unsaved-tab implementation cannot recover unsaved source after switching tabs, so generation requires the current model to be saved first.
@@ -76,7 +76,7 @@ Canvas/image and draw.io exports include component cards. Mermaid remains an ER-
 
 Opening a saved diagram shows an indeterminate Please wait indicator until loading and preparation finish. App generation shows persistent progress in the dialog footer for app/scan discovery, dependency expansion, metadata loading and DSL preparation. Failed requests clear the indicator and retain the existing error guidance; a superseded load cannot clear a newer load’s progress. Percentages are not guessed.
 
-Default app scope also hides Image, Dashboard, Report and PlatformCachePartitionType. These remain available through the explicit technical-scope checkbox. Fit Model lays out all sObject cards first using their relationships, then places Apex/Flow cards in a separate grid below the lowest object card. Fitting changes presentation only and preserves the DSL.
+Default app scope also hides Image, Dashboard, Report and PlatformCachePartitionType. They stay outside the app-generated data model; manual schema import remains available separately. Fit Model lays out all sObject cards first using their relationships, then places Apex/Flow cards in a separate grid below the lowest object card. Fitting changes presentation only and preserves the DSL.
 
 When a completed scan returns no object evidence and no API/discovery failure, the dialog names the selected app and explains that welcome-only apps or inaccessible managed components may not expose an ER model. API failures keep their diagnostic guidance. Switching apps never reuses the previous app’s objects as a fallback.
 
@@ -86,7 +86,7 @@ Drag to Canvas includes describable platform events and custom metadata, with ob
 
 Data Cloud's standard Audience360 app can resolve configuration/navigation objects without exposing the field references used by Salesforce's platform screens. V5's Flow/LWC/Apex scanner does not implement Data Cloud DMO/DLO schema, mapping or data-graph discovery. When that app resolves no app-used field evidence, generation explains this coverage limit, does not prescribe the same scan again, and preserves the current DSL. It does not substitute all fields from DataStream/DataGraph configuration objects or claim those tables are the actual Data Cloud data model. A separate Data Cloud metadata integration is required for that capability; catalog schema by itself is not proof of app-used fields.
 
-AggregateResult and ApexEmailNotification are also hidden from default app models as platform types. The explicit technical-scope option can include them; similarly named custom objects remain eligible. Regenerate existing app diagrams to apply this scope change.
+AggregateResult and ApexEmailNotification are also hidden from default app models as platform types. They stay outside app-generated data models; similarly named custom objects remain eligible. Regenerate existing app diagrams to apply this scope change.
 
 Fit Model packs disconnected objects into rows, keeping relationship-connected groups together and all component cards below the object section. Object/component section labels and native full-name tooltips improve navigation; long headings are visually shortened only. Zoom/layout controls remain pinned outside the canvas scroller and can scroll horizontally on narrow panels. These changes do not rewrite DSL or alter relationship semantics.
 
@@ -103,3 +103,14 @@ Limits: 5,000 definitions per root type, 1,000 child items per component, 2,000 
 Duplicate Data Mapper names/versions without a resolvable active identity are rejected rather than merged into a misleading app field scope. The first implementation has fixture coverage for standard-runtime objects and a live no-Omni org check; a real installed OmniStudio org acceptance test is still needed before claiming comprehensive version/package coverage.
 
 Relationship Insights uses individually routed SVG edges with separate attachment ports. Same-row edges curve through the row gap, while long multi-row edges route outside the node grid so lookup lines do not mask master-detail lines. Blue remains Lookup, purple Master Detail and dashed red Polymorphic. Native edge tooltips identify the source field, target and DSL relationship kind; analysis labels and DSL semantics are unchanged.
+
+
+## Reusable DSL and named access cards
+
+V5 supports inert exported modules, plain saved-file imports, named imports and additive `extends`. Only `use` activates exported definitions; ordinary top-level declarations still render. See the [DSL reference](DSL.md) and [module guide](DSL-MODULES.md). These language features need no new scan.
+
+The old technical-object checkbox is replaced by **Show permission set and licence names as access cards**. It resolves app visibility/reached Apex access grants, named permission sets, their explicit licence bindings and a namespaced app’s package licence when available. Names persist as typed `component` declarations with readable `label` strings. They occupy a separate fitted section and are excluded from schema analysis/heatmap/sharing. They do not assert required user assignments. Empty or inaccessible coverage is explained; no licence is invented. See [named access coverage](APP-ACCESS-CARDS.md).
+
+IntelliSense covers all six component types, local/imported access declarations, resolved app cards, JSON label strings and module/import/inheritance syntax. Access-name suggestions work from saved declarations after reopening. Module and label parsing reject conflicts/malformed active text without substituting unrelated metadata.
+
+The [V5 release notes](V5_RELEASE_NOTES.md) describe the current source preview. V4 install URLs still install V4; no V5 installation package has been published.

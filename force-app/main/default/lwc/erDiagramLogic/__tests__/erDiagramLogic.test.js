@@ -390,3 +390,13 @@ describe('connector visibility and direction',()=>{
         expect(c.title).toContain('arrow points to referenced parent');
     });
 });
+
+
+it('renders named access cards with labels as components, never schema objects',()=>{
+ const source='export module Access {\ncomponent PermissionSet Access_1 label "Logger Admin {Core}"\ncomponent PermissionSetLicense Access_2 label "Salesforce CRM"\ncomponent UserLicense Access_3 label "Salesforce"\ncomponent PackageLicense Access_4 label "Example Package"\n}\nuse Access\nentity Account : Name';
+ const model=parseEr(source),geo=buildErGeometry(model);
+ expect(model.entities.map(e=>e.name)).toEqual(['Account']);expect(model.components).toHaveLength(4);
+ expect(model.components[0].title).toBe('Logger Admin {Core}');
+ for(const box of geo.boxes.filter(b=>b.componentType)){expect(box.fields).toHaveLength(1);expect(box.fields[0].text).toMatch(/licence|Permission set/);expect(box.fields[0].text).not.toBe('Apex class');}
+ expect(buildDrawioXml(model,geo.boxes)).toContain('Permission set licence');
+});

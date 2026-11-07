@@ -102,11 +102,14 @@ function parseErCore(text, allowEmpty = false) {
         const line = rawLine.trim();
         if (!line || line.startsWith('#')) return;
 
-        const componentMatch = line.match(/^component\s+(ApexClass|Flow)\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+        const componentMatch = line.match(/^component\s+(ApexClass|Flow|PermissionSet|PermissionSetLicense|UserLicense|PackageLicense)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+label\s+("(?:[^"\\]|\\.)*"))?$/i);
         if (componentMatch) {
-            const type = componentMatch[1].toLowerCase() === 'flow' ? 'Flow' : 'ApexClass';
-            const title = componentMatch[2];
-            const name = `@${type}:${title}`;
+            const type = ['ApexClass','Flow','PermissionSet','PermissionSetLicense','UserLicense','PackageLicense'].find(value=>value.toLowerCase()===componentMatch[1].toLowerCase());
+            let title=componentMatch[2];
+            try{if(componentMatch[3])title=JSON.parse(componentMatch[3]);}catch(_){throw new Error(`Line ${idx+1}: Card label must be a valid JSON string.`);}
+            if(!title.trim())title=componentMatch[2]; // Empty label snippets remain valid while the user types.
+            const name = `@${type}:${componentMatch[2]}`;
+            if(allowEmpty&&components.has(name.toLowerCase())&&components.get(name.toLowerCase()).title!==title)throw new Error(`Line ${idx+1}: Conflicting labels for component ${type} ${componentMatch[2]}.`);
             components.set(name.toLowerCase(), {name, title, componentType:type, fields:[]});
             return;
         }
@@ -306,7 +309,7 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
         const width  = widths[ent.name]  != null ? Math.max(widths[ent.name],  80)             : BOX_WIDTH;
         const visibleRows = Math.floor((height - HEADER_HEIGHT - 12) / ROW_HEIGHT);
 
-        const allFieldRows = ent.componentType ? [{key:ent.name+'-type',text:ent.componentType === 'Flow' ? 'Flow' : 'Apex class',isPrimaryKey:false,isRelationship:false,isPlain:true}] : [
+        const allFieldRows = ent.componentType ? [{key:ent.name+'-type',text:({Flow:'Flow',ApexClass:'Apex class',PermissionSet:'Permission set',PermissionSetLicense:'Permission set licence',UserLicense:'User licence',PackageLicense:'Package licence'})[ent.componentType],isPrimaryKey:false,isRelationship:false,isPlain:true}] : [
             { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false, isRollupSummary: false, isRequired: false }
         ].concat(ent.fields.map((f, fi) => ({
             key: ent.name + '-' + fi,
@@ -504,7 +507,7 @@ function drawioEntityLabelHtml(ent) {
         `<div style="background-color:${header};color:#ffffff;padding:10px 12px;font-size:14px;font-weight:bold;">${safe(ent.title || ent.name)}</div>`,
         '<div style="padding:7px 12px;background-color:#eef3f8;border-bottom:1px solid #d6dfe9;color:#44546a;font-size:11px;">Id <b>PK</b></div>'
     ];
-    if (ent.componentType) rows.splice(1,1,`<div style="padding:7px 12px;">${ent.componentType === 'Flow' ? 'Flow' : 'Apex class'}</div>`);
+    if (ent.componentType) rows.splice(1,1,`<div style="padding:7px 12px;">${({Flow:'Flow',ApexClass:'Apex class',PermissionSet:'Permission set',PermissionSetLicense:'Permission set licence',UserLicense:'User licence',PackageLicense:'Package licence'})[ent.componentType]}</div>`);
     ent.fields.forEach((f, i) => {
         let detail = '';
         if (f.isRelationship) {

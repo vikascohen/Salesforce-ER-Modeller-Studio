@@ -282,7 +282,7 @@
                     <div class="app-model-options">
                         <p class="app-model-intro">Requires a successful org scan of Flow, LWC and Apex usage.</p>
                         <lightning-input class="app-components-toggle" type="checkbox" label="Show Apex class and Flow names as component cards" field-level-help="Adds reached Apex classes and Flows as named component cards, separate from sObject entities. Saved in the DSL. These are potential dependencies, not proof of execution." checked={appIncludeComponents} onchange={handleAppComponentsChange} disabled={appModelBusy}></lightning-input>
-                        <lightning-input class="app-platform-toggle" type="checkbox" label="Include Salesforce system, security and licensing objects" field-level-help={appPlatformHelp} checked={appIncludePlatform} onchange={handleAppPlatformChange} disabled={appModelBusy}></lightning-input>
+                        <lightning-input class="app-platform-toggle" type="checkbox" label="Show permission set and licence names as access cards" field-level-help={appPlatformHelp} checked={appIncludePlatform} onchange={handleAppPlatformChange} disabled={appModelBusy}></lightning-input>
                         <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
                     </div>
                     <template if:true={appModelError}>

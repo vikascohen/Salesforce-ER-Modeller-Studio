@@ -37,8 +37,21 @@ export module Sales extends Customer {
 use Sales
 ```
 
-Inheritance is additive: it includes the base before the child. Conflicting field types or relationship definitions fail rather than silently override. Circular imports, module cycles, missing exports and ambiguous symbols produce errors with source filenames and line numbers. Graphs are limited to 32 files, 16 import levels and 1 MB of text.
+Inheritance is additive: it includes the base before the child. Conflicting field types, relationship definitions or component display labels fail rather than silently override. Circular imports, module cycles, missing exports and ambiguous symbols produce errors with source filenames and line numbers. Graphs are limited to 32 files, 16 import levels and 1 MB of text.
 
-Autocomplete covers keywords, filenames, exported modules, inheritance, entity/field references, component types, and readable Apex/Flow names from the org. Apex/Flow name suggestions require the existing tooling connection.
+IntelliSense covers keywords, filenames, exported modules, named-import `from`, inheritance `extends`, entity/field references, all six component types and optional `label` JSON strings. Apex/Flow names use the tooling connection. PermissionSet, PermissionSetLicense, UserLicense and PackageLicense suggestions come from local/imported declarations and the selected app’s resolved cards, including after saved DSL is reopened. Display labels are inserted with JSON escaping. Incomplete text does not crash the completion index.
 
 Canvas, viewer, architecture analysis and exports use the activated model. For modular files, edit entity deletion and field changes in the DSL definition; canvas schema editing is guarded to preserve shared definitions. Dragging, layout and existing flat-model editing remain available. No org scan is needed to write modules.
+
+
+Named cards may be exported and reused like entities:
+
+```text
+export module LoggerAccess {
+    component PermissionSet LoggerAdmin label "Nebula Logger: Admin"
+    component UserLicense SalesforceLicence label "Salesforce"
+}
+use LoggerAccess
+```
+
+The example declares a model; writing a licence card manually does not prove the app requires that licence. App-generated access cards require actual metadata evidence. See [DSL.md](DSL.md) and [APP-ACCESS-CARDS.md](APP-ACCESS-CARDS.md).

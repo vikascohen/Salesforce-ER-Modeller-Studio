@@ -1,6 +1,12 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
   <types>
+    <members>FieldUsageOmniScannerTest</members>
+    <members>FieldUsageOmniScanner</members>
+    <members>DslFileServiceTest</members>
+    <members>DslFileService</members>
+    <members>AppAccessServiceTest</members>
+    <members>AppAccessService</members>
     <members>ObjectUsageScannerTest</members>
     <members>ObjectUsageScanner</members>
     <members>AppModelControllerTest</members>
@@ -69,6 +75,8 @@
     <name>ApexClass</name>
   </types>
   <types>
+    <members>Diagram_File__c.Import_Bindings__c</members>
+    <members>Diagram_File__c.File_Key__c</members>
     <members>Diagram_File__c.Diagram_Type__c</members>
     <members>Diagram_File__c.Source_Code__c</members>
     <members>Diagram_Studio_Pref__c.Theme__c</members>
@@ -142,6 +150,7 @@
     <name>CustomTab</name>
   </types>
   <types>
+    <members>dslModules</members>
     <members>appModelLogic</members>
     <members>architectureIntelligence</members>
     <members>dataDictionaryFieldDetail</members>
@@ -171,6 +180,9 @@
     <members>sheetjs</members>
     <name>StaticResource</name>
   </types>
+  <types>
+    <members>DiagramFileNames</members>
+    <name>ApexTrigger</name>
+  </types>
   <version>60.0</version>
-  <fullName>ER Modeller Studio V4</fullName>
 </Package>

@@ -1,5 +1,5 @@
 import {parseEr} from 'c/erDiagramLogic';
-import {compileModuleSource,dslFileKey} from 'c/dslModules';
+import {compileModuleSource,dslFileKey,DSL_COMPONENT_TYPES,componentDeclarations} from 'c/dslModules';
 const customer='export module Customer {\n entity Account : Name\n entity Contact : Name, Email\n Contact.AccountId -> Account\n}';
 const files={'customer.dsl':{id:'customer',name:'customer.dsl',sourceCode:customer}};
 const options={fileName:'main.dsl',resolveImport:(owner,name)=>files[name]};
@@ -60,4 +60,20 @@ it('detects ambiguous module names and structural errors',()=>{
     expect(()=>parseEr('}')).toThrow('Unexpected');
     const map={'a.dsl':{id:'a',sourceCode:'export module Same {}'},'b.dsl':{id:'b',sourceCode:'export module Same {}'}};
     expect(()=>compileModuleSource('import a.dsl\nimport b.dsl',{resolveImport:(owner,name)=>map[name]})).toThrow('Ambiguous');
+});
+
+
+it.each(DSL_COMPONENT_TYPES)('indexes and compiles every supported component type: %s',(type)=>{
+ const text=`export module Cards { component ${type.toLowerCase()} Card label "Readable {Core} [Name]" }\nuse Cards`;
+ expect(componentDeclarations(text)).toEqual([{type,name:'Card',label:'Readable {Core} [Name]'}]);
+ expect(parseEr(text).components[0]).toMatchObject({componentType:type,title:'Readable {Core} [Name]'});
+});
+it('completion indexing tolerates incomplete modules, invalid JSON labels and unknown types',()=>{
+ expect(componentDeclarations('export module X {\ncomponent PermissionSet Existing label "Admin"\ncomponent PermissionSet Draft label "unfinished')).toEqual([{type:'PermissionSet',name:'Existing',label:'Admin'}]);
+ expect(componentDeclarations('component Unknown X\ncomponent UserLicense Bad label "bad\\q"')).toEqual([]);
+});
+it('reports malformed/conflicting labels and keeps empty completion snippets valid',()=>{
+ expect(()=>parseEr('component PermissionSet A label "bad\\q"')).toThrow('Line 1: Card label must be a valid JSON string');
+ expect(parseEr('component PermissionSet A label " "').components[0].title).toBe('A');
+ expect(()=>parseEr('export module Base { component PermissionSet A label "One" }\nexport module Child extends Base { component PermissionSet A label "Two" }\nuse Child')).toThrow('Conflicting labels');
 });

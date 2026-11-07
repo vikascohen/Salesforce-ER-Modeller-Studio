@@ -102,3 +102,10 @@ it('hides aggregate and Apex notification system types without hiding similarly 
     expect(selectAppObjects(result).hidden.map(row=>row.apiName)).toEqual(['AggregateResult','ApexEmailNotification']);
     expect(selectAppObjects(result,{includePlatform:true}).visible).toHaveLength(4);
 });
+
+
+it('serializes named access cards with escaped labels and stable component identities',()=>{
+ const source=buildAppComponentSource([{type:'PermissionSet',name:'Access_0PS1',label:'Logger Admin "Core"'},{type:'UserLicense',name:'Access_1001',label:'Salesforce'}]);
+ expect(source).toContain('component PermissionSet Access_0PS1 label '+JSON.stringify('Logger Admin "Core"'));
+ expect(source).toContain('component UserLicense Access_1001 label "Salesforce"');
+});
