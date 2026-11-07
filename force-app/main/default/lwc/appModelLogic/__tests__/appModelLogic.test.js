@@ -117,3 +117,12 @@ it('merges page configuration evidence with reached source evidence without expa
     expect(result.reasons.some(reason=>reason.includes('configures Description'))).toBe(true);
     expect(result.fields.some(field=>field.fieldApiName==='Name')).toBe(false);
 });
+
+it('excludes Salesforce file tables from generated models while preserving custom lookalikes and inputs', () => {
+    const result={objects:['Account','ContentDocument','ContentVersion','ContentDocumentLink','ContentVersion__c']};
+    const selected=selectAppObjects(result);
+    expect(selected.visible).toEqual(['Account','ContentVersion__c']);
+    expect(selected.hidden.map(row=>row.apiName)).toEqual(['ContentDocument','ContentDocumentLink','ContentVersion']);
+    expect(selected.hidden.every(row=>row.category==='Salesforce files')).toBe(true);
+    expect(result.objects).toContain('ContentVersion');
+});

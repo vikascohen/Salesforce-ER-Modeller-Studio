@@ -81,7 +81,7 @@ Page fields are read **live during generation**, not written into an earlier sca
 
 ### Selection and output
 
-`collectAppScope` merges page and component field references. `selectAppObjects` removes known platform/security/presentation dependencies. `prepareAppSchema` retains evidenced fields only; `Id` remains structural. No missing-evidence fallback expands an entity to its whole schema.
+`collectAppScope` merges page and component field references. `selectAppObjects` removes known platform/security/presentation dependencies and Salesforce file tables (`ContentDocument`, `ContentVersion`, `ContentDocumentLink`) from generated models only. Drag/search remains independent and does not hide these objects. `prepareAppSchema` retains evidenced fields only; `Id` remains structural. No missing-evidence fallback expands an entity to its whole schema.
 
 The production `buildErSource` output is parsed before a new tab replaces editor/canvas state. Failed discovery preserves current work. Generated comments and Model Details retain evidence and warnings. Existing source is not silently regenerated when metadata changes.
 

@@ -42,7 +42,7 @@ Current DSL syntax validation now appears beside the editor and clears after cor
 
 ## Named access cards replace generic licensing tables
 
-**Show permission set and licence names as access cards** replaces the old technical-object checkbox. Known platform/security/licensing tables stay outside app-generated data models.
+**Show permission set and licence names as access cards** replaces the old technical-object checkbox. Known platform/security/licensing tables and Salesforce file tables (`ContentDocument`, `ContentVersion`, `ContentDocumentLink`) stay outside app-generated data models. These exclusions do not hide objects from drag/search or rewrite existing diagrams.
 
 - Show actual permission-set labels/API names from explicit app visibility or reached Apex access grants; profile-owned sets are excluded.
 - Follow the discovered permission set’s actual LicenseId to the named PermissionSetLicense or UserLicense record.

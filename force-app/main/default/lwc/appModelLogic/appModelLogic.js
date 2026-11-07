@@ -88,6 +88,7 @@ const PLATFORM_OBJECT_GROUPS = {
     'Licensing': ['UserLicense','PackageLicense','UserPackageLicense','PermissionSetLicense','PermissionSetLicenseAssign'],
     'Platform metadata': ['OmniProcess','OmniProcessElement','OmniDataTransform','OmniDataTransformItem','ApexClass','ApexTrigger','Flow','FlowDefinition','FlowDefinitionView','FlowVersionView','FlowInterview','FlowRecordRelation','LightningComponentBundle','AuraDefinitionBundle','EntityDefinition','FieldDefinition','EntityParticle','RelationshipDomain','RelationshipInfo','AppDefinition','AppMenuItem','RecordType','CustomPermission','Organization'],
     'Presentation metadata': ['Image','Report','Dashboard'],
+    'Salesforce files': ['ContentDocument','ContentVersion','ContentDocumentLink'],
     'Platform operations': ['AggregateResult','ApexEmailNotification','PlatformCachePartitionType','ApexLog','AsyncApexJob','CronTrigger','CronJobDetail','SetupAuditTrail','LoginHistory','LoginGeo','AuthSession','EventLogFile']
 };
 const PLATFORM_CATEGORIES = new Map();

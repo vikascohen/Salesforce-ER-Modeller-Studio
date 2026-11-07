@@ -726,6 +726,15 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.hover-card-title')).toBeNull();
     });
 
+    it('keeps file and platform objects searchable even when generated app models exclude them', async () => {
+        const el=createStudio();await flushPromises();
+        objectNamesAdapter.emit([...Array.from({length:100},(_,i)=>'A'+i),'ContentDocument','ContentVersion','ContentDocumentLink','User','PermissionSet']);await flushPromises();
+        const search=el.shadowRoot.querySelector('input.palette-search');
+        search.value='Content';search.dispatchEvent(new CustomEvent('input'));await flushPromises();
+        expect([...el.shadowRoot.querySelectorAll('.palette-chip')].map(x=>x.dataset.name)).toEqual(['ContentDocument','ContentVersion','ContentDocumentLink']);
+        search.value='PermissionSet';search.dispatchEvent(new CustomEvent('input'));await flushPromises();
+        expect([...el.shadowRoot.querySelectorAll('.palette-chip')].map(x=>x.dataset.name)).toEqual(['PermissionSet']);
+    });
     it('filters platform events and metadata in the palette before the display limit', async () => {
         const el=createStudio();await flushPromises();
         objectNamesAdapter.emit([...Array.from({length:100},(_,i)=>'A'+i),'Message__e','Config__mdt','Thing__c']);await flushPromises();

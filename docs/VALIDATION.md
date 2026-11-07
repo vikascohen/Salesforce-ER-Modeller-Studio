@@ -27,15 +27,19 @@ The packaging test user is assigned `Diagram_Studio_User` through `apexTestAcces
 | Final service/frontend/help deployment in Crius | `0Afaj00000qmQzyCAE`, succeeded; 24/24 Apex tests passed |
 | New AppPageFieldService executable-line coverage | 100% in targeted tests |
 | AppModelController executable-line coverage | 92.31% in targeted tests |
-| JavaScript workspace and Ubuntu desktop runs | 32 suites, 273 passed, 10 existing skips |
+| JavaScript runs | Latest workspace: 32 suites, 275 passed, 10 existing skips; preceding Ubuntu source run: 32 suites, 273 passed, 10 existing skips |
 | Live Sales configuration before filtering | 199 field references across eight navigation objects |
-| Live Sales model pipeline after filtering | 10 objects, 8 relationships, 185 retained fields, 4,562 DSL characters |
+| Live Sales model pipeline after filtering | Latest file-table exclusion: 9 objects, 8 relationships, 181 retained fields, 4,441 DSL characters |
 | Evidence check | Every non-Id model field matched evidence; no full-schema fallback |
 | Metadata inventory | New service/test classes included in the complete V5 manifest |
 
 The live pipeline ran production `collectAppScope`, `selectAppObjects`, `prepareAppSchema`, `buildErSource` and `parseEr` against Crius metadata. It did not change saved diagrams or business records. The tests cover UI-only generation, option-off preservation, source/page merging, assigned Dynamic Forms fixtures, unreadable/ambiguous configuration and bounds. The live Sales org exercised default navigation layouts; unsupported layouts returned warnings.
 
 Class coverage above is not a new package-wide coverage measurement. Current source needs a new beta build before installed subscriber orgs receive the app-page option. Manual visual acceptance and real profile/record-type assignment variants remain separate checks.
+
+## Generated-model file table exclusion
+
+ContentDocument, ContentVersion and ContentDocumentLink are excluded by the app-generation scope filter. Custom objects with similar names remain eligible. A regression test confirms file and platform objects are still searchable in the unchanged drag palette, including after the initial display limit. Existing saved diagrams, typed DSL and manual import/search sources are not rewritten or filtered. The Ubuntu live Sales model pipeline retained only evidenced fields after file-table exclusion. This frontend change does not change Apex coverage.
 
 ## Scanner regression
 
