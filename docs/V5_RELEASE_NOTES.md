@@ -57,6 +57,10 @@ The optional standard OmniStudio layer probes schema before querying, uses descr
 
 Existing diagram source is not automatically regenerated or rewritten. Regenerate an app model to apply the named-access scope. A fresh scan is not required for modules/labels/access-name lookup; a successful V5 snapshot is still needed for app-used fields, and source changes require a suitable new scan. Legacy duplicate filenames must be resolved before canonical indexing; do not rename/delete existing diagrams automatically. Existing saved imports continue to require readable target records.
 
+## UI scanner transaction isolation
+
+LWC and Aura bundles are discovered as one bundle per work unit, rather than groups of twelve, to bound source matching within each Salesforce transaction. LWC object/import/tag and Omni UI matching first locate literal candidate markers, then apply anchored expressions at those positions; expressions no longer search the entire large source. Comment stripping is reused for LWC and Omni references. Supported explicit references remain enabled. This addresses a live LWC worker rollback reporting `Regex too complicated`; Omni runtime discovery had safely skipped in that org.
+
 ## Validation and release status
 
 Current validation and deployment IDs are recorded in [V5_VALIDATION.md](V5_VALIDATION.md). Automated checks cover legacy diagrams, module activation/imports/labels, all card types, keyboard completion, strict field scope, schema/card separation, connector geometry and named-access query limits/errors. Developer-org live checks verify actual app/permission names and stable import bindings.

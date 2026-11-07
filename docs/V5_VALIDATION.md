@@ -1,5 +1,17 @@
 # V5 validation record
 
+## 7 November 2026 — large LWC regex rollback
+
+The fresh full scan `a03aj00002ZtoS1AAJ` completed with one failed LWC work unit containing twelve bundles. Worker job `707aj00001QUYQ2AAP` reported `First error: Regex too complicated`; Omni runtime discovery logged no readable standard objects and safely skipped. A read-only single-bundle reproduction pinpointed `ObjectUsageScanner.lwc` object-name matching against the large Studio source, confirming isolation alone was insufficient.
+
+The fix isolates LWC/Aura bundles at discovery, locates literal reference markers with native substring search before anchored regex matching, and reuses stripped LWC source for Omni references. Supported reference syntax remains unchanged.
+
+- Initial isolation deployment: `0Afaj00000qipAYCAY`, 17 targeted Apex tests passed.
+- Final matcher deployment: `0Afaj00000qiw3xCAA`, 18 targeted Apex tests passed, including references after a source prefix larger than the Studio JavaScript file.
+- Live worker replay: job `707aj00001QUt9dAAD`, all 12 previously affected bundles completed with zero platform errors. The temporary verification run is removed after asserting successful finalisation; it is not a complete org snapshot.
+- Original failed scan retained for diagnosis. A fresh complete org scan remains the end-to-end acceptance check; saved diagrams and configuration are preserved.
+
+
 ## Latest Lightning-source and editor-validation checks — 7 November 2026
 
 | Check | Result |

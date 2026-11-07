@@ -28,4 +28,11 @@
         System.assertEquals(new Set<String>{'Object:Account','Object:Case'},targets());
     }
 
+    @IsTest static void largeLwcStillFindsLateReferences(){
+        String padding='const unrelated = 123;\n'.repeat(16000);
+        ObjectUsageScanner.reset(true);
+        ObjectUsageScanner.lwc(null,'largeUi','id',padding+'\nconst objectApiName = "Account";\nimport x from "@salesforce/apex/LateController.run";\n<c-late-child></c-late-child>');
+        Set<String> targets=new Set<String>();for(Object_Usage_Evidence__c row:ObjectUsageScanner.rows())targets.add(row.Target_Name__c);
+        System.assert(targets.contains('Account'));System.assert(targets.contains('LateController'));System.assert(targets.contains('lateChild'));
+    }
 }

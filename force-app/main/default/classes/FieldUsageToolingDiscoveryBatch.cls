@@ -31,6 +31,8 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
                 List<FieldUsageUiToolingClient.UiComponent> components=sourceType=='LWC'?FieldUsageUiToolingClient.getLwcBundleIndex():FieldUsageUiToolingClient.getAuraBundleIndex();
                 for(FieldUsageUiToolingClient.UiComponent c:components)ids.add(c.id);
                 scannerType=sourceType=='LWC'?'LWC Bulk':'Aura Bulk';
+                // UI bundles can contain large generated sources: isolate their regex budget.
+                chunkSize=1;
             } else if(sourceType=='ValidationRule'){
                 for(FieldUsageUiToolingClient.UiComponent c:FieldUsageUiToolingClient.getValidationRuleIndex())ids.add(c.id);
                 scannerType='Validation Rule Bulk'; chunkSize=VALIDATION_CHUNK_SIZE;

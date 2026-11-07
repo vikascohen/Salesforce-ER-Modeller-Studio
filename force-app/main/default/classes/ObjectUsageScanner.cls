@@ -53,27 +53,38 @@ public without sharing class ObjectUsageScanner {
         if(!enabled||String.isBlank(body))return;
         // Strip JS and HTML comments before inspecting literal imports and properties.
         String code=stripUiComments(body);
-        omniUi(runId,'LWC',name,componentId,body);
-        Matcher schema=Pattern.compile('@salesforce/schema/([A-Za-z_][A-Za-z0-9_]*)').matcher(code);
-        while(schema.find())add(runId,'LWC',name,componentId,'Object',schema.group(1),null,'Salesforce schema import');
-        Matcher objectName=Pattern.compile('(?i)(?:object-api-name|objectApiName)\\s*[:=]\\s*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]').matcher(code);
-        while(objectName.find())add(runId,'LWC',name,componentId,'Object',objectName.group(1),null,'Literal object API name');
-        Matcher apex=Pattern.compile('@salesforce/apex/([A-Za-z_][A-Za-z0-9_]*)\\.').matcher(code);
-        while(apex.find())add(runId,'LWC',name,componentId,'ApexClass',apex.group(1),null,'Apex import');
-        Matcher child=Pattern.compile('<c-([a-z][a-z0-9-]*)[\\s/>]').matcher(code);
-        while(child.find()){
-            List<String> parts=child.group(1).split('-');String target=parts[0];
+        omniUiCode(runId,'LWC',name,componentId,code);
+        for(String target:uiMatches(code,'@salesforce/schema/',Pattern.compile('@salesforce/schema/([A-Za-z_][A-Za-z0-9_]*)'),false))add(runId,'LWC',name,componentId,'Object',target,null,'Salesforce schema import');
+        Pattern objectPattern=Pattern.compile('(?i)(?:object-api-name|objectApiName)\\s*[:=]\\s*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]');
+        for(String marker:new List<String>{'object-api-name','objectApiName'})for(String target:uiMatches(code,marker,objectPattern,true))add(runId,'LWC',name,componentId,'Object',target,null,'Literal object API name');
+        for(String target:uiMatches(code,'@salesforce/apex/',Pattern.compile('@salesforce/apex/([A-Za-z_][A-Za-z0-9_]*)\\.'),false))add(runId,'LWC',name,componentId,'ApexClass',target,null,'Apex import');
+        for(String tag:uiMatches(code,'<c-',Pattern.compile('<c-([a-z][a-z0-9-]*)[\\s/>]'),false)){
+            List<String> parts=tag.split('-');String target=parts[0];
             for(Integer i=1;i<parts.size();i++)target+=parts[i].substring(0,1).toUpperCase()+parts[i].substring(1);
             add(runId,'LWC',name,componentId,'LightningComponentBundle',target,null,'Nested LWC tag');
         }
     }
+    // Native substring search locates candidates; anchored regex never walks unrelated source.
+    private static List<String> uiMatches(String code,String marker,Pattern pattern,Boolean ignoreCase){
+        List<String> matches=new List<String>();String search=ignoreCase?code.toLowerCase():code;
+        String needle=ignoreCase?marker.toLowerCase():marker;Integer cursor=0;
+        while(cursor<search.length()){
+            Integer start=search.indexOf(needle,cursor);if(start<0)break;
+            Matcher candidate=pattern.matcher(code.substring(start));
+            if(candidate.lookingAt())matches.add(candidate.group(1));
+            cursor=start+needle.length();
+        }
+        return matches;
+    }
     public static void omniUi(Id runId,String source,String name,String id,String body){
         if(!enabled||String.isBlank(body))return;
-        String code=stripUiComments(body);
+        omniUiCode(runId,source,name,id,stripUiComments(body));
+    }
+    private static void omniUiCode(Id runId,String source,String name,String id,String code){
         Map<String,String> keys=new Map<String,String>{'omni-script-key'=>'OmniScript','omniScriptKey'=>'OmniScript','integration-procedure-key'=>'IntegrationProcedure','integrationProcedureKey'=>'IntegrationProcedure','data-raptor-bundle'=>'OmniDataMapper','dataRaptorBundleName'=>'OmniDataMapper'};
         for(String key:keys.keySet()){
-            Matcher literal=Pattern.compile('(?i)'+key+'[\\s]*[:=][\\s]*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]').matcher(code);
-            while(literal.find())add(runId,source,name,id,keys.get(key),literal.group(1),null,'Explicit OmniStudio UI configuration');
+            Pattern literal=Pattern.compile('(?i)'+key+'[\\s]*[:=][\\s]*[\'\"]([A-Za-z_][A-Za-z0-9_]*)[\'\"]');
+            for(String target:uiMatches(code,key,literal,true))add(runId,source,name,id,keys.get(key),target,null,'Explicit OmniStudio UI configuration');
         }
     }
     private static String stripUiComments(String body) {
