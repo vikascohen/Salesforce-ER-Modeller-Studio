@@ -2,7 +2,7 @@
 
 **Updated: 8 November 2026. Maintainer: Vikas Cohen.**
 
-V5 is the current development source on [`v5-Beta`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-Beta), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **V5 beta 5.0.0.1 has built successfully with 91% Apex coverage.** See [V5 package installation](V5_PACKAGE_RELEASE.md) for the beta links and test-permission configuration. It has not been promoted. The maintainer reports installation in a second Developer Edition org and Tooling API configuration; its scan and full runtime acceptance are still in progress. Existing V4 links continue to install V4; this branch does not merge or replace the released package.
+V5 source is on [`v5-Beta`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-Beta). Installer **5.0.0.1** is a 2GP unlocked beta built with **91% Apex coverage**. The newer app-page enhancement below requires a subsequent package build. See [Setup](SETUP.md) for installation and [Architecture](ARCHITECTURE.md) for current diagrams and design.
 
 ## V5 feature inventory
 
@@ -50,7 +50,7 @@ Current DSL syntax validation now appears beside the editor and clears after cor
 - Persist the names as typed component declarations with optional JSON-string display labels. Put them in a separate fitted **Permission Sets & Licences** section.
 - Explain missing/inaccessible bindings. Do not infer licence requirements, assignments or all possible access routes, and do not substitute an org-wide licence list.
 
-Live app-visibility checks resolved **Warden Studio User**, **Nebula Logger: Admin** and **Nebula Logger: Log Viewer**. Those sets had no explicit licence binding. Licence and package-name branches also have HTTP-fixture tests. Initial access coverage excludes profiles, permission set groups, Flow-specific grants, indirect feature licences and user-assignment evaluation. See [APP-ACCESS-CARDS.md](APP-ACCESS-CARDS.md).
+Access cards describe explicit readable access configuration, not mandatory assignments. See [named access architecture](ARCHITECTURE.md#named-component-and-access-cards).
 
 ## Modular DSL and IntelliSense
 
@@ -62,7 +62,7 @@ Live app-visibility checks resolved **Warden Studio User**, **Nebula Logger: Adm
 - IntelliSense covers keywords, `from`, `extends`, exported symbols, filenames, entities/fields, all card types, local/imported saved access identities, resolved app cards and escaped display labels. Keyboard acceptance preserves surrounding source and places the caret inside the label quotes.
 - Keep the completion index tolerant of unfinished/invalid source. Validate active DSL before rendering; reject malformed/conflicting labels. Composition is bounded to 32 files including the root, 16 import levels and 1,048,576 characters.
 
-See the [DSL reference](DSL.md) and [module guide](DSL-MODULES.md). Canvas schema deletion/field reconciliation is guarded for modular files; edit shared definitions in the DSL. Ordinary flat models and their editing behaviour remain supported.
+See the [compiler reference](../Compiler.md). Canvas schema deletion/field reconciliation is guarded for modular files; edit shared definitions in the DSL. Ordinary flat models and their editing behaviour remain supported.
 
 ## Canvas and object coverage
 

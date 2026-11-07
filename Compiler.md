@@ -4,7 +4,7 @@
 
 The compiler turns saved DSL into the active ER model used by the canvas, viewer, analysis and exports. It composes files/modules, validates active declarations and preserves source locations for errors. It does not deploy Salesforce metadata or execute database procedures. Existing flat DSL remains supported.
 
-For the detailed grammar and UI workflows, see the [DSL reference](docs/DSL.md) and [module guide](docs/DSL-MODULES.md). See the [V5 release notes](docs/V5_RELEASE_NOTES.md) for the complete V5 feature list.
+This is the consolidated V5 language reference. For installation and modelling workflows, see [Setup](docs/SETUP.md). The [V5 release notes](docs/V5_RELEASE_NOTES.md) list the complete feature set.
 
 ## Entities and fields
 
@@ -23,6 +23,20 @@ Contact.AccountId -> Account
 | `~>` | Polymorphic lookup, dashed red | Child field to each declared target |
 
 The operator declares model semantics; typing it does not change the Salesforce relationship. A manual declaration is not proof of actual org metadata. Use `#` for a whole-line comment. Inline comments and semicolon statement separators are not part of this syntax.
+
+## Field metadata and relationship examples
+
+```text
+entity Opportunity : Name[Required], Amount[Currency], CloseDate[Date]
+entity Invoice__c : Total__c[Number(16, 2), Required], Sum__c[rollup]
+Opportunity.AccountId -> Account
+Task.WhoId ~> Contact
+Task.WhoId ~> Lead
+```
+
+Commas inside field brackets do not split the field list. `Required` and `rollup` are markers; other bracket text records the display type. A bare field does not imply Text. Repeating a polymorphic child field with different `~>` targets makes each target explicit. Unknown arrows such as `-->` are errors. Id-only entities and exact duplicate relationship declarations are supported.
+
+Saved coordinates, section colours and generated field ordering are presentation behaviour, not compiler keywords. A reference field whose parent is absent can remain a plain field with its relationship-type label; adding a parent does not silently rewrite shared source. Use the editor to make an intended relationship explicit.
 
 ## Exported modules are definitions
 

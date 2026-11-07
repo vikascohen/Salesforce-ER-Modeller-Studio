@@ -13,7 +13,7 @@ Build Salesforce ER diagrams with a visual canvas and DSL editor. Generate app-s
 | Salesforce sandbox | [Install V5](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000pMsvAAE) |
 | Developer Edition | [Install V5](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000pMsvAAE) |
 
-The beta cannot be installed in production until promoted. V5 is a separate package from V4; installing alongside an older package or migrating existing data needs a tested plan. See [package details](docs/V5_PACKAGE_RELEASE.md).
+The beta cannot be installed in production until promoted. V5 is a separate package from V4; installing alongside an older package or migrating existing data needs a tested plan. See [setup and package details](docs/SETUP.md).
 
 ## Get started
 
@@ -33,14 +33,12 @@ See the **[V5 release notes](docs/V5_RELEASE_NOTES.md)** for the full list of V5
 
 ## Documentation
 
-Browse the [V5 documentation index](docs/README.md).
-
-- **For compiler documentation, visit [Compiler.md](Compiler.md)** — syntax, imports, exported modules, `use`, inheritance, component labels, validation and IntelliSense.
-- [App modelling guide](docs/V5_APP_MODELLING.md) — generation options, scan evidence and setup requirements.
-- [Named permission sets and licences](docs/APP-ACCESS-CARDS.md) — what access cards represent.
-- [Architecture](docs/ARCHITECTURE.md) — implementation and system design.
-- [Validation record](docs/V5_VALIDATION.md) — build results and remaining acceptance checks.
-- [MCP administrator guide](docs/MCP_ADMIN_GUIDE.md) — optional Hosted MCP configuration retained in V5.
+- **[Compiler.md](Compiler.md)** — current DSL syntax, imports, modules, inheritance, cards and IntelliSense.
+- [V5 release notes](docs/V5_RELEASE_NOTES.md) — features and improvements.
+- [Setup](docs/SETUP.md) — installation, Tooling API, app generation and optional MCP.
+- [V5 architecture](docs/ARCHITECTURE.md) — current components, data flows, storage and diagrams.
+- [Security](docs/SECURITY.md) — permissions and credential boundaries.
+- [Validation](docs/VALIDATION.md) — current build, tests, coverage and acceptance results.
 
 ## Older versions
 

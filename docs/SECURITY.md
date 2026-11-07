@@ -1,8 +1,8 @@
-# Security Overview
+# V5 security
 
 **Author: Vikas Cohen**
 
-ER Modeller Studio Version 3 is a Salesforce architecture and metadata analysis tool. Its purpose is to understand Salesforce schema, configuration, source dependencies and architecture. It deals with Salesforce metadata and architecture information rather than Salesforce business data.
+ER Modeller Studio V5 is a Salesforce architecture and metadata analysis tool. Its purpose is to understand Salesforce schema, configuration, source dependencies and architecture. It deals with Salesforce metadata and architecture information rather than Salesforce business data.
 
 ## Security principles
 
@@ -10,7 +10,7 @@ ER Modeller Studio Version 3 is a Salesforce architecture and metadata analysis 
 - The Studio operates within the Salesforce platform and organisation boundary.
 - It has no application-owned external server, telemetry service, analytics endpoint or third-party processing backend.
 - Salesforce metadata, source and architecture evidence are not transmitted to an ER Modeller Studio external service.
-- Version 3 Tooling API communication is Salesforce-to-Salesforce using administrator-configured Salesforce credentials.
+- V5 Tooling API communication is Salesforce-to-Salesforce using administrator-configured Salesforce credentials.
 - Credentials are not embedded in source code.
 - Authentication secrets must never be persisted in Studio evidence, diagnostics or logs.
 - Salesforce permissions and the supplied permission set remain part of the deployment boundary.
@@ -37,7 +37,7 @@ ER Modeller Studio is not designed as a business-data integration, extraction, m
 
 ER Modeller Studio does not require an application-owned cloud service or external processing environment. Processing occurs within the Salesforce environment through Apex and Lightning components.
 
-Version 3 uses Salesforce Tooling API where Salesforce Apex Describe alone cannot provide the metadata or source information required by a feature. These calls are authenticated Salesforce-to-Salesforce requests under the organisation's configured Salesforce credential boundary.
+V5 uses Salesforce Tooling API where Salesforce Apex Describe alone cannot provide the metadata or source information required by a feature. These calls are authenticated Salesforce-to-Salesforce requests under the organisation's configured Salesforce credential boundary.
 
 There is no ER Modeller Studio backend receiving organisation metadata, source code, dependency evidence, diagrams or diagnostic information.
 
@@ -45,7 +45,7 @@ If a future version introduces an external service, telemetry, AI endpoint or th
 
 ## Tooling API trust boundary
 
-Version 3 uses Tooling API access for supported Field Usage, Object Intelligence and diagnostic capabilities.
+V5 uses Tooling API access for supported Field Usage, Object Intelligence and diagnostic capabilities.
 
 The deployment configures the required Named Credential, External Credential and principal. The in-product **Help > Configuration** guide contains the current setup steps.
 
@@ -58,9 +58,13 @@ Security rules for this boundary:
 5. Treat retrieved source and metadata as organisation information and expose it only to authorised Studio users.
 6. Do not forward retrieved source, metadata or evidence to an external service.
 
+## Live app-page evidence
+
+UI API layouts use the configured Tooling API principal and its default record type; the fields may be shared across apps. Explicit app-assigned page fields and scanned component references retain separate provenance. The service validates object/field identifiers and page identities, bounds metadata traversal, and does not read business records or substitute full object-info field collections. Import resolution continues using sharing-aware user-mode reads.
+
 ## Studio persistence
 
-Version 3 stores only the Studio information required to provide its functionality, including saved diagrams and DSL, Studio preferences, Field Usage scan state, bounded work units, dependency evidence and schedules.
+V5 stores only the Studio information required to provide its functionality, including saved diagrams and DSL, Studio preferences, Field Usage scan state, bounded work units, dependency evidence and schedules.
 
 This information remains within the Salesforce organisation. Studio persistence must never be used to store authentication secrets.
 
@@ -86,7 +90,7 @@ Third-party components included in the repository are documented in `THIRD_PARTY
 
 ## Security review checklist
 
-Before deployment or a major Version 3 change, verify:
+Before deployment or a major V5 change, verify:
 
 - the Tooling API credential and principal are configured and scoped appropriately;
 - the Studio permission set grants only intended access;
