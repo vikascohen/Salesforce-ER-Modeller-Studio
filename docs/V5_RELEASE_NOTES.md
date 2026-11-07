@@ -2,7 +2,7 @@
 
 **Updated: 8 November 2026. Maintainer: Vikas Cohen.**
 
-V5 is the current development source on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **V5 beta 5.0.0.1 has built successfully with 91% Apex coverage.** See [V5 package installation](V5_PACKAGE_RELEASE.md) for the beta links and test-permission configuration. It has not been promoted. The maintainer reports installation in a second Developer Edition org and Tooling API configuration; its scan and full runtime acceptance are still in progress. Existing V4 links continue to install V4; this branch does not merge or replace the released package.
+V5 is the current development source on [`v5-Beta`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-Beta), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **V5 beta 5.0.0.1 has built successfully with 91% Apex coverage.** See [V5 package installation](V5_PACKAGE_RELEASE.md) for the beta links and test-permission configuration. It has not been promoted. The maintainer reports installation in a second Developer Edition org and Tooling API configuration; its scan and full runtime acceptance are still in progress. Existing V4 links continue to install V4; this branch does not merge or replace the released package.
 
 ## V5 feature inventory
 

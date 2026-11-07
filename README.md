@@ -31,16 +31,18 @@ See the **[V5 release notes](docs/V5_RELEASE_NOTES.md)** for the full list of V5
 
 ## Documentation
 
+Browse the [V5 documentation index](docs/README.md).
+
 - **For compiler documentation, visit [Compiler.md](Compiler.md)** — syntax, imports, exported modules, `use`, inheritance, component labels, validation and IntelliSense.
 - [App modelling guide](docs/V5_APP_MODELLING.md) — generation options, scan evidence and setup requirements.
 - [Named permission sets and licences](docs/APP-ACCESS-CARDS.md) — what access cards represent.
 - [Architecture](docs/ARCHITECTURE.md) — implementation and system design.
 - [Validation record](docs/V5_VALIDATION.md) — build results and remaining acceptance checks.
-- [MCP administrator guide](docs/V4_MCP_ADMIN_GUIDE.md) — optional Hosted MCP configuration retained in V5.
+- [MCP administrator guide](docs/MCP_ADMIN_GUIDE.md) — optional Hosted MCP configuration retained in V5.
 
 ## Older versions
 
-To install an older version, visit the corresponding [version branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/branches) and follow its README. [V4 installation instructions](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/V4-latest) remain available there.
+To install an older version, visit the corresponding [version branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/branches) and follow its README. [V4 installation instructions](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/version-4-stable) remain available there.
 
 ## Licence
 

@@ -1,10 +1,10 @@
-# ER Modeller Studio V4 — Salesforce Hosted MCP setup and verification
+# ER Modeller Studio V5 — Salesforce Hosted MCP setup and verification
 
 **Status (updated 2026-10-20):** Four Apex invocable actions are deployed. Supplied developer-org screenshots show the custom Hosted MCP server **Active** with four registered tools and an active Agentforce Registry entry. A manual Field Usage scan completed with zero errors; full authenticated external MCP acceptance remains pending. Earlier 2026-10-11 validation included 170 passing Apex tests. Salesforce hosts the MCP transport. ER Modeller supplies the intelligence and Apex actions; it does not run a standalone MCP server.
 
 ## Architecture and what is reused
 
-External MCP client → Salesforce Hosted MCP custom server → ER Modeller Apex invocable action → existing V3 Field Usage snapshots/evidence. Salesforce handles MCP hosting, discovery and transport. ER Modeller owns tool behaviour, settings, access checks, application logs and Studio-scoped diagnostics. The existing `Salesforce_Tooling_API` Named/External Credential is for **internal metadata collection**; it does not replace an external MCP client's OAuth authentication or External Client App.
+External MCP client → Salesforce Hosted MCP custom server → ER Modeller Apex invocable action → persisted Field Usage snapshots/evidence. Salesforce handles MCP hosting, discovery and transport. ER Modeller owns tool behaviour, settings, access checks, application logs and Studio-scoped diagnostics. The existing `Salesforce_Tooling_API` Named/External Credential is for **internal metadata collection**; it does not replace an external MCP client's OAuth authentication or External Client App.
 
 ## Four implemented Apex tools
 
@@ -13,11 +13,11 @@ External MCP client → Salesforce Hosted MCP custom server → ER Modeller Apex
 | ER Modeller Get Snapshot Status | `ErMcpGetSnapshotStatus` | Read current stored snapshot and active scan state |
 | ER Modeller Get Field Usage | `ErMcpGetFieldUsage` | Read field reference evidence, with bounded cursor pagination |
 | ER Modeller Get Changed Fields | `ErMcpGetChangedFields` | Compare dependency evidence across up to five successful snapshots; synchronous limit 40,000 evidence rows |
-| ER Modeller Run Scan | `ErMcpRunScan` | Queue existing V3 scan, enforcing scan-operator permission, active-run check and cooldown |
+| ER Modeller Run Scan | `ErMcpRunScan` | Queue Field Usage scan, enforcing scan-operator permission, active-run check and cooldown |
 
 These are deployed **application actions**, not proof of a live MCP endpoint. No standard Salesforce record/schema tools should be added to this custom server.
 
-See also the [V4 administrator walkthrough](V4_MCP_ADMIN_GUIDE.md) based on the 20 October 2026 screenshots.
+See also the [MCP administrator walkthrough](MCP_ADMIN_GUIDE.md) based on the 20 October 2026 screenshots.
 
 ## Complete setup: from package installation to registered Hosted MCP server
 
@@ -124,7 +124,7 @@ Verify **exactly four tools** are registered. Do **not** add unrelated Salesforc
 
 ## Verified vs not verified
 
-**Verified:** On 2026-10-11, deployment of the MCP object metadata and related Apex classes to `warden-dev` succeeded, with **170 passing Apex tests, zero failures**. The latest V4 source is on `main` and `V4-latest`.
+**Verified:** On 2026-10-11, deployment of the MCP object metadata and related Apex classes to `warden-dev` succeeded, with **170 passing Apex tests, zero failures**. V5 source is on `v5-Beta`; this earlier deployment is historical evidence.
 
 **Not yet fully verified:** External OAuth handshake, MCP tool discovery, successful external read/scan invocations, client app attribution, automated log-retention scheduling, end-to-end permission behaviour and authenticated visual UI checks. No production-readiness claim.
 
@@ -135,7 +135,7 @@ Verify **exactly four tools** are registered. Do **not** add unrelated Salesforc
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html
 - https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/invocable-actions.html
 
-MCP invocation diagnostics use the existing opt-in Studio logging configuration. The shared diagnostic message starts with `ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]` to distinguish MCP calls from other Studio logs. V4 does not install a separate MCP log object, log retention scheduler, or dedicated invocation-history table. Successful tool calls emit INFO and failures emit ERROR; only tool name, outcome and duration are logged, not request values. If the chosen severity field has no INFO value, INFO events use its configured warning value.
+MCP invocation diagnostics use the existing opt-in Studio logging configuration. The shared diagnostic message starts with `ER_STUDIO_MODELLER_MCP [HOSTED_MCP / Tool invocation]` to distinguish MCP calls from other Studio logs. V5 does not install a separate MCP log object, log retention scheduler, or dedicated invocation-history table. Successful tool calls emit INFO and failures emit ERROR; only tool name, outcome and duration are logged, not request values. If the chosen severity field has no INFO value, INFO events use its configured warning value.
 
 All other Studio diagnostic messages begin with ER_STUDIO_MODELLER, while MCP messages begin with ER_STUDIO_MODELLER_MCP.
 

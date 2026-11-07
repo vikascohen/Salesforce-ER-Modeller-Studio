@@ -1,12 +1,12 @@
-# V4 administrator guide: Salesforce Hosted MCP
+# V5 administrator guide: Salesforce Hosted MCP
 
-> **Latest V4 source:** `main` and `V4-latest` (20 October 2026). The screenshots below are development-environment UI examples, not production acceptance evidence. Do not publish org-specific URLs, OAuth secrets or tokens.
+> **V5 source:** `v5-Beta`. The screenshots below are development-environment UI examples, not production acceptance evidence. Do not publish org-specific URLs, OAuth secrets or tokens.
 
-For the complete, reproducible package-to-OAuth registration sequence, including the exact four actions, activation checks and test flow, see **[V4 MCP setup: step-by-step](V4_MCP_SETUP.md)**.
+For the complete, reproducible package-to-OAuth registration sequence, including the exact four actions, activation checks and test flow, see **[MCP setup: step-by-step](MCP_SETUP.md)**.
 
 ## 1. What ER Modeller MCP provides
 
-ER Modeller Studio V4 uses **Salesforce Hosted MCP**. Salesforce hosts the protocol endpoint and handles server registration; ER Modeller contributes four Apex invocable actions. No standalone Node.js or custom Linux MCP service is needed. The actions expose **persisted Field Usage intelligence**, not arbitrary Salesforce record operations. They cannot guarantee a schema change is safe.
+ER Modeller Studio V5 retains **Salesforce Hosted MCP**. Salesforce hosts the protocol endpoint and handles server registration; ER Modeller contributes four Apex invocable actions. No standalone Node.js or custom Linux MCP service is needed. The actions expose **persisted Field Usage intelligence**, not arbitrary Salesforce record operations. They cannot guarantee a schema change is safe.
 
 | Registered tool | Action class | Behaviour |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ ER Modeller Studio V4 uses **Salesforce Hosted MCP**. Salesforce hosts the proto
 
 ## 2. Register and activate the server
 
-1. Deploy V4 metadata and Apex to an authorised Salesforce org. Assign `Diagram_Studio_User` only to trusted administrators/operators; verify effective permissions separately for integration users.
+1. Install the V5 package or deploy V5 metadata and Apex to an authorised Salesforce org. Assign `Diagram_Studio_User` only to trusted administrators/operators; verify effective permissions separately for integration users.
 2. In **Salesforce Setup**, search **MCP Servers**. Under **Integrations → API Catalog → MCP Servers → Salesforce Servers**, choose **Add MCP Server**, select the custom-server option and provide a descriptive server name, for example **ER Modeller Studio**. Salesforce's available setup labels can vary by release.
 3. Register the four ER Modeller Apex invocable actions above as tools. Verify each description and action mapping under the server's **Tools** tab. Do not accidentally add unrelated generic record-access tools.
 4. Activate the server. The server list should show **Active** and **4 tools**. Under **Einstein → Agentforce Registry → Registered MCP Servers**, confirm the registration and tool list; these are separate Salesforce Setup views.
@@ -93,4 +93,4 @@ The screenshot of **Last 10 Scans** shows a manual scan on 20 October 2026 from 
 - [ ] Negative permission tests with a separate integration identity.
 - [ ] Persisted MCP call history verified against a configured accessible log destination.
 
-For deeper implementation details, see [V4 MCP setup](V4_MCP_SETUP.md), [V4 requirements](V4_REQUIREMENTS.md) and [diagnostic coverage](DIAGNOSTIC_COVERAGE.md). For Salesforce platform specifics, consult [Salesforce Hosted MCP custom-server documentation](https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html).
+For deeper implementation details, see [MCP setup](MCP_SETUP.md), [validation record](V5_VALIDATION.md) and [diagnostic coverage](DIAGNOSTIC_COVERAGE.md). For Salesforce platform specifics, consult [Salesforce Hosted MCP custom-server documentation](https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/custom-servers.html).

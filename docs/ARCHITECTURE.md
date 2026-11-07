@@ -446,7 +446,7 @@ That separation of **meaning, evidence, analysis and presentation** is the core 
 
 ## 19. Version 4 — Salesforce Hosted MCP architecture
 
-**Implementation status:** Four ER Modeller Apex invocable actions exist in V4; activation of a Salesforce custom Hosted MCP server and external client execution are not yet independently verified. The MCP transport and OAuth boundary belong to Salesforce, not an ER Modeller-hosted web server. See [V4_MCP_SETUP.md](V4_MCP_SETUP.md).
+**Implementation status:** Four ER Modeller Apex invocable actions exist in V4; activation of a Salesforce custom Hosted MCP server and external client execution are not yet independently verified. The MCP transport and OAuth boundary belong to Salesforce, not an ER Modeller-hosted web server. See [MCP_SETUP.md](MCP_SETUP.md).
 
 ```mermaid
 flowchart TB
@@ -598,7 +598,7 @@ Do not use a single privileged bot service account to expose snapshot evidence t
 
 ## 23. V5 composition, app models and named access
 
-V5 remains a source preview on `v5-app-er-model`. Its developer-org deployments and automated checks are recorded in [V5_VALIDATION.md](V5_VALIDATION.md); they do not establish a V5 package or universal runtime coverage.
+V5 beta 5.0.0.1 is available on `v5-Beta`. Packaging and validation results are recorded in [V5_VALIDATION.md](V5_VALIDATION.md); a passing build does not establish universal runtime coverage.
 
 ### 23.1 Composition pipeline and source of truth
 

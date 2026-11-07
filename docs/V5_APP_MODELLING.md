@@ -1,6 +1,6 @@
 # V5: Generate an ER model from a Salesforce app
 
-V5 beta 5.0.0.1 is available on `v5-app-er-model`. See [installation details](V5_PACKAGE_RELEASE.md) and the [V5 release notes](V5_RELEASE_NOTES.md). It is a separate unlocked package from V4, not a verified in-place upgrade.
+V5 beta 5.0.0.1 is available on `v5-Beta`. See [installation details](V5_PACKAGE_RELEASE.md) and the [V5 release notes](V5_RELEASE_NOTES.md). It is a separate unlocked package from V4, not a verified in-place upgrade.
 
 ## Using the feature
 
@@ -47,7 +47,7 @@ The snapshot timestamp is displayed; live app/dependency metadata can be newer t
 Use an isolated checkout and an explicitly selected non-production org:
 
 ```bash
-git clone --branch v5-app-er-model https://github.com/vikascohen/Salesforce-ER-Modeller-Studio.git er-modeller-v5
+git clone --branch v5-Beta https://github.com/vikascohen/Salesforce-ER-Modeller-Studio.git er-modeller-v5
 cd er-modeller-v5
 npm ci
 npm test -- --runInBand
@@ -62,7 +62,7 @@ If a validation exceeds the wait window:
 sf project deploy report --use-most-recent --target-org er-v5-validation
 ```
 
-A dry run does not install V5. A package build, actual deployment and interactive end-to-end org scan/app-generation acceptance remain separate release steps. `sfdx-project.json` intentionally has no V5 2GP package ID, so a build cannot accidentally publish this source as the existing V4 package.
+A dry run does not install V5. A package build, actual deployment and interactive end-to-end org scan/app-generation acceptance remain separate release steps. `sfdx-project.json` associates V5 with its separate 2GP package; see [package details](V5_PACKAGE_RELEASE.md).
 
 ## Strict field scope and object provenance
 
@@ -113,7 +113,7 @@ The old technical-object checkbox is replaced by **Show permission set and licen
 
 IntelliSense covers all six component types, local/imported access declarations, resolved app cards, JSON label strings and module/import/inheritance syntax. Access-name suggestions work from saved declarations after reopening. Module and label parsing reject conflicts/malformed active text without substituting unrelated metadata.
 
-The [V5 release notes](V5_RELEASE_NOTES.md) describe the current source preview. V4 install URLs still install V4; no V5 installation package has been published.
+The [V5 release notes](V5_RELEASE_NOTES.md) describe current functionality. Use the V5 beta links in [package installation](V5_PACKAGE_RELEASE.md).
 
 
 ## Standalone Lightning tab/component sources
