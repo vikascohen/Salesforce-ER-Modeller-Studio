@@ -2,6 +2,8 @@
 
 **Author: Vikas Cohen**
 
+For the V5 compiler overview, activation model and implementation links, see [Compiler.md](../Compiler.md).
+
 The ER DSL is a small, line-based format for describing Salesforce objects, fields and relationships. You normally do **not** need to write it by hand: Diagram Studio can generate DSL from Salesforce metadata, drag-and-drop modelling and editor assistance. See [Generating DSL instead of writing it](#generating-dsl-instead-of-writing-it).
 
 V5 accepts entities, relationships, named component cards, module blocks, imports, `use`, comments and blank lines. Unrecognised active input produces a parse error; composed models retain source filenames and line numbers. Existing flat DSL remains supported.

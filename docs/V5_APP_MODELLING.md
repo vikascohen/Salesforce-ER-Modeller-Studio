@@ -1,6 +1,6 @@
 # V5: Generate an ER model from a Salesforce app
 
-V5 is a source preview on `v5-app-er-model`. It does not replace the published V4 package, and there is no V5 installation link or package version yet.
+V5 beta 5.0.0.1 is available on `v5-app-er-model`. See [installation details](V5_PACKAGE_RELEASE.md) and the [V5 release notes](V5_RELEASE_NOTES.md). It is a separate unlocked package from V4, not a verified in-place upgrade.
 
 ## Using the feature
 

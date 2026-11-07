@@ -2,7 +2,23 @@
 
 **Updated: 8 November 2026. Maintainer: Vikas Cohen.**
 
-V5 is the current development source on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **V5 beta 5.0.0.1 has built successfully with 91% Apex coverage.** See [V5 package installation](V5_PACKAGE_RELEASE.md) for the beta links and test-permission configuration. It has not been promoted or validated by clean-org package installation. Existing V4 links continue to install V4; this branch does not merge or replace the released package.
+V5 is the current development source on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **V5 beta 5.0.0.1 has built successfully with 91% Apex coverage.** See [V5 package installation](V5_PACKAGE_RELEASE.md) for the beta links and test-permission configuration. It has not been promoted. The maintainer reports installation in a second Developer Edition org and Tooling API configuration; its scan and full runtime acceptance are still in progress. Existing V4 links continue to install V4; this branch does not merge or replace the released package.
+
+## V5 feature inventory
+
+| Area | Included in V5 |
+| --- | --- |
+| App selection and discovery | Custom/standard/all app filters, refresh, app-navigation traversal, LWC/Aura standalone roots, source switching safeguards and coverage guidance. |
+| Model generation | App-used fields only, scoped Apex/Flow/LWC/Aura evidence, optional object-triggered automation, progress, validated generated DSL and preservation of existing work on failure. |
+| Named cards | Apex/Flow identities, permission sets and actual licence/package bindings, optional JSON display labels, separate access section and platform-table exclusions. |
+| Compiler | Unique saved filenames, plain/named imports, inert exported modules, explicit use, additive inheritance, stable rename bindings, bounded resolution, conflicts and source-origin diagnostics. |
+| Editor | Expanded IntelliSense, label escaping, context-aware token replacement, current inline validation and separate persisted operation history. |
+| Canvas | Grouped fit layout, compact isolated rows, visible arrow tips, spaced labels/cardinalities, routed Relationship Insights edges, and loading feedback. |
+| Events and metadata | Drag-to-canvas filters, custom-type colours, dedicated sections, declared cross-section relationships and appropriate sharing/heatmap N/A behaviour. |
+| Scanner | Optional capability-gated standard OmniStudio discovery, explicit UI/Flow references, per-bundle UI transactions and large-source matching safeguards. |
+| Distribution | Crius Consulting branding, 2GP unlocked beta installer, packaged test-user permissions, setup guides and validation history. |
+
+The detailed sections below define each feature's scope and limits. Existing ER modelling, data dictionary, architecture analysis, field-usage and optional Hosted MCP feature families remain available. For compiler documentation, visit [Compiler.md](../Compiler.md).
 
 ## App-scoped ER generation
 

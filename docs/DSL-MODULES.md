@@ -1,5 +1,7 @@
 # Reusable DSL modules
 
+See [Compiler.md](../Compiler.md) for the complete V5 compiler overview and implementation links.
+
 An exported module is a definition. Its entities, relationships and component cards stay off the canvas until activated with `use`. Keywords and module names are case insensitive. Existing flat DSL still works.
 
 ```text
