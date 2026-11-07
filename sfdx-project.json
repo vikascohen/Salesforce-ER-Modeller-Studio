@@ -3,9 +3,15 @@
     {
       "path": "force-app",
       "default": true,
-      "versionName": "V5",
+      "versionName": "Crius Consulting V5",
       "versionNumber": "5.0.0.NEXT",
-      "versionDescription": "V5 source preview: app-scoped ER generation and org object usage. Salesforce validation required before release."
+      "versionDescription": "Salesforce ER Modeller Studio V5 by Crius Consulting.",
+      "package": "Crius Consulting - Salesforce ER Modeller Studio V5",
+      "apexTestAccess": {
+        "permissionSets": [
+          "Diagram_Studio_User"
+        ]
+      }
     }
   ],
   "namespace": "",
@@ -13,6 +19,7 @@
   "author": "Crius Consulting",
   "packageAliases": {
     "Salesforce ER Modeller Studio": "0Hoaj0000006QmDCAU",
-    "Salesforce ER Modeller Studio V4": "0Hoaj0000006YgXCAU"
+    "Salesforce ER Modeller Studio V4": "0Hoaj0000006YgXCAU",
+    "Crius Consulting - Salesforce ER Modeller Studio V5": "0Hoaj0000006uM5CAI"
   }
 }

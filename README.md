@@ -1,7 +1,7 @@
 # Salesforce ER Modeller Studio
 
 
-**V5 source preview:** work on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model) includes app-scoped ER generation, reusable DSL modules/imports, named access cards and canvas improvements. Start with the [V5 release notes](docs/V5_RELEASE_NOTES.md), [DSL reference](docs/DSL.md) and [V5 app modelling guide](docs/V5_APP_MODELLING.md). **V5 has no published installation package.** The V4 links below install the released V4 package.
+**V5 source preview:** work on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model) includes app-scoped ER generation, reusable DSL modules/imports, named access cards and canvas improvements. Start with the [V5 release notes](docs/V5_RELEASE_NOTES.md), [DSL reference](docs/DSL.md) and [V5 app modelling guide](docs/V5_APP_MODELLING.md). **V5 beta 5.0.0.1 is now available:** [installation and packaging details](docs/V5_PACKAGE_RELEASE.md), 91% packaging Apex coverage. Clean-org installation acceptance remains pending; the beta is not promoted for production. The V4 links below install the released V4 package.
 
 **Salesforce data architecture intelligence, ER modelling and field-dependency analysis.**
 

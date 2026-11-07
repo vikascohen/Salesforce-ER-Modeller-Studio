@@ -1,5 +1,12 @@
 # V5 validation record
 
+## 8 November 2026 — V5 beta packaging
+
+The initial build failed two user-mode DSL import tests because the packaging test user lacked the shipped field permissions. The field metadata was present. Added package-directory `apexTestAccess.permissionSets = ["Diagram_Studio_User"]`; sharing and field-security enforcement remain unchanged.
+
+Replacement request `08caj000000JMEXAA4` succeeded: version **5.0.0.1**, subscriber ID **`04taj000000pMsvAAE`**, **91% Apex coverage**, passed coverage gate, **268 metadata files**, zero packaging errors. See [package release record](V5_PACKAGE_RELEASE.md). This verifies package creation with tests; clean-org installation, configured runtime acceptance and production promotion remain outstanding. Earlier no-package statements below are historical.
+
+
 ## 7 November 2026 — large LWC regex rollback
 
 The fresh full scan `a03aj00002ZtoS1AAJ` completed with one failed LWC work unit containing twelve bundles. Worker job `707aj00001QUYQ2AAP` reported `First error: Regex too complicated`; Omni runtime discovery logged no readable standard objects and safely skipped. A read-only single-bundle reproduction pinpointed `ObjectUsageScanner.lwc` object-name matching against the large Studio source, confirming isolation alone was insufficient.

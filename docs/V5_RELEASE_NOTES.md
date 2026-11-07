@@ -1,8 +1,8 @@
-# V5 release notes — source preview
+# V5 release notes — beta 5.0.0.1
 
-**Updated: 7 November 2026. Maintainer: Vikas Cohen.**
+**Updated: 8 November 2026. Maintainer: Vikas Cohen.**
 
-V5 is the current development source on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **No V5 2GP package or installation link has been published.** Existing V4 links continue to install V4; this branch does not merge or replace the released package.
+V5 is the current development source on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model), reviewed in [PR #3](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/pull/3). Developer-org deployments have succeeded. **V5 beta 5.0.0.1 has built successfully with 91% Apex coverage.** See [V5 package installation](V5_PACKAGE_RELEASE.md) for the beta links and test-permission configuration. It has not been promoted or validated by clean-org package installation. Existing V4 links continue to install V4; this branch does not merge or replace the released package.
 
 ## App-scoped ER generation
 
@@ -65,4 +65,4 @@ LWC and Aura bundles are discovered as one bundle per work unit, rather than gro
 
 Current validation and deployment IDs are recorded in [V5_VALIDATION.md](V5_VALIDATION.md). Automated checks cover legacy diagrams, module activation/imports/labels, all card types, keyboard completion, strict field scope, schema/card separation, connector geometry and named-access query limits/errors. Developer-org live checks verify actual app/permission names and stable import bindings.
 
-A representative org’s passing tests do not prove universal package compatibility. Clean-org/package acceptance, comprehensive dynamic/managed-source coverage, external MCP end-to-end acceptance and a published V5 package remain separate release gates. No production deployment is implied by these source-preview notes.
+A representative org’s passing tests do not prove universal package compatibility. Clean-org/package acceptance, comprehensive dynamic/managed-source coverage, external MCP end-to-end acceptance and V5 production promotion remain separate release gates. No production deployment is implied by these source-preview notes.
