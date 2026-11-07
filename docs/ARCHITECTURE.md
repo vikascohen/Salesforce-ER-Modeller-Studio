@@ -5,6 +5,8 @@
 
 This is the authoritative technical architecture document for ER Modeller Studio. It describes the product as one system: visual ER modelling, the ER DSL compiler, Salesforce metadata acquisition, Data Dictionary, Architecture Intelligence, Object Intelligence, Version 3 Field Usage Intelligence, persistence, security boundaries, testing and extension principles.
 
+**V5 source-preview additions:** app-scoped field evidence, module/import composition, named component/access cards and tolerant IntelliSense are documented in [Section 23](#23-v5-composition-app-models-and-named-access). Sections labelled V4 retain the released-package baseline. V5 is not a published package.
+
 The product philosophy is simple: **understand the Salesforce data architecture before changing it**.
 
 ## 1. Architectural philosophy
@@ -135,7 +137,7 @@ flowchart TD
 
 `erDiagramLogic.js` owns the core compiler-style logic: parsing, semantic construction, relationship normalisation, geometry generation and target generation. `diagramStudio.js` owns editor state, persisted positions, interaction and compiler invocation.
 
-The grammar is intentionally line-oriented and flat. A parser generator or full AST would add ceremony without improving the current language. If the language later gains nesting, expressions, aliases, blocks or multiline declarations, an AST can be introduced without changing the semantic-model contract.
+The V4 statement grammar remains line-oriented. V5 adds a composition pass in `dslModules`: file/module symbol tables, explicit export visibility, import bindings, additive inheritance and source-origin records. It expands only active top-level statements and explicitly used exported modules before passing their text to the existing semantic parser. This is declarative model composition; it introduces no procedural execution, stored procedures or arbitrary SQL runtime. See Section 23 for bounds and compatibility rules.
 
 A compact grammar is:
 
@@ -592,3 +594,80 @@ Do not use a single privileged bot service account to expose snapshot evidence t
 4. Verify both simple and parent/child diagnostic mappings, least-privileged log writes, missing/invalid configuration and rollback limitations.
 5. Preserve no-secrets/no-raw-request logging and bounded query/pagination behaviour.
 6. Keep Teams integration explicitly future-state until separately designed, secured and tested.
+
+
+## 23. V5 composition, app models and named access
+
+V5 remains a source preview on `v5-app-er-model`. Its developer-org deployments and automated checks are recorded in [V5_VALIDATION.md](V5_VALIDATION.md); they do not establish a V5 package or universal runtime coverage.
+
+### 23.1 Composition pipeline and source of truth
+
+```mermaid
+flowchart TB
+    Editor["Editor source"] --> Composer["File and module composition"]
+    Files["Accessible saved DSL files"] --> Resolver["Bounded import resolver"]
+    Resolver --> Composer
+    Composer --> Parser["Active model parser"]
+    Parser --> Geometry["Shared ER geometry"]
+    Geometry --> Canvas["Studio and viewer"]
+    Parser --> Consumers["Analysis and exports"]
+```
+
+`export module` records an inert definition. Only `use` activates an exported symbol visible in the current file or direct imports. Imported top-level models never become part of the caller implicitly. `extends` adds the base before the child; repeated activation is deduplicated. Ambiguity, cycles and conflicting active types, relationships or component labels fail explicitly. Composition retains source filenames and line numbers for semantic errors. Existing flat DSL keeps its parsing contract.
+
+The editor source, including definitions and import statements, remains the persisted file. Active models are derived; geometry does not become schema truth. Studio canvas, viewer, architecture analysis and diagram exports use the compiled active model. Canvas deletion/field reconciliation is guarded in modular files to avoid rewriting shared definitions accidentally. Users edit those definitions in the DSL.
+
+### 23.2 Saved-file identity and bounds
+
+| Component | Responsibility |
+| --- | --- |
+| `DslFileService` | Sharing-aware import reads; canonical filename lookup; saved record-ID bindings; bounded graph payload |
+| `DiagramFileNames` trigger | Canonical uniqueness on all saves, including direct/bulk writes |
+| `Diagram_File__c.File_Key__c` | Case-insensitive database-unique canonical filename, with optional `.dsl` normalised |
+| `Diagram_File__c.Import_Bindings__c` | Internal direct-import filename-to-record-ID bindings |
+| `dslModules` | Visibility, inheritance/use expansion, cycle detection, source origins and tolerant completion indexing |
+
+Filenames use no directory syntax. An existing saved import retains its target across a rename; new imports resolve the new name. Resolution uses live saved content, with explicit Refresh imports, rather than version pinning. Import graph limits are 32 files including the root, 16 levels and 1,048,576 characters. The server supplies only accessible records; internal uniqueness checks reject collisions without exposing inaccessible record names. Ordinary flat saves skip import metadata reads when no import is present.
+
+### 23.3 App-used data evidence
+
+`AppModelController` resolves app navigation and bounded component dependency expansion against a completed V5 snapshot. `appModelLogic` traverses scoped component identities, combines validated object/field evidence and filters known platform tables. Schema describe supplies types and reference metadata; it is not evidence that every field is used. The generator includes only reached field references plus the structural Id. Missing field evidence, incompatible snapshots, partial metadata and excessive scope fail visibly before replacing the editor/canvas.
+
+Flow, Apex, LWC and Aura have static coverage limits; the optional standard OmniStudio layer is capability-gated and uses described fields, bound IDs and user-mode dynamic queries. Installed standard-schema fixtures and a live no-Omni check are documented; managed-package Omni adapters and a real installed-org acceptance check remain gaps. Data Cloud DMO/DLO/mapping/data-graph discovery is not implemented. Scheduler/internal platform screens can expose navigation without readable field evidence. A completed scan does not imply complete coverage.
+
+### 23.4 Named access configuration
+
+`AppAccessService.discover` is separate from the org scan and schema describe pipeline. It uses the same configured Named Credential principal for bounded read-only metadata requests. The client sends the selected app ID and reached component identities, not an org-wide set of unrelated access records.
+
+1. Resolve AppDefinition and its exact developer-name/namespace AppMenuItem TabSet identity.
+2. Read explicit SetupEntityAccess grants for that app and reached Apex class IDs, excluding profile-owned permission sets.
+3. Load permission-set labels and qualified API names. Follow each actual LicenseId to PermissionSetLicense or UserLicense using its described type prefix.
+4. For a namespaced app, read its PackageLicense record and installed package name when accessible. If only namespace identification is readable, say so explicitly.
+5. Return typed card identities, readable labels, provenance and coverage warnings. Failed/truncated core queries prevent a misleading partial result; no licence binding produces a warning, not an inferred requirement.
+
+These records are access configuration, not proof of mandatory user assignments. Profiles, permission set groups, indirect feature licences, Flow-specific access grants and assignment evaluation are outside initial coverage. Names from a broad org licence inventory are never substituted for missing app evidence.
+
+### 23.5 Typed cards, IntelliSense and rendering
+
+`component` supports ApexClass, Flow, PermissionSet, PermissionSetLicense, UserLicense and PackageLicense with a stable identifier and optional JSON-string `label`. The semantic model keeps cards in `components`, separate from schema `entities`. Generated access identifiers include record IDs so equal labels cannot collapse distinct records. Labels persist through saves/imports and are escaped at export boundaries.
+
+Cards receive type text rather than a synthetic Id or schema fields. Existing schema-only consumers therefore skip them for heatmap, sharing, field drift and relationship analysis. Fit Model places object/event/metadata sections first, Apex/Flow cards below them and named access cards in their own final section. No access or execution edge is invented. Mermaid remains ER-only with card-name comments; canvas/image and draw.io include cards.
+
+Completion is a tolerant authoring layer, not the compiler or metadata authority. It indexes complete declarations even while a surrounding module is unfinished, offers all component types, visible exported modules, import/from/extends syntax, local/imported access identities and JSON-safe labels. Apex/Flow name reads are lazy; access names come from readable declarations or the app’s resolved cards. Keyboard acceptance and caret placement preserve surrounding text. Invalid active DSL still fails validation with source details.
+
+Connector geometry is shared by Studio and viewer. Target markers clear card borders/shadows, aligned cards share straight routes, and labels/cardinality badges occupy separate positions. Lookup remains blue, Master-Detail purple and Polymorphic dashed red. Direction is child field toward referenced parent, not execution flow.
+
+### 23.6 Verification contract
+
+Regression coverage exercises legacy flat models, module-only empty rendering, explicit use with top-level declarations, imported visibility/cycles/conflicts, labels and escaping, card/schema separation, keyboard completion, save/view/export compatibility and connector clearance. App-access HTTP fixtures cover real name shapes, both licence reference types, package labels, inaccessible metadata, empty scope and truncation. Live developer-org checks found named Warden and Nebula permission sets; those app-visibility sets had no explicit licence binding. No user assignments or business records were modified by access discovery.
+
+See [DSL.md](DSL.md), [APP-ACCESS-CARDS.md](APP-ACCESS-CARDS.md) and [V5_RELEASE_NOTES.md](V5_RELEASE_NOTES.md) for the user-facing contract.
+
+
+### 23.7 Standalone Lightning roots and editor validation lifecycle
+
+`AppModelController.listLightningSources` returns bounded LWC/Aura bundle identities from the configured metadata principal; it is a component catalogue, not an App Launcher inventory. `getLightningScopeJson` validates the allowlisted type/ID, verifies the actual record and unique developer-name identity, attaches the current completed V5 scan and seeds one root. Existing dependency expansion, strict field selection, schema description and DSL validation are reused. No Salesforce application metadata is created. The catalogue caps each type at 1,000 rows and rejects incomplete results. Named access discovery stays app-specific; the component mode does not infer containing-app grants.
+
+The UI captures source kind/value during generation and uses a request token for catalogue loads. Switching kind clears the selection, while late results cannot replace the new catalogue. Source/DSL changes during generation block stale results before a new tab is opened. The selected source kind is retained in DSL comments.
+
+Current authoring validation is separate state from diagnostic history. `renderDiagram` validates the active model before geometry; expected parser/import-reference errors update the inline editor status without invoking diagnostic persistence. Valid/empty source clears that status. Geometry exceptions and genuine API/file/action failures keep the existing diagnostic path. Successful compilation does not erase unrelated diagnostic events. Historical records are never deleted as part of correcting DSL. This prevents intermediate `use` prefixes from leaving a misleading error-count badge on a valid model.

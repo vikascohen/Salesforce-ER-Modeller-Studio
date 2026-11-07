@@ -1,3 +1,4 @@
+import { compileModuleSource } from 'c/dslModules';
 /**
  * Pure parsing/layout logic for the ER Diagram DSL.
  *
@@ -67,8 +68,14 @@ export function splitFieldList(raw) {
     return parts;
 }
 
-export function parseEr(text) {
+export function parseEr(text, options = {}) {
+    const compiled=compileModuleSource(text,options);
+    try { return parseErCore(compiled.modular ? compiled.source : text,compiled.modular); }
+    catch(error){const match=error.message.match(/Line (\d+)/);if(compiled.modular&&match){const origin=compiled.origins[Number(match[1])-1];if(origin)throw new Error(`${origin.file}:${origin.line}: ${error.message}`);}throw error;}
+}
+function parseErCore(text, allowEmpty = false) {
     const entities = new Map();      // keyed by lowercase name; preserves first-seen casing
+    const components = new Map();
     const relationships = [];
     const relSeen = new Set();       // dedupe exact-duplicate relationship lines
 
@@ -95,6 +102,17 @@ export function parseEr(text) {
         const line = rawLine.trim();
         if (!line || line.startsWith('#')) return;
 
+        const componentMatch = line.match(/^component\s+(ApexClass|Flow|PermissionSet|PermissionSetLicense|UserLicense|PackageLicense)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+label\s+("(?:[^"\\]|\\.)*"))?$/i);
+        if (componentMatch) {
+            const type = ['ApexClass','Flow','PermissionSet','PermissionSetLicense','UserLicense','PackageLicense'].find(value=>value.toLowerCase()===componentMatch[1].toLowerCase());
+            let title=componentMatch[2];
+            try{if(componentMatch[3])title=JSON.parse(componentMatch[3]);}catch(_){throw new Error(`Line ${idx+1}: Card label must be a valid JSON string.`);}
+            if(!title.trim())title=componentMatch[2]; // Empty label snippets remain valid while the user types.
+            const name = `@${type}:${componentMatch[2]}`;
+            if(allowEmpty&&components.has(name.toLowerCase())&&components.get(name.toLowerCase()).title!==title)throw new Error(`Line ${idx+1}: Conflicting labels for component ${type} ${componentMatch[2]}.`);
+            components.set(name.toLowerCase(), {name, title, componentType:type, fields:[]});
+            return;
+        }
         const entityMatch = line.match(/^entity\s+(\w+)\s*(:\s*(.*))?$/i);
         if (entityMatch) {
             const ent = ensureEntity(entityMatch[1]);
@@ -132,6 +150,7 @@ export function parseEr(text) {
                 const field = ensureField(ent.name, name);
                 if (isRollupSummary) field.isRollupSummary = true;
                 if (isRequired) field.isRequired = true;
+                if (allowEmpty && dataType && field.dataType && dataType.toLowerCase() !== field.dataType.toLowerCase()) throw new Error(`Line ${idx+1}: Conflicting data type for ${ent.name}.${name}.`);
                 if (dataType) field.dataType = dataType;
             });
             return;
@@ -149,6 +168,7 @@ export function parseEr(text) {
             if (relSeen.has(dedupeKey)) return; // exact duplicate line — skip silently
             relSeen.add(dedupeKey);
 
+            if (allowEmpty && field.isRelationship && (field.kind !== kind || (kind !== 'poly' && !field.relatesTo.includes(parentEnt.name)))) throw new Error(`Line ${idx+1}: Conflicting relationship for ${childEnt.name}.${field.name}.`);
             field.isRelationship = true;
             field.kind = kind;
             if (!field.relatesTo.includes(parentEnt.name)) field.relatesTo.push(parentEnt.name);
@@ -159,11 +179,11 @@ export function parseEr(text) {
         throw new Error(`Line ${idx + 1} not understood: "${line}". Try: entity Account : Name  or  Contact.AccountId => Account`);
     });
 
-    if (entities.size === 0) {
+    if (entities.size === 0 && components.size === 0 && !allowEmpty) {
         throw new Error('No entities found. Start with: entity Account : Name, Industry');
     }
 
-    return { entities: Array.from(entities.values()), relationships };
+    return { entities: Array.from(entities.values()), relationships, ...(components.size ? {components:[...components.values()]} : {}) };
 }
 
 function kindLabel(kind) {
@@ -177,7 +197,7 @@ function fieldLabel(f) {
 }
 
 function isCustom(name) {
-    return /__c$/i.test(name);
+    return /__(c|e|mdt)$/i.test(name);
 }
 
 function clamp(v, min, max) {
@@ -203,34 +223,45 @@ function elbowPath(childBox, parentBox, laneIndex, laneCount) {
     const dx = bCx - aCx;
     const dy = bCy - aCy;
 
+    // Keep target markers clear of the card border/shadow. Cardinality
+    // badges sit beside the route, never over the arrow or its final segment.
+    const sourceGap = 4, targetGap = 12, badgeAlong = 28, badgeSide = 19;
     if (Math.abs(dx) >= Math.abs(dy)) {
-        const aEdgeX = dx >= 0 ? childBox.x + childBox.width : childBox.x;
-        const bEdgeX = dx >= 0 ? parentBox.x : parentBox.x + parentBox.width;
-        const aY = clamp(bCy + spread, childBox.y + 14, childBox.y + childBox.height - 14);
-        const bY = clamp(aCy + spread, parentBox.y + 14, parentBox.y + parentBox.height - 14);
-        const midX = (aEdgeX + bEdgeX) / 2;
+        const direction = dx >= 0 ? 1 : -1;
+        const aEdgeX = direction > 0 ? childBox.x + childBox.width : childBox.x;
+        const bEdgeX = direction > 0 ? parentBox.x : parentBox.x + parentBox.width;
+        const low = Math.max(childBox.y + HEADER_HEIGHT + 10, parentBox.y + HEADER_HEIGHT + 10);
+        const high = Math.min(childBox.y + childBox.height - 14, parentBox.y + parentBox.height - 14);
+        const sharedY = low <= high ? clamp((aCy + bCy) / 2 + spread, low, high) : null;
+        const aY = sharedY == null ? clamp(aCy + spread, childBox.y + HEADER_HEIGHT + 10, childBox.y + childBox.height - 14) : sharedY;
+        const bY = sharedY == null ? clamp(bCy + spread, parentBox.y + HEADER_HEIGHT + 10, parentBox.y + parentBox.height - 14) : sharedY;
+        const startX = aEdgeX + direction * sourceGap;
+        const endX = bEdgeX - direction * targetGap;
+        const midX = (startX + endX) / 2;
         return {
-            d: `M ${aEdgeX} ${aY} L ${midX} ${aY} L ${midX} ${bY} L ${bEdgeX} ${bY}`,
-            midX, midY: (aY + bY) / 2,
-            cardStartX: aEdgeX + (dx >= 0 ? 18 : -18),
-            cardStartY: aY - 10,
-            cardEndX: bEdgeX + (dx >= 0 ? -18 : 18),
-            cardEndY: bY - 10
+            d: aY === bY ? `M ${startX} ${aY} L ${endX} ${bY}` : `M ${startX} ${aY} L ${midX} ${aY} L ${midX} ${bY} L ${endX} ${bY}`,
+            midX, midY: (aY + bY) / 2, orientation: aY === bY ? 'horizontal' : 'elbow',
+            cardStartX: aEdgeX + direction * badgeAlong, cardStartY: aY - badgeSide,
+            cardEndX: bEdgeX - direction * badgeAlong, cardEndY: bY - badgeSide
         };
     }
 
-    const aEdgeY = dy >= 0 ? childBox.y + childBox.height : childBox.y;
-    const bEdgeY = dy >= 0 ? parentBox.y : parentBox.y + parentBox.height;
-    const aX = clamp(bCx + spread, childBox.x + 14, childBox.x + childBox.width - 14);
-    const bX = clamp(aCx + spread, parentBox.x + 14, parentBox.x + parentBox.width - 14);
-    const midY = (aEdgeY + bEdgeY) / 2;
+    const direction = dy >= 0 ? 1 : -1;
+    const aEdgeY = direction > 0 ? childBox.y + childBox.height : childBox.y;
+    const bEdgeY = direction > 0 ? parentBox.y : parentBox.y + parentBox.height;
+    const low = Math.max(childBox.x + 18, parentBox.x + 18);
+    const high = Math.min(childBox.x + childBox.width - 18, parentBox.x + parentBox.width - 18);
+    const sharedX = low <= high ? clamp((aCx + bCx) / 2 + spread, low, high) : null;
+    const aX = sharedX == null ? clamp(aCx + spread, childBox.x + 18, childBox.x + childBox.width - 18) : sharedX;
+    const bX = sharedX == null ? clamp(bCx + spread, parentBox.x + 18, parentBox.x + parentBox.width - 18) : sharedX;
+    const startY = aEdgeY + direction * sourceGap;
+    const endY = bEdgeY - direction * targetGap;
+    const midY = (startY + endY) / 2;
     return {
-        d: `M ${aX} ${aEdgeY} L ${aX} ${midY} L ${bX} ${midY} L ${bX} ${bEdgeY}`,
-        midX: (aX + bX) / 2, midY,
-        cardStartX: aX + 10,
-        cardStartY: aEdgeY + (dy >= 0 ? 16 : -14),
-        cardEndX: bX + 10,
-        cardEndY: bEdgeY + (dy >= 0 ? -14 : 16)
+        d: aX === bX ? `M ${aX} ${startY} L ${bX} ${endY}` : `M ${aX} ${startY} L ${aX} ${midY} L ${bX} ${midY} L ${bX} ${endY}`,
+        midX: (aX + bX) / 2, midY, orientation: aX === bX ? 'vertical' : 'elbow',
+        cardStartX: aX + badgeSide, cardStartY: aEdgeY + direction * badgeAlong,
+        cardEndX: bX + badgeSide, cardEndY: bEdgeY - direction * badgeAlong
     };
 }
 
@@ -244,16 +275,16 @@ function selfLoopPath(box, laneIndex) {
     const loopSize = SELF_LOOP_BASE + idx * SELF_LOOP_STEP;
     const startX = box.x + box.width;
     const startY = box.y + 46 + idx * 28;
-    const endY   = startY + 30;
+    const endY   = startY + 42;
     const ctrlX  = startX + loopSize;
     return {
-        d: `M ${startX} ${startY} C ${ctrlX} ${startY} ${ctrlX} ${endY} ${startX} ${endY}`,
+        d: `M ${startX} ${startY} C ${ctrlX} ${startY} ${ctrlX} ${endY} ${startX + 12} ${endY}`,
         midX: startX + loopSize - 6,
         midY: (startY + endY) / 2,
-        cardStartX: startX + 14,
-        cardStartY: startY - 6,
-        cardEndX: startX + 14,
-        cardEndY: endY + 12
+        cardStartX: startX + 28,
+        cardStartY: startY - 19,
+        cardEndX: startX + 28,
+        cardEndY: endY + 19
     };
 }
 
@@ -261,10 +292,11 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
     const positions = existingPositions || {};
     const heights = boxHeightOverrides || {};
     const widths = boxWidthOverrides || {};
-    const cols = Math.max(1, Math.ceil(Math.sqrt(model.entities.length)));
+    const nodes = [...model.entities, ...(model.components || [])];
+    const cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
 
-    const boxes = model.entities.map((ent, i) => {
-        const naturalRowCount = ent.fields.length + 1; // +1 for Id
+    const boxes = nodes.map((ent, i) => {
+        const naturalRowCount = ent.componentType ? 1 : ent.fields.length + 1; // +1 for Id
         const naturalBodyHeight = naturalRowCount * ROW_HEIGHT + 12;
         const naturalHeight = HEADER_HEIGHT + naturalBodyHeight;
 
@@ -277,7 +309,7 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
         const width  = widths[ent.name]  != null ? Math.max(widths[ent.name],  80)             : BOX_WIDTH;
         const visibleRows = Math.floor((height - HEADER_HEIGHT - 12) / ROW_HEIGHT);
 
-        const allFieldRows = [
+        const allFieldRows = ent.componentType ? [{key:ent.name+'-type',text:({Flow:'Flow',ApexClass:'Apex class',PermissionSet:'Permission set',PermissionSetLicense:'Permission set licence',UserLicense:'User licence',PackageLicense:'Package licence'})[ent.componentType],isPrimaryKey:false,isRelationship:false,isPlain:true}] : [
             { key: ent.name + '-id', text: 'Id', isPrimaryKey: true, isRelationship: false, isPlain: false, isRollupSummary: false, isRequired: false }
         ].concat(ent.fields.map((f, fi) => ({
             key: ent.name + '-' + fi,
@@ -299,13 +331,15 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
 
         return {
             name: ent.name,
+            title: ent.title || ent.name,
+            componentType: ent.componentType,
             x: saved ? saved.x : gridX,
             y: saved ? saved.y : gridY,
             width,
             height,
             naturalHeight,
             isCustom: custom,
-            headerFill: custom ? '#5c2d91' : '#0070d2',
+            headerFill: ent.componentType ? '#137c70' : custom ? '#5c2d91' : '#0070d2',
             // A dx offset (relative to the box's own left edge, x) for the
             // red "R" required-field marker, positioned near the box's
             // right edge regardless of the row's other content — keeps it
@@ -365,9 +399,10 @@ export function buildErGeometry(model, existingPositions, boxHeightOverrides, bo
             childEntity: r.childEntity,
             parentEntity: r.parentEntity,
             d: route.d,
-            midX: route.midX,
-            midY: route.midY - 8,
+            midX: route.orientation === 'vertical' ? route.midX - Math.max(30, r.childField.length * 3 + 12) : route.midX,
+            midY: route.orientation === 'horizontal' ? route.midY + 20 : route.midY - 8,
             label: `${r.childField}`,
+            title: `${r.childEntity}.${r.childField} → ${r.parentEntity} (${kindLabel(r.kind)}; arrow points to referenced parent)`,
             stroke,
             strokeWidth: isMaster ? 2.5 : 1.75,
             dashArray: isPoly ? '5,3' : '0',
@@ -422,7 +457,7 @@ function mermaidSafeType(type) {
 }
 
 export function buildMermaidErDiagram(model) {
-    const lines = ['erDiagram'];
+    const lines = ['erDiagram', ...(model.components || []).map(c => `    %% ${c.componentType}: ${c.title} (component card; omitted from ER-only export)` )];
 
     model.relationships.forEach((r) => {
         const lineStyle = r.kind === 'master' ? '--' : '..';
@@ -467,11 +502,12 @@ function drawioEntityLabelHtml(ent) {
     // values here first to avoid HTML injection when draw.io renders them.
     const safe = (value) => escapeXml(value);
     const custom = isCustom(ent.name);
-    const header = custom ? '#5c2d91' : '#145a9c';
+    const header = ent.componentType ? '#137c70' : custom ? '#5c2d91' : '#145a9c';
     const rows = [
-        `<div style="background-color:${header};color:#ffffff;padding:10px 12px;font-size:14px;font-weight:bold;">${safe(ent.name)}</div>`,
+        `<div style="background-color:${header};color:#ffffff;padding:10px 12px;font-size:14px;font-weight:bold;">${safe(ent.title || ent.name)}</div>`,
         '<div style="padding:7px 12px;background-color:#eef3f8;border-bottom:1px solid #d6dfe9;color:#44546a;font-size:11px;">Id <b>PK</b></div>'
     ];
+    if (ent.componentType) rows.splice(1,1,`<div style="padding:7px 12px;">${({Flow:'Flow',ApexClass:'Apex class',PermissionSet:'Permission set',PermissionSetLicense:'Permission set licence',UserLicense:'User licence',PackageLicense:'Package licence'})[ent.componentType]}</div>`);
     ent.fields.forEach((f, i) => {
         let detail = '';
         if (f.isRelationship) {
@@ -510,6 +546,7 @@ function drawioEdgeStyle(kind) {
  * @param boxes  buildErGeometry(...).boxes — {name, x, y, width, height}[]
  */
 export function buildDrawioXml(model, boxes) {
+    model = {...model,entities:[...model.entities,...(model.components || [])]};
     const idOf = {};
     model.entities.forEach((ent, i) => { idOf[ent.name] = 'n' + i; });
     const boxByName = {};

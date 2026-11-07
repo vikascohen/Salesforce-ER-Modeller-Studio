@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8"?><CustomField xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Object_Scan_Version__c</fullName><label>Object Scan Version</label><type>Number</type><precision>2</precision><scale>0</scale></CustomField>

@@ -301,4 +301,16 @@ private class SchemaMetadataControllerTest {
         }
         return null;
     }
+    @IsTest static void paletteContainsDescribableEventsAndMetadata(){
+        Set<String> names=new Set<String>(SchemaMetadataController.getAllObjectNames());
+        Map<String,Schema.SObjectType> schema=Schema.getGlobalDescribe();
+        for(String key:schema.keySet())if(key.endsWith('__e')||key.endsWith('__mdt'))System.assert(names.contains(schema.get(key).getDescribe().getName()));
+    }
+    @IsTest static void eventCountsAndMetadataSharingAreNotApplicable(){
+        Integer beforeQueries=Limits.getQueries();
+        System.assertEquals(null,SchemaMetadataController.getRecordCount('Example__e'));
+        System.assertEquals(0,SchemaMetadataController.getSharingModels(new List<String>{'Example__e','Config__mdt'}).size());
+        System.assertEquals(beforeQueries,Limits.getQueries(),'Unsupported object types must not issue data/sharing queries.');
+    }
+
 }

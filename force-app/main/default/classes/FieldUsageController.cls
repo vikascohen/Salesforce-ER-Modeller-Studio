@@ -27,7 +27,7 @@ public with sharing class FieldUsageController {
         }
         return counts;
     }
-    @AuraEnabled(cacheable=true) public static List<String> getSourceTypes(){return new List<String>{'Apex Class','Apex Trigger','Flow','LWC','Aura','Validation Rule','Formula Field'};}
+    @AuraEnabled(cacheable=true) public static List<String> getSourceTypes(){return new List<String>{'Apex Class','Apex Trigger','Flow','LWC','Aura','Validation Rule','Formula Field','OmniScript','Integration Procedure','Omni Data Mapper'};}
     @AuraEnabled(cacheable=true) public static List<Field_Usage_Run__c> getRecentRuns(Integer rowLimit){Integer lim=20;if(rowLimit!=null)lim=rowLimit;if(lim<1)lim=1;else if(lim>100)lim=100;return [SELECT Id,Name,Status__c,Started_At__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Is_Current__c,Progress_Percent__c,Progress_Phase__c,Progress_Log__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT :lim];}
     @AuraEnabled public static Id runNow(){try{return FieldUsageOrchestrator.start('Manual');}catch(FieldUsageOrchestrator.ScanAlreadyRunningException ex){throw new AuraHandledException(ex.getMessage());}catch(FieldUsageToolingApiClient.ToolingApiException ex){throw new AuraHandledException(ex.getMessage());}}
     @AuraEnabled public static void bootstrap(){FieldUsageScheduleService.ensureDefaults();}

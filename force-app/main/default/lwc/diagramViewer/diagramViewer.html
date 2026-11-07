@@ -12,6 +12,7 @@
             </p>
         </template>
 
+        <template if:true={importsLoading}><p role="status" class="slds-p-around_small">Please wait — loading imported DSL modules…</p></template>
         <template if:true={errorMessage}>
             <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-horizontal_small" role="alert">
                 {errorMessage}
@@ -42,8 +43,9 @@
                     <template if:true={isEr}>
                         <template for:each={erConnectors} for:item="c">
                             <g key={c.key}>
+                            <title>{c.title}</title>
                                 <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
-                                <text x={c.midX} y={c.midY} dy="-8" text-anchor="middle" font-size="10" fill={c.stroke} class="halo-text">{c.label}</text>
+                                <text x={c.midX} y={c.midY} text-anchor="middle" font-size="10" fill={c.stroke} class="halo-text">{c.label}</text>
                                 <circle cx={c.cardStartX} cy={c.cardStartY} r="8" fill="#ffffff" stroke={c.stroke} stroke-width="1"></circle>
                                 <text x={c.cardStartX} y={c.cardStartY} dy="3" text-anchor="middle" font-size="9" font-weight="bold" fill={c.stroke}>{c.cardStartText}</text>
                                 <circle cx={c.cardEndX} cy={c.cardEndY} r="8" fill="#ffffff" stroke={c.stroke} stroke-width="1"></circle>
@@ -54,7 +56,7 @@
                             <g key={b.name}>
                                 <rect x={b.x} y={b.y} width={b.width} height={b.height} rx="6" fill="#ffffff" stroke="#d8dde6" stroke-width="1"></rect>
                                 <rect x={b.x} y={b.y} width={b.width} height="34" rx="6" fill={b.headerFill}></rect>
-                                <text x={b.x} y={b.y} dx="12" dy="22" font-size="13" font-weight="bold" fill="#ffffff">{b.name}</text>
+                                <text x={b.x} y={b.y} dx="12" dy="22" font-size="13" font-weight="bold" fill="#ffffff">{b.title}</text>
                                 <template for:each={b.fields} for:item="fld">
                                     <g key={fld.key}>
                                         <template if:true={fld.isPrimaryKey}>

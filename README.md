@@ -1,8 +1,11 @@
 # Salesforce ER Modeller Studio
 
+
+**V5 source preview:** work on [`v5-app-er-model`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-app-er-model) includes app-scoped ER generation, reusable DSL modules/imports, named access cards and canvas improvements. Start with the [V5 release notes](docs/V5_RELEASE_NOTES.md), [DSL reference](docs/DSL.md) and [V5 app modelling guide](docs/V5_APP_MODELLING.md). **V5 has no published installation package.** The V4 links below install the released V4 package.
+
 **Salesforce data architecture intelligence, ER modelling and field-dependency analysis.**
 
-**Latest source:** V4 on [`main`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and [`V4-latest`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/V4-latest)
+**Latest released source:** V4 on [`main`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/main) and [`V4-latest`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/V4-latest)
 **Package version:** `4.0.0.4` (2GP unlocked)
 **Maintainer:** Vikas Cohen
 **Release status:** V4.0.0.4 package build passed (88% Apex coverage); clean-sandbox and end-to-end MCP acceptance pending.
@@ -30,8 +33,21 @@ V4 includes the functionality developed across the earlier releases:
 | **V2** | Architecture metrics, hotspots, object map and impact analysis, path finding, junction intelligence and change readiness. |
 | **V3** | Field Usage Intelligence across Apex, Flows and UI components; dependency evidence, snapshots and field-change impact. |
 | **V4** | Salesforce Hosted MCP actions, configurable Studio diagnostics and logging, scanner exclusions, settings improvements and diagram export refinements. |
+| **V5 preview** | App-used field models, app component/access cards, capability-gated OmniStudio scan, modular DSL, typed canvas sections and clearer connectors. |
 
 These are **feature families**, not a guarantee that every feature has passed clean-org acceptance testing.
+
+## What's new in the V5 source preview
+
+- **File → Generate ER Model from App** offers Salesforce app or standalone Lightning tab/component sources. Select **Lightning tab / component (LWC or Aura) → ER Modeller Studio (diagramStudio — LWC)** to model Studio itself without creating another Salesforce app. It resolves the selected root and reached component evidence. It generates only evidenced fields; Id is structural. It does not expand an object to all fields when evidence is missing.
+- Optional cards display actual Apex/Flow names and named permission sets/licences. Access cards describe readable access configuration, not mandatory assignments; generic security/licensing tables remain outside the generated data model.
+- `export module` stays off the canvas until `use` activates it. Import saved files with `import customer.dsl`, use named imports, and compose modules with additive `extends`. Plain DSL continues to work.
+- Current DSL validation appears beside the editor and clears when corrected. Pauses while typing `use Customer` do not create persistent error-log notifications; real operation errors remain in history.
+- IntelliSense covers keywords, exported modules, filenames, inheritance, entities/fields, component types, readable names and JSON-escaped display labels. Saved access declarations remain completion candidates after reopening.
+- Fit Model separates objects, platform events, custom metadata, Apex/Flow and access cards. Arrow tips clear card shadows; badges and labels are separated from connector lines.
+- Standard OmniStudio objects are scanned only when present/readable. Data Cloud DMO/DLO discovery and comprehensive dynamic/managed-source resolution are not implemented.
+
+See [named access cards](docs/APP-ACCESS-CARDS.md), [DSL modules](docs/DSL-MODULES.md), [architecture](docs/ARCHITECTURE.md#23-v5-composition-app-models-and-named-access) and [validation history](docs/V5_VALIDATION.md). Tests and developer-org deployments do not establish a released V5 package or universal org compatibility.
 
 ## What's new in V4
 
@@ -63,6 +79,11 @@ The package also provides MCP settings, configurable diagnostic persistence to a
 The development-org test run and package build are distinct verification events. An earlier Metadata API deployment validation was blocked by a pending batch job; this does not invalidate the successful 2GP package build. See [package verification](docs/V4_PACKAGE_RELEASE.md) for details.
 
 ## Documentation
+
+- [V5 release notes](docs/V5_RELEASE_NOTES.md) — current source-preview features, compatibility and limits.
+- [V5 app modelling](docs/V5_APP_MODELLING.md) — scan requirements and strict field scope.
+- [DSL reference](docs/DSL.md) and [module guide](docs/DSL-MODULES.md) — executable examples, imports, labels and completion.
+- [Named permission sets and licences](docs/APP-ACCESS-CARDS.md) — evidence sources and access boundaries.
 
 - [V4 release notes](docs/V4_RELEASE_NOTES.md) — release details, fixes, installation and known limitations.
 - [Package verification and release checklist](docs/V4_PACKAGE_RELEASE.md) — 2GP build, metadata archive and outstanding acceptance.

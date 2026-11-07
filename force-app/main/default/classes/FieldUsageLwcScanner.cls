@@ -7,6 +7,7 @@ public without sharing class FieldUsageLwcScanner {
     private static final Pattern QUALIFIED_LITERAL=Pattern.compile('(?i)[\'\"]([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)[\'\"]');
 
     public static List<Field_Usage_Evidence__c> scan(Id runId,String componentName,String componentId,String body){
+        ObjectUsageScanner.lwc(runId,componentName,componentId,body);
         return scanPatterns(runId,componentName,componentId,body,new List<Pattern>{SCHEMA_IMPORT,QUALIFIED_LITERAL});
     }
     private static List<Field_Usage_Evidence__c> scanPatterns(Id runId,String componentName,String componentId,String body,List<Pattern> patterns){

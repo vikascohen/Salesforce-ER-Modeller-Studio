@@ -3,10 +3,9 @@
     {
       "path": "force-app",
       "default": true,
-      "package": "Salesforce ER Modeller Studio V4",
-      "versionName": "V4",
-      "versionNumber": "4.0.0.NEXT",
-      "versionDescription": "Developed by Crius Consulting. Lead Architects: Vikas Cohen and Jimmy Hesketh. Standalone cumulative V1-V4 application; separate from stable V3 package."
+      "versionName": "V5",
+      "versionNumber": "5.0.0.NEXT",
+      "versionDescription": "V5 source preview: app-scoped ER generation and org object usage. Salesforce validation required before release."
     }
   ],
   "namespace": "",

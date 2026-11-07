@@ -39,4 +39,14 @@
   System.assertEquals(0,[SELECT COUNT() FROM Field_Usage_Work_Unit__c WHERE Run__c=:run.Id]);
   System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:run.Id AND Field_Key__c='Account.Name']);
  }
+ @IsTest static void v5PersistsObjectEvidenceAlongsideUnchangedFields(){
+  Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Running',Objects_Total__c=1,Object_Scan_Version__c=5);insert run;
+  insert new Field_Usage_Work_Unit__c(Run__c=run.Id,Work_Key__c=run.Id+'|V5|1',Scanner_Type__c='Apex Class Bulk',Target_Key__c='01p000000000001',Status__c='Pending');
+  Test.setMock(HttpCalloutMock.class,new ApexBodyMock());
+  Test.startTest();Database.executeBatch(new FieldUsageWorkUnitBatch(run.Id),1);Test.stopTest();
+  System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:run.Id AND Field_Key__c='Account.Name']);
+  System.assertEquals(1,[SELECT COUNT() FROM Object_Usage_Evidence__c WHERE Run__c=:run.Id AND Target_Type__c='Object' AND Target_Name__c='Account']);
+  System.assertEquals('Completed',[SELECT Status__c FROM Field_Usage_Run__c WHERE Id=:run.Id].Status__c);
+ }
+
 }

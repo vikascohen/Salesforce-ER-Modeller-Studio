@@ -3,13 +3,26 @@ public without sharing class FieldUsageWorkUnitBatch implements Database.Batchab
     private static final Integer MAX_ATTEMPTS=3; private final Id runId; private Integer completed=0,failed=0,dependencies=0; private List<String> errors=new List<String>();
     public FieldUsageWorkUnitBatch(Id runId){this.runId=runId;}
     public Database.QueryLocator start(Database.BatchableContext bc){update new Field_Usage_Run__c(Id=runId,Status__c='Running',Heartbeat_At__c=System.now(),Job_Id__c=String.valueOf(bc.getJobId()),Progress_Phase__c='Processing resumable work units');return Database.getQueryLocator([SELECT Id,Scanner_Type__c,Target_Key__c,Status__c,Attempt_Count__c FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c IN ('Pending','Running') ORDER BY CreatedDate]);}
-    public void execute(Database.BatchableContext bc,List<SObject> scope){for(SObject raw:scope){Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c.intValue())+1;List<Field_Usage_Evidence__c> rows;try{rows=scan(unit);}catch(Exception scanEx){checkpointFailure(unit,nextAttempt,scanEx);continue;}Savepoint sp=Database.setSavepoint();try{Integer inserted=insertIdempotent(rows);dependencies+=inserted;delete unit;completed++;}catch(Exception persistenceEx){Database.rollback(sp);checkpointFailure(unit,nextAttempt,persistenceEx);}}updateProgress();}
+    public void execute(Database.BatchableContext bc,List<SObject> scope){for(SObject raw:scope){Field_Usage_Work_Unit__c unit=(Field_Usage_Work_Unit__c)raw;Integer nextAttempt=(unit.Attempt_Count__c==null?0:unit.Attempt_Count__c.intValue())+1;List<Field_Usage_Evidence__c> rows;try{ObjectUsageScanner.reset(objectScanEnabled());rows=scan(unit);ObjectUsageScanner.fromFields(runId,rows);}catch(Exception scanEx){checkpointFailure(unit,nextAttempt,scanEx);continue;}Savepoint sp=Database.setSavepoint();try{Integer inserted=insertIdempotent(rows);persistObjectEvidence();dependencies+=inserted;delete unit;completed++;}catch(Exception persistenceEx){Database.rollback(sp);checkpointFailure(unit,nextAttempt,persistenceEx);}}updateProgress();}
+    private Boolean objectScanActive;
+    private Boolean objectScanEnabled(){if(objectScanActive==null)objectScanActive=[SELECT Object_Scan_Version__c FROM Field_Usage_Run__c WHERE Id=:runId].Object_Scan_Version__c==5;return objectScanActive;}
+    private void persistObjectEvidence(){
+        List<Object_Usage_Evidence__c> rows=ObjectUsageScanner.rows();if(rows.isEmpty())return;
+        Set<String> sourceIds=new Set<String>(),sourceNames=new Set<String>();
+        for(Object_Usage_Evidence__c row:rows){sourceIds.add(row.Component_Id__c);sourceNames.add(row.Component_Name__c);}
+        // Delete/reinsert only this source chunk, atomically with field evidence.
+        // Retries replace the same component evidence rather than accumulating duplicates.
+        List<Object_Usage_Evidence__c> prior=[SELECT Id FROM Object_Usage_Evidence__c WHERE Run__c=:runId AND Component_Id__c IN :sourceIds AND Component_Name__c IN :sourceNames];
+        if(!prior.isEmpty())delete prior;
+        insert rows;
+    }
     private void checkpointFailure(Field_Usage_Work_Unit__c unit,Integer attempt,Exception ex){unit.Attempt_Count__c=attempt;unit.Completed_At__c=null;unit.Last_Error__c=(ex.getTypeName()+': '+ex.getMessage()).left(4000);if(attempt<MAX_ATTEMPTS)unit.Status__c='Pending';else{unit.Status__c='Failed';failed++;if(errors.size()<100)errors.add(unit.Target_Key__c+': '+unit.Last_Error__c.left(500));}update unit;}
 
     private List<Field_Usage_Evidence__c> scan(Field_Usage_Work_Unit__c unit){
         if(unit.Scanner_Type__c=='Formula Bulk')return String.isBlank(unit.Target_Key__c)?new List<Field_Usage_Evidence__c>():FieldUsageFormulaScanner.scan(runId,unit.Target_Key__c.trim());
         if(unit.Scanner_Type__c=='Page Layout Bulk')return String.isBlank(unit.Target_Key__c)?new List<Field_Usage_Evidence__c>():FieldUsageLayoutScanner.scan(runId,unit.Target_Key__c.trim());
         if(unit.Scanner_Type__c=='Formula'){List<String> parts=unit.Target_Key__c.split('\\|');if(parts.size()==2)return FieldUsageFormulaScanner.scanField(runId,parts[0],parts[1]);}
+        if(unit.Scanner_Type__c=='OmniStudio')return FieldUsageOmniScanner.scan(runId,unit.Target_Key__c);
         Set<String> ids=parseIds(unit.Target_Key__c);
         if(unit.Scanner_Type__c=='Flow Bulk')return ids.isEmpty()?new List<Field_Usage_Evidence__c>():FieldUsageToolingApiClient.scanFlowVersions(runId,ids);
         if(ids.isEmpty())return new List<Field_Usage_Evidence__c>();

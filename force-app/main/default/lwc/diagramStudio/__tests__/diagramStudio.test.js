@@ -9,6 +9,17 @@ import listFiles from '@salesforce/apex/DiagramFileController.listFiles';
 import getAllObjectNames from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import DiagramStudio from 'c/diagramStudio';
 
+jest.mock('@salesforce/apex/AppModelController.listLightningSources',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
+jest.mock('@salesforce/apex/AppModelController.getLightningScopeJson',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/ErDiagnosticConfigController.recordEvent',()=>({default:jest.fn(()=>Promise.resolve())}),{virtual:true});
+jest.mock('@salesforce/apex/AppAccessService.discover',()=>({default:jest.fn(()=>Promise.resolve('{"cards":[],"warnings":[],"reasons":[]}'))}),{virtual:true});
+
+jest.mock('@salesforce/apex/DslFileService.resolveImports',()=>({default:jest.fn(()=>Promise.resolve('{\"files\":{},\"edges\":{}}'))}),{virtual:true});
+jest.mock('@salesforce/apex/AppModelController.listDslComponentNames',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
+jest.mock('@salesforce/apex/AppModelController.listApps', () => ({ default: jest.fn(() => Promise.resolve([])) }), { virtual: true });
+jest.mock('@salesforce/apex/AppModelController.getAppScopeJson', () => ({ default: jest.fn() }), { virtual: true });
+jest.mock('@salesforce/apex/AppModelController.expandScopeJson', () => ({ default: jest.fn(() => Promise.resolve('{}')) }), { virtual: true });
+
 // Imperative Apex calls — mocked as jest.fn() so each test controls what
 // they resolve/reject with. { virtual: true } is required because these
 // modules don't really exist outside a Salesforce org at test time.
@@ -715,6 +726,28 @@ describe('c-diagram-studio', () => {
         expect(el.shadowRoot.querySelector('.hover-card-title')).toBeNull();
     });
 
+    it('filters platform events and metadata in the palette before the display limit', async () => {
+        const el=createStudio();await flushPromises();
+        objectNamesAdapter.emit([...Array.from({length:100},(_,i)=>'A'+i),'Message__e','Config__mdt','Thing__c']);await flushPromises();
+        const select=el.shadowRoot.querySelector('.palette-type');
+        select.value='events';select.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        expect([...el.shadowRoot.querySelectorAll('.palette-chip')].map(x=>x.dataset.name)).toEqual(['Message__e']);
+        select.value='metadata';select.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        expect([...el.shadowRoot.querySelectorAll('.palette-chip')].map(x=>x.dataset.name)).toEqual(['Config__mdt']);
+    });
+    it('keeps metadata heatmap colour with sharing on, and skips event record-count queries', async () => {
+        getRecordCount.mockResolvedValue({count:3,lastModifiedDate:null});getSharingModels.mockResolvedValue({});
+        const el=createStudio();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity Config__mdt : Value__c\nentity Message__e : Payload__c';editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        for(const label of ['Heatmap','Sharing View']){
+            el.shadowRoot.querySelector('[data-menu="view"]').click();await flushPromises();
+            [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(x=>x.textContent.includes(label)).click();await new Promise(r=>setTimeout(r,450));
+        }
+        const rect=el.shadowRoot.querySelectorAll('.entity-group[data-name="Config__mdt"] rect')[1];
+        expect(rect.getAttribute('fill')).toBe('#cfe8fb');
+        expect(getRecordCount.mock.calls.some(([x])=>x.objectApiName==='Message__e')).toBe(false);
+        const event=el.shadowRoot.querySelector('.entity-group[data-name="Message__e"]');expect(event.textContent).toContain('N/A');
+    });
     it('populates the object palette once getAllObjectNames resolves', async () => {
         const el = createStudio();
         objectNamesAdapter.emit(['Account', 'Contact', 'Opportunity']);
@@ -1327,21 +1360,11 @@ describe('c-diagram-studio', () => {
         expect(labels).not.toContain('Active'); // already on the line, just after the cursor — must not be offered
     });
 
-    it('routes invalid DSL to the diagnostic indicator without obscuring the canvas', async () => {
-        const el = createStudio();
-        await flushPromises();
-
-        const textarea = el.shadowRoot.querySelector('.code-editor');
-        textarea.value = 'this is not valid DSL syntax at all';
-        textarea.dispatchEvent(new CustomEvent('input'));
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
-        const indicator = el.shadowRoot.querySelector('.er-diagnostic-indicator');
-        expect(indicator).not.toBeNull();
-        indicator.click();
-        await flushPromises();
-        expect(el.shadowRoot.querySelector('.settings-page')).not.toBeNull();
+    it('shows live DSL validation beside the editor without recording typing errors',async()=>{
+        const persist=require('@salesforce/apex/ErDiagnosticConfigController.recordEvent').default;persist.mockClear();
+        const el=createStudio();await flushPromises();const editor=el.shadowRoot.querySelector('.code-editor');editor.value='this is not valid DSL syntax at all';editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        expect(el.shadowRoot.querySelector('.dsl-validation').textContent).toContain('Line 1');expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();expect(persist).not.toHaveBeenCalled();
+        editor.value='entity Account : Name';editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelector('.entity-group')).not.toBeNull();
     });
 
     it('Clear Canvas empties the DSL and canvas back to a clean, error-free state', async () => {
@@ -1832,6 +1855,24 @@ describe('c-diagram-studio', () => {
 });
 
 describe('Phase 2 async hardening',()=> {
+    it('keeps the loading indicator for the newest request and clears it on failure', async () => {
+        let resolveA,rejectB;
+        getFile.mockImplementation(({fileId})=>new Promise((resolve,reject)=>{if(fileId==='a01')resolveA=resolve;else rejectB=reject;}));
+        const el=createStudio();await flushPromises();
+        listFilesAdapter.emit([{id:'a01',name:'A',diagramType:'ER'},{id:'a02',name:'B',diagramType:'ER'}]);await flushPromises();
+        const rows=el.shadowRoot.querySelectorAll('.file-row');rows[0].click();rows[1].click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress').textContent).toContain('Please wait');
+        expect(el.shadowRoot.querySelector('.canvas-wrap').getAttribute('aria-busy')).toBe('true');
+        resolveA({id:'a01',name:'A',sourceCode:'entity Account'});await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress')).not.toBeNull();
+        rejectB(new Error('Diagram unavailable'));await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress')).toBeNull();
+        expect(el.shadowRoot.querySelector('.canvas-wrap').getAttribute('aria-busy')).toBe('false');
+        expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).not.toBeNull();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity Account : Name';editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelector('.er-diagnostic-indicator').title).toContain('History is separate');
+    });
+
     it('keeps the newest diagram when file loads resolve out of order', async()=> {
         let resolveA, resolveB;
         getFile.mockImplementation(({fileId})=>new Promise((resolve)=>{ if(fileId==='a01') resolveA=resolve; else resolveB=resolve; }));
@@ -1841,6 +1882,8 @@ describe('Phase 2 async hardening',()=> {
         rows[0].dispatchEvent(new CustomEvent('click',{bubbles:true})); rows[1].dispatchEvent(new CustomEvent('click',{bubbles:true}));
         resolveB({id:'a02',name:'B',sourceCode:'entity Contact : Name'}); await flushPromises();
         resolveA({id:'a01',name:'A',sourceCode:'entity Account : Name'}); await flushPromises();
+        await flushPromises();
+        expect(el.shadowRoot.querySelector('.diagram-load-progress')).toBeNull();
         expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('B');
         expect(el.shadowRoot.querySelector('.code-editor').value).toContain('Contact');
     });
@@ -1929,6 +1972,23 @@ describe('Phase 2 Architecture Intelligence UI regressions', () => {
         expect(getSchemaReferences.mock.calls.length).toBe(callsAfterArchitectureLoad);
     });
 
+    it('Relationship Insights keeps master-detail purple and lookup blue on distinct routes', async () => {
+        const el=createStudio();await flushPromises();
+        const source=[
+            'entity Log__c : Name','entity LogEntry__c : Name','entity LogEntryTag__c : Name','entity LoggerTag__c : Name','entity Log__Share : Name','entity LoggerScenario__c : Name',
+            'LogEntry__c.Log__c => Log__c','LogEntryTag__c.LogEntry__c => LogEntry__c','LogEntryTag__c.Tag__c => LoggerTag__c',
+            'Log__Share.ParentId -> Log__c','Log__c.Scenario__c -> LoggerScenario__c','LogEntry__c.Scenario__c -> LoggerScenario__c'
+        ].join('\n');
+        await loadArchitectureModel(el,source);await openArchitectureQuestion(el,'Open Relationship Insights');
+        const workspace=el.shadowRoot.querySelector('.arch-workspace-relationships');
+        const masters=[...workspace.querySelectorAll('path.arch-rel-graph-master')],lookups=[...workspace.querySelectorAll('path.arch-rel-graph-lookup')];
+        expect(masters).toHaveLength(3);expect(lookups).toHaveLength(3);
+        masters.forEach(edge=>{expect(edge.getAttribute('stroke')).toBe('#c65cff');expect(edge.dataset.kind).toBe('Master Detail');expect(edge.parentElement.querySelector('title').textContent).toContain('Master Detail');});
+        lookups.forEach(edge=>{expect(edge.getAttribute('stroke')).toBe('#4aa3ff');expect(edge.dataset.kind).toBe('Lookup');});
+        const routes=[...masters,...lookups].map(edge=>edge.getAttribute('d'));expect(new Set(routes).size).toBe(6);
+        expect(routes.every(route=>route.includes('C')||route.includes(' H '))).toBe(true);
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe(source);
+    });
     it('Relationship Insights omits self relationships from the visual and detailed dependency report', async () => {
         const el = createStudio(); await flushPromises();
         await loadArchitectureModel(el, [
@@ -2220,6 +2280,506 @@ describe('Settings workspace', () => {
         expect(el.shadowRoot.querySelector('.fu-console-status').textContent).toContain('already active');
         expect(el.shadowRoot.querySelector('.fu-terminal').textContent).toContain('Waiting for background scan to start');
         expect(el.shadowRoot.querySelector('.fu-console .arch-export-btn')).toBeNull();
+    });
+
+});
+
+describe('V5 app generation', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockImplementation(async ({componentsJson}) => JSON.stringify({verifiedComponents:JSON.parse(componentsJson).filter(c=>['ApexClass','Flow'].includes(c.type)),fieldUsage:JSON.parse(componentsJson).filter(c=>c.type==='Object').flatMap(c=>[{objectApiName:c.name,fieldApiName:'Name',sourceType:'LWC',componentName:'AppComponent'},...(c.name==='Contact'?[{objectApiName:'Contact',fieldApiName:'AccountId',sourceType:'ApexClass',componentName:'AppService'}]:[])])}));
+    });
+    async function openAppDialog(el) {
+        el.shadowRoot.querySelector('button[data-menu="file"]').click(); await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.includes('Generate ER Model from App')).click(); await flushPromises();
+    }
+    async function createAppStudio() { const el=createStudio(); await flushPromises(); await openAppDialog(el); return el; }
+    async function openDetails(el) {
+        el.shadowRoot.querySelector('button[data-menu="diagram"]').click();await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.includes('Model Details')).click();await flushPromises();
+    }
+    afterEach(() => { while(document.body.firstChild)document.body.removeChild(document.body.firstChild); });
+    it('V5 loads apps, generates into a new tab and uses the existing renderer', async () => {
+        const listApps = require('@salesforce/apex/AppModelController.listApps').default;
+        const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        listApps.mockResolvedValue([{label:'Sales',value:'06m000000000001'}]);
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Sales',components:[{type:'Object',name:'Account'}],warnings:['Static evidence only'],scannedAt:'2026-11-06T00:00:00Z',runId:'run'}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Industry',dataType:'PICKLIST'}]}]);
+        const el=await createAppStudio();
+        const picker=el.shadowRoot.querySelector('lightning-combobox.app-model-select');
+        expect(picker.options).toHaveLength(1);
+        picker.dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}})); await flushPromises();
+        const generate=[...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate'));
+        generate.click(); await flushPromises(); await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Account');
+        expect(el.shadowRoot.querySelector('.code-editor').value).not.toContain('Industry');
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        await openDetails(el);
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('Generated 1 objects');
+        expect(el.shadowRoot.querySelector('.app-model-details').textContent).toContain('Static evidence only');
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Sales ER Model');
+    });
+    it('generates only evidenced app fields and records hidden system object provenance', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'User'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({fieldUsage:[{objectApiName:'Account',fieldApiName:'Description',sourceType:'ApexClass',componentName:'SalesService'},{objectApiName:'User',fieldApiName:'Name',sourceType:'ApexClass',componentName:'SalesService'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'},{apiName:'Description'},{apiName:'Industry'},{apiName:'OwnerId',isRelationship:true,referenceTo:['User']}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const dsl=el.shadowRoot.querySelector('.code-editor').value;
+        expect(dsl).toContain('entity Account : Description');
+        expect(dsl).not.toMatch(/entity User|Industry|OwnerId/);
+        expect(dsl).not.toMatch(/entity Account[^\n]*Name/);
+        expect(describeObjects).toHaveBeenCalledWith({objectApiNames:['Account']});
+        await openDetails(el);
+        const details=el.shadowRoot.querySelector('.app-object-details-table').textContent;
+        expect(details).toContain('Hidden by scope');expect(details).toContain('SalesService');expect(details).toContain('Description');
+    });
+    it('clears the dirty editor state when the active generated tab is closed before generating another app', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Warden',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.status-label').textContent).toContain('Unsaved');
+        const confirm=jest.spyOn(window,'confirm').mockReturnValue(true);
+        const tabs=[...el.shadowRoot.querySelectorAll('.tab-close')];tabs[tabs.length-1].click();await flushPromises();confirm.mockRestore();
+        expect(el.shadowRoot.querySelector('.status-label').textContent).toContain('Saved');
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        await openAppDialog(el);
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Nebula',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(getScope).toHaveBeenCalledTimes(2);
+        expect(el.shadowRoot.querySelector('.app-model-error')).toBeNull();
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Nebula ER Model');
+    });
+    it('optionally renders named app components from DSL while keeping them out of schema queries', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'ApexClass',name:'SalesService'},{type:'Flow',name:'SalesFlow'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'}]}]);
+        const el=await createAppStudio();
+        const toggle=el.shadowRoot.querySelector('.app-components-toggle');toggle.checked=true;toggle.dispatchEvent(new CustomEvent('change'));await flushPromises();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const source=el.shadowRoot.querySelector('.code-editor').value;
+        expect(source).toContain('component ApexClass SalesService');expect(source).toContain('component Flow SalesFlow');
+        expect(describeObjects).toHaveBeenCalledWith({objectApiNames:['Account']});
+        expect([...el.shadowRoot.querySelectorAll('.entity-group')].map(card=>card.dataset.name)).toContain('@ApexClass:SalesService');
+    });
+    it('shows prominent progress while app discovery waits and removes it on failure', async () => {
+        let rejectScope;
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockImplementation(()=>new Promise((resolve,reject)=>{rejectScope=reject;}));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const progress=el.shadowRoot.querySelector('.app-generation-progress');
+        expect(progress.textContent).toContain('Please wait');expect(progress.textContent).toContain('Reading the selected app');
+        expect(el.shadowRoot.querySelector('.app-model-generate').disabled).toBe(true);
+        rejectScope(new Error('Discovery unavailable'));await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-generation-progress')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-error')).not.toBeNull();
+    });
+    it('Fit Model puts every object above all Apex and Flow cards without changing DSL', async () => {
+        const el=createStudio();await flushPromises();
+        const source='entity Account : Name\nentity Contact : Name\ncomponent ApexClass Logger\ncomponent Flow Save_Log';
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value=source;editor.dispatchEvent(new CustomEvent('input'));
+        await new Promise(resolve=>setTimeout(resolve,300));
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        const groups=[...el.shadowRoot.querySelectorAll('.entity-group')];
+        const bounds=groups.map(g=>{const rect=g.querySelector('rect.drag-header');return {name:g.dataset.name,y:Number(rect.getAttribute('y'))};});
+        const objectYs=bounds.filter(b=>!b.name.startsWith('@')).map(b=>b.y);
+        const cardYs=bounds.filter(b=>b.name.startsWith('@')).map(b=>b.y);
+        expect(objectYs).toHaveLength(2);expect(cardYs).toHaveLength(2);
+        expect(Math.min(...cardYs)).toBeGreaterThan(Math.max(...objectYs)+108);
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe(source);
+    });
+    it('explains a welcome-only app with no object evidence without blaming switching or requiring a rescan', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Developer Edition',runId:'run',components:[{type:'LightningComponentBundle',name:'welcome'},{type:'CustomTab',name:'devedapp__Welcome'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[],warnings:[]}));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error');
+        expect(error.textContent).toContain('No data model could be resolved for Developer Edition');
+        expect(error.textContent).toContain('Welcome-only apps');
+        expect(error.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+    });
+    it('explains Data Cloud field coverage without guessing fields or recommending the same scan again', async () => {
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Data Cloud',runId:'run',components:[{type:'CustomApplication',name:'Audience360'},{type:'Object',name:'DataStream'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[]}));
+        describeObjects.mockResolvedValue([{apiName:'DataStream',fields:[{apiName:'Name'},{apiName:'Status'}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error');
+        expect(error.textContent).toContain('Data Cloud field discovery is not supported by this scan');
+        expect(error.textContent).toContain('dedicated Data Cloud metadata integration');
+        expect(error.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('1 navigation/configuration objects');
+    });
+    it('packs isolated objects without overlap and preserves DSL relationships and full-name tooltips', async () => {
+        const el=createStudio();await flushPromises();
+        const source=['Account','Contact','Case','Opportunity','Asset','Campaign','Lead','Product2'].map(name=>'entity '+name+' : Name').join('\n')+'\nContact.AccountId -> Account\ncomponent ApexClass VeryLongComponentNameThatMustRemainAvailable';
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value=source;editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        const edgeCount=el.shadowRoot.querySelectorAll('.conn-group').length;
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        const bounds=[...el.shadowRoot.querySelectorAll('.entity-group')].map(g=>{const r=g.querySelector('rect.drag-header');const body=g.querySelectorAll('rect')[1];return {name:g.dataset.name,x:Number(r.getAttribute('x')),y:Number(r.getAttribute('y')),w:Number(r.getAttribute('width')),h:Number(body.getAttribute('height'))};});
+        for(let i=0;i<bounds.length;i++)for(let j=i+1;j<bounds.length;j++){const a=bounds[i],b=bounds[j];expect(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y).toBe(true);}
+        const islands=bounds.filter(b=>!['Account','Contact'].includes(b.name)&&!b.name.startsWith('@'));
+        expect(new Set(islands.map(b=>b.y)).size).toBeLessThan(islands.length);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(edgeCount);
+        expect(el.shadowRoot.querySelectorAll('.canvas-section-heading')).toHaveLength(2);
+        const card=el.shadowRoot.querySelector('.entity-group[data-name="@ApexClass:VeryLongComponentNameThatMustRemainAvailable"]');
+        expect(card.querySelector('title').textContent).toBe('VeryLongComponentNameThatMustRemainAvailable');
+        expect(editor.value).toBe(source);
+    });
+    it('fits event and metadata sections separately while preserving only declared relationships', async () => {
+        const el=createStudio();await flushPromises();
+        const source='entity Account : Name\nentity EntityDefinition : QualifiedApiName\nentity Message__e : RecordId__c\nentity Config__mdt : Value__c\nentity Parent__mdt : Value__c\nConfig__mdt.Parent__c -> Parent__mdt\nConfig__mdt.Object__c -> EntityDefinition\ncomponent ApexClass Logger';
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value=source;editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        const headers=[...el.shadowRoot.querySelectorAll('.canvas-section-heading')].map(h=>h.textContent);
+        expect(headers).toEqual(['OBJECTS · 2','PLATFORM EVENTS · 1','CUSTOM METADATA · 2','APEX & FLOW COMPONENTS · 1']);
+        const y=name=>Number(el.shadowRoot.querySelector('.entity-group[data-name="'+name+'"] rect.drag-header').getAttribute('y'));
+        expect(y('Message__e')).toBeGreaterThan(y('Account')+108);
+        expect(y('Config__mdt')).toBeGreaterThan(y('Message__e')+108);
+        expect(y('@ApexClass:Logger')).toBeGreaterThan(Math.max(y('Config__mdt'),y('Parent__mdt'))+108);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(2);
+        expect(editor.value).toBe(source);
+    });
+    it('fits a platform-event-only diagram without requiring business objects or component cards', async () => {
+        const el=createStudio();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity Notice__e : Payload__c';editor.dispatchEvent(new CustomEvent('input'));await new Promise(r=>setTimeout(r,300));
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.canvas-section-heading').textContent).toBe('PLATFORM EVENTS · 1');
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+    });
+    it('V5 preserves an unsaved diagram and does not begin discovery', async () => {
+        const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        const el=await createAppStudio();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity MyUnsavedObject : Name';editor.dispatchEvent(new CustomEvent('input'));await flushPromises();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
+        expect(getScope).not.toHaveBeenCalled();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity MyUnsavedObject : Name');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('Save the current diagram');
+    });
+
+    it('V5 leaves the editor intact when app discovery fails', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockRejectedValue(new Error('V5 scan required'));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        expect(el.shadowRoot.querySelector('.diag-name-input').value).toBe('Untitled ER Diagram');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('V5 scan required');
+    });
+    it('V5 does not overwrite edits made while discovery is in progress', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        let finish;getScope.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity KeepMyEdit : Name';editor.dispatchEvent(new CustomEvent('input'));
+        finish(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]}));await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('entity KeepMyEdit : Name');
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('changed during discovery');
+    });
+
+    it('keeps app controls off the canvas and supports cancelling the dialog', async () => {
+        const el=createStudio();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.canvas-outer .app-model-select')).toBeNull();
+        await openAppDialog(el);
+        expect(el.shadowRoot.querySelector('[role="dialog"]').getAttribute('aria-modal')).toBe('true');
+        el.shadowRoot.querySelector('.app-model-cancel').click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+    });
+    it('writes every generated entity and relationship to the DSL and renders edits from that DSL', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'Contact'}]}));
+        describeObjects.mockResolvedValue([
+            {apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]},
+            {apiName:'Contact',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'AccountId',isRelationship:true,relatesTo:'Account',relationshipType:'Lookup'}]}
+        ]);
+        const el=await createAppStudio();
+        // Hide the DSL before generation; generation must make its new source visible.
+        const toggle=el.shadowRoot.querySelector('button[title="Toggle DSL editor"]');toggle.click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.dsl-panel-closed')).not.toBeNull();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const editor=el.shadowRoot.querySelector('.code-editor');
+        expect(el.shadowRoot.querySelector('.dsl-panel-open')).not.toBeNull();
+        expect(editor.value).toContain('entity Account');expect(editor.value).toContain('entity Contact');expect(editor.value).toContain('Contact.AccountId -> Account');
+        expect([...el.shadowRoot.querySelectorAll('.entity-group')].map(node=>node.dataset.name).sort()).toEqual(['Account','Contact']);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(1);
+        editor.value+='\nentity AdditionalObject : Name';editor.dispatchEvent(new CustomEvent('input'));
+        await new Promise(resolve=>setTimeout(resolve,250));
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="AdditionalObject"]')).not.toBeNull();
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(1);
+        el.shadowRoot.querySelector('button[data-menu="file"]').click();await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.trim().startsWith('Save')).click();await flushPromises();
+        expect(saveFile.mock.calls.at(-1)[0].sourceCode).toBe(editor.value);
+    });
+
+    it('shows a missing-scan error, tooltip and a shortcut without starting a scan', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockRejectedValue({body:{message:'Run a successful V5 org scan first to include Flow, LWC and Apex object usage. Existing V4 field snapshots do not contain object-level evidence.'}});
+        getFieldUsageStatus.mockResolvedValue({run:null,schedules:[]});
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error[role="alert"]');
+        expect(error.textContent).toContain('Please run the org scan first.');
+        expect(error.title).toContain('wait for it to complete successfully');
+        expect(error.querySelector('lightning-helptext').content).toContain('Open Org Scan');
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        error.querySelector('.app-model-open-scan').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();
+        expect(el.shadowRoot.querySelector('.settings-page')).not.toBeNull();
+        expect(el.shadowRoot.querySelector('c-field-usage-settings')).not.toBeNull();
+        expect(runFieldUsageNow).not.toHaveBeenCalled();
+    });
+    it('shows an actionable generic generation error without prescribing the wrong fix', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockRejectedValue(new Error('No resolvable Salesforce objects were found for this app.'));
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();
+        const error=el.shadowRoot.querySelector('.app-model-error');
+        expect(error.textContent).toContain('Could not generate the ER model.');
+        expect(error.textContent).toContain('Select an app with object navigation');
+        expect(error.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('No resolvable Salesforce objects');
+    });
+    it('blocks generation without field evidence rather than substituting the whole schema', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
+        getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        expand.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name'},{apiName:'Description'},{apiName:'Industry'}]}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('App-used fields could not be established');
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+        expect(el.shadowRoot.querySelector('.app-model-options lightning-input').label).not.toContain('All fields');
+    });
+    it('filters custom and standard apps and clears a selection hidden by the filter', async () => {
+        require('@salesforce/apex/AppModelController.listApps').default.mockResolvedValue([
+            {label:'Sales',value:'standard-app',appType:'standard'},
+            {label:'Sales',value:'custom-app',appType:'custom'},
+            {label:'Package App',value:'package-app',appType:'custom'},
+            {label:'Unknown App',value:'unknown-app',appType:'unknown'}
+        ]);
+        const el=await createAppStudio();
+        const picker=el.shadowRoot.querySelector('lightning-combobox.app-model-select');
+        const filter=el.shadowRoot.querySelector('.app-model-type-filter');
+        expect(picker.options).toHaveLength(4);
+        picker.dispatchEvent(new CustomEvent('change',{detail:{value:'standard-app'}}));await flushPromises();
+        filter.dispatchEvent(new CustomEvent('change',{detail:{value:'custom'}}));await flushPromises();
+        expect(picker.options.map(app=>app.value)).toEqual(['package-app','custom-app']);
+        expect(picker.value).toBe('');expect(el.shadowRoot.querySelector('.app-model-generate').disabled).toBe(true);
+        filter.dispatchEvent(new CustomEvent('change',{detail:{value:'standard'}}));await flushPromises();
+        expect(picker.options.map(app=>app.value)).toEqual(['standard-app']);
+        filter.dispatchEvent(new CustomEvent('change',{detail:{value:'all'}}));await flushPromises();
+        expect(picker.options).toHaveLength(4);
+        expect(el.shadowRoot.querySelector('.app-model-type-summary').textContent).toContain('unidentified type');
+    });
+    it('explains an empty custom-app filter without making another server request', async () => {
+        const listApps=require('@salesforce/apex/AppModelController.listApps').default;
+        listApps.mockResolvedValue([{label:'Sales',value:'standard-app',appType:'standard'}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('.app-model-type-filter').dispatchEvent(new CustomEvent('change',{detail:{value:'custom'}}));await flushPromises();
+        expect(el.shadowRoot.querySelector('lightning-combobox.app-model-select').options).toHaveLength(0);
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('No custom apps');
+        expect(listApps).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not tell the user to rerun a completed scan when component discovery fails', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Component App',runId:'completed-scan',components:[{type:'CustomTab',name:'ComponentTab'}]}));
+        expand.mockResolvedValueOnce(JSON.stringify({components:[],warnings:['Salesforce component dependency coverage is unavailable: HTTP 400']}));
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('The scan completed');
+        expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('not a missing scan');
+        expect(el.shadowRoot.querySelector('.app-model-open-scan')).toBeNull();
+        expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('HTTP 400');
+    });
+
+    it('round-trips browser component metadata through primitive JSON Apex parameters', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        const expand=require('@salesforce/apex/AppModelController.expandScopeJson').default;
+        const roots=[{type:'CustomTab',name:'Warden_Studio',id:'01r000000000001'},{type:'LightningComponentBundle',name:'wardenApp',id:'0Rb000000000001'}];
+        getScope.mockResolvedValueOnce(JSON.stringify({appLabel:'Warden Studio',runId:'run',components:roots}));
+        expand.mockImplementation(async params=>JSON.stringify({components:JSON.parse(params.componentsJson).some(c=>c.name==='wardenApp')?[{type:'Object',name:'Contact'}]:[],fieldUsage:[{objectApiName:'Contact',fieldApiName:'Name',sourceType:'LWC',componentName:'wardenApp'}],reasons:[],warnings:[]}));
+        describeObjects.mockResolvedValue([{apiName:'Contact',fields:[{apiName:'Name',dataType:'STRING'}]}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        const sent=expand.mock.calls[0][0];expect(typeof sent.componentsJson).toBe('string');expect(sent.components).toBeUndefined();expect(JSON.parse(sent.componentsJson)).toEqual(roots);
+        expect(el.shadowRoot.querySelector('.app-model-dialog')).toBeNull();expect(el.shadowRoot.querySelector('.code-editor').value).toContain('entity Contact');
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="Contact"]')).not.toBeNull();
+    });
+
+    it('generates named access cards without expanding platform schema tables and preserves them in DSL',async()=>{
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Logger',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'PermissionSet'}]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]}]);
+        const discover=require('@salesforce/apex/AppAccessService.discover').default;
+        discover.mockResolvedValue(JSON.stringify({cards:[{type:'PermissionSet',name:'Access_0PS1',label:'Logger Admin',evidence:'App visibility grant'},{type:'UserLicense',name:'Access_1001',label:'Salesforce',evidence:'Bound licence'}],warnings:['Assignments are not inferred.'],reasons:['Logger Admin grants app access.']}));
+        const el=await createAppStudio();el.shadowRoot.querySelector('lightning-combobox.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        const toggle=el.shadowRoot.querySelector('.app-platform-toggle');toggle.checked=true;toggle.dispatchEvent(new CustomEvent('change'));
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();await flushPromises();
+        const source=el.shadowRoot.querySelector('.code-editor').value;
+        expect(discover).toHaveBeenCalled();expect(source).toContain('component PermissionSet Access_0PS1 label "Logger Admin"');expect(source).toContain('component UserLicense Access_1001 label "Salesforce"');expect(source).not.toContain('entity PermissionSet');
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="@PermissionSet:Access_0PS1"]').textContent).toContain('Logger Admin');
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="@UserLicense:Access_1001"]').textContent).toContain('User licence');
+        [...el.shadowRoot.querySelectorAll('.zoom-controls button')].find(b=>b.textContent.trim()==='Fit Model').click();await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('PERMISSION SETS & LICENCES');
+    });
+
+    it('models ER Modeller from a Lightning root with only evidenced fields and no app-access lookup',async()=>{
+        const roots=require('@salesforce/apex/AppModelController.listLightningSources').default,scope=require('@salesforce/apex/AppModelController.getLightningScopeJson').default;
+        roots.mockResolvedValue([{label:'ER Modeller Studio (diagramStudio — LWC)',value:'LightningComponentBundle|0Rb000000000001',appType:'component'}]);
+        scope.mockResolvedValue(JSON.stringify({appLabel:'ER Modeller Studio',runId:'run',components:[{type:'LightningComponentBundle',name:'diagramStudio',id:'0Rb000000000001'}],warnings:['Selected component only.']}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockImplementation(({componentsJson})=>Promise.resolve(JSON.stringify(JSON.parse(componentsJson).some(c=>c.name==='diagramStudio')?{components:[],fieldUsage:[{sourceType:'LWC',componentName:'diagramStudio',objectApiName:'Account',fieldApiName:'Description'}]}:{components:[],fieldUsage:[]})));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Description',dataType:'TEXTAREA'}]}]);
+        const access=require('@salesforce/apex/AppAccessService.discover').default;access.mockClear();
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-source').dispatchEvent(new CustomEvent('change',{detail:{value:'lightning'}}));await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-type-filter')).toBeNull();expect(el.shadowRoot.querySelector('.app-model-select').options[0].label).toContain('ER Modeller Studio');expect(el.shadowRoot.querySelector('.app-platform-toggle').disabled).toBe(true);
+        el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'LightningComponentBundle|0Rb000000000001'}}));await flushPromises();el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();await flushPromises();
+        const source=el.shadowRoot.querySelector('.code-editor').value;expect(scope).toHaveBeenCalledWith({sourceKey:'LightningComponentBundle|0Rb000000000001'});
+        expect(source).toContain('# Source: Lightning component');expect(source).toMatch(/entity Account.*Description/);expect(source).not.toMatch(/entity Account.*Name/);expect(access).not.toHaveBeenCalled();expect(el.shadowRoot.querySelector('.entity-group[data-name="Account"]')).not.toBeNull();
+    });
+    it('ignores a late app catalogue after switching to Lightning sources',async()=>{
+        let finish;require('@salesforce/apex/AppModelController.listApps').default.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+        require('@salesforce/apex/AppModelController.listLightningSources').default.mockResolvedValue([{label:'ER Modeller Studio',value:'LightningComponentBundle|0Rb000000000001'}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-source').dispatchEvent(new CustomEvent('change',{detail:{value:'lightning'}}));await flushPromises();finish([{label:'Old Sales',value:'06m000000000001',appType:'standard'}]);await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-select').options.map(x=>x.label)).toEqual(['ER Modeller Studio']);expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+    });
+    it('preserves DSL when a Lightning source has no evidence instead of substituting another app',async()=>{
+        require('@salesforce/apex/AppModelController.listLightningSources').default.mockResolvedValue([{label:'Empty component',value:'LightningComponentBundle|0Rb000000000001'}]);
+        require('@salesforce/apex/AppModelController.getLightningScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Empty component',runId:'run',components:[{type:'LightningComponentBundle',name:'Empty',id:'0Rb000000000001'}]}));require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[],warnings:[]}));
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-source').dispatchEvent(new CustomEvent('change',{detail:{value:'lightning'}}));await flushPromises();el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'LightningComponentBundle|0Rb000000000001'}}));await flushPromises();el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('Lightning component');expect(el.shadowRoot.querySelector('.app-model-open-scan')).toBeNull();
+    });
+
+});
+
+
+describe('DSL modules and IntelliSense integration',()=>{
+    afterEach(()=>{while(document.body.firstChild)document.body.removeChild(document.body.firstChild);});
+    async function edit(el,text){const editor=el.shadowRoot.querySelector('.code-editor');editor.value=text;editor.setSelectionRange(text.length,text.length);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));return editor;}
+    it('keeps export-only definitions off canvas and combines use with ordinary top-level entities',async()=>{
+        const el=createStudio();await flushPromises();
+        const definition='export module Customer {\n  entity Account : Name\n  entity Contact : Email\n  Contact.AccountId -> Account\n}';
+        await edit(el,definition);expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
+        await edit(el,definition+'\nUse Customer\nentity account : Industry');
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);
+        expect(el.shadowRoot.querySelectorAll('.conn-group')).toHaveLength(1);
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="Account"]').textContent).toContain('Industry');
+        const before=el.shadowRoot.querySelector('.code-editor').value;
+        el.shadowRoot.querySelector('.delete-btn[data-name="Account"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe(before);
+        el.shadowRoot.querySelector('.er-diagnostic-indicator').click();await flushPromises();
+        el.shadowRoot.querySelector('.er-error-log-list button').click();await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('Shared module definitions are preserved');
+    });
+    it('loads imports without drawing them until use and offers only exported module names',async()=>{
+        const source='export module Customer {\nentity Account : Name\n}\nmodule Private {\nentity Hidden\n}';
+        require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue(JSON.stringify({files:{lib:{id:'lib',name:'customer.dsl',sourceCode:source}},edges:{'@root|customer.dsl':'lib'}}));
+        const el=createStudio();await flushPromises();await edit(el,'import customer.dsl');await flushPromises();
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
+        await edit(el,'import customer.dsl\nuse C');
+        expect([...el.shadowRoot.querySelectorAll('.dsl-suggest-row')].some(x=>x.textContent.includes('Customer'))).toBe(true);
+        await edit(el,'import customer.dsl\nuse Customer\nentity Local : Name');await flushPromises();
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);
+        expect(el.shadowRoot.querySelector('.entity-group[data-name="Hidden"]')).toBeNull();
+    });
+    it('completes module keywords, indented declarations and Apex/Flow component types and names',async()=>{
+        require('@salesforce/apex/AppModelController.listDslComponentNames').default.mockResolvedValue(['Logger','LogService']);
+        const el=createStudio();await flushPromises();
+        await edit(el,'exp');expect(el.shadowRoot.textContent).toContain('export module');
+        objectNamesAdapter.emit(['Account']);await flushPromises();await edit(el,'export module Customer {\n  entity Acc');
+        expect(el.shadowRoot.textContent).toContain('Account');
+        await edit(el,'component Ap');expect(el.shadowRoot.textContent).toContain('ApexClass');
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.focus();await edit(el,'component ApexClass Log');await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('LogService');
+    });
+    it('reports invalid import paths without crashing the editor suggestions',async()=>{
+        require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue('{"files":{},"edges":{}}');
+        const el=createStudio();await flushPromises();await edit(el,'import ./customer.dsl\nuse Customer');await flushPromises();
+        expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();
+        expect(el.shadowRoot.querySelector('.dsl-validation')).not.toBeNull();
+        expect(el.shadowRoot.textContent).toContain('without a path');
+    });
+
+    it('completes export, inheritance, named-import and label keywords without changing surrounding text',async()=>{
+        const el=createStudio();await flushPromises();
+        for(const [prefix,expected] of [['export m','module'],['export module Sales ex','extends'],['import Customer f','from'],['component PermissionSet Admin l','label']]){
+            await edit(el,prefix);const rows=[...el.shadowRoot.querySelectorAll('.dsl-suggest-row')];expect(rows.some(row=>row.querySelector('.dsl-suggest-label').textContent===expected)).toBe(true);
+        }
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await flushPromises();
+        expect(editor.value).toBe('component PermissionSet Admin label ""');
+        expect(editor.selectionStart).toBe(editor.value.length-1);
+    });
+    it('completes all access types from saved declarations and inserts JSON-safe labels using Tab',async()=>{
+        const el=createStudio();await flushPromises();
+        for(const type of ['PermissionSet','PermissionSetLicense','UserLicense','PackageLicense']){
+            const label='Readable "Core" {Name}';const declaration='component '+type+' Existing label '+JSON.stringify(label);
+            const editor=await edit(el,declaration+'\ncomponent '+type+' Read');
+            expect(el.shadowRoot.querySelector('.dsl-suggest-label').textContent).toBe(label);
+            editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+            expect(editor.value).toBe(declaration+'\n'+declaration);
+            expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+        }
+    });
+    it('completes saved display labels with escaping and closes suggestions on Escape',async()=>{
+        const el=createStudio();await flushPromises();const label='Salesforce "Core"';
+        const declaration='component UserLicense Existing label '+JSON.stringify(label);
+        const editor=await edit(el,declaration+'\ncomponent UserLicense Existing label "Sales');
+        expect(el.shadowRoot.querySelector('.dsl-suggest-label').textContent).toBe(label);
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toBe(declaration+'\n'+declaration);
+        await edit(el,'component Perm');editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await flushPromises();expect(el.shadowRoot.querySelector('.dsl-suggestions')).toBeNull();
+    });
+
+    it('offers readable access names from imported modules without activating their definitions',async()=>{
+        require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue(JSON.stringify({files:{security:{id:'security',name:'security.dsl',sourceCode:'export module Access {\ncomponent PermissionSet SavedAdmin label "Saved Admin"\n}'}},edges:{'@root|security.dsl':'security'}}));
+        const el=createStudio();await flushPromises();await edit(el,'import security.dsl');await flushPromises();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
+        const editor=await edit(el,'import security.dsl\ncomponent PermissionSet Saved');
+        expect(el.shadowRoot.querySelector('.dsl-suggest-label').textContent).toBe('Saved Admin');
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toContain('component PermissionSet SavedAdmin label "Saved Admin"');
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+    });
+
+    it('replaces identifier suffixes and existing quoted labels instead of duplicating them',async()=>{
+        const el=createStudio();await flushPromises();
+        const declaration='component UserLicense Existing label "Salesforce"';
+        let text=declaration+'\ncomponent UserLicense ExWrong label "Custom title"';
+        let editor=await edit(el,text);let caret=text.lastIndexOf('ExWrong')+2;editor.setSelectionRange(caret,caret);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toBe(declaration+'\ncomponent UserLicense Existing label "Custom title"');
+        text=declaration+'\ncomponent UserLicense Existing label "SaOLD"';editor=await edit(el,text);caret=text.lastIndexOf('SaOLD')+2;editor.setSelectionRange(caret,caret);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
+        expect(editor.value).toBe(declaration+'\n'+declaration);
+    });
+
+    it('clears partial use errors when Customer is complete without a stale error badge',async()=>{
+        const persist=require('@salesforce/apex/ErDiagnosticConfigController.recordEvent').default;persist.mockClear();const el=createStudio();await flushPromises();
+        const definition='export module Customer {\nentity Account : Name, Description\nentity Contact : Name, Email\nContact.AccountId -> Account\n}';
+        for(const prefix of ['C','Cust','Custom']){await edit(el,definition+'\nuse '+prefix);expect(el.shadowRoot.querySelector('.dsl-validation').textContent).toContain('Unknown exported module');expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();}
+        await edit(el,definition+'\nuse Customer');expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);expect(persist).not.toHaveBeenCalled();
+        await edit(el,definition+'\nuse Cust');expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);await edit(el,definition);expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
     });
 
 });
