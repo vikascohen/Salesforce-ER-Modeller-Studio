@@ -662,3 +662,12 @@ Connector geometry is shared by Studio and viewer. Target markers clear card bor
 Regression coverage exercises legacy flat models, module-only empty rendering, explicit use with top-level declarations, imported visibility/cycles/conflicts, labels and escaping, card/schema separation, keyboard completion, save/view/export compatibility and connector clearance. App-access HTTP fixtures cover real name shapes, both licence reference types, package labels, inaccessible metadata, empty scope and truncation. Live developer-org checks found named Warden and Nebula permission sets; those app-visibility sets had no explicit licence binding. No user assignments or business records were modified by access discovery.
 
 See [DSL.md](DSL.md), [APP-ACCESS-CARDS.md](APP-ACCESS-CARDS.md) and [V5_RELEASE_NOTES.md](V5_RELEASE_NOTES.md) for the user-facing contract.
+
+
+### 23.7 Standalone Lightning roots and editor validation lifecycle
+
+`AppModelController.listLightningSources` returns bounded LWC/Aura bundle identities from the configured metadata principal; it is a component catalogue, not an App Launcher inventory. `getLightningScopeJson` validates the allowlisted type/ID, verifies the actual record and unique developer-name identity, attaches the current completed V5 scan and seeds one root. Existing dependency expansion, strict field selection, schema description and DSL validation are reused. No Salesforce application metadata is created. The catalogue caps each type at 1,000 rows and rejects incomplete results. Named access discovery stays app-specific; the component mode does not infer containing-app grants.
+
+The UI captures source kind/value during generation and uses a request token for catalogue loads. Switching kind clears the selection, while late results cannot replace the new catalogue. Source/DSL changes during generation block stale results before a new tab is opened. The selected source kind is retained in DSL comments.
+
+Current authoring validation is separate state from diagnostic history. `renderDiagram` validates the active model before geometry; expected parser/import-reference errors update the inline editor status without invoking diagnostic persistence. Valid/empty source clears that status. Geometry exceptions and genuine API/file/action failures keep the existing diagnostic path. Successful compilation does not erase unrelated diagnostic events. Historical records are never deleted as part of correcting DSL. This prevents intermediate `use` prefixes from leaving a misleading error-count badge on a valid model.

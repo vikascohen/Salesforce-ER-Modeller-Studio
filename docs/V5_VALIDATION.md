@@ -1,6 +1,22 @@
 # V5 validation record
 
-## Latest V5 source-preview checks — 7 November 2026
+## Latest Lightning-source and editor-validation checks — 7 November 2026
+
+| Check | Result |
+| --- | --- |
+| JavaScript suites, workspace and connected desktop | 32 suites; 270 passed; 10 existing skips |
+| AppModelController Apex tests | 15/15 passed; no coverage warnings |
+| Lightning source/controller deployment | Succeeded: `0Afaj00000qh48sCAA` |
+| Final editor-validation/help deployment | Succeeded: `0Afaj00000qijMrCAI` |
+| Live standalone Studio root | Existing diagramStudio LWC listed and identity verified; existing V5 snapshot reused |
+| Live dependency traversal, automation off | 77 reached components, seven expansion requests, 109 field references before UI platform filtering |
+| Logged cause of Customer badge | Prior incomplete `use` and `use cus` statements, not completed `use Customer` |
+
+The selected root was the existing ER Modeller bundle, not a newly created Salesforce app. Live discovery included Studio storage/evidence objects such as Diagram_File__c and Field_Usage_Run__c; it did not infer every Salesforce object the modeller can display. Current-source parsing regressions cover incomplete use prefixes, completion to a valid two-object model, inert definitions, last-valid-canvas preservation, invalid import paths and no diagnostic persistence during normal typing. A separate regression confirms that correcting DSL does not erase a genuine file-load error from recorded history.
+
+Lightning/Aura catalogue and scope fixtures cover source identity/type checks, missing/inaccessible/ambiguous records, required V5 scan and catalogue truncation. UI tests cover source switching, stale catalogue responses, evidenced-fields-only generation, disabled app-specific access discovery in component mode and preserving source when evidence is missing. No scan was started, old diagnostics deleted or Salesforce application created for this change.
+
+## Earlier V5 source-preview checks — 7 November 2026
 
 | Check | Result |
 | --- | --- |

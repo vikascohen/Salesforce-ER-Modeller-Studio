@@ -273,16 +273,18 @@
                     <button class="modal-close" aria-label="Close app generation" onclick={handleCloseAppModel} disabled={appModelBusy}>×</button>
                 </div>
                 <div class="modal-body">
-                    <p class="app-model-intro">Create a new diagram and its editable DSL from a Salesforce app. Save your current diagram first.</p>
-                    <lightning-combobox class="app-model-type-filter" label="App type" value={appTypeFilter} options={appTypeOptions} onchange={handleAppTypeFilterChange} disabled={appModelBusy}></lightning-combobox>
+                    <p class="app-model-intro">Create a new diagram and editable DSL from a Salesforce app or a standalone Lightning component. Save your current diagram first.</p>
+                    <lightning-combobox class="app-model-source" label="Model source" value={appModelSource} options={appSourceOptions} onchange={handleAppSourceChange} disabled={appModelBusy}></lightning-combobox>
+                    <template if:true={isSalesforceAppSource}><lightning-combobox class="app-model-type-filter" label="App type" value={appTypeFilter} options={appTypeOptions} onchange={handleAppTypeFilterChange} disabled={appModelBusy}></lightning-combobox></template>
                     <p class="app-model-type-summary">{appTypeSummary}</p>
-                    <lightning-combobox class="app-model-select" label="Salesforce app" placeholder="Select a Salesforce app" options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy} dropdown-alignment="auto"></lightning-combobox>
-                    <button class="app-model-reload" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Refresh app list</button>
-                    <div class="app-used-fields"><strong>Fields used by this app only</strong><lightning-helptext content={appUsedFieldsHelp}></lightning-helptext><p>Based on scoped scan evidence. Name is included only when used; Id remains the key.</p></div>
+                    <lightning-combobox class="app-model-select" label={appRootSelectLabel} placeholder={appRootPlaceholder} options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy} dropdown-alignment="auto"></lightning-combobox>
+                    <button class="app-model-reload" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Refresh source list</button>
+                    <div class="app-used-fields"><strong>{appFieldsLabel}</strong><lightning-helptext content={appUsedFieldsHelp}></lightning-helptext><p>Based on scoped scan evidence. Name is included only when used; Id remains the key.</p></div>
                     <div class="app-model-options">
                         <p class="app-model-intro">Requires a successful org scan of Flow, LWC and Apex usage.</p>
                         <lightning-input class="app-components-toggle" type="checkbox" label="Show Apex class and Flow names as component cards" field-level-help="Adds reached Apex classes and Flows as named component cards, separate from sObject entities. Saved in the DSL. These are potential dependencies, not proof of execution." checked={appIncludeComponents} onchange={handleAppComponentsChange} disabled={appModelBusy}></lightning-input>
-                        <lightning-input class="app-platform-toggle" type="checkbox" label="Show permission set and licence names as access cards" field-level-help={appPlatformHelp} checked={appIncludePlatform} onchange={handleAppPlatformChange} disabled={appModelBusy}></lightning-input>
+                        <lightning-input class="app-platform-toggle" type="checkbox" label="Show permission set and licence names as access cards" field-level-help={appPlatformHelp} checked={appIncludePlatform} onchange={handleAppPlatformChange} disabled={appAccessUnavailable}></lightning-input>
+                        <template if:true={isLightningSource}><p class="app-model-intro">Named access cards require a Salesforce app source. Component mode follows the selected LWC/Aura bundle, not every app containing it.</p></template>
                         <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
                     </div>
                     <template if:true={appModelError}>
@@ -651,6 +653,8 @@
             </div>
             <input type="file" class="dsl-file-input" accept=".dsl,.txt" onchange={handleImportDslFile} />
             <p class="dsl-hint">Type entity / relationship lines directly — the canvas updates as you type. Suggestions appear at the cursor; use up/down then Enter or Tab to accept, Esc to dismiss.</p>
+
+            <template if:true={dslValidationMessage}><div class="dsl-validation" role="status" aria-live="polite" title={dslValidationMessage}><strong>DSL needs attention</strong><span>{dslValidationMessage}</span><small>The canvas keeps the last valid model until this text is corrected.</small></div></template>
 
             <template if:true={missingRelationshipSuggestions.length}>
                 <div class="rel-suggest-banner">

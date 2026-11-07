@@ -9,6 +9,9 @@ import listFiles from '@salesforce/apex/DiagramFileController.listFiles';
 import getAllObjectNames from '@salesforce/apex/SchemaMetadataController.getAllObjectNames';
 import DiagramStudio from 'c/diagramStudio';
 
+jest.mock('@salesforce/apex/AppModelController.listLightningSources',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
+jest.mock('@salesforce/apex/AppModelController.getLightningScopeJson',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/ErDiagnosticConfigController.recordEvent',()=>({default:jest.fn(()=>Promise.resolve())}),{virtual:true});
 jest.mock('@salesforce/apex/AppAccessService.discover',()=>({default:jest.fn(()=>Promise.resolve('{"cards":[],"warnings":[],"reasons":[]}'))}),{virtual:true});
 
 jest.mock('@salesforce/apex/DslFileService.resolveImports',()=>({default:jest.fn(()=>Promise.resolve('{\"files\":{},\"edges\":{}}'))}),{virtual:true});
@@ -1357,21 +1360,11 @@ describe('c-diagram-studio', () => {
         expect(labels).not.toContain('Active'); // already on the line, just after the cursor — must not be offered
     });
 
-    it('routes invalid DSL to the diagnostic indicator without obscuring the canvas', async () => {
-        const el = createStudio();
-        await flushPromises();
-
-        const textarea = el.shadowRoot.querySelector('.code-editor');
-        textarea.value = 'this is not valid DSL syntax at all';
-        textarea.dispatchEvent(new CustomEvent('input'));
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        expect(el.shadowRoot.querySelector('.error-bar')).toBeNull();
-        const indicator = el.shadowRoot.querySelector('.er-diagnostic-indicator');
-        expect(indicator).not.toBeNull();
-        indicator.click();
-        await flushPromises();
-        expect(el.shadowRoot.querySelector('.settings-page')).not.toBeNull();
+    it('shows live DSL validation beside the editor without recording typing errors',async()=>{
+        const persist=require('@salesforce/apex/ErDiagnosticConfigController.recordEvent').default;persist.mockClear();
+        const el=createStudio();await flushPromises();const editor=el.shadowRoot.querySelector('.code-editor');editor.value='this is not valid DSL syntax at all';editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        expect(el.shadowRoot.querySelector('.dsl-validation').textContent).toContain('Line 1');expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();expect(persist).not.toHaveBeenCalled();
+        editor.value='entity Account : Name';editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelector('.entity-group')).not.toBeNull();
     });
 
     it('Clear Canvas empties the DSL and canvas back to a clean, error-free state', async () => {
@@ -1876,6 +1869,8 @@ describe('Phase 2 async hardening',()=> {
         expect(el.shadowRoot.querySelector('.diagram-load-progress')).toBeNull();
         expect(el.shadowRoot.querySelector('.canvas-wrap').getAttribute('aria-busy')).toBe('false');
         expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).not.toBeNull();
+        const editor=el.shadowRoot.querySelector('.code-editor');editor.value='entity Account : Name';editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
+        expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelector('.er-diagnostic-indicator').title).toContain('History is separate');
     });
 
     it('keeps the newest diagram when file loads resolve out of order', async()=> {
@@ -2651,6 +2646,32 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.textContent).toContain('PERMISSION SETS & LICENCES');
     });
 
+    it('models ER Modeller from a Lightning root with only evidenced fields and no app-access lookup',async()=>{
+        const roots=require('@salesforce/apex/AppModelController.listLightningSources').default,scope=require('@salesforce/apex/AppModelController.getLightningScopeJson').default;
+        roots.mockResolvedValue([{label:'ER Modeller Studio (diagramStudio — LWC)',value:'LightningComponentBundle|0Rb000000000001',appType:'component'}]);
+        scope.mockResolvedValue(JSON.stringify({appLabel:'ER Modeller Studio',runId:'run',components:[{type:'LightningComponentBundle',name:'diagramStudio',id:'0Rb000000000001'}],warnings:['Selected component only.']}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockImplementation(({componentsJson})=>Promise.resolve(JSON.stringify(JSON.parse(componentsJson).some(c=>c.name==='diagramStudio')?{components:[],fieldUsage:[{sourceType:'LWC',componentName:'diagramStudio',objectApiName:'Account',fieldApiName:'Description'}]}:{components:[],fieldUsage:[]})));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Description',dataType:'TEXTAREA'}]}]);
+        const access=require('@salesforce/apex/AppAccessService.discover').default;access.mockClear();
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-source').dispatchEvent(new CustomEvent('change',{detail:{value:'lightning'}}));await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-type-filter')).toBeNull();expect(el.shadowRoot.querySelector('.app-model-select').options[0].label).toContain('ER Modeller Studio');expect(el.shadowRoot.querySelector('.app-platform-toggle').disabled).toBe(true);
+        el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'LightningComponentBundle|0Rb000000000001'}}));await flushPromises();el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();await flushPromises();
+        const source=el.shadowRoot.querySelector('.code-editor').value;expect(scope).toHaveBeenCalledWith({sourceKey:'LightningComponentBundle|0Rb000000000001'});
+        expect(source).toContain('# Source: Lightning component');expect(source).toMatch(/entity Account.*Description/);expect(source).not.toMatch(/entity Account.*Name/);expect(access).not.toHaveBeenCalled();expect(el.shadowRoot.querySelector('.entity-group[data-name="Account"]')).not.toBeNull();
+    });
+    it('ignores a late app catalogue after switching to Lightning sources',async()=>{
+        let finish;require('@salesforce/apex/AppModelController.listApps').default.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+        require('@salesforce/apex/AppModelController.listLightningSources').default.mockResolvedValue([{label:'ER Modeller Studio',value:'LightningComponentBundle|0Rb000000000001'}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-source').dispatchEvent(new CustomEvent('change',{detail:{value:'lightning'}}));await flushPromises();finish([{label:'Old Sales',value:'06m000000000001',appType:'standard'}]);await flushPromises();
+        expect(el.shadowRoot.querySelector('.app-model-select').options.map(x=>x.label)).toEqual(['ER Modeller Studio']);expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');
+    });
+    it('preserves DSL when a Lightning source has no evidence instead of substituting another app',async()=>{
+        require('@salesforce/apex/AppModelController.listLightningSources').default.mockResolvedValue([{label:'Empty component',value:'LightningComponentBundle|0Rb000000000001'}]);
+        require('@salesforce/apex/AppModelController.getLightningScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Empty component',runId:'run',components:[{type:'LightningComponentBundle',name:'Empty',id:'0Rb000000000001'}]}));require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue(JSON.stringify({components:[],fieldUsage:[],warnings:[]}));
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-source').dispatchEvent(new CustomEvent('change',{detail:{value:'lightning'}}));await flushPromises();el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'LightningComponentBundle|0Rb000000000001'}}));await flushPromises();el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();
+        expect(el.shadowRoot.querySelector('.code-editor').value).toBe('');expect(el.shadowRoot.querySelector('.app-model-error').textContent).toContain('Lightning component');expect(el.shadowRoot.querySelector('.app-model-open-scan')).toBeNull();
+    });
+
 });
 
 
@@ -2696,8 +2717,8 @@ describe('DSL modules and IntelliSense integration',()=>{
     it('reports invalid import paths without crashing the editor suggestions',async()=>{
         require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue('{"files":{},"edges":{}}');
         const el=createStudio();await flushPromises();await edit(el,'import ./customer.dsl\nuse Customer');await flushPromises();
-        el.shadowRoot.querySelector('.er-diagnostic-indicator').click();await flushPromises();
-        el.shadowRoot.querySelector('.er-error-log-list button').click();await flushPromises();
+        expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();
+        expect(el.shadowRoot.querySelector('.dsl-validation')).not.toBeNull();
         expect(el.shadowRoot.textContent).toContain('without a path');
     });
 
@@ -2751,6 +2772,14 @@ describe('DSL modules and IntelliSense integration',()=>{
         text=declaration+'\ncomponent UserLicense Existing label "SaOLD"';editor=await edit(el,text);caret=text.lastIndexOf('SaOLD')+2;editor.setSelectionRange(caret,caret);editor.dispatchEvent(new CustomEvent('input'));await new Promise(resolve=>setTimeout(resolve,300));
         editor.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));await new Promise(resolve=>setTimeout(resolve,200));
         expect(editor.value).toBe(declaration+'\n'+declaration);
+    });
+
+    it('clears partial use errors when Customer is complete without a stale error badge',async()=>{
+        const persist=require('@salesforce/apex/ErDiagnosticConfigController.recordEvent').default;persist.mockClear();const el=createStudio();await flushPromises();
+        const definition='export module Customer {\nentity Account : Name, Description\nentity Contact : Name, Email\nContact.AccountId -> Account\n}';
+        for(const prefix of ['C','Cust','Custom']){await edit(el,definition+'\nuse '+prefix);expect(el.shadowRoot.querySelector('.dsl-validation').textContent).toContain('Unknown exported module');expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();}
+        await edit(el,definition+'\nuse Customer');expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelector('.er-diagnostic-indicator')).toBeNull();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);expect(persist).not.toHaveBeenCalled();
+        await edit(el,definition+'\nuse Cust');expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);await edit(el,definition);expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
     });
 
 });

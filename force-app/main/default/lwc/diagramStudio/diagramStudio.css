@@ -1992,3 +1992,7 @@
 .arch-rel-legend .arch-rel-lookup:before{background:#4aa3ff;}
 .arch-rel-legend .arch-rel-master:before{background:#c65cff;}
 .arch-rel-legend .arch-rel-poly:before{background:repeating-linear-gradient(90deg,#ff4f70 0 7px,transparent 7px 11px);}
+
+/* Current authoring validation is independent of retained diagnostic history. */
+.dsl-validation{flex-shrink:0;padding:8px 12px;border-left:3px solid #d69e2e;background:#fff7df;color:#644b13;font-size:11px;line-height:1.4;max-height:110px;overflow:auto;overflow-wrap:anywhere}
+.dsl-validation strong,.dsl-validation span,.dsl-validation small{display:block}.dsl-validation span{white-space:pre-wrap}.dsl-validation small{margin-top:3px}

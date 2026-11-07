@@ -55,3 +55,6 @@ use LoggerAccess
 ```
 
 The example declares a model; writing a licence card manually does not prove the app requires that licence. App-generated access cards require actual metadata evidence. See [DSL.md](DSL.md) and [APP-ACCESS-CARDS.md](APP-ACCESS-CARDS.md).
+
+
+During editing, `use` and `use cus` are incomplete/unknown references. Their inline validation disappears when `use Customer` becomes valid; they are not persisted as unread Error Log events. The last valid canvas remains until correction. Existing historical diagnostics and real operation failures are preserved.

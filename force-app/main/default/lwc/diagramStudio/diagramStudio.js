@@ -4,6 +4,8 @@
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
+import listLightningSources from '@salesforce/apex/AppModelController.listLightningSources';
+import getLightningScope from '@salesforce/apex/AppModelController.getLightningScopeJson';
 import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
 import discoverAppAccess from '@salesforce/apex/AppAccessService.discover';
 import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
@@ -149,7 +151,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get selectedDiagnostic(){return this.displayedDiagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
-    get diagnosticNotificationLabel(){return this.pendingDiagnosticCount+' new diagnostic event'+(this.pendingDiagnosticCount===1?'':'s')+'. Open Error Log.';}
+    get diagnosticNotificationLabel(){return this.pendingDiagnosticCount+' unread recorded diagnostic event'+(this.pendingDiagnosticCount===1?'':'s')+'. History is separate from current DSL validation. Open Error Log.';}
     get hasPendingDiagnosticNotifications(){return this.pendingDiagnosticCount>0;}
     get hasNoPendingDiagnosticNotifications(){return this.pendingDiagnosticCount===0;}
     handleDismissDiagnosticNotifications(){this.pendingDiagnosticCount=0;}
@@ -1588,6 +1590,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // An empty canvas is a valid, error-free state — not something to parse.
     resetEmptyCanvas() {
+        this.setDslValidation('');
         this._erBoxes     = [];
         this.erConnectors = [];
         this.svgWidth  = 800;
@@ -3314,7 +3317,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appModelDetailsMatch() { return !!this.appModelGeneratedSource && this.sourceText === this.appModelGeneratedSource; }
     get appModelDetailSummary() {
         if (this.appModelDetailsMatch) return this.appModelSummary;
-        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Snapshot:|Coverage:|Model scope:|Hidden platform objects:|Omitted audit fields:|Field scope:)/.test(line));
+        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Source:|Snapshot:|Coverage:|Model scope:|Hidden platform objects:|Omitted audit fields:|Field scope:)/.test(line));
         return notes.length ? notes.map(line => line.substring(2)).join('\n') : 'No app-generation details are attached to the current diagram.';
     }
     async handleOpenAppModel() {
@@ -3355,10 +3358,25 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
     }
     allAppOptions = [];
+    appModelSource = 'app';
+    appSourceOptions = [{label:'Salesforce app',value:'app'},{label:'Lightning tab / component (LWC or Aura)',value:'lightning'}];
+    _appListRequest=0;
+    get isSalesforceAppSource(){return this.appModelSource==='app';}
+    get isLightningSource(){return this.appModelSource==='lightning';}
+    get appRootSelectLabel(){return this.isLightningSource?'Lightning tab / component':'Salesforce app';}
+    get appFieldsLabel(){return this.isLightningSource?'Fields used by this component only':'Fields used by this app only';}
+    get appRootPlaceholder(){return this.isLightningSource?'Select a Lightning component':'Select a Salesforce app';}
+    get appAccessUnavailable(){return this.appModelBusy||this.isLightningSource;}
+    async handleAppSourceChange(event){
+        const value=event.detail.value;if(!['app','lightning'].includes(value)||value===this.appModelSource)return;
+        this.appModelSource=value;this.selectedSalesforceApp='';this.allAppOptions=[];this._appAccessCards=[];this.appIncludePlatform=false;this.clearAppModelError();
+        await this.handleLoadSalesforceApps();
+    }
     appTypeFilter = 'all';
     appTypeOptions = [{label:'All apps',value:'all'},{label:'Custom apps',value:'custom'},{label:'Standard apps',value:'standard'}];
-    get appOptions() { return this.allAppOptions.filter(app => this.appTypeFilter === 'all' || app.appType === this.appTypeFilter); }
+    get appOptions() { if(this.isLightningSource)return this.allAppOptions;return this.allAppOptions.filter(app => this.appTypeFilter === 'all' || app.appType === this.appTypeFilter); }
     get appTypeSummary() {
+        if(this.isLightningSource)return `${this.allAppOptions.length} Lightning component sources available. Includes components backing standalone tabs.`;
         const kind = this.appTypeFilter === 'all' ? 'apps' : this.appTypeFilter + ' apps';
         const unknown = this.allAppOptions.filter(app => !app.appType || app.appType === 'unknown').length;
         return `${this.appOptions.length} ${kind} available.` + (unknown ? ` ${unknown} with an unidentified type are shown under All apps only.` : '');
@@ -3391,7 +3409,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appScanHelp = 'Run an org scan to collect object references from Flow, LWC and Apex. Wait for it to complete successfully, then return here and generate the model. Logs alone do not provide this evidence.';
     get appGenerateHint() {
         if (this.appModelBusy) return 'Please wait for the current operation to finish.';
-        if (!this.selectedSalesforceApp) return 'Select a Salesforce app first.';
+        if (!this.selectedSalesforceApp) return this.isLightningSource?'Select a Lightning component first.':'Select a Salesforce app first.';
         return 'Requires a successful V5 org scan to identify fields used by the selected app.';
     }
     clearAppModelError() { this.appModelError = ''; this.appModelErrorHelp = ''; this.appModelScanRequired = false; }
@@ -3411,7 +3429,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.appModelErrorHelp = 'The active tab has unsaved changes. Cancel this dialog, save the diagram or close its tab and discard changes, then generate again. Clearing the canvas also creates unsaved changes.';
         }
         if (error?.code === 'APP_FIELDS_NOT_RESOLVED') {
-            this.appModelError = 'App-used fields could not be established for this model.';
+            this.appModelError = this.isLightningSource?'Component-used fields could not be established for this model.':'App-used fields could not be established for this model.';
             this.appModelErrorHelp = 'The generator will not substitute every field on the object. Check that the scan includes readable Flow, LWC or Apex field references for the selected app. Dynamic references may not be resolvable.';
             this.appModelScanRequired = false;
         }
@@ -3436,6 +3454,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
             this.appModelStatus = [message, ...details].join('\n');
         } else this.appModelStatus = message;
+        if(this.isLightningSource&&error?.code==='APP_OBJECTS_NOT_RESOLVED'&&error.scanAvailable){this.appModelError='No data model could be resolved for this Lightning component.';this.appModelErrorHelp='No object evidence was resolved from the selected bundle and its reached dependencies. Review static coverage, inaccessible source and scan exclusions. No other app scope was substituted; your diagram and DSL are preserved.';this.appModelScanRequired=false;}
         requestAnimationFrame(() => this.template.querySelector('.app-model-error')?.focus());
     }
     handleAppModelOpenScan() {
@@ -3450,30 +3469,34 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleAppChange(event) { this._appAccessCards=[];this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
     handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
     async handleLoadSalesforceApps() {
+        const request=++this._appListRequest,source=this.appModelSource;
         this.appModelBusy = true;
         this.clearAppModelError();
-        this.appModelStatus = 'Loading Salesforce apps…';
+        this.appModelStatus = source==='lightning'?'Loading Lightning components…':'Loading Salesforce apps…';
         try {
-            this.allAppOptions = (await listSalesforceApps() || []).sort((a,b) => a.label.localeCompare(b.label));
+            const options=await (source==='lightning'?listLightningSources():listSalesforceApps());
+            if(request!==this._appListRequest||source!==this.appModelSource)return;
+            this.allAppOptions = (options||[]).sort((a,b) => a.label.localeCompare(b.label));
             if (!this.appOptions.some(app => app.value === this.selectedSalesforceApp)) this.selectedSalesforceApp = '';
-            this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : 'No apps match this filter for the configured API user. Try All apps.';
-        } catch (error) { this.showAppModelError(error); this.appModelError = 'Could not load Salesforce apps.'; }
-        finally { this.appModelBusy = false; }
+            this.appModelStatus = this.appOptions.length ? 'Select a source, then generate its ER model.' : source==='lightning'?'No readable Lightning component sources were returned.':'No apps match this filter for the configured API user. Try All apps.';
+        } catch (error) { if(request===this._appListRequest){this.showAppModelError(error);this.appModelError=source==='lightning'?'Could not load Lightning components.':'Could not load Salesforce apps.';} }
+        finally { if(request===this._appListRequest)this.appModelBusy = false; }
     }
     async handleGenerateAppModel() {
         if (this.appModelBusy) return;
         this.clearAppModelError();
-        if (!this.selectedSalesforceApp) { this.showAppModelError(new Error('Select a Salesforce app before generating an ER model.')); return; }
+        if (!this.selectedSalesforceApp) { this.showAppModelError(new Error('Select a source before generating an ER model.')); return; }
         if (this.isDirty) { this.showAppModelError(new Error('Save the current diagram before generating an app model. Your diagram has been preserved.')); return; }
         this.appModelBusy = true;
         this.appModelWarnings = [];
         this.appModelEvidence = [];
         const originalTab = this.activeTabId;
         const originalSource = this.sourceText;
+        const rootMode=this.appModelSource,rootValue=this.selectedSalesforceApp;
         const progress = message => { this.appModelStatus = message; };
-        progress('Reading the selected app and org scan…');
+        progress(rootMode==='lightning'?'Reading the selected Lightning component and org scan…':'Reading the selected app and org scan…');
         try {
-            const scope = JSON.parse(await getAppScope({ appId: this.selectedSalesforceApp, includeUsage: true }));
+            const scope = JSON.parse(await (rootMode==='lightning'?getLightningScope({sourceKey:rootValue}):getAppScope({ appId: rootValue, includeUsage: true })));
             const result = await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress });
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
             const selection = selectAppObjects(result, { includePlatform: false, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
@@ -3488,9 +3511,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 throw error;
             }
             const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
-            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
+            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Source: ${rootMode==='lightning'?'Lightning component':'Salesforce app'}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
             let access={cards:[],warnings:[],reasons:[]};
-            if(this.appIncludePlatform){progress('Reading named permission sets and licences…');access=JSON.parse(await discoverAppAccess({appId:this.selectedSalesforceApp,componentsJson:JSON.stringify(result.components)}));this._appAccessCards=access.cards;result.warnings.push(...access.warnings);result.reasons.push(...access.reasons);}
+            if(this.appIncludePlatform&&rootMode==='app'){progress('Reading named permission sets and licences…');access=JSON.parse(await discoverAppAccess({appId:this.selectedSalesforceApp,componentsJson:JSON.stringify(result.components)}));this._appAccessCards=access.cards;result.warnings.push(...access.warnings);result.reasons.push(...access.reasons);}
             const componentSource = buildAppComponentSource([...(this.appIncludeComponents ? result.components : []),...access.cards]);
             const source = header + access.warnings.map(warning=>'\n# Access coverage: '+comment(warning)).join('') + access.cards.map(card=>'\n# '+card.type+' '+comment(card.label)+': '+comment(card.evidence)).join('') + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component and access cards (configuration, not execution or required assignments)\n' + componentSource : '');
             if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
@@ -3499,6 +3522,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             await new Promise(resolve => setTimeout(resolve, 0));
             // Validate the whole generated model before changing any editor state.
             parseEr(source);
+            if (this.appModelSource!==rootMode||this.selectedSalesforceApp!==rootValue)throw new Error('The model source changed during discovery. Generate again for the selected source.');
             if (this.activeTabId !== originalTab || this.sourceText !== originalSource) throw new Error('The active diagram changed during discovery. Generate again when you are ready.');
             // Existing unsaved-tab handling does not retain its source. Save dirty
             // work before creating a new tab instead of risking silent data loss.
@@ -5357,7 +5381,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this._dslImportBundle=bundle;this._dslImportSignature=signature;this._dslImportFailure='';this._architectureSource=null;this._architectureAnalysis=null;
             this.renderDiagram();
             const editor=this.template.querySelector('.code-editor');if(editor&&this.dslSuggestOpen)this.updateDslSuggestions(editor);
-        }catch(error){if(token===this._dslImportToken&&signature===this.currentImportSignature){this._dslImportFailure=signature;this._dslImportError=this.reduceError(error);this.errorMessage=this._dslImportError;}}
+        }catch(error){if(token===this._dslImportToken&&signature===this.currentImportSignature){this._dslImportFailure=signature;this._dslImportError=this.reduceError(error);this.setDslValidation(this._dslImportError);if(!/^Import [^\r\n]+ is missing, inaccessible or ambiguous\.|^Use a filename|^Use a saved filename|^DSL import graph|^Imported DSL exceeds/i.test(this._dslImportError))this.errorMessage=this._dslImportError;}}
         finally{if(token===this._dslImportToken){this.dslImportsLoading=false;this._dslImportPending='';}}
     }
     handleRefreshDslImports(){this._dslImportSignature='';this._dslImportFailure='';this.renderDiagram();}
@@ -5374,11 +5398,19 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this._dslComponentPending[type]=true;
         listDslComponentNames({componentType:type}).then(names=>{this._dslComponentNames={...this._dslComponentNames,[type]:names||[]};const editor=this.template.querySelector('.code-editor');if(editor&&(this.dslSuggestOpen||this.template.activeElement===editor))this.updateDslSuggestions(editor);}).catch(()=>{this._dslComponentNames={...this._dslComponentNames,[type]:[]};}).finally(()=>{this._dslComponentPending[type]=false;});
     }
+    dslValidationMessage = '';
+    setDslValidation(message){
+        const previous=this.dslValidationMessage;this.dslValidationMessage=message||'';
+        if(this.dslValidationMessage)this._errorMessage=this.dslValidationMessage;
+        else if(this._errorMessage===previous)this._errorMessage='';
+    }
     renderDiagram() {
-        if(this.hasDslImports){const signature=this.currentImportSignature;if(this._dslImportFailure===signature){this.errorMessage=this._dslImportError;return;}if(this._dslImportSignature!==signature){if(this._dslImportPending!==signature)this.loadDslImports(signature);return;}}
+        if(this.hasDslImports){const signature=this.currentImportSignature;if(this._dslImportFailure===signature){this.setDslValidation(this._dslImportError);return;}if(this._dslImportSignature!==signature){if(this._dslImportPending!==signature)this.loadDslImports(signature);return;}}
         if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
+        let model;try{model=this.parseCurrentModel();}catch(error){this.setDslValidation(error.message||String(error));return;}
+        this.setDslValidation('');
         try {
-            const geo = buildErGeometry(this.parseCurrentModel(), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            const geo = buildErGeometry(model, this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
             this.erConnectors = geo.connectors;
             this.svgWidth     = geo.svgWidth;

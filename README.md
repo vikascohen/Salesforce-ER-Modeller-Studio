@@ -39,9 +39,10 @@ These are **feature families**, not a guarantee that every feature has passed cl
 
 ## What's new in the V5 source preview
 
-- **File → Generate ER Model from App** resolves app navigation and reached component evidence. It generates only evidenced fields; Id is structural. It does not expand an object to all fields when evidence is missing.
+- **File → Generate ER Model from App** offers Salesforce app or standalone Lightning tab/component sources. Select **Lightning tab / component (LWC or Aura) → ER Modeller Studio (diagramStudio — LWC)** to model Studio itself without creating another Salesforce app. It resolves the selected root and reached component evidence. It generates only evidenced fields; Id is structural. It does not expand an object to all fields when evidence is missing.
 - Optional cards display actual Apex/Flow names and named permission sets/licences. Access cards describe readable access configuration, not mandatory assignments; generic security/licensing tables remain outside the generated data model.
 - `export module` stays off the canvas until `use` activates it. Import saved files with `import customer.dsl`, use named imports, and compose modules with additive `extends`. Plain DSL continues to work.
+- Current DSL validation appears beside the editor and clears when corrected. Pauses while typing `use Customer` do not create persistent error-log notifications; real operation errors remain in history.
 - IntelliSense covers keywords, exported modules, filenames, inheritance, entities/fields, component types, readable names and JSON-escaped display labels. Saved access declarations remain completion candidates after reopening.
 - Fit Model separates objects, platform events, custom metadata, Apex/Flow and access cards. Arrow tips clear card shadows; badges and labels are separated from connector lines.
 - Standard OmniStudio objects are scanned only when present/readable. Data Cloud DMO/DLO discovery and comprehensive dynamic/managed-source resolution are not implemented.

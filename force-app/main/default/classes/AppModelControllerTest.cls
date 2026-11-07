@@ -138,4 +138,30 @@
         System.assertEquals('Account',second.components[0].name);
     }
 
+
+    private class LightningRootMock implements HttpCalloutMock {
+        String mode;LightningRootMock(String mode){this.mode=mode;}
+        public HttpResponse respond(HttpRequest req){
+            String q=EncodingUtil.urlDecode(req.getEndpoint(),'UTF-8');HttpResponse res=new HttpResponse();res.setStatusCode(mode=='denied'?403:200);
+            Boolean aura=q.contains('FROM AuraDefinitionBundle');String id=aura?'0Ab000000000001':'0Rb000000000001';String name=aura?'ExampleAuraApp':'diagramStudio';
+            List<Object> records=new List<Object>();if(mode!='missing')records.add(new Map<String,Object>{'Id'=>id,'DeveloperName'=>name,'NamespacePrefix'=>null});
+            if(mode=='ambiguous'&&q.contains('WHERE DeveloperName'))records.add(new Map<String,Object>{'Id'=>'0Rb000000000002','DeveloperName'=>name,'NamespacePrefix'=>'other'});
+            res.setBody(JSON.serialize(new Map<String,Object>{'records'=>records,'done'=>mode!='truncated'}));return res;
+        }
+    }
+    @IsTest static void lightningCatalogueAndScopesKeepBundleTypesAndIdentities(){
+        Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Object_Scan_Version__c=5);insert run;Test.setMock(HttpCalloutMock.class,new LightningRootMock('normal'));Test.startTest();
+        List<AppModelController.AppOption> choices=AppModelController.listLightningSources();System.assertEquals(2,choices.size());System.assert(choices[0].label.startsWith('ER Modeller Studio'));System.assertEquals('component',choices[0].appType);
+        for(String type:new List<String>{'LightningComponentBundle','AuraDefinitionBundle'}){
+            String id=type=='LightningComponentBundle'?'0Rb000000000001':'0Ab000000000001';Map<String,Object> scope=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.getLightningScopeJson(type+'|'+id));
+            System.assertEquals(String.valueOf(run.Id),scope.get('runId'));List<Object> roots=(List<Object>)scope.get('components');System.assertEquals(1,roots.size());System.assertEquals(type,((Map<String,Object>)roots[0]).get('type'));System.assertEquals(id,((Map<String,Object>)roots[0]).get('id'));
+        }
+        Test.stopTest();
+    }
+    @IsTest static void lightningRootsRejectInvalidMissingAmbiguousAndOldScans(){
+        Test.setMock(HttpCalloutMock.class,new LightningRootMock('normal'));Boolean failed=false;try{AppModelController.getLightningScopeJson('LightningComponentBundle|0Rb000000000001');}catch(Exception ex){failed=true;}System.assert(failed,'A completed V5 scan is required.');
+        for(String value:new List<String>{'bad','ApexClass|01p000000000001','AuraDefinitionBundle|0Rb000000000001'}){failed=false;try{AppModelController.getLightningScopeJson(value);}catch(Exception ex){failed=true;}System.assert(failed);}
+        for(String mode:new List<String>{'missing','ambiguous','denied'}){Test.setMock(HttpCalloutMock.class,new LightningRootMock(mode));failed=false;try{AppModelController.getLightningScopeJson('LightningComponentBundle|0Rb000000000001');}catch(Exception ex){failed=true;}System.assert(failed);}
+        Test.setMock(HttpCalloutMock.class,new LightningRootMock('truncated'));failed=false;try{AppModelController.listLightningSources();}catch(Exception ex){failed=true;}System.assert(failed);
+    }
 }

@@ -42,6 +42,41 @@ public with sharing class AppModelController {
         for(Object raw:items(payload.get('apps'))){Map<String,Object> app=(Map<String,Object>)raw;AppOption option=new AppOption();option.label=str(app.get('label'));option.value=str(app.get('appId'));option.appType=appTypes.get(appKey(option.value));if(option.appType==null)option.appType='unknown';if(!String.isBlank(option.value))options.add(option);}
         return options;
     }
+    private static String lightningLabel(String type,String name,String ns){
+        String qualified=(String.isBlank(ns)?'':ns+'__')+name;
+        return type=='LightningComponentBundle'&&name=='diagramStudio'&&String.isBlank(ns)?'ER Modeller Studio (diagramStudio — LWC)':qualified+(type=='LightningComponentBundle'?' — LWC':' — Aura');
+    }
+    @AuraEnabled public static List<AppOption> listLightningSources(){
+        List<AppOption> options=new List<AppOption>();
+        for(String type:new List<String>{'LightningComponentBundle','AuraDefinitionBundle'}){
+            Map<String,Object> page=get('/tooling/query/?q='+EncodingUtil.urlEncode('SELECT Id,DeveloperName,NamespacePrefix FROM '+type+' ORDER BY DeveloperName LIMIT 1001','UTF-8'));
+            List<Object> records=items(page.get('records'));
+            if(page.get('done')==false||records.size()>1000)throw new AuraHandledException('The Lightning source catalogue exceeds 1,000 bundles per type. No incomplete catalogue was returned.');
+            for(Object raw:records){Map<String,Object> row=(Map<String,Object>)raw;String id=str(row.get('Id')),name=str(row.get('DeveloperName'));if(String.isBlank(id)||String.isBlank(name))continue;
+                AppOption option=new AppOption();option.value=type+'|'+id;option.label=lightningLabel(type,name,str(row.get('NamespacePrefix')));option.appType='component';options.add(option);
+            }
+        }
+        return options;
+    }
+    @AuraEnabled public static String getLightningScopeJson(String sourceKey){
+        if(String.isBlank(sourceKey)||sourceKey.length()>100)throw new AuraHandledException('Select a valid Lightning component source.');
+        List<String> parts=sourceKey.split('\\|');
+        Set<String> supported=new Set<String>{'LightningComponentBundle','AuraDefinitionBundle'};
+        if(parts.size()!=2||!supported.contains(parts[0])||!Pattern.matches('^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$',parts[1])||!parts[1].startsWith(parts[0]=='LightningComponentBundle'?'0Rb':'0Ab'))throw new AuraHandledException('Select a valid Lightning component source.');
+        Map<String,Object> page=get('/tooling/query/?q='+EncodingUtil.urlEncode('SELECT Id,DeveloperName,NamespacePrefix FROM '+parts[0]+' WHERE Id=\''+parts[1]+'\' LIMIT 2','UTF-8'));
+        List<Object> records=items(page.get('records'));if(records.size()!=1)throw new AuraHandledException('The selected Lightning component is missing or inaccessible. Refresh the source list.');
+        Map<String,Object> row=(Map<String,Object>)records[0];String id=str(row.get('Id')),name=str(row.get('DeveloperName'));
+        if(String.isBlank(name)||appKey(id)!=appKey(parts[1]))throw new AuraHandledException('Lightning component identity could not be verified. Refresh the source list.');
+        Map<String,Object> identityPage=get('/tooling/query/?q='+EncodingUtil.urlEncode('SELECT Id FROM '+parts[0]+' WHERE DeveloperName=\''+String.escapeSingleQuotes(name)+'\' LIMIT 2','UTF-8'));
+        List<Object> identities=items(identityPage.get('records'));if(identities.size()!=1||appKey(str(((Map<String,Object>)identities[0]).get('Id')))!=appKey(id))throw new AuraHandledException('This component name is ambiguous across namespaces in the scan. No mixed-source model was created.');
+        Scope scope=new Scope();scope.appLabel=lightningLabel(parts[0],name,str(row.get('NamespacePrefix')));scope.components.add(component(parts[0],name,id));
+        List<Field_Usage_Run__c> runs=[SELECT Id,Completed_At__c,Object_Scan_Version__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
+        if(runs.isEmpty()||runs[0].Object_Scan_Version__c!=5)throw new AuraHandledException('Run a successful V5 org scan first to model Lightning component fields.');
+        scope.runId=runs[0].Id;scope.scannedAt=runs[0].Completed_At__c;
+        scope.warnings.add('Lightning component-root model: follows only the selected LWC/Aura bundle and its reached dependencies, not every containing Salesforce app.');
+        scope.warnings.add('Static field evidence only. Dynamic objects, inaccessible managed source and excluded components may be unresolved. A modeller component does not imply use of every object it can display.');
+        return JSON.serialize(scope);
+    }
     private static String appKey(String id){return String.isBlank(id)?null:(id.length()>=15?id.substring(0,15):id);}
     private static Map<String,String> loadAppTypes(){
         Map<String,String> types=new Map<String,String>();

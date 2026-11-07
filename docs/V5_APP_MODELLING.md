@@ -114,3 +114,18 @@ The old technical-object checkbox is replaced by **Show permission set and licen
 IntelliSense covers all six component types, local/imported access declarations, resolved app cards, JSON label strings and module/import/inheritance syntax. Access-name suggestions work from saved declarations after reopening. Module and label parsing reject conflicts/malformed active text without substituting unrelated metadata.
 
 The [V5 release notes](V5_RELEASE_NOTES.md) describe the current source preview. V4 install URLs still install V4; no V5 installation package has been published.
+
+
+## Standalone Lightning tab/component sources
+
+In **File → Generate ER Model from App**, set **Model source → Lightning tab / component (LWC or Aura)**. The source catalogue lists readable LWC and Aura bundle identities, including components backing standalone tabs and Aura applications. **ER Modeller Studio (diagramStudio — LWC)** maps to Studio’s existing bundle; it does not create a new Salesforce app or App Launcher entry.
+
+The server verifies the selected type/ID and resolves its actual developer name, rejects ambiguous same-name namespace identities, and attaches the completed V5 snapshot. Traversal begins only at that bundle, reusing the existing field/object/dependency pipeline. It does not infer every containing Salesforce app or every object a modelling component can display. Fields remain evidence-only, and dynamic/inaccessible/excluded source can limit coverage. Refresh source list reloads the catalogue. Limits: 1,000 bundles per type; incomplete catalogues fail visibly rather than being silently accepted.
+
+Custom/Standard filters apply only to Salesforce app mode. Named permission/licence discovery also requires an app identity, so it is disabled in component mode rather than borrowing a containing app’s grants. Source changes clear the old selection; superseded catalogue responses cannot overwrite a newer source list. Failed generation preserves the current DSL/model.
+
+A live check of the existing Studio bundle with object-triggered automation off traversed 77 components in seven expansion requests and resolved 109 field references using the existing snapshot, before platform-object filtering. No new scan or business-record changes were performed for that check. Run a new scan if your selected component or source changes are not covered by the existing V5 snapshot.
+
+## Current DSL validation versus error history
+
+Partial input such as `use` or `use cus` can be invalid while a statement is being completed. The editor shows its current source/line message inline and retains the last valid canvas. Completing `use Customer`, correcting the text or clearing it removes that validation message. Normal typing validation is not persisted or counted as unread diagnostic history. Genuine file/API/geometry/action errors keep their existing diagnostic path; prior persisted records are not deleted. The toolbar badge explicitly identifies unread recorded events, which are separate from current DSL validity.

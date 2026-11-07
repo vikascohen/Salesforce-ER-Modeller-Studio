@@ -144,6 +144,10 @@ Account.OwnerId --> User
 Account.OwnerId -> User
 ```
 
+### Live editor validation
+
+While typing, incomplete statements such as `use` or `use cus` can temporarily be invalid. Their current validation message appears beside the DSL editor; the last valid canvas remains visible. Finishing `use Customer` clears the message. These transient authoring errors do not create persistent diagnostic events or an unread-error badge. Explicit operation/API failures still use Error Log, and old persisted events are retained. The toolbar badge represents recorded history, not the current compiler status.
+
 ## 7. Diagram Studio behaviour around the DSL
 
 Some behaviours belong to Diagram Studio rather than to the language grammar itself:

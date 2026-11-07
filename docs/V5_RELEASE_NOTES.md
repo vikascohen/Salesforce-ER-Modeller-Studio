@@ -11,6 +11,12 @@ V5 is the current development source on [`v5-app-er-model`](https://github.com/v
 - Include **only fields evidenced in reached app components**. Id remains the structural key; Name, audit and relationship fields are not added automatically. Failure does not silently expand to every field or reuse a previous app’s model.
 - Validate generated DSL before replacing editor/canvas state. Preserve existing work on failed discovery and display progress/recovery guidance. No data-object metadata or business records are deployed by generation.
 
+## Standalone Lightning sources and current validation
+
+The generator now has a **Model source** selector for Salesforce apps or **Lightning tab / component (LWC or Aura)**. Select **ER Modeller Studio (diagramStudio — LWC)** to start directly from the existing Studio bundle, without creating a separate app. The same successful V5 snapshot and strict app-used field rules apply. Catalogue identities are verified, source switching is race-safe, and ambiguous namespace names fail without mixing scope. Custom/Standard filters and named app-access discovery remain specific to Salesforce app mode.
+
+Current DSL syntax validation now appears beside the editor and clears after correction. Typing `use` or `use cus` before completing `use Customer` no longer creates persistent unread error notifications. The last valid canvas stays visible during an incomplete edit. Genuine operation diagnostics and previously stored history are retained; the toolbar badge identifies unread recorded events.
+
 ## Named access cards replace generic licensing tables
 
 **Show permission set and licence names as access cards** replaces the old technical-object checkbox. Known platform/security/licensing tables stay outside app-generated data models.
