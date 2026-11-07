@@ -154,3 +154,13 @@ export function buildAppComponentSource(components = []) {
     if (unique.size > 300) throw new Error('The app exceeds 300 component cards. Turn off component or access cards and generate a narrower model.');
     return [...unique.values()].sort((a,b) => `${a.type}:${a.name}`.localeCompare(`${b.type}:${b.name}`)).map(component => `component ${component.type} ${component.name}${component.label ? ' label ' + JSON.stringify(String(component.label)) : ''}`).join('\n');
 }
+
+// Counts represent generated named cards, never inferred licence requirements.
+export function appCardResults({includeComponents=false,components=[],includeAccess=false,accessCards=[]}={}) {
+    const notes=[];
+    const source=buildAppComponentSource([...(includeComponents?components:[]),...(includeAccess?accessCards:[])]);
+    const count=type=>source.split('\n').filter(line=>line.startsWith('component '+type+' ')).length;
+    if(includeComponents){const apex=count('ApexClass'),flows=count('Flow');notes.push(`Apex/Flow cards: ${apex} Apex ${apex===1?'class':'classes'}, ${flows} ${flows===1?'Flow':'Flows'}.`+(!apex&&!flows?' No readable Apex/Flow references were resolved in this scope.':''));}
+    if(includeAccess){const permissions=count('PermissionSet'),licences=['PermissionSetLicense','UserLicense','PackageLicense'].reduce((n,type)=>n+count(type),0);notes.push(`Access cards: ${permissions} permission ${permissions===1?'set':'sets'}, ${licences} ${licences===1?'licence':'licences'}.`+(!permissions&&!licences?' No explicit permission-set grants or bound licence records were resolved; profiles and indirect feature licences are not inferred.':!licences?' No explicit licence binding was resolved.':''));}
+    return {source,notes};
+}

@@ -89,9 +89,9 @@ App traversal is bounded to 2,000 components and 150 expansion requests, with ba
 
 ### Named component and access cards
 
-Apex/Flow cards preserve component identity. App access discovery follows explicit app visibility/reached Apex grants to non-profile permission sets, then actual licence/package references. It does not infer mandatory user assignments, list every org licence, or turn PermissionSet/UserLicense tables into ER entities. Profiles, permission-set groups and indirect feature-licence routes are outside this initial discovery.
+Apex/Flow cards preserve component identity. App access discovery resolves unindexed applications through verified UI API app identity and its TabSet reference when AppMenuItem does not provide a unique match. Mismatched identities do not contribute grants. It follows explicit app visibility/reached Apex grants to non-profile permission sets, then actual licence/package references. It does not infer mandatory user assignments, list every org licence, or turn PermissionSet/UserLicense tables into ER entities. Profiles, permission-set groups and indirect feature-licence routes are outside this initial discovery.
 
-Cards are typed DSL declarations with optional JSON labels. They have no schema fields, do not participate in sharing/heatmap calculations, and occupy a separate fitted section. Standalone component mode currently disables app access discovery. See [Compiler.md](../Compiler.md) for all six card types.
+Requested card discovery emits counts and empty-result explanations in a workspace status banner, Model Details and persisted source comments. Counts are generated-card results, not inferred licence requirements. Cards are typed DSL declarations with optional JSON labels. They have no schema fields, do not participate in sharing/heatmap calculations, and occupy a separate fitted section. Standalone component mode currently disables app access discovery. See [Compiler.md](../Compiler.md) for all six card types.
 
 ## Compiler, imports and persistence
 

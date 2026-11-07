@@ -2664,6 +2664,20 @@ describe('V5 app generation', () => {
         expect(el.shadowRoot.querySelector('.entity-group[data-name="Contact"]')).not.toBeNull();
     });
 
+    it('explains empty requested cards visibly and preserves the result in saved-source comments',async()=>{
+        require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        require('@salesforce/apex/AppAccessService.discover').default.mockResolvedValue(JSON.stringify({cards:[],warnings:['No explicit licence binding.'],reasons:[]}));
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]}]);
+        const el=await createAppStudio();el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        for(const label of ['Show Apex class and Flow names as component cards','Show permission set and licence names as access cards']){
+            const input=[...el.shadowRoot.querySelectorAll('lightning-input')].find(x=>x.label===label);input.checked=true;input.dispatchEvent(new CustomEvent('change'));
+        }
+        el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();await flushPromises();
+        const banner=el.shadowRoot.querySelector('.app-card-results');expect(banner).not.toBeNull();expect(banner.textContent).toContain('0 Apex classes, 0 Flows');expect(banner.textContent).toContain('0 permission sets, 0 licences');
+        const source=el.shadowRoot.querySelector('.code-editor').value;expect(source).toContain('# Card discovery:');expect(source).not.toContain('component ApexClass');expect(el.shadowRoot.querySelector('.entity-group[data-name="Account"]')).not.toBeNull();
+        banner.querySelector('button').click();await flushPromises();expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('0 permission sets');
+        el.shadowRoot.querySelector('.app-card-results button[aria-label]').click();await flushPromises();expect(el.shadowRoot.querySelector('.app-card-results')).toBeNull();
+    });
     it('generates named access cards without expanding platform schema tables and preserves them in DSL',async()=>{
         require('@salesforce/apex/AppModelController.getAppScopeJson').default.mockResolvedValue(JSON.stringify({appLabel:'Logger',runId:'run',components:[{type:'Object',name:'Account'},{type:'Object',name:'PermissionSet'}]}));
         describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]}]);

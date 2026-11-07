@@ -576,6 +576,9 @@
         <button class="tab-new-btn" onclick={handleNew}>+</button>
     </div>
 
+    <template if:true={appCardResultNotice}>
+        <div class="app-card-results" role="status" aria-live="polite"><span>{appCardResultNotice}</span><button onclick={handleOpenAppModelDetails}>Model Details</button><button onclick={handleDismissCardResults} aria-label="Dismiss card discovery result">×</button></div>
+    </template>
     <!-- MAIN BODY -->
     <div class="studio-body">
 

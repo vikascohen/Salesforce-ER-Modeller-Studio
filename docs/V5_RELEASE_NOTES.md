@@ -48,6 +48,7 @@ Current DSL syntax validation now appears beside the editor and clears after cor
 - Follow the discovered permission set’s actual LicenseId to the named PermissionSetLicense or UserLicense record.
 - For a namespaced app with a PackageLicense record, show its installed package name when readable; otherwise identify its namespace explicitly.
 - Persist the names as typed component declarations with optional JSON-string display labels. Put them in a separate fitted **Permission Sets & Licences** section.
+- Requested Apex/Flow and access cards now show generated counts and zero-result explanations after generation; those results persist in DSL comments and Model Details. Unindexed apps can resolve grants through verified selected-app UI metadata instead of relying solely on AppMenuItem.
 - Explain missing/inaccessible bindings. Do not infer licence requirements, assignments or all possible access routes, and do not substitute an org-wide licence list.
 
 Access cards describe explicit readable access configuration, not mandatory assignments. See [named access architecture](ARCHITECTURE.md#named-component-and-access-cards).

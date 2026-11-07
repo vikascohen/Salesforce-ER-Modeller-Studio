@@ -2,13 +2,17 @@
     private class MetadataMock implements HttpCalloutMock {
         String mode;MetadataMock(String mode){this.mode=mode;}
         public HttpResponse respond(HttpRequest req){
+            if(req.getEndpoint().contains('/ui-api/apps/')){
+                HttpResponse ui=new HttpResponse();ui.setStatusCode(mode=='ambiguous'?403:200);
+                ui.setBody(mode=='ambiguous'?'{}':'{"appId":"06m000000000001","developerName":"'+(mode=='mismatch'?'DifferentApp':'ExampleApp')+'","startUrl":"/lightning/page/home?tsid=02u000000000009"}');return ui;
+            }
             String q=EncodingUtil.urlDecode(req.getEndpoint().substringAfter('?q='),'UTF-8');
             System.assert(!q.contains('Injected'),'Invalid component IDs must never reach SOQL');
             HttpResponse res=new HttpResponse();res.setStatusCode(mode=='denied'?403:200);
             List<Object> records=new List<Object>();
             if(q.contains(' FROM AppDefinition '))records.add(new Map<String,Object>{'DeveloperName'=>'ExampleApp','NamespacePrefix'=>'example'});
-            else if(q.contains(' FROM AppMenuItem ')){records.add(new Map<String,Object>{'ApplicationId'=>'02u000000000001'});if(mode=='ambiguous')records.add(new Map<String,Object>{'ApplicationId'=>'02u000000000002'});}
-            else if(q.contains(' FROM SetupEntityAccess ')&&mode!='empty'){System.assert(q.contains('Parent.IsOwnedByProfile=false'));records.add(new Map<String,Object>{'ParentId'=>'0PS000000000001','SetupEntityId'=>'02u000000000001','SetupEntityType'=>'TabSet'});records.add(new Map<String,Object>{'ParentId'=>'0PS000000000002','SetupEntityId'=>'01p000000000001','SetupEntityType'=>'ApexClass'});}
+            else if(q.contains(' FROM AppMenuItem ')){if(mode!='fallback'&&mode!='mismatch')records.add(new Map<String,Object>{'ApplicationId'=>'02u000000000001'});if(mode=='ambiguous')records.add(new Map<String,Object>{'ApplicationId'=>'02u000000000002'});}
+            else if(q.contains(' FROM SetupEntityAccess ')&&mode!='empty'){System.assert(q.contains('Parent.IsOwnedByProfile=false'));if(mode=='fallback')System.assert(q.contains('02u000000000009'),'Must use selected app metadata, not a guessed name');if(mode=='mismatch')System.assert(!q.contains('02u000000000009'),'Mismatched app must not contribute grants');records.add(new Map<String,Object>{'ParentId'=>'0PS000000000001','SetupEntityId'=>'02u000000000001','SetupEntityType'=>'TabSet'});records.add(new Map<String,Object>{'ParentId'=>'0PS000000000002','SetupEntityId'=>'01p000000000001','SetupEntityType'=>'ApexClass'});}
             else if(q.contains(' FROM PermissionSet ')){
                 records.add(new Map<String,Object>{'Id'=>'0PS000000000001','Name'=>'LoggerAdmin','Label'=>'Logger Admin','NamespacePrefix'=>'example','LicenseId'=>'0PL000000000001'});
                 records.add(new Map<String,Object>{'Id'=>'0PS000000000002','Name'=>'LoggerUser','Label'=>'Logger User','LicenseId'=>'100000000000001'});
@@ -36,5 +40,9 @@
         for(String mode:new List<String>{'denied','truncated'}){Boolean failed=false;try{discover(mode);}catch(Exception ex){failed=true;}System.assert(failed);}
         Boolean failed=false;try{AppAccessService.discover('bad','[]');}catch(Exception ex){failed=true;}System.assert(failed);
         failed=false;try{AppAccessService.discover('06m000000000001','invalid');}catch(Exception ex){failed=true;}System.assert(failed);
+    }
+    @IsTest static void unindexedAppUsesVerifiedUiIdentity(){
+        Map<String,Object> result=discover('fallback');System.assertEquals(5,((List<Object>)result.get('cards')).size());System.assert(!JSON.serialize(result.get('warnings')).contains('unambiguously'));
+        result=discover('mismatch');System.assert(JSON.serialize(result.get('warnings')).contains('does not match'));
     }
 }

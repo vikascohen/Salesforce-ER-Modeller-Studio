@@ -1,4 +1,4 @@
-import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource } from 'c/appModelLogic';
+import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource, appCardResults } from 'c/appModelLogic';
 const comp = (type,name) => ({type,name});
 it('follows only reached components, handles cycles and keeps inclusion evidence', async () => {
     const expand = jest.fn(async ({components}) => ({components: components.flatMap(c => ({
@@ -125,4 +125,12 @@ it('excludes Salesforce file tables from generated models while preserving custo
     expect(selected.hidden.map(row=>row.apiName)).toEqual(['ContentDocument','ContentDocumentLink','ContentVersion']);
     expect(selected.hidden.every(row=>row.category==='Salesforce files')).toBe(true);
     expect(result.objects).toContain('ContentVersion');
+});
+
+it('reports requested card results without inventing absent components or licences', () => {
+    const empty=appCardResults({includeComponents:true,includeAccess:true});
+    expect(empty.source).toBe('');expect(empty.notes.join(' ')).toContain('0 Apex classes, 0 Flows');expect(empty.notes.join(' ')).toContain('0 permission sets, 0 licences');
+    const actual=appCardResults({includeComponents:true,components:[{type:'ApexClass',name:'SalesService'},{type:'Flow',name:'Onboarding'},{type:'ApexClass',name:'SalesService'}],includeAccess:true,accessCards:[{type:'PermissionSet',name:'Admin',label:'Admin'}]});
+    expect(actual.notes.join(' ')).toContain('1 Apex class, 1 Flow');expect(actual.notes.join(' ')).toContain('1 permission set, 0 licences');expect(actual.notes.join(' ')).toContain('No explicit licence binding');
+    expect(appCardResults({components:[{type:'ApexClass',name:'Ignored'}]})).toEqual({source:'',notes:[]});
 });

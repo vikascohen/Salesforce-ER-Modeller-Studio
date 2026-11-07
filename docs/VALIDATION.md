@@ -27,7 +27,7 @@ The packaging test user is assigned `Diagram_Studio_User` through `apexTestAcces
 | Final service/frontend/help deployment in Crius | `0Afaj00000qmQzyCAE`, succeeded; 24/24 Apex tests passed |
 | New AppPageFieldService executable-line coverage | 100% in targeted tests |
 | AppModelController executable-line coverage | 92.31% in targeted tests |
-| JavaScript runs | Latest workspace: 32 suites, 275 passed, 10 existing skips; preceding Ubuntu source run: 32 suites, 273 passed, 10 existing skips |
+| JavaScript runs | Workspace and Ubuntu desktop: 32 suites, 277 passed, 10 existing skips |
 | Live Sales configuration before filtering | 199 field references across eight navigation objects |
 | Live Sales model pipeline after filtering | Latest file-table exclusion: 9 objects, 8 relationships, 181 retained fields, 4,441 DSL characters |
 | Evidence check | Every non-Id model field matched evidence; no full-schema fallback |
@@ -40,6 +40,14 @@ Class coverage above is not a new package-wide coverage measurement. Current sou
 ## Generated-model file table exclusion
 
 ContentDocument, ContentVersion and ContentDocumentLink are excluded by the app-generation scope filter. Custom objects with similar names remain eligible. A regression test confirms file and platform objects are still searchable in the unchanged drag palette, including after the initial display limit. Existing saved diagrams, typed DSL and manual import/search sources are not rewritten or filtered. The Ubuntu live Sales model pipeline retained only evidenced fields after file-table exclusion. This frontend change does not change Apex coverage.
+
+## Requested component/access card results
+
+The live Sales scope in Crius returned no verified Apex/Flow references and no explicit named permission-set/licence cards. Its AppMenuItem lookup also returned no matching entry. Added a verified selected-app UI metadata/TabSet fallback, rejecting mismatched identities instead of guessing by label. After the fix, Sales still correctly resolved no explicit grants, with the identity lookup gap removed.
+
+A Warden Studio control resolved eight Apex names and the **Warden Studio User** permission set. That set had no explicit licence binding; no licence card was invented. Positive Apex/Flow/licence card rendering remains covered by frontend fixtures.
+
+Access deployment `0Afaj00000qmbYnCAI` passed **4/4 Apex tests** with **100% AppAccessService executable-line coverage** and no coverage warnings. Frontend deployment `0Afaj00000qmP4cCAE` succeeded with zero component errors. The frontend shows requested-card counts/zero-result explanations after generation and persists them in DSL comments and Model Details. Tests cover empty results, real cards, deduplication, no invented licences and banner dismissal. Workspace and desktop suites passed **277 tests**, with 10 existing skips. This is a source enhancement requiring a subsequent installer build.
 
 ## Scanner regression
 

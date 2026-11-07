@@ -12,6 +12,20 @@ public with sharing class AppAccessService {
     private static void card(List<Object> cards,String type,String id,String label,String apiName,String evidence){
         cards.add(new Map<String,Object>{'type'=>type,'name'=>'Access_'+id,'label'=>label,'id'=>id,'apiName'=>apiName,'evidence'=>evidence});
     }
+    private static String selectedAppTarget(String appId,String developerName,String ns,List<String> warnings){
+        try{
+            HttpRequest req=new HttpRequest();req.setEndpoint('callout:Salesforce_Tooling_API/services/data/v60.0/ui-api/apps/'+appId+'?formFactor=Large&userCustomizations=false');req.setMethod('GET');req.setTimeout(30000);
+            HttpResponse res=new Http().send(req);if(res.getStatusCode()!=200)throw new AccessException('Selected app UI metadata is not readable.');
+            Map<String,Object> app=(Map<String,Object>)JSON.deserializeUntyped(res.getBody());
+            String name=str(app.get('developerName')),returnedId=str(app.get('appId'));
+            if(name==null||(!name.equalsIgnoreCase(developerName)&&!name.equalsIgnoreCase(String.valueOf(ns)+'__'+developerName)))throw new AccessException('Selected app identity does not match AppDefinition.');
+            if(returnedId!=null&&returnedId.left(15)!=appId.left(15))throw new AccessException('Selected app ID does not match its UI metadata.');
+            String start=str(app.get('startUrl'));if(start==null)throw new AccessException('Selected app has no TabSet reference.');
+            Matcher match=Pattern.compile('[?&]tsid=(02u[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)(?:[&#]|$)').matcher(start);
+            if(!match.find())throw new AccessException('Selected app TabSet reference is unavailable.');
+            return match.group(1);
+        }catch(Exception ex){warnings.add('App visibility grants could not be resolved unambiguously; only reached Apex class grants are checked. '+ex.getMessage().left(180));return null;}
+    }
     @AuraEnabled public static String discover(String appId,String componentsJson){
         if(String.isBlank(appId)||!Pattern.matches('^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$',appId))throw new AuraHandledException('Select a valid Salesforce app.');
         if(componentsJson==null||componentsJson.length()>64000)throw new AuraHandledException('App access component scope is missing or too large.');
@@ -25,7 +39,7 @@ public with sharing class AppAccessService {
         Map<String,Object> app=(Map<String,Object>)definitions[0];String developerName=str(app.get('DeveloperName')),ns=str(app.get('NamespacePrefix'));
         List<Object> menus=rows('SELECT ApplicationId FROM AppMenuItem WHERE Name IN ('+quote(developerName)+(String.isBlank(ns)?'':','+quote(ns+'__'+developerName))+') AND Type=\'TabSet\' LIMIT 2',false);
         if(menus.size()==1){String id=str(((Map<String,Object>)menus[0]).get('ApplicationId'));if(id!=null)targets.add(id);}
-        else warnings.add('App visibility grants could not be resolved unambiguously; only reached Apex class grants are checked.');
+        else {String id=selectedAppTarget(appId,developerName,ns,warnings);if(id!=null)targets.add(id);}
         for(Object item:input){Map<String,Object> c=(Map<String,Object>)item;String id=str(c.get('id'));if(c.get('type')=='ApexClass'&&id!=null&&Pattern.matches('^01p[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$',id))targets.add(id);}
         Set<String> permissionIds=new Set<String>(),licenseIds=new Set<String>();
         if(!targets.isEmpty()){

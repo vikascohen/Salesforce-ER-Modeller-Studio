@@ -9,7 +9,7 @@ import getLightningScope from '@salesforce/apex/AppModelController.getLightningS
 import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
 import discoverAppAccess from '@salesforce/apex/AppAccessService.discover';
 import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
-import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, buildAppComponentSource } from 'c/appModelLogic';
+import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, appCardResults } from 'c/appModelLogic';
 import resolveDslImports from '@salesforce/apex/DslFileService.resolveImports';
 import listDslComponentNames from '@salesforce/apex/AppModelController.listDslComponentNames';
 import { importStatements, exportedModuleNames, dslFileKey, DSL_COMPONENT_TYPES, componentDeclarations } from 'c/dslModules';
@@ -3314,10 +3314,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appModelDetailsOpen = false;
     appModelGeneratedSource = '';
     appModelSummary = '';
+    appCardResultsHidden = false;
+    get appCardResultNotice() { return this.appCardResultsHidden?'':(this.sourceText||'').split('\n').filter(line=>line.startsWith('# Card discovery: ')).map(line=>line.substring(18)).join(' '); }
+    handleDismissCardResults() { this.appCardResultsHidden=true; }
     get appModelDetailsMatch() { return !!this.appModelGeneratedSource && this.sourceText === this.appModelGeneratedSource; }
     get appModelDetailSummary() {
         if (this.appModelDetailsMatch) return this.appModelSummary;
-        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Source:|Snapshot:|Coverage:|Model scope:|Hidden platform objects:|Omitted audit fields:|Field scope:)/.test(line));
+        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Source:|Snapshot:|Coverage:|Model scope:|Hidden platform objects:|Omitted audit fields:|Field scope:|Card discovery:)/.test(line));
         return notes.length ? notes.map(line => line.substring(2)).join('\n') : 'No app-generation details are attached to the current diagram.';
     }
     async handleOpenAppModel() {
@@ -3516,8 +3519,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Source: ${rootMode==='lightning'?'Lightning component':'Salesforce app'}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: Scoped component field references'+(rootMode==='app'&&this.appUiFieldsEnabled?' and readable app-page configuration':'')+'; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
             let access={cards:[],warnings:[],reasons:[]};
             if(this.appIncludePlatform&&rootMode==='app'){progress('Reading named permission sets and licences…');access=JSON.parse(await discoverAppAccess({appId:this.selectedSalesforceApp,componentsJson:JSON.stringify(result.components)}));this._appAccessCards=access.cards;result.warnings.push(...access.warnings);result.reasons.push(...access.reasons);}
-            const componentSource = buildAppComponentSource([...(this.appIncludeComponents ? result.components : []),...access.cards]);
-            const source = header + access.warnings.map(warning=>'\n# Access coverage: '+comment(warning)).join('') + access.cards.map(card=>'\n# '+card.type+' '+comment(card.label)+': '+comment(card.evidence)).join('') + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component and access cards (configuration, not execution or required assignments)\n' + componentSource : '');
+            const cardResult = appCardResults({includeComponents:this.appIncludeComponents,components:result.components,includeAccess:this.appIncludePlatform&&rootMode==='app',accessCards:access.cards});
+            const componentSource = cardResult.source;
+            const source = header + cardResult.notes.map(note=>'\n# Card discovery: '+comment(note)).join('') + access.warnings.map(warning=>'\n# Access coverage: '+comment(warning)).join('') + access.cards.map(card=>'\n# '+card.type+' '+comment(card.label)+': '+comment(card.evidence)).join('') + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component and access cards (configuration, not execution or required assignments)\n' + componentSource : '');
             if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
             // Let the progress message paint before synchronous DSL/layout work.
             progress('Validating DSL and preparing the ER canvas…');
@@ -3548,7 +3552,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.appModelEvidence = result.reasons.map((message,index) => ({ key: String(index), message }));
             this.appModelStatus = `Generated ${objects.length} objects. ${this.appIncludePlatform ? access.cards.length + ' named access cards. ' : ''}${selection.hidden.length ? selection.hidden.length + ' system objects hidden by scope. ' : ''}${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
             this.appModelGeneratedSource = source;
-            this.appModelSummary = this.appModelStatus;
+            this.appModelSummary = [this.appModelStatus,...cardResult.notes].join(' ' );
+            this.appCardResultsHidden=false;
             this.appModelModalOpen = false;
             requestAnimationFrame(() => { this.handleFitModel(); this.template.querySelector('.code-editor')?.focus(); });
         } catch (error) { this.showAppModelError(error); }

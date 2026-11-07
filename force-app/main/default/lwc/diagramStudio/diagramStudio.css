@@ -1996,3 +1996,5 @@
 /* Current authoring validation is independent of retained diagnostic history. */
 .dsl-validation{flex-shrink:0;padding:8px 12px;border-left:3px solid #d69e2e;background:#fff7df;color:#644b13;font-size:11px;line-height:1.4;max-height:110px;overflow:auto;overflow-wrap:anywhere}
 .dsl-validation strong,.dsl-validation span,.dsl-validation small{display:block}.dsl-validation span{white-space:pre-wrap}.dsl-validation small{margin-top:3px}
+
+.app-card-results{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:8px 14px;border-bottom:1px solid #c9b879;background:#fff8df;color:#433719;font-size:12px;line-height:1.5}.app-card-results span{flex:1;min-width:0}.app-card-results button{flex-shrink:0;border:1px solid #c9b879;border-radius:4px;background:#fff;color:#433719;padding:4px 8px;cursor:pointer}
