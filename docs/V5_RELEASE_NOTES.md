@@ -16,7 +16,6 @@ V5 is the current development source on [`v5-app-er-model`](https://github.com/v
 | Canvas | Grouped fit layout, compact isolated rows, visible arrow tips, spaced labels/cardinalities, routed Relationship Insights edges, and loading feedback. |
 | Events and metadata | Drag-to-canvas filters, custom-type colours, dedicated sections, declared cross-section relationships and appropriate sharing/heatmap N/A behaviour. |
 | Scanner | Optional capability-gated standard OmniStudio discovery, explicit UI/Flow references, per-bundle UI transactions and large-source matching safeguards. |
-| Distribution | Crius Consulting branding, 2GP unlocked beta installer, packaged test-user permissions, setup guides and validation history. |
 
 The detailed sections below define each feature's scope and limits. Existing ER modelling, data dictionary, architecture analysis, field-usage and optional Hosted MCP feature families remain available. For compiler documentation, visit [Compiler.md](../Compiler.md).
 
