@@ -12,6 +12,7 @@ public with sharing class AppModelController {
         @AuraEnabled public Id runId;
         @AuraEnabled public Datetime scannedAt;
         @AuraEnabled public List<Component> components=new List<Component>();
+        @AuraEnabled public List<FieldUse> fieldUsage=new List<FieldUse>();
         @AuraEnabled public List<String> warnings=new List<String>();
     }
     public class FieldUse {
@@ -105,8 +106,15 @@ public with sharing class AppModelController {
         return types;
     }
     /** Primitive-only LWC boundary: inner Apex classes are not a supported input contract. */
-    @AuraEnabled public static String getAppScopeJson(String appId,Boolean includeUsage){
-        return JSON.serialize(getAppScope(appId,includeUsage));
+    @AuraEnabled public static String getAppScopeJson(String appId,Boolean includeUsage,Boolean includeUiFields){
+        Scope scope=getAppScope(appId,includeUsage);
+        if(includeUiFields==true){
+            if(scope.runId==null)throw new AuraHandledException('A successful V5 scan is required before app page modelling.');
+            String appMetadataId;for(Component c:scope.components)if(c.type=='CustomApplication'&&c.id!=null){appMetadataId=c.id;break;}
+            AppPageFieldService.Result pages=AppPageFieldService.discover(scope.appLabel,appMetadataId,scope.components);
+            scope.fieldUsage.addAll(pages.fields);scope.components.addAll(pages.pages);scope.warnings.addAll(pages.warnings);
+        }
+        return JSON.serialize(scope);
     }
     @AuraEnabled public static String expandScopeJson(Id runId,String componentsJson,String cursor,Boolean includeAutomation){
         if(String.isBlank(componentsJson)||componentsJson.length()>32000)throw new AuraHandledException('App component data is missing or too large. Reload the page and try again.');

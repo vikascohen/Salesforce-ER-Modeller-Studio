@@ -2,13 +2,19 @@
 
 V5 beta 5.0.0.1 is available on `v5-Beta`. See [installation details](V5_PACKAGE_RELEASE.md) and the [V5 release notes](V5_RELEASE_NOTES.md). It is a separate unlocked package from V4, not a verified in-place upgrade.
 
+## App page fields (source enhancement after installer 5.0.0.1)
+
+**Include fields configured on app pages** is enabled by default for Salesforce app sources. Explicit app-assigned Dynamic Forms fields are included. Readable navigation layouts use View/Large mode, the Tooling API principal and its default record type; shared layouts are not proof of app-exclusive or runtime usage. A record-detail page component can contribute its profile layout. Inaccessible overrides do not cause unrelated defaults to be assumed. Unsupported object layouts remain coverage warnings.
+
+Turn this option off for component-source field evidence alone. It is hidden in standalone component mode. A successful V5 scan is still required; page configuration is read live with its own provenance, not retroactively attributed to the scan timestamp. Neither source expands an object to all schema fields. The current 5.0.0.1 installer does not contain this enhancement; build a new beta version to install it elsewhere.
+
 ## Using the feature
 
 1. Save any diagram you are editing.
 2. Choose **File → Generate ER Model from App…**. The dialog loads available apps automatically. Choose **All apps**, **Custom apps** or **Standard apps** in the App type filter, then select a Salesforce app. Salesforce AppDefinition namespace metadata identifies standard apps; packaged apps with other namespaces are custom. Apps whose type cannot be identified remain available under All apps only.
 3. Run a successful V5 org scan first. Generation always follows scoped Flow, LWC and Apex evidence; it requires field evidence as well as object discovery.
 4. Optionally include object-triggered automation. This follows triggers and record-triggered flows for reached objects, including downstream objects; these are possible execution paths, not evidence of execution.
-5. Fields are fixed to **Fields used by this app only**. Name, audit fields and relationship fields appear only when the reached app components reference them. Id remains the structural key. Known system, security and licensing tables remain hidden in app-generated data models. The optional **Show permission set and licence names as access cards** resolves named access records separately; it does not turn those tables into entities. Standard business objects such as Account and Contact remain eligible. Click **Generate ER Model**.
+5. Fields come from scoped component evidence and, when enabled, readable configured app pages. Name, audit fields and relationship fields appear only when the reached app components reference them. Id remains the structural key. Known system, security and licensing tables remain hidden in app-generated data models. The optional **Show permission set and licence names as access cards** resolves named access records separately; it does not turn those tables into entities. Standard business objects such as Account and Contact remain eligible. Click **Generate ER Model**.
 6. The complete schema is loaded and parsed before a new diagram tab is created. The dialog closes, the DSL editor opens, and the canvas renders from that same editable source. Use **Diagram → Model Details…** to inspect inclusion evidence and coverage, then save normally. DSL edits continue to update the canvas; saving stores the same DSL source.
 
 Generation does not write object definitions or Salesforce business records. It uses the existing DSL compiler, renderer, fitting controls and diagram save path. Failed discovery, missing metadata, excessive scope or edits made during discovery leave the current model intact. The existing unsaved-tab implementation cannot recover unsaved source after switching tabs, so generation requires the current model to be saved first.

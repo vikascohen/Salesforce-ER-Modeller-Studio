@@ -3364,7 +3364,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get isSalesforceAppSource(){return this.appModelSource==='app';}
     get isLightningSource(){return this.appModelSource==='lightning';}
     get appRootSelectLabel(){return this.isLightningSource?'Lightning tab / component':'Salesforce app';}
-    get appFieldsLabel(){return this.isLightningSource?'Fields used by this component only':'Fields used by this app only';}
+    get appFieldsLabel(){return this.isLightningSource?'Fields used by this component only':this.appUiFieldsEnabled?'Fields from app components and configured pages':'Fields used by app components only';}
     get appRootPlaceholder(){return this.isLightningSource?'Select a Lightning component':'Select a Salesforce app';}
     get appAccessUnavailable(){return this.appModelBusy||this.isLightningSource;}
     async handleAppSourceChange(event){
@@ -3388,8 +3388,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : `No ${this.appTypeFilter} apps are available for the configured API user.`;
     }
     selectedSalesforceApp = '';
-    appUsedFieldsHelp = 'Only fields with recorded usage in components reached from the selected app are shown. Name is not added automatically. Id remains the structural key. Dynamic or unresolved field references are not guessed.';
+    appUsedFieldsHelp = 'Only fields evidenced by reached components or enabled readable app-page configuration are shown. Name is not added automatically. Id remains the structural key. Dynamic or unresolved field references are not guessed.';
     appAutomationEnabled = true;
+    appUiFieldsEnabled = true;
     appIncludeComponents = false;
     handleAppComponentsChange(event) { this.appIncludeComponents = event.target.checked; }
     appIncludePlatform = false;
@@ -3430,7 +3431,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         }
         if (error?.code === 'APP_FIELDS_NOT_RESOLVED') {
             this.appModelError = this.isLightningSource?'Component-used fields could not be established for this model.':'App-used fields could not be established for this model.';
-            this.appModelErrorHelp = 'The generator will not substitute every field on the object. Check that the scan includes readable Flow, LWC or Apex field references for the selected app. Dynamic references may not be resolvable.';
+            this.appModelErrorHelp = 'The generator will not substitute every field on the object. Enable configured app-page fields, or check that the scan includes readable Flow, LWC or Apex references for the selected app. Dynamic references may not be resolvable.';
             this.appModelScanRequired = false;
         }
         if (error?.code === 'DATA_CLOUD_FIELD_COVERAGE') {
@@ -3467,6 +3468,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appHasWarnings() { return this.appModelWarnings.length > 0; }
     get appHasEvidence() { return this.appModelEvidence.length > 0; }
     handleAppChange(event) { this._appAccessCards=[];this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
+    handleAppUiFieldsChange(event) { this.appUiFieldsEnabled = event.target.checked; }
     handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
     async handleLoadSalesforceApps() {
         const request=++this._appListRequest,source=this.appModelSource;
@@ -3496,7 +3498,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const progress = message => { this.appModelStatus = message; };
         progress(rootMode==='lightning'?'Reading the selected Lightning component and org scan…':'Reading the selected app and org scan…');
         try {
-            const scope = JSON.parse(await (rootMode==='lightning'?getLightningScope({sourceKey:rootValue}):getAppScope({ appId: rootValue, includeUsage: true })));
+            const scope = JSON.parse(await (rootMode==='lightning'?getLightningScope({sourceKey:rootValue}):getAppScope({ appId: rootValue, includeUsage: true, includeUiFields: this.appUiFieldsEnabled })));
             const result = await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress });
             if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
             const selection = selectAppObjects(result, { includePlatform: false, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
@@ -3511,7 +3513,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 throw error;
             }
             const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
-            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Source: ${rootMode==='lightning'?'Lightning component':'Salesforce app'}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: App-used fields from scoped scan evidence; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
+            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Source: ${rootMode==='lightning'?'Lightning component':'Salesforce app'}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: Scoped component field references'+(rootMode==='app'&&this.appUiFieldsEnabled?' and readable app-page configuration':'')+'; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
             let access={cards:[],warnings:[],reasons:[]};
             if(this.appIncludePlatform&&rootMode==='app'){progress('Reading named permission sets and licences…');access=JSON.parse(await discoverAppAccess({appId:this.selectedSalesforceApp,componentsJson:JSON.stringify(result.components)}));this._appAccessCards=access.cards;result.warnings.push(...access.warnings);result.reasons.push(...access.reasons);}
             const componentSource = buildAppComponentSource([...(this.appIncludeComponents ? result.components : []),...access.cards]);

@@ -2300,6 +2300,31 @@ describe('V5 app generation', () => {
         [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(item=>item.textContent.includes('Model Details')).click();await flushPromises();
     }
     afterEach(() => { while(document.body.firstChild)document.body.removeChild(document.body.firstChild); });
+    it('generates the canvas and DSL from explicit UI fields without scan field references', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}],fieldUsage:[{objectApiName:'Account',fieldApiName:'Description',sourceType:'Navigation page layout',componentName:'Sales / Account',location:'default record type'}],warnings:['UI configuration may be shared across apps.']}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue('{}');
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'},{apiName:'Description',dataType:'TEXTAREA'},{apiName:'Industry',dataType:'STRING'}]}]);
+        const el=await createAppStudio();
+        el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();await flushPromises();
+        expect(getScope).toHaveBeenCalledWith({appId:'06m000000000001',includeUsage:true,includeUiFields:true});
+        const source=el.shadowRoot.querySelector('.code-editor').value;
+        expect(source).toContain('readable app-page configuration');expect(source).toContain('Description');expect(source).not.toMatch(/entity Account[^\n]*Name/);expect(source).not.toMatch(/entity Account[^\n]*Industry/);
+        expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(1);
+    });
+    it('can disable UI configuration evidence and preserves the prior diagram on missing fields', async () => {
+        const getScope=require('@salesforce/apex/AppModelController.getAppScopeJson').default;
+        getScope.mockResolvedValue(JSON.stringify({appLabel:'Sales',runId:'run',components:[{type:'Object',name:'Account'}]}));
+        require('@salesforce/apex/AppModelController.expandScopeJson').default.mockResolvedValue('{}');
+        describeObjects.mockResolvedValue([{apiName:'Account',fields:[{apiName:'Name',dataType:'STRING'}]}]);
+        const el=await createAppStudio();const prior=el.shadowRoot.querySelector('.code-editor').value;
+        const ui=[...el.shadowRoot.querySelectorAll('lightning-input')].find(input=>input.label==='Include fields configured on app pages');ui.checked=false;ui.dispatchEvent(new CustomEvent('change'));
+        el.shadowRoot.querySelector('.app-model-select').dispatchEvent(new CustomEvent('change',{detail:{value:'06m000000000001'}}));await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.app-model-controls button')].find(b=>b.textContent.includes('Generate')).click();await flushPromises();await flushPromises();
+        expect(getScope).toHaveBeenCalledWith({appId:'06m000000000001',includeUsage:true,includeUiFields:false});
+        expect(el.shadowRoot.querySelector('.app-model-error')).not.toBeNull();expect(el.shadowRoot.querySelector('.code-editor').value).toBe(prior);
+    });
     it('V5 loads apps, generates into a new tab and uses the existing renderer', async () => {
         const listApps = require('@salesforce/apex/AppModelController.listApps').default;
         const getScope = require('@salesforce/apex/AppModelController.getAppScopeJson').default;

@@ -87,7 +87,7 @@
 
     @IsTest static void browserJsonBoundaryRetainsComponentMetadata(){
         Test.setMock(HttpCalloutMock.class,new ApiMock());
-        Map<String,Object> scope=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.getAppScopeJson('06m000000000001',false));
+        Map<String,Object> scope=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.getAppScopeJson('06m000000000001',false,false));
         System.assertEquals('Sales',(String)scope.get('appLabel'));System.assert(scope.get('components') instanceof List<Object>);
         String browserPayload='[{"type":"LightningComponentBundle","name":"salesPanel","id":"0Rb000000000001"}]';
         Map<String,Object> expansion=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.expandScopeJson(null,browserPayload,null,false));
@@ -163,5 +163,26 @@
         for(String value:new List<String>{'bad','ApexClass|01p000000000001','AuraDefinitionBundle|0Rb000000000001'}){failed=false;try{AppModelController.getLightningScopeJson(value);}catch(Exception ex){failed=true;}System.assert(failed);}
         for(String mode:new List<String>{'missing','ambiguous','denied'}){Test.setMock(HttpCalloutMock.class,new LightningRootMock(mode));failed=false;try{AppModelController.getLightningScopeJson('LightningComponentBundle|0Rb000000000001');}catch(Exception ex){failed=true;}System.assert(failed);}
         Test.setMock(HttpCalloutMock.class,new LightningRootMock('truncated'));failed=false;try{AppModelController.listLightningSources();}catch(Exception ex){failed=true;}System.assert(failed);
+    }
+    @IsTest static void pageEvidenceOptionStillRequiresSuccessfulSnapshot(){
+        Test.setMock(HttpCalloutMock.class,new ApiMock());Boolean rejected=false;
+        try{AppModelController.getAppScopeJson('06m000000000001',false,true);}catch(AuraHandledException ex){rejected=true;}System.assert(rejected);
+    }
+    private class PageScopeMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest request){
+            HttpResponse r=new HttpResponse();r.setStatusCode(200);String endpoint=EncodingUtil.urlDecode(request.getEndpoint(),'UTF-8');
+            if(endpoint.contains('/apps/'))r.setBody('{"label":"Sales","developerName":"Sales","startUrl":"/lightning/page/home?tsid=02u000000000001","navItems":[{"objectApiName":"Account"}]}');
+            else if(endpoint.contains('SELECT Metadata FROM CustomApplication'))r.setBody('{"done":true,"records":[{"Metadata":{"actionOverrides":[],"profileActionOverrides":[]}}]}');
+            else if(endpoint.contains('/ui-api/layout/Account'))r.setBody('{"objectApiName":"Account","recordTypeId":"012000000000000AAA","sections":[{"layoutComponents":[{"componentType":"Field","apiName":"Description"}]}]}');
+            else r.setBody('{"done":true,"records":[]}');return r;
+        }
+    }
+    @IsTest static void pageEvidenceIsExplicitAndDoesNotChangeLegacyOption(){
+        insert new Field_Usage_Run__c(Status__c='Completed',Is_Current__c=true,Object_Scan_Version__c=5);
+        Test.setMock(HttpCalloutMock.class,new PageScopeMock());Test.startTest();
+        Map<String,Object> scope=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.getAppScopeJson('06m000000000001',true,true));
+        System.assertEquals(1,((List<Object>)scope.get('fieldUsage')).size());
+        scope=(Map<String,Object>)JSON.deserializeUntyped(AppModelController.getAppScopeJson('06m000000000001',true,false));
+        System.assertEquals(0,((List<Object>)scope.get('fieldUsage')).size());Test.stopTest();
     }
 }

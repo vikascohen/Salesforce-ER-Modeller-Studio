@@ -9,7 +9,7 @@ V5 is the current development source on [`v5-Beta`](https://github.com/vikascohe
 | Area | Included in V5 |
 | --- | --- |
 | App selection and discovery | Custom/standard/all app filters, refresh, app-navigation traversal, LWC/Aura standalone roots, source switching safeguards and coverage guidance. |
-| Model generation | App-used fields only, scoped Apex/Flow/LWC/Aura evidence, optional object-triggered automation, progress, validated generated DSL and preservation of existing work on failure. |
+| Model generation | Evidenced fields only, optional app-page configuration plus scoped Apex/Flow/LWC/Aura evidence, optional object-triggered automation, progress, validated generated DSL and preservation of existing work on failure. |
 | Named cards | Apex/Flow identities, permission sets and actual licence/package bindings, optional JSON display labels, separate access section and platform-table exclusions. |
 | Compiler | Unique saved filenames, plain/named imports, inert exported modules, explicit use, additive inheritance, stable rename bindings, bounded resolution, conflicts and source-origin diagnostics. |
 | Editor | Expanded IntelliSense, label escaping, context-aware token replacement, current inline validation and separate persisted operation history. |
@@ -18,6 +18,14 @@ V5 is the current development source on [`v5-Beta`](https://github.com/vikascohe
 | Scanner | Optional capability-gated standard OmniStudio discovery, explicit UI/Flow references, per-bundle UI transactions and large-source matching safeguards. |
 
 The detailed sections below define each feature's scope and limits. Existing ER modelling, data dictionary, architecture analysis, field-usage and optional Hosted MCP feature families remain available. For compiler documentation, visit [Compiler.md](../Compiler.md).
+
+## App page field discovery — source enhancement after beta 5.0.0.1
+
+Salesforce app generation now offers **Include fields configured on app pages**, enabled by default in app mode. It adds explicit field items from readable app-assigned Lightning record pages and Dynamic Forms. Where applicable it reads navigation objects' View/Large page layouts for the Tooling API principal and default record type. These layouts can be shared by apps; fields are configuration evidence, not runtime observations. Provenance records the live read separately from the scan timestamp.
+
+Turn the option off for scoped component field references alone. Standalone LWC/Aura mode is unchanged. No object-info field collection or full-schema fallback is used. Unreadable assignment metadata does not trigger assumed default layouts; unsupported layouts are warnings. A successful existing V5 scan remains required, but this UI configuration is fetched on demand rather than persisted by a new scan.
+
+This source enhancement is deployed for testing in Crius. It is **not included in installer 5.0.0.1**; another package version is required for installed orgs.
 
 ## App-scoped ER generation
 

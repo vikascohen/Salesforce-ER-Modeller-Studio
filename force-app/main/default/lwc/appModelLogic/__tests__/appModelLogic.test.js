@@ -109,3 +109,11 @@ it('serializes named access cards with escaped labels and stable component ident
  expect(source).toContain('component PermissionSet Access_0PS1 label '+JSON.stringify('Logger Admin "Core"'));
  expect(source).toContain('component UserLicense Access_1001 label "Salesforce"');
 });
+
+it('merges page configuration evidence with reached source evidence without expanding schema', async () => {
+    const result=await collectAppScope({runId:'current',components:[comp('Object','Account')],fieldUsage:[{objectApiName:'Account',fieldApiName:'Description',sourceType:'Navigation page layout',componentName:'Sales / Account',location:'default record type'}]},async()=>({fieldUsage:[{objectApiName:'Account',fieldApiName:'Description',sourceType:'ApexClass',componentName:'Service'}]}));
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0].sources).toHaveLength(2);
+    expect(result.reasons.some(reason=>reason.includes('configures Description'))).toBe(true);
+    expect(result.fields.some(field=>field.fieldApiName==='Name')).toBe(false);
+});

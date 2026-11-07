@@ -106,7 +106,7 @@ During editing, incomplete `use` statements show current validation beside the e
 
 Completion covers DSL keywords, saved filenames, exported module names, named-import `from`, inheritance `extends`, entity/field references, the six card types, component identities and JSON-escaped labels. Apex/Flow name lookup uses the tooling connection; access names come from declarations/imports and the selected app's resolved cards. Completion tolerates incomplete source and does not guarantee that every suggested reference will resolve or be readable.
 
-For modular files, edit shared entity/field definitions in the DSL; canvas schema deletion and field reconciliation are guarded to avoid rewriting reusable definitions. Layout and dragging remain available. Ordinary flat-model editing continues to work. No org scan is required to author modules. App generation separately requires a successful suitable scan and writes the generated model back to the DSL before rendering.
+For modular files, edit shared entity/field definitions in the DSL; canvas schema deletion and field reconciliation are guarded to avoid rewriting reusable definitions. Layout and dragging remain available. Ordinary flat-model editing continues to work. No org scan is required to author modules. App generation separately requires a successful suitable scan and writes the generated model back to the DSL before rendering. The newer app-page option can also contribute readable UI configuration fields, with live provenance separate from the scan. It never adds the entire object schema.
 
 ## Implementation references
 

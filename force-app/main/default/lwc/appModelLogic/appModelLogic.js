@@ -8,7 +8,16 @@ export async function collectAppScope(scope, expand, { includeAutomation = true,
     const verifiedComponents = new Map();
     const reasons = new Set();
     const warnings = new Set(scope.warnings || []);
-    let frontier = scope.components || [];
+    let frontier = [...(scope.components || [])];
+    for (const field of scope.fieldUsage || []) {
+        if (!field.objectApiName || !field.fieldApiName) continue;
+        const key = `${field.objectApiName}.${field.fieldApiName}`.toLowerCase();
+        if (!fieldUsage.has(key)) fieldUsage.set(key, {objectApiName:field.objectApiName,fieldApiName:field.fieldApiName,sources:new Set()});
+        const source = `${field.sourceType || 'UI configuration'} ${field.componentName || ''}${field.location ? ' — ' + field.location : ''}`.trim();
+        fieldUsage.get(key).sources.add(source);
+        frontier.push({type:'Object',name:field.objectApiName});
+        reasons.add(`${source} → ${field.objectApiName}: configures ${field.fieldApiName}`);
+    }
     let requests = 0;
     while (frontier.length) {
         const batch = [];
@@ -122,14 +131,14 @@ export function prepareAppSchema(objects, { visibleNames, fieldUsage = [] } = {}
         used.get(object).add(field.fieldApiName.toLowerCase());
     }
     if (![...used.keys()].some(object => names.has(object))) {
-        const error = new Error('No field-level usage could be established for this app in the selected object scope. No model was created. The app needs resolvable field evidence in the org scan; fields will not be guessed or expanded to the full object schema.');
+        const error = new Error('No field-level usage could be established for this app in the selected object scope. No model was created. The app needs readable configured page fields or scoped component field references; fields will not be guessed or expanded to the full object schema.');
         error.code = 'APP_FIELDS_NOT_RESOLVED';throw error;
     }
     return objects.filter(object => names.has(object.apiName.toLowerCase())).map(object => {
         const fields = used.get(object.apiName.toLowerCase()) || new Set();
         const described = new Set((object.fields || []).map(field => field.apiName.toLowerCase()));
         const missing = [...fields].filter(field => field !== 'id' && !described.has(field));
-        if (missing.length) throw new Error(`Scanned app fields no longer match the org schema: ${object.apiName}.${missing.join(', ')}. Refresh the org scan before generating.`);
+        if (missing.length) throw new Error(`Evidenced app fields no longer match the org schema: ${object.apiName}.${missing.join(', ')}. Refresh page configuration and, if source references changed, the org scan before generating.`);
         return {...object,fields:(object.fields || []).filter(field => fields.has(field.apiName.toLowerCase()))};
     });
 }

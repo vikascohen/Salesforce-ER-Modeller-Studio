@@ -1,5 +1,22 @@
 # V5 validation record
 
+## 8 November 2026 — Sales app page field discovery
+
+Reproduced the standard Sales failure in Crius with a completed V5 scan: navigation resolved 13 objects but component traversal returned zero scoped fields with automation off. App metadata exposed no app-specific View overrides; UI API returned explicit readable View/Large layout fields.
+
+Added the opt-in app-page discovery boundary (enabled by default in Salesforce app mode), explicit Dynamic Forms fields, record-detail layout handling, assignment/identity checks, source timestamps and bounded traversal. Turning the option off preserves component-only discovery; standalone Lightning mode is unchanged. Unreadable assignments never assume defaults and layout metadata never expands to object-info fields. UI configuration is live and principal/default-record-type scoped, not proof of runtime execution or app-exclusive usage.
+
+- Initial Apex deployment `0Afaj00000qmUAjCAM`: 24/24 tests passed.
+- Final service/frontend/help deployment `0Afaj00000qmQzyCAE`: succeeded; 24/24 Apex tests passed and no component/test failures.
+- AppPageFieldService: **100% executable-line coverage**; AppModelController: **92.31%** in the targeted test run. These are class coverage results, not a newly measured package-wide coverage percentage.
+- Full JavaScript suite on the workspace and Ubuntu desktop: **32 suites, 273 passed, 10 existing skips**. Tests include UI-only generation into DSL/canvas, option-off preservation, missing source fields and source/page evidence merging.
+- Live Sales call in Crius: **199 configured field references across 8 navigation objects before platform filtering**. Expected unsupported layouts returned warnings.
+- Ran actual production `collectAppScope`, `selectAppObjects`, `prepareAppSchema`, `buildErSource` and `parseEr` against live metadata on the desktop: **10 objects, 8 relationships, 185 retained fields, 4,562 DSL characters**, and every non-Id model field matched evidence. No saved diagram or business record was changed. This is an API/model pipeline check, not a claim of completed manual visual acceptance.
+- New service and test classes are included in the complete V5 manifest; local documentation links were checked.
+
+The deployed source is available for Crius testing. Existing beta installer **5.0.0.1 is unchanged**; installed subscriber orgs need a subsequent package build to receive this enhancement. Real profile/record-type variation and assigned Dynamic Forms are covered by fixture tests; the live Sales org exercised default layouts.
+
+
 ## 8 November 2026 — V5 beta packaging
 
 The initial build failed two user-mode DSL import tests because the packaging test user lacked the shipped field permissions. The field metadata was present. Added package-directory `apexTestAccess.permissionSets = ["Diagram_Studio_User"]`; sharing and field-security enforcement remain unchanged.

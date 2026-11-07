@@ -27,6 +27,8 @@ The DSL editor and canvas work without an org scan. App-based generation require
 
 ## What is included in V5?
 
+The branch also contains an app-page field discovery enhancement tested in Crius. It requires a newer package build; installer 5.0.0.1 remains unchanged.
+
 See the **[V5 release notes](docs/V5_RELEASE_NOTES.md)** for the full list of V5 features, fixes, compatibility and coverage limits: app-used fields, named component/access cards, reusable DSL modules, IntelliSense, canvas improvements and optional OmniStudio discovery.
 
 ## Documentation

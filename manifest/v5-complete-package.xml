@@ -72,6 +72,8 @@
     <members>SchemaMetadataControllerTest</members>
     <members>StudioDiagnosticsController</members>
     <members>StudioDiagnosticsControllerTest</members>
+    <members>AppPageFieldService</members>
+    <members>AppPageFieldServiceTest</members>
     <name>ApexClass</name>
   </types>
   <types>
