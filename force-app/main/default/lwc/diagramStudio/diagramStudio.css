@@ -1946,7 +1946,8 @@
 .app-model-generate{background:#175cd3;border-color:#175cd3;color:#fff;font-weight:600}
 .app-model-dialog button:disabled{opacity:.5;cursor:default}
 .app-model-details{font-size:12px;margin-top:14px}
-.app-model-details summary{cursor:pointer;font-weight:600}
+.app-model-details summary{display:list-item;list-style:disclosure-closed inside;cursor:pointer;font-weight:600}
+.app-model-details[open] summary{list-style-type:disclosure-open}
 .app-model-details p{margin:6px 0;overflow-wrap:anywhere}
 
 .app-model-error{border:1px solid #fda29b;border-left:4px solid #d92d20;background:#fef3f2;color:#912018;border-radius:6px;padding:12px;margin-top:16px;font-size:13px;line-height:1.5}

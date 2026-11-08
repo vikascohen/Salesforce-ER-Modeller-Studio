@@ -100,6 +100,7 @@ public with sharing class SchemaMetadataController {
             List<String> fieldKeys = new List<String>(fieldMap.keySet());
             fieldKeys.sort();
             for (String fieldKey : fieldKeys) {
+                try {
                 Schema.DescribeFieldResult fd = fieldMap.get(fieldKey).getDescribe();
                 if (fd.getType() != Schema.DisplayType.REFERENCE) continue;
                 List<Schema.SObjectType> refs = fd.getReferenceTo();
@@ -119,6 +120,11 @@ public with sharing class SchemaMetadataController {
                     row.targetObject = targetName;
                     row.relationshipType = relationshipType;
                     result.add(row);
+                }
+                } catch (System.SObjectException inaccessibleField) {
+                    // Some licensed standard fields throw during describe even for admins.
+                    // Skip only that unavailable relationship; retain all other evidence.
+                    continue;
                 }
             }
         }

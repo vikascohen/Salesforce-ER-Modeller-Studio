@@ -2673,7 +2673,7 @@ describe('V5 app generation', () => {
             const input=[...el.shadowRoot.querySelectorAll('lightning-input')].find(x=>x.label===label);input.checked=true;input.dispatchEvent(new CustomEvent('change'));
         }
         el.shadowRoot.querySelector('.app-model-generate').click();await flushPromises();await flushPromises();await flushPromises();
-        const banner=el.shadowRoot.querySelector('.app-card-results');expect(banner).not.toBeNull();expect(banner.textContent).toContain('0 Apex classes, 0 Flows');expect(banner.textContent).toContain('0 permission sets, 0 licences');
+        const banner=el.shadowRoot.querySelector('.app-card-results');expect(banner).not.toBeNull();expect(banner.textContent).toContain('Model generated. Some requested cards were not found.');expect(banner.textContent).not.toContain('0 Apex classes');expect(banner.textContent).not.toContain('0 permission sets');
         const source=el.shadowRoot.querySelector('.code-editor').value;expect(source).toContain('# Card discovery:');expect(source).not.toContain('component ApexClass');expect(el.shadowRoot.querySelector('.entity-group[data-name="Account"]')).not.toBeNull();
         banner.querySelector('button').click();await flushPromises();expect(el.shadowRoot.querySelector('.app-model-status').textContent).toContain('0 permission sets');
         el.shadowRoot.querySelector('.app-card-results button[aria-label]').click();await flushPromises();expect(el.shadowRoot.querySelector('.app-card-results')).toBeNull();

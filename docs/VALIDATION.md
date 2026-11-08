@@ -70,3 +70,16 @@ Live Crius checks reproduced `UNSUPPORTED_API_VERSION` for Task/Event at UI API 
 CollaborationGroup and Dashboard returned INVALID_TYPE (unsupported UI API objects), while Report returned INVALID_TYPE (not layoutable). Known API error codes now produce capability/version explanations instead of a bare HTTP failure; raw error-body details are not exposed. No schema fallback or manual search exclusion was added.
 
 Crius deployment `0Afaj00000qo0bZCAQ` succeeded with 25/25 targeted Apex tests and zero component errors. Tests verify the layout API version and safe unsupported/version diagnostics. The unchanged JavaScript baseline passed 32 suites, 277 tests, with 10 existing skips. Installed beta 5.0.0.1 does not include this source fix.
+
+## Parallel Crius / PSS source deployment
+
+The compact generation banner keeps counts and explanations in Model Details and saved DSL comments. Inclusion reasons now open expanded, with visible disclosure indicators. The previously blank-looking section was collapsed, not missing evidence.
+
+| Target | Full-source deployment | Apex result |
+| --- | --- | --- |
+| Original Crius Developer Edition | `0Afaj00000qo6vVCAQ` | 194/194 passed; 168 components; no coverage warnings |
+| Crius Consulting Limited PSS Enterprise trial | `0AfQE00000BKFz30AH` | 194/194 passed; 168 components; no coverage warnings |
+
+Both deployments ran in parallel from the same source. JavaScript: 32 suites, 277 passed, 10 existing skips. Earlier failed deployment attempts rolled back. Clean-org validation exposed user-mode import test setup requirements, inaccessible PSS field metadata, and an empty exclusion setting returning null. Tests now execute imports as a dedicated user assigned Diagram_Studio_User; runtime user-mode security is unchanged. Schema relationship enumeration skips individual SObjectException failures on inaccessible licensed fields. Empty saved exclusions normalize to an empty string/set. Settings tests exercise exclusions and bounded MCP-only history filtering.
+
+PSS preflight found only the Sales Insights installed package, no matching core Studio classes, and ample storage. Standard OmniProcess, OmniDataTransform and OmniUiCard objects were queryable but each had zero records; installed-Omni content acceptance therefore remains pending. There were 334 permission-set licence records; that inventory is not evidence of selected-app licence use. PSS had no Named Credential and requires its own Tooling API OAuth configuration before scanning. No package was promoted and no branch was merged.

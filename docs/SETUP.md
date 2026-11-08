@@ -50,7 +50,7 @@ If the page loads but scanning fails, check authentication, API permissions and 
 
 Name, audit and relationship fields need field evidence; Id remains structural. The generator never substitutes all object fields when evidence is missing. Unsupported Salesforce screens/layouts and inaccessible/dynamic source can remain unresolved. Page configuration is read live with its own provenance; component references use the scan snapshot. Refresh imports after saving shared library edits. See [Compiler.md](../Compiler.md) for modules and syntax.
 
-The card options request discovery, not guaranteed nonzero cards. Generation shows Apex/Flow and access counts above the workspace and retains them in Model Details/DSL comments. Sales can return no readable Apex/Flow references or explicit permission-set/licence records; this is different from hiding returned cards.
+The card options request discovery, not guaranteed nonzero cards. Generation shows a compact, dismissible result above the workspace. Detailed Apex/Flow and access counts remain in Model Details and DSL comments; inclusion reasons open expanded with a visible disclosure indicator. Sales can return no readable Apex/Flow references or explicit permission-set/licence records; this is different from hiding returned cards.
 
 Named access cards describe explicit app visibility/reached Apex grants and actual licence/package references. They do not prove mandatory assignments or every access route. Security/licensing schema tables are not a substitute for named cards.
 

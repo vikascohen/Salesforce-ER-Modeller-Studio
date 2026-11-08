@@ -3315,7 +3315,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     appModelGeneratedSource = '';
     appModelSummary = '';
     appCardResultsHidden = false;
-    get appCardResultNotice() { return this.appCardResultsHidden?'':(this.sourceText||'').split('\n').filter(line=>line.startsWith('# Card discovery: ')).map(line=>line.substring(18)).join(' '); }
+    get appCardResultNotice() {
+        if (this.appCardResultsHidden) return '';
+        const notes = (this.sourceText || '').split('\n').filter(line => line.startsWith('# Card discovery: '));
+        if (!notes.length) return '';
+        return notes.some(note => /No (readable|explicit) /.test(note))
+            ? 'Model generated. Some requested cards were not found.'
+            : 'Model generated. Discovery results are available in Model Details.';
+    }
     handleDismissCardResults() { this.appCardResultsHidden=true; }
     get appModelDetailsMatch() { return !!this.appModelGeneratedSource && this.sourceText === this.appModelGeneratedSource; }
     get appModelDetailSummary() {

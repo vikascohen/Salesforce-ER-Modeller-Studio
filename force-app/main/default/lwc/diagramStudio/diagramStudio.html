@@ -324,7 +324,7 @@
                             </tbody></table></div>
                         </template>
                         <template if:true={appHasWarnings}><details class="app-model-details" open><summary>Coverage and limitations</summary><template for:each={appModelWarnings} for:item="warning"><p key={warning.key}>{warning.message}</p></template></details></template>
-                        <template if:true={appHasEvidence}><details class="app-model-details"><summary>Why objects were included</summary><template for:each={appModelEvidence} for:item="evidence"><p key={evidence.key}>{evidence.message}</p></template></details></template>
+                        <template if:true={appHasEvidence}><details class="app-model-details" open><summary>Why objects were included</summary><template for:each={appModelEvidence} for:item="evidence"><p key={evidence.key}>{evidence.message}</p></template></details></template>
                     </template>
                 </div>
                 <div class="modal-footer"><button class="app-model-cancel" onclick={handleCloseAppModelDetails}>Close</button></div>
