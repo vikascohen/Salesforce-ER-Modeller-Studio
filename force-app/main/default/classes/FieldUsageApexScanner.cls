@@ -160,9 +160,7 @@ public without sharing class FieldUsageApexScanner {
     }
     private static Map<String,String> fieldsFor(String objectName,Map<String,Schema.SObjectType> describe,Map<String,Map<String,String>> cache){
         if(!cache.containsKey(objectName)){
-            Map<String,String> fields=new Map<String,String>();
-            for(String name:describe.get(objectName).getDescribe().fields.getMap().keySet())
-                fields.put(name.toLowerCase(),describe.get(objectName).getDescribe().fields.getMap().get(name).getDescribe().getName());
+            Map<String,String> fields=FieldUsageSchemaAccess.canonicalNames(describe.get(objectName).getDescribe().fields.getMap());
             cache.put(objectName,fields);
         }
         return cache.get(objectName);
@@ -254,7 +252,7 @@ public without sharing class FieldUsageApexScanner {
     ) {
         for (String name : fields.keySet()) {
             if (name.equalsIgnoreCase(candidate)) {
-                return fields.get(name).getDescribe().getName();
+                return FieldUsageSchemaAccess.fieldName(fields.get(name));
             }
         }
         return null;

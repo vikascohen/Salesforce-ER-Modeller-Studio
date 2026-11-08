@@ -73,6 +73,10 @@ In **Settings → MCP Server**, action switches control execution and cooldown c
 
 Run **Settings → Diagnostics** after credential or permission changes. Current editor validation clears when corrected; the Error Log badge represents recorded operation history. Optional logging maps to an existing object chosen in **Error Log Configuration**. It is Studio-scoped, best-effort and can be rolled back with a failed transaction; it is not org-wide monitoring or a tamper-proof audit trail.
 
+**ER Modeller Studio Health Check → Scan Metadata Access** checks Public Sector licence availability and a bounded set of relevant object/field metadata. Its table names each object and field, the finding, and the Read-only action in **Diagram Studio User → Object Settings**. Only object Read and field Read are recommended; permissions are never changed automatically. Metadata-unavailable findings can require applicable licensing or Salesforce capability support, so granting Read is not presented as a guaranteed fix. Orgs without detected PSS receive an informational result; uncertain detection and safety limits are reported explicitly.
+
+The check reads schema and setup metadata, not business records. It checks the running user, not a different Named Credential principal. Object/field Read can permit access to records under existing sharing; it is not a metadata-only permission. No Edit, View All or Modify All grant is required by this guidance. Re-run Health Check after an administrator reviews the listed gaps. The separate Tooling API Connection check must also pass.
+
 For support, capture the exact error, source/package version, Diagnostics result and scan/job identity. Never include authentication material. Preserve useful error detail before requesting cleanup.
 
 ## Source deployment and package builds

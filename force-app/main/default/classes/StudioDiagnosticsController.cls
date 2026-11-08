@@ -15,7 +15,7 @@ public with sharing class StudioDiagnosticsController {
     }
 
     public class CheckDTO {
-        @AuraEnabled public String key; @AuraEnabled public String label; @AuraEnabled public String status; @AuraEnabled public String detail; @AuraEnabled public String remediation; @AuraEnabled public String diagnosis; @AuraEnabled public List<String> actions=new List<String>();
+        @AuraEnabled public String key; @AuraEnabled public String label; @AuraEnabled public String status; @AuraEnabled public String detail; @AuraEnabled public String remediation; @AuraEnabled public String diagnosis; @AuraEnabled public List<String> actions=new List<String>(); @AuraEnabled public List<ScanMetadataAccessCheck.Gap> accessGaps=new List<ScanMetadataAccessCheck.Gap>();
         public CheckDTO(String k,String l,String s,String d,String r){key=k;label=l;status=s;detail=d;remediation=r;}
         public CheckDTO withDiagnosis(String v){diagnosis=v;return this;}
         public CheckDTO withActions(List<String> v){actions=v==null?new List<String>():v;return this;}
@@ -113,6 +113,16 @@ public with sharing class StudioDiagnosticsController {
         d.checks.add(new CheckDTO('scheduler','Scheduler','Passed',schedules+' automatic Field Usage schedule(s) enabled.',null));
         try { FieldUsageToolingApiClient.assertConnectionReady(); d.checks.add(new CheckDTO('tooling','Tooling API Connection','Passed','Salesforce Tooling API '+TOOLING_API_VERSION+' authenticated successfully.',null)); }
         catch(Exception ex){ d.checks.add(new CheckDTO('tooling','Tooling API Connection','Failed',safeMessage(ex),'Review Named Credential, External Credential Principal Access and API permissions.').withDiagnosis('Tooling API authentication/configuration issue').withActions(new List<String>{'Confirm Salesforce_Tooling_API exists.','Confirm External Credential Principal Access is assigned.','Confirm the running user has API access.','Re-authenticate the External Credential if required.','Run Diagnostics again.'})); }
+        ScanMetadataAccessCheck.Result scanAccess=ScanMetadataAccessCheck.inspect();
+        CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',
+            scanAccess.totalGaps>0||scanAccess.partial?'Attention':scanAccess.detected?'Passed':'Information',
+            scanAccess.detected?'Public Sector licence metadata detected. Checked '+scanAccess.objects+' available objects and '+scanAccess.fields+' fields for '+UserInfo.getUserName()+'. '+scanAccess.totalGaps+' access/metadata gap(s).':scanAccess.partial?'Public Sector availability could not be verified.':'No Public Sector licence metadata detected; PSS-specific checks are not applicable.',
+            scanAccess.totalGaps>0?'Review the listed items in Diagram Studio User. Only object Read and field Read are recommended. Permissions are not changed automatically.':null);
+        accessCheck.accessGaps=scanAccess.gaps;
+        accessCheck.diagnosis='Metadata inspection only; no business records are read. This checks the current user, not a different Named Credential principal. Licence-bound objects and available Public Sector schema probes are checked; this is not a guarantee of complete org coverage.';
+        if(scanAccess.partial)accessCheck.detail+=' Partial check: metadata was unavailable or a safety limit was reached; up to 100 gaps are shown.';
+        if(scanAccess.note!=null)accessCheck.detail+=' '+scanAccess.note;
+        d.checks.add(accessCheck);
         Integer failed=0,attention=0; for(CheckDTO c:d.checks){if(c.status=='Failed')failed++;else if(c.status=='Attention')attention++;}
         d.overallStatus=failed>0?'Configuration Required':attention>0?'Attention Required':'Application Ready';
         d.summary=failed>0?failed+' diagnostic check(s) failed.':attention>0?attention+' item(s) need attention.':'All required diagnostic checks passed.';

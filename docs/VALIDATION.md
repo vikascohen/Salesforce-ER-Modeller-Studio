@@ -95,3 +95,13 @@ Parallel targeted deployments succeeded in original Crius (`0Afaj00000qo9VBCAY`)
 Permission-set evidence now uses separate short lines for the named set, app visibility and a sorted, deduplicated Apex class list with its count. Repeated per-class app explanations were removed; detailed coverage limitations remain in their own section. The UI preserves line breaks in compact reason blocks and moves metadata dependency references into a collapsed, counted Component references section without discarding them.
 
 Parallel deployments succeeded in Crius (`0Afaj00000qoD0vCAE`) and PSS (`0AfQE00000BKF300AH`), each with 5/5 access tests and no component errors or coverage warnings. JavaScript passed 32 suites and 277 tests, with 10 existing skips. No scan restart or scan-data mutation was performed.
+
+## PSS metadata resilience and Health Check
+
+Parallel full-source deployments succeeded: Crius `0Afaj00000qpLcLCAU` and PSS `0AfQE00000BKJkv0AH`, each with **200/200 Apex tests**, no component errors or coverage warnings. A final unknown-detection wording correction passed 5/5 diagnostics tests in each org: Crius `0Afaj00000qpM29CAE`, PSS `0AfQE00000BKJmX0AX`. JavaScript passed all 32 suites, 277 tests, with 10 existing skips. Two initial five-second timeouts passed on the full rerun with a fifteen-second timeout; there were no initial assertion failures.
+
+Live metadata-only Health Check under the CLI-connected PSS user detected Public Sector licensing and reported 92 gaps across 50 objects and 938 fields, explicitly marked partial. BenefitDisbursement StartDate, EndDate and ApprovalStatus were reported as metadata unavailable; other fields were identified as missing Read. Original Crius reported PSS not applicable. These results are scoped to the tested user and bounded check, not whole-org access certification.
+
+A live replay of the discovery path for BenefitDisbursement, Account and a nonexistent industry object completed in both orgs. Unavailable fields produced schema-coverage warnings instead of aborting discovery. Temporary Studio run records were rolled back; business records and saved diagrams were untouched. No complete replacement org scan has been accepted yet.
+
+The Tooling connection check passed in Crius. The CLI-connected PSS user could not access the Salesforce_Tooling_API credential; its credential/principal access must be verified separately before a full scan. This does not establish whether another user has configured or authenticated that credential. No permissions were granted automatically, package promoted or branch merged.

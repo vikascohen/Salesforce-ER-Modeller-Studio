@@ -21,7 +21,7 @@ public without sharing class FieldUsageOmniScanner {
         for(String name:new List<String>{'OmniProcess','OmniProcessElement','OmniDataTransform','OmniDataTransformItem'}){
             Schema.SObjectType token=gd.get(name);if(token==null)continue;Schema.DescribeSObjectResult d=token.getDescribe();
             if(!d.isQueryable()||!d.isAccessible())continue;
-            Set<String> fields=new Set<String>();for(Schema.SObjectField field:d.fields.getMap().values())if(field.getDescribe().isAccessible())fields.add(field.getDescribe().getName());
+            Set<String> fields=new Set<String>();for(Schema.SObjectField field:d.fields.getMap().values()){String fieldName=FieldUsageSchemaAccess.fieldName(field);if(fieldName!=null)fields.add(fieldName); }
             out.put(name,fields);
         }
         return out;
@@ -123,6 +123,6 @@ public without sharing class FieldUsageOmniScanner {
     private static void addField(List<Field_Usage_Evidence__c> out,Id runId,String type,String name,String id,String objectName,String fieldName,String location){
         objectName=ObjectUsageScanner.canonical(objectName);if(objectName==null||String.isBlank(fieldName))return;
         Map<String,Schema.SObjectField> fields=Schema.getGlobalDescribe().get(objectName).getDescribe().fields.getMap();Schema.SObjectField field=fields.get(fieldName);if(field==null)return;
-        fieldName=field.getDescribe().getName();out.add(new Field_Usage_Evidence__c(Run__c=runId,Object_API_Name__c=objectName,Field_API_Name__c=fieldName,Field_Key__c=objectName+'.'+fieldName,Source_Type__c=type,Component_Name__c=name,Component_Id__c=id,Location__c=location,Evidence_Type__c='OmniStudio Configuration',Confidence__c='High',Observed_At__c=System.now(),Occurrence_Count__c=1,Evidence__c='Validated static OmniStudio object/field mapping'));
+        fieldName=FieldUsageSchemaAccess.fieldName(field);if(fieldName==null)return;out.add(new Field_Usage_Evidence__c(Run__c=runId,Object_API_Name__c=objectName,Field_API_Name__c=fieldName,Field_Key__c=objectName+'.'+fieldName,Source_Type__c=type,Component_Name__c=name,Component_Id__c=id,Location__c=location,Evidence_Type__c='OmniStudio Configuration',Confidence__c='High',Observed_At__c=System.now(),Occurrence_Count__c=1,Evidence__c='Validated static OmniStudio object/field mapping'));
     }
 }

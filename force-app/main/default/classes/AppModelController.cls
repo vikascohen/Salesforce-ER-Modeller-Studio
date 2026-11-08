@@ -71,9 +71,10 @@ public with sharing class AppModelController {
         Map<String,Object> identityPage=get('/tooling/query/?q='+EncodingUtil.urlEncode('SELECT Id FROM '+parts[0]+' WHERE DeveloperName=\''+String.escapeSingleQuotes(name)+'\' LIMIT 2','UTF-8'));
         List<Object> identities=items(identityPage.get('records'));if(identities.size()!=1||appKey(str(((Map<String,Object>)identities[0]).get('Id')))!=appKey(id))throw new AuraHandledException('This component name is ambiguous across namespaces in the scan. No mixed-source model was created.');
         Scope scope=new Scope();scope.appLabel=lightningLabel(parts[0],name,str(row.get('NamespacePrefix')));scope.components.add(component(parts[0],name,id));
-        List<Field_Usage_Run__c> runs=[SELECT Id,Completed_At__c,Object_Scan_Version__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
+        List<Field_Usage_Run__c> runs=[SELECT Id,Completed_At__c,Object_Scan_Version__c,Progress_Log__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
         if(runs.isEmpty()||runs[0].Object_Scan_Version__c!=5)throw new AuraHandledException('Run a successful V5 org scan first to model Lightning component fields.');
         scope.runId=runs[0].Id;scope.scannedAt=runs[0].Completed_At__c;
+        if(runs[0].Progress_Log__c!=null&&runs[0].Progress_Log__c.contains('[Schema coverage]'))scope.warnings.add('Scan coverage is limited: some field metadata was unavailable. Review the scan log and Health Check > Scan Metadata Access.');
         scope.warnings.add('Lightning component-root model: follows only the selected LWC/Aura bundle and its reached dependencies, not every containing Salesforce app.');
         scope.warnings.add('Static field evidence only. Dynamic objects, inaccessible managed source and excluded components may be unresolved. A modeller component does not imply use of every object it can display.');
         return JSON.serialize(scope);
@@ -162,9 +163,10 @@ public with sharing class AppModelController {
         }
         resolveComponentIds(scope.components,scope.warnings);
         if(includeUsage==true){
-            List<Field_Usage_Run__c> runs=[SELECT Id,Completed_At__c,Object_Scan_Version__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
+            List<Field_Usage_Run__c> runs=[SELECT Id,Completed_At__c,Object_Scan_Version__c,Progress_Log__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Status__c='Completed' ORDER BY Completed_At__c DESC LIMIT 1];
             if(runs.isEmpty()||runs[0].Object_Scan_Version__c!=5)throw new AuraHandledException('Run a successful V5 org scan first to include Flow, LWC and Apex object usage. Existing V4 field snapshots do not contain object-level evidence.');
             scope.runId=runs[0].Id;scope.scannedAt=runs[0].Completed_At__c;
+        if(runs[0].Progress_Log__c!=null&&runs[0].Progress_Log__c.contains('[Schema coverage]'))scope.warnings.add('Scan coverage is limited: some field metadata was unavailable. Review the scan log and Health Check > Scan Metadata Access.');
             scope.warnings.add('Static evidence only. Dynamic object names, dynamic component loading, managed-package source, excluded Apex classes and unsupported Salesforce dependency types may be missing.');
             scope.warnings.add('App membership follows the dependencies Salesforce exposes. Shared component references and object automation indicate potential use, not proof that a user executed a path.');
         }

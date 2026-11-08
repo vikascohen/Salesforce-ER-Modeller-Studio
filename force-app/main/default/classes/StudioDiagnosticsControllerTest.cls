@@ -22,6 +22,7 @@ private class StudioDiagnosticsControllerTest {
         System.assertEquals(true,dto.snapshotAvailable);System.assertEquals('Completed',dto.snapshotStatus);System.assertEquals(4,dto.dependencyCount);System.assertEquals(1,dto.snapshotErrors);System.assertEquals(100,dto.scanProgressPercent);System.assertEquals('Snapshot ready',dto.scanPhase);System.assertEquals(1,dto.enabledSchedules);
     }
     @IsTest static void healthyDiagnosticsProveToolingConnection(){
+        ScanMetadataAccessCheck.objectsOverride=new Set<String>();
         Test.setMock(HttpCalloutMock.class,new ToolingOkMock());Test.startTest();StudioDiagnosticsController.DiagnosticDTO dto=StudioDiagnosticsController.runDiagnostics();Test.stopTest();
         System.assertEquals('Application Ready',dto.overallStatus);System.assert(dto.checks.size()>=6);Boolean toolingPassed=false;for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='tooling'&&c.status=='Passed')toolingPassed=true;System.assert(toolingPassed,'Tooling API must be proven by an authenticated preflight.');System.assert(dto.summary.contains('passed'));System.assertNotEquals(null,dto.completedAt);
     }

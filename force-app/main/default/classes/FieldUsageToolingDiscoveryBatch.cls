@@ -53,6 +53,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
             }
         }
         if(!allUnits.isEmpty()){Database.SaveResult[] results=Database.insert(allUnits,false);for(Database.SaveResult result:results)if(!result.isSuccess())throw new FieldUsageToolingApiClient.ToolingApiException('Could not checkpoint bulk Tooling API discovery: '+result.getErrors()[0].getMessage());}
+        FieldUsageSchemaAccess.persistWarnings(runId);
         update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered dependency metadata');
     }
 
