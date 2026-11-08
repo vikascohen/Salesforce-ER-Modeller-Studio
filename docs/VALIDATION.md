@@ -89,3 +89,9 @@ PSS preflight found only the Sales Insights installed package, no matching core 
 Access explanations are now assembled after resolving permission-set labels/API names. Grants are grouped under the named permission set, identify the selected app or reached Apex class, and explain why the access card was included. App display labels come from verified AppDefinition identity; class names come from the reached component scope. ID keys normalize 15/18-character forms. Unresolved names are explicitly labelled unavailable, with an ID only as fallback; names are never guessed.
 
 Parallel targeted deployments succeeded in original Crius (`0Afaj00000qo9VBCAY`) and PSS (`0AfQE00000BKG0f0AH`): 5/5 AppAccessService tests in each, no component errors or coverage warnings. A live Crius call confirmed Warden Studio User [Warden_Studio_User], Apex class WardenAccess and Warden Studio [Warden_Studio] appear in the evidence without opaque IDs. PSS live credential-backed discovery still awaits its OAuth configuration. Regeneration refreshes explanations; saved diagrams are not rewritten.
+
+## Compact inclusion summaries
+
+Permission-set evidence now uses separate short lines for the named set, app visibility and a sorted, deduplicated Apex class list with its count. Repeated per-class app explanations were removed; detailed coverage limitations remain in their own section. The UI preserves line breaks in compact reason blocks and moves metadata dependency references into a collapsed, counted Component references section without discarding them.
+
+Parallel deployments succeeded in Crius (`0Afaj00000qoD0vCAE`) and PSS (`0AfQE00000BKF300AH`), each with 5/5 access tests and no component errors or coverage warnings. JavaScript passed 32 suites and 277 tests, with 10 existing skips. No scan restart or scan-data mutation was performed.

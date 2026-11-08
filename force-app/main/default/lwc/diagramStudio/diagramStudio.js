@@ -3477,6 +3477,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get appGenerateDisabled() { return this.appModelBusy || !this.selectedSalesforceApp; }
     get appHasWarnings() { return this.appModelWarnings.length > 0; }
     get appHasEvidence() { return this.appModelEvidence.length > 0; }
+    get appModelInclusionEvidence() { return this.appModelEvidence.filter(row => !row.message.includes('(Salesforce metadata dependency)')); }
+    get appModelDependencyEvidence() { return this.appModelEvidence.filter(row => row.message.includes('(Salesforce metadata dependency)')); }
+    get appHasDependencyEvidence() { return this.appModelDependencyEvidence.length > 0; }
+    get appDependencySummary() { return 'Component references (' + this.appModelDependencyEvidence.length + ')'; }
     handleAppChange(event) { this._appAccessCards=[];this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
     handleAppUiFieldsChange(event) { this.appUiFieldsEnabled = event.target.checked; }
     handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }

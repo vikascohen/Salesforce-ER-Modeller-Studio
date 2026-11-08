@@ -32,8 +32,9 @@
         String reasons=JSON.serialize(result.get('reasons'));
         System.assert(reasons.contains('Logger Admin [example__LoggerAdmin]'));
         System.assert(reasons.contains('App visibility: Example Application [example__ExampleApp]'));
-        System.assert(reasons.contains('Apex class access: ExampleController'));
-        System.assert(reasons.contains('This class was reached while analysing'));
+        System.assert(reasons.contains('Apex access (1): ExampleController'));
+        System.assert(!reasons.contains('This class was reached while analysing'));
+        System.assert(!reasons.contains('This explains why'));
         System.assert(!reasons.contains('0PS000000000001'));
         System.assert(!reasons.contains('01p000000000001'));
         System.assert(labels.contains('Logger Admin [example__LoggerAdmin]'));System.assert(labels.contains('Example CRM Licence'));System.assert(labels.contains('Salesforce'));System.assert(labels.contains('Example Package [example]'));
@@ -53,7 +54,7 @@
         Map<String,Object> result=(Map<String,Object>)JSON.deserializeUntyped(AppAccessService.discover('06m000000000001','[{"type":"ApexClass","id":"01p000000000001"}]'));
         String reasons=JSON.serialize(result.get('reasons'));
         System.assert(reasons.contains('Name unavailable (ID: 01p000000000001)'));
-        System.assert(!reasons.contains('Apex class access: ExampleController'));
+        System.assert(!reasons.contains('Apex access (1): ExampleController'));
     }
     @IsTest static void unindexedAppUsesVerifiedUiIdentity(){
         Map<String,Object> result=discover('fallback');System.assertEquals(5,((List<Object>)result.get('cards')).size());System.assert(!JSON.serialize(result.get('warnings')).contains('unambiguously'));

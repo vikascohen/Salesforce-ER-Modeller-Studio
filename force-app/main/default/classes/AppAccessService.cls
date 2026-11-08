@@ -65,19 +65,22 @@ public with sharing class AppAccessService {
                 Map<String,Object> p=(Map<String,Object>)raw;String id=str(p.get('Id')),name=str(p.get('Name')),prefix=str(p.get('NamespacePrefix'));String api=(String.isBlank(prefix)?'':prefix+'__')+name;
                 String display=str(p.get('Label'))+' ['+api+']';
                 permissionNames.put(identityKey(id),display);
-                List<String> grantDetails=new List<String>();
+                Set<String> classNames=new Set<String>(),appNames=new Set<String>();
                 for(Object rawGrant:grants){
                     Map<String,Object> grant=(Map<String,Object>)rawGrant;
                     if(identityKey(str(grant.get('ParentId')))!=identityKey(id))continue;
                     String targetId=str(grant.get('SetupEntityId')),type=str(grant.get('SetupEntityType'));
                     String targetName=targetNames.get(identityKey(targetId));
                     if(String.isBlank(targetName))targetName='Name unavailable (ID: '+targetId+')';
-                    String detail=type=='TabSet'?'App visibility: '+targetName+'.':
-                        'Apex class access: '+targetName+'. This class was reached while analysing '+appDisplay+'.';
-                    grantDetails.add(detail);
+                    if(type=='TabSet')appNames.add(targetName);
+                    else classNames.add(targetName);
                 }
-                String evidence=String.join(grantDetails,' ')+' This explains why this permission-set card is included; it does not establish a required user assignment.';
-                card(cards,'PermissionSet',id,display,api,evidence);reasons.add('Permission set '+display+': '+evidence);
+                List<String> classes=new List<String>(classNames),apps=new List<String>(appNames),summary=new List<String>();
+                classes.sort();apps.sort();
+                if(!apps.isEmpty())summary.add('App visibility: '+String.join(apps,', ')+'.');
+                if(!classes.isEmpty())summary.add('Apex access ('+classes.size()+'): '+String.join(classes,', ')+'.');
+                String evidence=String.join(summary,'\n');
+                card(cards,'PermissionSet',id,display,api,evidence);reasons.add('Permission set: '+display+'\n'+evidence);
                 if(p.get('LicenseId')!=null)licenseIds.add(str(p.get('LicenseId')));
             }
         }
