@@ -62,3 +62,11 @@ The earlier LWC failure was reproduced as `Regex too complicated`, including the
 - Validate migration/component ownership separately before installing alongside an older package or promoting for production.
 
 See [setup](SETUP.md), [architecture](ARCHITECTURE.md) and [release notes](V5_RELEASE_NOTES.md).
+
+## Sales activity layout API fix
+
+Live Crius checks reproduced `UNSUPPORTED_API_VERSION` for Task/Event at UI API v60.0. Both returned valid View/Large layouts at v66.0, also verified through the app's Salesforce_Tooling_API Named Credential. The service now uses v66.0 for UI layout reads while retaining v60.0 Tooling metadata queries. Live layout responses contained 12 distinct Task field references and 13 Event field references; these are configuration evidence, not a new complete generated-model acceptance result.
+
+CollaborationGroup and Dashboard returned INVALID_TYPE (unsupported UI API objects), while Report returned INVALID_TYPE (not layoutable). Known API error codes now produce capability/version explanations instead of a bare HTTP failure; raw error-body details are not exposed. No schema fallback or manual search exclusion was added.
+
+Crius deployment `0Afaj00000qo0bZCAQ` succeeded with 25/25 targeted Apex tests and zero component errors. Tests verify the layout API version and safe unsupported/version diagnostics. The unchanged JavaScript baseline passed 32 suites, 277 tests, with 10 existing skips. Installed beta 5.0.0.1 does not include this source fix.

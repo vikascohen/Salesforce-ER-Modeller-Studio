@@ -73,6 +73,7 @@ Salesforce app mode starts with UI API navigation and resolved application ident
 
 - Read explicit `Record.FieldName` items from app-assigned Lightning record pages and Dynamic Forms, restricted to navigation-object context.
 - A readable `force:recordDetail` component can contribute its profile layout.
+- Layout reads use UI API v66.0, including Task/Event support; Tooling metadata reads remain at v60.0. Unsupported layouts produce explicit capability warnings and never substitute full object schema.
 - Applicable navigation layouts come from UI API in **View/Large** mode, using the Tooling API principal and its default record type. These layouts can be shared across apps. The result describes readable configuration, not actual execution or app-exclusive field usage.
 - An unreadable/unknown app assignment does not justify substituting an unrelated default layout. Unsupported layouts become coverage warnings. Ambiguous identities, malformed contexts and configured bounds fail before a new model is created.
 - Only recognised field nodes are evidence; labels, arbitrary strings and all fields from object-info/schema are not. Field identifiers are verified against readable schema.

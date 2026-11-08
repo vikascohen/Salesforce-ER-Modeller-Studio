@@ -95,9 +95,20 @@ public with sharing class AppPageFieldService {
         AppModelController.FieldUse usage=new AppModelController.FieldUse();usage.objectApiName=objectName;usage.fieldApiName=name;usage.sourceType=source;usage.componentName=componentName;usage.location=location;fields.add(usage);
     }
     private static Map<String,Object> get(String path){
-        HttpRequest request=new HttpRequest();request.setEndpoint(ROOT+path);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(30000);
+        HttpRequest request=new HttpRequest();request.setEndpoint((path.startsWith('/ui-api/') ? 'callout:Salesforce_Tooling_API/services/data/v66.0' : ROOT)+path);request.setMethod('GET');request.setHeader('Accept','application/json');request.setTimeout(30000);
         HttpResponse response=new Http().send(request);
-        if(response.getStatusCode()<200||response.getStatusCode()>=300)throw new CalloutException('UI configuration request failed (HTTP '+response.getStatusCode()+').');
+        if(response.getStatusCode()<200||response.getStatusCode()>=300){
+            String reason='UI configuration request failed';
+            // Decode only known error codes; never expose arbitrary response bodies.
+            try{
+                List<Object> errors=listValue(JSON.deserializeUntyped(response.getBody()));
+                String code=errors.isEmpty()?null:str(mapValue(errors[0]).get('errorCode'));
+                if(code=='INVALID_TYPE')reason='Salesforce does not expose a readable UI API layout for this object';
+                else if(code=='UNSUPPORTED_API_VERSION')reason='This object requires a newer UI API version';
+                else if(response.getStatusCode()==401||response.getStatusCode()==403)reason='The UI configuration principal is not authenticated or lacks access';
+            }catch(Exception ignored){}
+            throw new CalloutException(reason+' (HTTP '+response.getStatusCode()+').');
+        }
         if(response.getBody().length()>500000)throw new PageEvidenceException('App page metadata response exceeds 500,000 characters.');
         return (Map<String,Object>)JSON.deserializeUntyped(response.getBody());
     }

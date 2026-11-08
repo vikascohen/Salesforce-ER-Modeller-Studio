@@ -15,6 +15,9 @@
                 r.setBody('{"done":true,"records":[{"Id":"0M0000000000001","DeveloperName":"Account_Record_Page","Metadata":{"sobjectType":"Account","flexiPageRegions":[{"itemInstances":[{"fieldInstance":{"fieldItem":"Record.Description"}},{"fieldInstance":{"fieldItem":"Record.Other.Name"}},{"fieldInstance":{"fieldItem":"Record.DoesNotExist__c"}},{"componentInstance":{"componentName":"'+(mode=='detail'?'force:recordDetail':'force:highlightsPanel')+'"}}]}]}}]}');
             }else if(endpoint.contains('/ui-api/layout/')){
                 System.assert(!endpoint.contains('object-info'),'Never use all schema fields as page evidence.');
+                System.assert(endpoint.contains('/v66.0/ui-api/layout/'),'Layouts must use the version supporting Task and Event.');
+                if(mode=='unsupported'){r.setStatusCode(400);r.setBody('[{"errorCode":"INVALID_TYPE","message":"private detail"}]');return r;}
+                if(mode=='oldVersion'){r.setStatusCode(400);r.setBody('[{"errorCode":"UNSUPPORTED_API_VERSION"}]');return r;}
                 if(mode=='dynamic'||mode=='visualforce'||mode=='pageDenied'||mode=='ambiguous')System.assert(false,'An override must not fall back to an unrelated default layout.');
                 if(mode=='layoutDenied'){r.setStatusCode(403);r.setBody('{}');return r;}
                 if(mode=='wrongObject'){r.setBody('{"objectApiName":"Contact","sections":[]}');return r;}
@@ -43,6 +46,17 @@
         empty=AppPageFieldService.discover('Other',null,new List<AppModelController.Component>{objectRef('Account')});System.assertEquals(0,empty.fields.size());System.assert(!empty.warnings.isEmpty());
         List<AppModelController.Component> many=new List<AppModelController.Component>();for(String name:Schema.getGlobalDescribe().keySet()){many.add(objectRef(name));if(many.size()==26)break;}
         Boolean rejected=false;try{AppPageFieldService.discover('Too large','02u000000000001',many);}catch(AppPageFieldService.PageEvidenceException ex){rejected=true;}System.assert(rejected);Test.stopTest();
+    }
+    @IsTest static void unsupportedLayoutsExplainCapabilityWithoutLeakingResponse(){
+        Test.startTest();
+        AppPageFieldService.Result unsupported=run('unsupported');
+        AppPageFieldService.Result oldVersion=run('oldVersion');
+        Test.stopTest();
+        System.assertEquals(0,unsupported.fields.size());
+        System.assert(unsupported.warnings[0].contains('does not expose a readable UI API layout'));
+        System.assert(!unsupported.warnings[0].contains('private detail'));
+        System.assertEquals(0,oldVersion.fields.size());
+        System.assert(oldVersion.warnings[0].contains('requires a newer UI API version'));
     }
     @IsTest static void deeplyNestedPageIsBounded(){
         Object node=new Map<String,Object>();for(Integer i=0;i<32;i++)node=new List<Object>{node};Boolean rejected=false;
