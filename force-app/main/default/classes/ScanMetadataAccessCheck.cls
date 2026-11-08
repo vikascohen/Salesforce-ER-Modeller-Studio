@@ -14,9 +14,9 @@ public with sharing class ScanMetadataAccessCheck {
     private static void add(Result r,String o,String f,String issue){
         r.totalGaps++;
         if(r.gaps.size()>=100){r.partial=true;return;}
-        String action=issue=='Object Read missing'?'Diagram Studio User > Object Settings > '+o+': enable Read; review field Read access.':
-            issue=='Field Read missing'?'Diagram Studio User > Object Settings > '+o+': enable Read for '+f+'.':
-            'Verify applicable licence and Salesforce metadata availability. If configurable, review object Read and field Read in Diagram Studio User.';
+        String action=issue=='Object Read missing'?'Setup > Permission Sets > Diagram Studio User > Object Settings > '+o+': Object Permissions > Read.':
+            issue=='Field Read missing'?'Setup > Permission Sets > Diagram Studio User > Object Settings > '+o+': Field Permissions > '+f+' > Read Access.':
+            'Verify applicable licence and metadata availability first. If configurable: Setup > Permission Sets > Diagram Studio User > Object Settings > '+o+'. Review object Read and field Read Access.';
         r.gaps.add(new Gap(o,f,issue,action));
     }
     public static Result inspect(){

@@ -105,3 +105,7 @@ Live metadata-only Health Check under the CLI-connected PSS user detected Public
 A live replay of the discovery path for BenefitDisbursement, Account and a nonexistent industry object completed in both orgs. Unavailable fields produced schema-coverage warnings instead of aborting discovery. Temporary Studio run records were rolled back; business records and saved diagrams were untouched. No complete replacement org scan has been accepted yet.
 
 The Tooling connection check passed in Crius. The CLI-connected PSS user could not access the Salesforce_Tooling_API credential; its credential/principal access must be verified separately before a full scan. This does not establish whether another user has configured or authenticated that credential. No permissions were granted automatically, package promoted or branch merged.
+
+## Health Check permission-path wording review
+
+Message-only deployments on 9 November 2026 (New Zealand time) succeeded in Crius (`0Afaj00000qrNGfCAM`) and PSS (`0AfQE00000BKOO10AP`), with 7/7 targeted tests each. Instructions now identify Setup > Permission Sets > Diagram Studio User > Object Settings > the affected object, then Object Permissions > Read or Field Permissions > the affected field > Read Access. Unavailable metadata retains a licence/availability qualification. Only the two diagnostic Apex classes were deployed; neither org's permission set was modified. PSS permission changes await the user's review of the wording. Non-PSS detection behaviour is unchanged.
