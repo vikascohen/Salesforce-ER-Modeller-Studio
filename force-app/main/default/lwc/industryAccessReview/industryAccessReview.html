@@ -1,0 +1,36 @@
+<template>
+    <template if:false={open}><button onclick={handleOpen}>Review Access</button></template>
+    <template if:true={open}>
+        <section class="review" aria-label="Industry Read access review">
+            <h3>Read access review</h3>
+            <p><strong>Target permission set: Diagram Studio User</strong></p>
+            <p>Select individual objects and fields or all eligible items. Only Read permissions missing from this permission set are added. Existing permissions are preserved.</p>
+            <p class="notice">This adds no editing permissions and does not change record sharing. It may make existing records and field values readable to everyone assigned Diagram Studio User. The diagnostic itself reads metadata only.</p>
+            <template if:true={noAdmin}><p class="notice">An administrator with Manage Profiles and Permission Sets and Customize Application must apply updates.</p></template>
+            <p role="status">{status}</p>
+            <template if:true={busy}><lightning-progress-bar value={progress} size="large"></lightning-progress-bar><p>{progressLabel}</p><button onclick={handleCancel}>Stop after current request</button></template>
+            <fieldset disabled={busy}>
+                <legend>1. Choose objects</legend>
+                <input type="search" aria-label="Search industry objects" placeholder="Search objects" value={search} oninput={handleSearch}/>
+                <div class="actions"><button onclick={handleAllObjects}>Select all detected objects</button><button onclick={handleClearObjects}>Clear objects</button></div>
+                <div class="object-list"><template for:each={visibleOptions} for:item="item"><label key={item.name}><input type="checkbox" checked={item.selected} data-name={item.name} onchange={handleObject}/>{item.name}</label></template></div>
+                <button onclick={handleReview} disabled={noObjects}>Review selected objects</button>
+                <template if:true={hasReviews}>
+                    <h4>2. Select Read permissions</h4>
+                    <p>Only Read grants missing from Diagram Studio User are included. Unavailable metadata is not selectable. Selecting a field also selects its required Object Read if missing.</p>
+                    <div class="actions"><button onclick={handleSelectAll}>Select all eligible</button><button onclick={handleClear}>Clear selection</button></div>
+                    <div class="field-list"><template for:each={reviews} for:item="obj">
+                        <details key={obj.objectName} open><summary>{obj.objectName}</summary><p>{obj.message}</p>
+                            <template if:true={obj.needsObjectRead}><label><input type="checkbox" data-object={obj.objectName} disabled={obj.objectReadLocked} checked={obj.selected} onchange={handleObjectRead}/>Object Permissions → Read</label></template>
+                            <template for:each={obj.fields} for:item="field"><label key={field.key}><input type="checkbox" disabled={field.disabled} checked={field.selected} data-object={obj.objectName} data-field={field.name} onchange={handleField}/><span>{field.label} ({field.name}) — {field.message}</span></label></template>
+                        </details>
+                    </template></div>
+                    <p><strong>{selectedCount} Read permissions selected for Diagram Studio User.</strong></p>
+                    <button class="primary" disabled={noApply} onclick={handleApply}>Apply Fix</button>
+                </template>
+            </fieldset>
+            <template if:true={hasResults}><h4>Results</h4><div class="result-list"><template for:each={results} for:item="item"><p key={item.key} class={item.css}><strong>{item.name}</strong>: {item.message}</p></template></div></template>
+            <button disabled={busy} onclick={handleClose}>Close and refresh Health Check</button>
+        </section>
+    </template>
+</template>

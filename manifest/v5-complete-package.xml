@@ -78,7 +78,9 @@
     <members>StudioDiagnosticsControllerTest</members>
     <members>AppPageFieldService</members>
     <members>AppPageFieldServiceTest</members>
-    <name>ApexClass</name>
+    <members>IndustryAccessController</members>
+        <members>IndustryAccessControllerTest</members>
+        <name>ApexClass</name>
   </types>
   <types>
     <members>Diagram_File__c.Import_Bindings__c</members>
@@ -176,7 +178,8 @@
     <members>objectArchitectureHealth</members>
     <members>studioHelp</members>
     <members>toolingApiConfigurationHelp</members>
-    <name>LightningComponentBundle</name>
+    <members>industryAccessReview</members>
+        <name>LightningComponentBundle</name>
   </types>
   <types>
     <members>Diagram_Studio_User</members>

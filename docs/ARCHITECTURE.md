@@ -139,7 +139,7 @@ The optional standard OmniStudio scanner probes object/field availability before
 
 `FieldUsageSchemaAccess` guards field metadata inspection across discovery and reference scanners. Individual `SObjectException` failures skip unavailable metadata while retaining readable evidence; unrelated errors remain failures. Bounded schema-coverage warnings are persisted to the Studio run log and surfaced in generated-model coverage. A completed readable snapshot can therefore have explicitly limited schema coverage.
 
-`ScanMetadataAccessCheck` uses setup licence/permission metadata and dynamic schema probes, with no static dependency on PSS objects. Health Check reports object/field Read gaps separately from unavailable metadata. Limits of 50 objects, 8,000 fields, 100 displayed gaps and a CPU budget prevent unbounded diagnostics; partial results are identified. It performs no business-record queries or permission writes.
+`ScanMetadataAccessCheck` uses industry licence metadata, recognised managed namespaces and dynamic schema probes. The audit compares configurable fields and objects to Read grants on Diagram_Studio_User using its permission set ID. It uses supported industry schema names and known installed namespaces to determine scope. The diagnostic inspects up to 50 objects and 8,000 fields and reports partial coverage at its limits. Review Access compares each selected object to the same set. Apply Fix checks the administrator's authority and validates the submitted object and fields before using user-mode DML on that set. Opening the review performs no DML.
 
 ## Stored state
 

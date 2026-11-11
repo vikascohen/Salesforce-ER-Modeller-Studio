@@ -15,7 +15,7 @@ public with sharing class StudioDiagnosticsController {
     }
 
     public class CheckDTO {
-        @AuraEnabled public String key; @AuraEnabled public String label; @AuraEnabled public String status; @AuraEnabled public String detail; @AuraEnabled public String remediation; @AuraEnabled public String diagnosis; @AuraEnabled public List<String> actions=new List<String>(); @AuraEnabled public List<ScanMetadataAccessCheck.Gap> accessGaps=new List<ScanMetadataAccessCheck.Gap>();
+        @AuraEnabled public String key; @AuraEnabled public String label; @AuraEnabled public String status; @AuraEnabled public String detail; @AuraEnabled public String remediation; @AuraEnabled public String diagnosis; @AuraEnabled public List<String> actions=new List<String>(); @AuraEnabled public Boolean canReviewAccess=false; @AuraEnabled public List<ScanMetadataAccessCheck.Gap> accessGaps=new List<ScanMetadataAccessCheck.Gap>();
         public CheckDTO(String k,String l,String s,String d,String r){key=k;label=l;status=s;detail=d;remediation=r;}
         public CheckDTO withDiagnosis(String v){diagnosis=v;return this;}
         public CheckDTO withActions(List<String> v){actions=v==null?new List<String>():v;return this;}
@@ -105,9 +105,30 @@ public with sharing class StudioDiagnosticsController {
         d.checks.add(new CheckDTO('runtime','Studio Runtime','Passed','ER Modeller Studio Version '+STUDIO_VERSION+' diagnostics are running successfully.',null));
         Boolean readable=Schema.sObjectType.Field_Usage_Run__c.isAccessible()&&Schema.sObjectType.Field_Usage_Evidence__c.isAccessible()&&Schema.sObjectType.Field_Usage_Schedule__c.isAccessible();
         d.checks.add(readable?new CheckDTO('data','Field Usage Data Model','Passed','Required Field Usage objects are accessible to the running user.',null):new CheckDTO('data','Field Usage Data Model','Failed','One or more required Field Usage objects are not accessible.','Review the Diagram Studio permission set and Field Usage object access.'));
-        List<Field_Usage_Run__c> latest=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
+        List<Field_Usage_Run__c> latest=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Log__c,Errors__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
         if(latest.isEmpty()) d.checks.add(new CheckDTO('snapshot','Field Usage Snapshot','Information','No Field Usage run exists yet.','Run the first Field Usage scan.'));
-        else d.checks.add(new CheckDTO('snapshot','Field Usage Snapshot',latest[0].Status__c=='Failed'?'Attention':'Passed','Latest run status: '+latest[0].Status__c,latest[0].Status__c=='Failed'?'Review the latest Field Usage run errors.':null));
+        else {
+            Field_Usage_Run__c run=latest[0];
+            Boolean failed=run.Status__c=='Failed'||run.Status__c=='Completed With Errors'||(run.Error_Count__c!=null&&run.Error_Count__c>0)||!String.isBlank(run.Errors__c);
+            String jobDetail='';
+            if(!String.isBlank(run.Job_Id__c)){
+                try{
+                    Id jobId=(Id)run.Job_Id__c;
+                    List<AsyncApexJob> jobs=[SELECT Status,NumberOfErrors FROM AsyncApexJob WHERE Id=:jobId LIMIT 1];
+                    if(!jobs.isEmpty()){
+                        AsyncApexJob job=jobs[0];
+                        Boolean jobFailed=job.Status=='Failed'||job.Status=='Aborted'||job.NumberOfErrors>0;
+                        failed=failed||jobFailed;
+                        if(jobFailed)jobDetail=' Apex job: '+job.Status+'; errors: '+job.NumberOfErrors+'.';
+                    }
+                }catch(Exception ex){jobDetail=' Apex job status could not be verified.';}
+            }
+            Boolean limited=run.Progress_Log__c!=null&&run.Progress_Log__c.contains('[Schema coverage]');
+            Boolean completed=run.Status__c=='Completed';
+            d.checks.add(new CheckDTO('snapshot','Field Usage Snapshot',failed||limited?'Attention':completed?'Passed':'Information',
+                'Latest run: '+run.Status__c+jobDetail+(failed?'. Scan errors need review.':limited?'. Some field metadata was skipped.':!completed?'. Scan completion has not been verified.':''),
+                failed||limited?'Open Settings > Field Usage > Operational Console for the recorded scan details.':null));
+        }
         d.checks.add(new CheckDTO('batch','Batch Engine','Passed','Field Usage Batch Apex engine is installed.',null));
         Integer schedules=[SELECT count() FROM Field_Usage_Schedule__c WHERE Enabled__c=true];
         d.checks.add(new CheckDTO('scheduler','Scheduler','Passed',schedules+' automatic Field Usage schedule(s) enabled.',null));
@@ -116,18 +137,25 @@ public with sharing class StudioDiagnosticsController {
         ScanMetadataAccessCheck.Result scanAccess=ScanMetadataAccessCheck.inspect();
         CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',
             scanAccess.totalGaps>0||scanAccess.partial?'Attention':scanAccess.detected?'Passed':'Information',
-            scanAccess.detected?'Public Sector licence metadata detected. Checked '+scanAccess.objects+' available objects and '+scanAccess.fields+' fields for '+UserInfo.getUserName()+'. '+scanAccess.totalGaps+' access/metadata gap(s).':scanAccess.partial?'Public Sector availability could not be verified.':'No Public Sector licence metadata detected; PSS-specific checks are not applicable.',
-            scanAccess.totalGaps>0?'Add the listed Read permissions in Setup > Permission Sets > Diagram Studio User > Object Settings > [Object]. Under Object Permissions, enable Read where missing; under Field Permissions, enable Read Access for the listed fields. Save your changes, then run Health Check again. Metadata unavailable findings require a licence/availability review first. Do not enable Edit, View All or Modify All. Permissions are not changed automatically.':null);
+            scanAccess.detected?'Industry Cloud capability metadata detected. Checked '+scanAccess.objects+' available objects and '+scanAccess.fields+' fields against Diagram Studio User. '+scanAccess.eligibleGaps+' missing Read permissions.':scanAccess.partial?'Industry Cloud availability could not be verified.':'No supported Industry Cloud capabilities detected; industry access review is not applicable.',
+            scanAccess.totalGaps>0?'Diagram Studio User is missing Read permissions. Click Review Access, select items or Select all eligible, then click Apply Fix.':null);
+        accessCheck.canReviewAccess=scanAccess.eligibleGaps>0;
+        if(scanAccess.totalGaps>0&&!accessCheck.canReviewAccess)accessCheck.remediation='No configurable Read changes are available for the reported gaps. Review licence or metadata availability.';
         accessCheck.accessGaps=scanAccess.gaps;
-        accessCheck.diagnosis='Metadata inspection only; no business records are read. This checks the current user, not a different Named Credential principal. Licence-bound objects and available Public Sector schema probes are checked; this is not a guarantee of complete org coverage.';
+        accessCheck.diagnosis='Only explicit Read permissions on Diagram Studio User count. Industry metadata identifies the relevant objects and fields.';
         if(scanAccess.partial)accessCheck.detail+=' Partial check: metadata was unavailable or a safety limit was reached; up to 100 gaps are shown.';
         if(scanAccess.note!=null)accessCheck.detail+=' '+scanAccess.note;
         d.checks.add(accessCheck);
         Integer failed=0,attention=0; for(CheckDTO c:d.checks){if(c.status=='Failed')failed++;else if(c.status=='Attention')attention++;}
-        d.overallStatus=failed>0?'Configuration Required':attention>0?'Attention Required':'Application Ready';
-        d.summary=failed>0?failed+' diagnostic check(s) failed.':attention>0?attention+' item(s) need attention.':'All required diagnostic checks passed.';
+        d.overallStatus=failed>0?'Configuration Required':attention>0?'Attention Required':'Preflight Checks Passed';
+        d.summary=failed>0?failed+' diagnostic check(s) failed.':attention>0?attention+' item(s) need attention.':'Available preflight checks passed.';
+        d.summary+=' Health Check is a limited preflight, not a full scan. Scan-time access, source or platform limits can still cause failures.';
         d.completedAt=String.valueOf(System.now()); return d;
     }
+
+    @AuraEnabled public static IndustryAccessController.Discovery getIndustryReview(){return IndustryAccessController.getReview();}
+    @AuraEnabled public static IndustryAccessController.ObjectReview getIndustryObjectReview(String objectName){return IndustryAccessController.getObjectReview(objectName);}
+    @AuraEnabled public static IndustryAccessController.UpdateResult applyIndustryReadAccess(String objectName,List<String> fieldNames,Boolean includeObjectRead){return IndustryAccessController.applyReadAccess(objectName,fieldNames,includeObjectRead);}
 
     private static String resolveNamespace(){String n=StudioDiagnosticsController.class.getName();Integer dot=n.indexOf('.');return dot>0?n.substring(0,dot):'Unmanaged / no namespace';}
     private static String safeMessage(Exception ex){String m=ex==null?'Unknown diagnostic error.':ex.getMessage();return String.isBlank(m)?'The Tooling API connection could not be verified.':(m.length()>500?m.substring(0,500):m);}

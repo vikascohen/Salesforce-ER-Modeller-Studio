@@ -1884,7 +1884,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get systemEnabledSchedules(){return this.systemInfo?.enabledSchedules??0;}
     get diagnosticsOverallClass(){
         const s=this.diagnosticsResult?.overallStatus||'';
-        return 'diag-overall '+(s==='Application Ready'?'diag-ready':s==='Attention Required'?'diag-attention':'diag-required');
+        return 'diag-overall '+((s==='Application Ready'||s==='Preflight Checks Passed')?'diag-ready':s==='Attention Required'?'diag-attention':'diag-required');
     }
     get diagnosticsOverallStatus(){return this.diagnosticsResult?.overallStatus||'Not run yet';}
     get diagnosticsSummary(){return this.diagnosticsResult?.summary||'Run diagnostics to verify whether ER Modeller Studio is ready to work in this Salesforce org.';}
@@ -1902,7 +1902,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const rows=result?.checks||[];
             this.diagnosticsChecks=[];
             for(const row of rows){
-                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,accessGaps:(row.accessGaps||[]).map((gap,index)=>({...gap,key:String(row.key)+'-gap-'+index})),hasAccessGaps:(row.accessGaps||[]).length>0,actions:(row.actions||[]).map((label,index)=>({key:String(row.key||'check')+'-'+index,label})),hasActions:(row.actions||[]).length>0,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
+                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,accessGaps:(row.accessGaps||[]).map((gap,index)=>({...gap,key:String(row.key)+'-gap-'+index})),restrictions:(row.accessGaps||[]).filter(g=>g.issue==='Metadata unavailable').map((g,i)=>({...g,key:'restriction-'+i})),hasRestrictions:(row.accessGaps||[]).some(g=>g.issue==='Metadata unavailable'),actions:(row.actions||[]).map((label,index)=>({key:String(row.key||'check')+'-'+index,label})),hasActions:(row.actions||[]).length>0,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
                 await new Promise(resolve=>setTimeout(resolve,90));
             }
             this.diagnosticsResult=result;
@@ -2109,6 +2109,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.fieldUsageRun = null;
             this.fieldUsageBatchRunning = false;
             this.stopFieldUsagePolling();
+            this.recordDiagnostic('Could not start Field Usage scan: '+message,'Field Usage','ERROR');
             this.fieldUsageConsoleLines = [
                 ...(this.fieldUsageConsoleLines || []),
                 { key: 'launch-error-' + Date.now(), text: '[error] Could not start Field Usage scan: ' + message },

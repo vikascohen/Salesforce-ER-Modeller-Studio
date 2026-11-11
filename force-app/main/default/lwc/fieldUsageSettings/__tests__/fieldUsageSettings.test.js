@@ -1,0 +1,34 @@
+import {createElement} from 'lwc';
+import Settings from 'c/fieldUsageSettings';
+import getStatus from '@salesforce/apex/FieldUsageController.getStatus';
+import runNow from '@salesforce/apex/FieldUsageController.runNow';
+jest.mock('@salesforce/apex/FieldUsageController.getStatus',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.runNow',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.getScheduledJobs',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.getSourceTypes',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.getRecentRuns',()=>({default:jest.fn(()=>Promise.resolve([]))}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.getScannerCoverage',()=>({default:jest.fn(()=>Promise.resolve({}))}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageExclusionService.getExcludedClassNames',()=>({default:jest.fn(()=>Promise.resolve(''))}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageExclusionService.saveExcludedClassNames',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.saveSchedules',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.deleteSchedule',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.pauseSchedule',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageController.resumeSchedule',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/FieldUsageErrorController.getErrorDetail',()=>({default:jest.fn()}),{virtual:true});
+const flush=async()=>{for(let i=0;i<15;i++)await Promise.resolve();};
+afterEach(()=>{document.body.innerHTML='';jest.clearAllMocks();jest.useRealTimers();});
+it('shows persisted scan failures and emits one session/persistent diagnostic across polls',async()=>{
+ jest.useFakeTimers();
+ getStatus.mockResolvedValue({run:{Id:'run1',Status__c:'Completed With Errors',Errors__c:'BenefitDisbursement.StartDate is inaccessible',Error_Count__c:1},jobErrors:1,jobStatus:'Completed',schedules:[]});
+ const el=createElement('c-field-usage-settings',{is:Settings});const handler=jest.fn();el.addEventListener('studioerror',handler);document.body.appendChild(el);await flush();
+ expect(el.shadowRoot.querySelector('[role=alert]').textContent).toContain('BenefitDisbursement.StartDate');
+ expect(handler).toHaveBeenCalledTimes(1);
+ jest.advanceTimersByTime(3000);await flush();expect(handler).toHaveBeenCalledTimes(1);
+ expect(el.shadowRoot.textContent).toContain('limited preflight');
+});
+it('makes launch errors visible and emits them even if the status refresh succeeds',async()=>{
+ jest.useFakeTimers();getStatus.mockResolvedValue({run:null,schedules:[]});runNow.mockRejectedValue({body:{message:'Tooling credential is unavailable'}});
+ const el=createElement('c-field-usage-settings',{is:Settings});const handler=jest.fn();el.addEventListener('studioerror',handler);document.body.appendChild(el);await flush();
+ [...el.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Run Scan Now').click();await flush();
+ expect(el.shadowRoot.querySelector('[role=alert]').textContent).toContain('Tooling credential is unavailable');expect(handler).toHaveBeenCalledTimes(1);
+});

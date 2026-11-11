@@ -1,3 +1,6 @@
+jest.mock('@salesforce/apex/StudioDiagnosticsController.getIndustryReview',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/StudioDiagnosticsController.getIndustryObjectReview',()=>({default:jest.fn()}),{virtual:true});
+jest.mock('@salesforce/apex/StudioDiagnosticsController.applyIndustryReadAccess',()=>({default:jest.fn()}),{virtual:true});
 /**
  * Diagram Studio Jest tests
  *
@@ -2830,4 +2833,21 @@ describe('DSL modules and IntelliSense integration',()=>{
         await edit(el,definition+'\nuse Cust');expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(2);await edit(el,definition);expect(el.shadowRoot.querySelector('.dsl-validation')).toBeNull();expect(el.shadowRoot.querySelectorAll('.entity-group')).toHaveLength(0);
     });
 
+});
+
+
+describe('Scan diagnostic routing',()=>{
+    it.each([false,true])('keeps the session error when configured logger returns %s',async(persisted)=>{
+        const persist=require('@salesforce/apex/ErDiagnosticConfigController.recordEvent').default;
+        persist.mockClear();persist.mockResolvedValue(persisted);
+        const el=createStudio();await flushPromises();
+        el.shadowRoot.querySelector('button[data-menu="settings"]').click();await flushPromises();
+        [...el.shadowRoot.querySelectorAll('.dd-menu-item')].find(i=>i.textContent.includes('Open Settings')).click();await flushPromises();
+        const child=el.shadowRoot.querySelector('c-field-usage-settings');
+        child.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Field Usage',severity:'ERROR',message:'Run test: field metadata inaccessible'},bubbles:true,composed:true}));await flushPromises();
+        expect(persist).toHaveBeenCalledWith({message:expect.stringContaining('field metadata inaccessible'),severity:'ERROR'});
+        child.dispatchEvent(new CustomEvent('openerrorlog',{bubbles:true,composed:true}));await flushPromises();
+        el.shadowRoot.querySelector('.er-error-log-list button').click();await flushPromises();
+        expect(el.shadowRoot.textContent).toContain('Run test: field metadata inaccessible');
+    });
 });
