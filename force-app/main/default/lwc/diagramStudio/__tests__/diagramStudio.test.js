@@ -1,3 +1,4 @@
+jest.mock('@salesforce/apex/StudioDiagnosticsController.getScanSkipLogPage',()=>({default:jest.fn(()=>Promise.resolve({messages:[],more:false}))}),{virtual:true});
 jest.mock('@salesforce/apex/StudioDiagnosticsController.getIndustryReview',()=>({default:jest.fn()}),{virtual:true});
 jest.mock('@salesforce/apex/StudioDiagnosticsController.getIndustryObjectReview',()=>({default:jest.fn()}),{virtual:true});
 jest.mock('@salesforce/apex/StudioDiagnosticsController.applyIndustryReadAccess',()=>({default:jest.fn()}),{virtual:true});

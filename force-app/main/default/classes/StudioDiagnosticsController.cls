@@ -134,17 +134,18 @@ public with sharing class StudioDiagnosticsController {
         d.checks.add(new CheckDTO('scheduler','Scheduler','Passed',schedules+' automatic Field Usage schedule(s) enabled.',null));
         try { FieldUsageToolingApiClient.assertConnectionReady(); d.checks.add(new CheckDTO('tooling','Tooling API Connection','Passed','Salesforce Tooling API '+TOOLING_API_VERSION+' authenticated successfully.',null)); }
         catch(Exception ex){ d.checks.add(new CheckDTO('tooling','Tooling API Connection','Failed',safeMessage(ex),'Review Named Credential, External Credential Principal Access and API permissions.').withDiagnosis('Tooling API authentication/configuration issue').withActions(new List<String>{'Confirm Salesforce_Tooling_API exists.','Confirm External Credential Principal Access is assigned.','Confirm the running user has API access.','Re-authenticate the External Credential if required.','Run Diagnostics again.'})); }
-        ScanMetadataAccessCheck.Result scanAccess=ScanMetadataAccessCheck.inspect();
-        CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',
-            scanAccess.totalGaps>0||scanAccess.partial?'Attention':scanAccess.detected?'Passed':'Information',
-            scanAccess.detected?'Industry Cloud capability metadata detected. Checked '+scanAccess.objects+' available objects and '+scanAccess.fields+' fields against Diagram Studio User. '+scanAccess.eligibleGaps+' missing Read permissions.':scanAccess.partial?'Industry Cloud availability could not be verified.':'No supported Industry Cloud capabilities detected; industry access review is not applicable.',
-            scanAccess.totalGaps>0?'Diagram Studio User is missing Read permissions. Click Review Access, choose objects, then click Apply Fix to add all missing configurable Read permissions for those objects.':null);
-        accessCheck.canReviewAccess=scanAccess.eligibleGaps>0;
-        if(scanAccess.totalGaps>0&&!accessCheck.canReviewAccess)accessCheck.remediation='No configurable Read changes are available for the reported gaps. Review licence or metadata availability.';
-        accessCheck.accessGaps=scanAccess.gaps;
-        accessCheck.diagnosis='Only explicit Read permissions on Diagram Studio User count. Industry metadata identifies the relevant objects and fields.';
-        if(scanAccess.partial)accessCheck.detail+=' Partial check: metadata was unavailable or a safety limit was reached; up to 100 gaps are shown.';
-        if(scanAccess.note!=null)accessCheck.detail+=' '+scanAccess.note;
+        Field_Usage_Run__c latestScan=IndustryAccessController.latest();
+        Boolean tracked=latestScan!=null&&latestScan.Tracks_Skips__c;
+        Decimal skipped=0;
+        if(tracked){
+            AggregateResult counts=[SELECT SUM(Entry_Count__c) entries FROM Field_Usage_Skip__c WHERE Run__c=:latestScan.Id];
+            if(counts.get('entries')!=null)skipped=(Decimal)counts.get('entries');
+        }
+        Boolean running=tracked&&(latestScan.Status__c=='Queued'||latestScan.Status__c=='Running');
+        CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',skipped>0?'Attention':tracked&&latestScan.Status__c=='Completed'?'Passed':'Information',
+            !tracked?'Run a new scan to collect skipped objects and fields.':skipped>0?'SCAN_SKIP:'+latestScan.Id+' · '+skipped.intValue()+' skipped object or field entries in the latest scan.':running?'Scan in progress. No skips recorded so far.':'Latest scan recorded no metadata skips.',
+            skipped>0?'Review the recorded skips. Select objects to apply supported Read fixes, then run a new scan to verify coverage.':null);
+        accessCheck.canReviewAccess=skipped>0;
         d.checks.add(accessCheck);
         Integer failed=0,attention=0; for(CheckDTO c:d.checks){if(c.status=='Failed')failed++;else if(c.status=='Attention')attention++;}
         d.overallStatus=failed>0?'Configuration Required':attention>0?'Attention Required':'Preflight Checks Passed';
@@ -153,9 +154,36 @@ public with sharing class StudioDiagnosticsController {
         d.completedAt=String.valueOf(System.now()); return d;
     }
 
+    public class SkipLogPage{
+        @AuraEnabled public List<String> messages=new List<String>();
+        @AuraEnabled public Id cursorId;
+        @AuraEnabled public Boolean more=false;
+    }
+    @AuraEnabled public static SkipLogPage getScanSkipLogPage(Id runId,Id afterId){
+        SkipLogPage page=new SkipLogPage();
+        Field_Usage_Run__c run=IndustryAccessController.latest();
+        if(run==null||run.Id!=runId||!run.Tracks_Skips__c)return page;
+        List<Field_Usage_Skip__c> rows=afterId==null?
+            [SELECT Id,Object_Name__c,Entries__c FROM Field_Usage_Skip__c WHERE Run__c=:runId ORDER BY Id LIMIT 6]:
+            [SELECT Id,Object_Name__c,Entries__c FROM Field_Usage_Skip__c WHERE Run__c=:runId AND Id>:afterId ORDER BY Id LIMIT 6];
+        page.more=rows.size()>5;
+        if(page.more)rows.remove(5);
+        for(Field_Usage_Skip__c row:rows){
+            String prefix='SCAN_SKIP:'+runId+' ';
+            List<String> names=new List<String>(FieldUsageSchemaAccess.unpack(row.Entries__c).keySet());names.sort();
+            String message=prefix;
+            for(String name:names){
+                if(message.length()>1600){page.messages.add(message);message=prefix;}
+                message+=(message==prefix?'':', ')+row.Object_Name__c+'.'+name;
+            }
+            if(message!=prefix)page.messages.add(message);
+            page.cursorId=row.Id;
+        }
+        return page;
+    }
     @AuraEnabled public static IndustryAccessController.Discovery getIndustryReview(){return IndustryAccessController.getReview();}
-    @AuraEnabled public static IndustryAccessController.ObjectReview getIndustryObjectReview(String objectName){return IndustryAccessController.getObjectReview(objectName);}
-    @AuraEnabled public static IndustryAccessController.UpdateResult applyIndustryReadAccess(String objectName,List<String> fieldNames,Boolean includeObjectRead){return IndustryAccessController.applyReadAccess(objectName,fieldNames,includeObjectRead);}
+    @AuraEnabled public static IndustryAccessController.ObjectReview getIndustryObjectReview(String objectName,Id runId){return IndustryAccessController.getObjectReview(objectName,runId);}
+    @AuraEnabled public static IndustryAccessController.UpdateResult applyIndustryReadAccess(String objectName,List<String> fieldNames,Boolean includeObjectRead,Id runId){return IndustryAccessController.applyReadAccess(objectName,fieldNames,includeObjectRead,runId);}
 
     private static String resolveNamespace(){String n=StudioDiagnosticsController.class.getName();Integer dot=n.indexOf('.');return dot>0?n.substring(0,dot):'Unmanaged / no namespace';}
     private static String safeMessage(Exception ex){String m=ex==null?'Unknown diagnostic error.':ex.getMessage();return String.isBlank(m)?'The Tooling API connection could not be verified.':(m.length()>500?m.substring(0,500):m);}

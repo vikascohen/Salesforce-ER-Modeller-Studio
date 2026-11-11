@@ -39,6 +39,7 @@ import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSc
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import getStudioSystemInfo from '@salesforce/apex/StudioDiagnosticsController.getSystemInfo';
+import getScanSkipLogPage from '@salesforce/apex/StudioDiagnosticsController.getScanSkipLogPage';
 import runStudioDiagnostics from '@salesforce/apex/StudioDiagnosticsController.runDiagnostics';
 import fieldUsageGetObjects from '@salesforce/apex/FieldUsageController.getObjects';
 import fieldUsageGetFields from '@salesforce/apex/FieldUsageController.getFields';
@@ -122,13 +123,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.recordDiagnostic(value,isValidation?'Model validation':'Studio',isValidation?'WARN':'ERROR');
     }
     errorCallback(error,stack){this.recordDiagnostic((error?.message||String(error))+(stack?' | Component: '+stack:''),'Studio component','ERROR');}
+    _importingSkipRun='';
+    _finishedSkipLog='';
+    async importScanSkips(runId,terminal){
+        if(!runId||this._importingSkipRun||this._finishedSkipLog===runId)return;
+        this._importingSkipRun=runId;
+        try{
+            let afterId=null;
+            do{
+                const page=await getScanSkipLogPage({runId,afterId});
+                for(const message of page?.messages||[]){
+                    if(!this.diagnosticEvents.some(e=>e.message===message))this.recordDiagnostic(message,'Field Usage','WARN',false);
+                }
+                afterId=page?.more?page.cursorId:null;
+            }while(afterId);
+            if(terminal)this._finishedSkipLog=runId;
+        }catch(error){this.recordDiagnostic('Could not load scan skips: '+this.reduceError(error),'Field Usage','WARN',false);}
+        finally{this._importingSkipRun='';}
+    }
+    handleScanCoverage(event){this.importScanSkips(event.detail.runId,true);}
     handleStudioDiagnostic(event){const detail=event.detail||{};this.recordDiagnostic(detail.message||'Component operation failed.',detail.source||'Studio component',detail.severity||'ERROR');}
-    recordDiagnostic(message,source='Studio',severity='ERROR'){
+    recordDiagnostic(message,source='Studio',severity='ERROR',persist=true){
         const event=classifyDiagnostic(message,source,severity);
         const alreadyRecorded=this.diagnosticEvents.some(e=>e.message===event.message&&e.source===source&&e.severity===severity);
         this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
         this.pendingDiagnosticCount+=1;
-        if(!alreadyRecorded) {
+        if(!alreadyRecorded && persist) {
             const prefix=/mcp/i.test(source)?'ER_STUDIO_MODELLER_MCP':'ER_STUDIO_MODELLER';
             persistDiagnosticEvent({message:prefix+' ['+source+'] ['+severity+'] '+event.message,severity}).catch(()=>{});
         }
@@ -1900,6 +1920,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const result=await runStudioDiagnostics();
             this.diagnosticsStage='Building diagnostic report…';
             const rows=result?.checks||[];
+            const coverage=rows.find(row=>row.key==='scanAccess'&&row.detail?.includes('SCAN_SKIP:'));
+            if(coverage)this.importScanSkips(coverage.detail.split('SCAN_SKIP:')[1].split(' ')[0],false);
             this.diagnosticsChecks=[];
             for(const row of rows){
                 this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,accessGaps:(row.accessGaps||[]).map((gap,index)=>({...gap,key:String(row.key)+'-gap-'+index})),restrictions:(row.accessGaps||[]).filter(g=>g.issue==='Metadata unavailable').map((g,i)=>({...g,key:'restriction-'+i})),hasRestrictions:(row.accessGaps||[]).some(g=>g.issue==='Metadata unavailable'),actions:(row.actions||[]).map((label,index)=>({key:String(row.key||'check')+'-'+index,label})),hasActions:(row.actions||[]).length>0,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];

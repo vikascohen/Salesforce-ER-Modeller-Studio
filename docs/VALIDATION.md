@@ -117,3 +117,9 @@ The comparison tests use two permission sets. A field already readable by the ad
 The operational console tests cover launch failures, persisted run errors, session log details, configured logger routing and duplicate polling. The JavaScript suite passed 283 tests across 34 suites with 10 existing skips.
 
 PSS deployment 0AfQE00000BLkpV0AT passed 205 local Apex tests. A live read-only Health Check compared 21 objects and 450 fields against Diagram Studio User and found 121 missing Read permissions. For BenefitDisbursement the live preview reported missing Object Read, seven configurable missing field grants and three unavailable fields. Each proposed field was checked against the target set's stored grants. Both live checks performed zero DML statements.
+
+### Latest-scan field coverage
+
+The original Crius deployment `0Afaj00000rDhrqCAC` passed 248 Apex tests. The PSS deployment `0AfQE00000BLrUP0A1` passed 206. All 34 Jest suites passed (285 tests passed, 10 skipped).
+
+A rolled-back PSS discovery sample processed BenefitDisbursement and Account, recorded a SCAN_SKIP run marker, skipped BenefitDisbursement.StartDate and confirmed Account.Phone remained readable. This sample did not run a full org scan or change any permission sets.

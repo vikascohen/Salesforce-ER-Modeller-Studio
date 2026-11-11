@@ -91,7 +91,7 @@
                 <main class="settings-content">
                     <template if:true={settingsMcpSectionOpen}><c-er-mcp-settings onstudioerror={handleStudioDiagnostic}></c-er-mcp-settings></template>
                     <template if:true={settingsScheduleSectionOpen}>
-                        <c-field-usage-settings onstudioerror={handleStudioDiagnostic} onopenerrorlog={handleOpenDiagnosticCentre}></c-field-usage-settings>
+                        <c-field-usage-settings onscancoverage={handleScanCoverage} onstudioerror={handleStudioDiagnostic} onopenerrorlog={handleOpenDiagnosticCentre}></c-field-usage-settings>
                     </template>
                     <template if:true={settingsSystemSectionOpen}>
                         <div class="settings-title"><div><h2>System Information</h2><p>Read-only Studio, Salesforce environment, architecture and Field Usage health information.</p></div><button class="arch-action-btn" onclick={loadSystemInfo}>Refresh</button></div>

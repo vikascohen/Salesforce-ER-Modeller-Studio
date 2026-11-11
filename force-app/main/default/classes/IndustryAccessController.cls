@@ -4,6 +4,7 @@
  */
 public with sharing class IndustryAccessController {
     public class Discovery {
+        @AuraEnabled public Id runId;
         @AuraEnabled public Boolean detected=false;
         @AuraEnabled public Boolean partial=false;
         @AuraEnabled public Boolean canUpdate=false;
@@ -154,17 +155,62 @@ public with sharing class IndustryAccessController {
         result.message=result.partial?'Partial field review.':'Showing missing Read permissions on Diagram Studio User.';
         return result;
     }
-    @AuraEnabled public static Discovery getReview(){
-        Discovery discovery=discover();discovery.canUpdate=canManage();return discovery;
+    public static Field_Usage_Run__c latest(){
+        List<Field_Usage_Run__c> runs=[SELECT Id,Status__c,Tracks_Skips__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC,Id DESC LIMIT 1];
+        return runs.isEmpty()?null:runs[0];
     }
-    @AuraEnabled public static ObjectReview getObjectReview(String objectName){
-        Discovery discovery=discover();
-        if(!discovery.detected||!discovery.objects.contains(objectName))throw new AuraHandledException('Object is outside the supported industry schema.');
-        return compare(objectName,Schema.getGlobalDescribe().get(objectName),grantsFor(new Set<String>{objectName}),2000,8500);
+    public static Discovery getReview(){
+        Discovery discovery=discover();Field_Usage_Run__c run=latest();discovery.objects.clear();discovery.runId=run?.Id;
+        if(run==null||!run.Tracks_Skips__c)return discovery;
+        Set<String> names=new Set<String>();
+        for(Field_Usage_Skip__c row:[SELECT Object_Name__c FROM Field_Usage_Skip__c WHERE Run__c=:run.Id])names.add(row.Object_Name__c);
+        discovery.objects.addAll(names);discovery.objects.sort();
+        discovery.canUpdate=discovery.detected&&canManage()&&run.Status__c!='Running'&&run.Status__c!='Queued';
+        return discovery;
     }
-    @AuraEnabled public static UpdateResult applyReadAccess(String objectName,List<String> fieldNames,Boolean includeObjectRead){
-        if(!canManage())throw new AuraHandledException('An administrator with Manage Profiles and Permission Sets and Customize Application must apply these changes.');
-        ObjectReview approved=getObjectReview(objectName);
+    private static void requireLatest(Id runId){
+        Field_Usage_Run__c run=latest();
+        if(runId==null||run==null||run.Id!=runId||!run.Tracks_Skips__c)throw new AuraHandledException('A newer scan is available. Refresh Health Check and review its results.');
+    }
+    public static ObjectReview getObjectReview(String objectName,Id runId){
+        requireLatest(runId);
+        Map<String,String> missed=new Map<String,String>();
+        for(Field_Usage_Skip__c row:[SELECT Entries__c FROM Field_Usage_Skip__c WHERE Run__c=:runId AND Object_Name__c=:objectName])missed.putAll(FieldUsageSchemaAccess.unpack(row.Entries__c));
+        if(missed.isEmpty())throw new AuraHandledException('This object has no recorded skip in the selected scan.');
+        Grants grants=grantsFor(new Set<String>{objectName});
+        ObjectReview result=new ObjectReview();result.objectName=objectName;
+        Schema.SObjectType token=Schema.getGlobalDescribe().get(objectName);
+        Boolean supported=token!=null&&supportsObjectRead(objectName);
+        Map<String,Schema.SObjectField> fields=new Map<String,Schema.SObjectField>();
+        try{if(supported)fields=token.getDescribe().fields.getMap();}catch(System.SObjectException ex){supported=false;}
+        Boolean hasFix=false;
+        List<String> names=new List<String>(missed.keySet());names.sort();
+        for(String name:names){
+            Boolean eligible=false;String display=name;
+            String reason=missed.get(name)=='Read'?'Read unavailable at scan time':'Metadata unavailable at scan time';
+            if(name=='*'){
+                result.objectOnlyAllowed=supported&&missed.get(name)=='Read'&&!grants.objects.contains(objectName.toLowerCase());
+                result.fields.add(new Item('*','Entire object',false,reason));continue;
+            }
+            try{
+                Schema.SObjectField f=fields.get(name);
+                if(f!=null){
+                    Schema.DescribeFieldResult info=f.getDescribe();display=info.getName();
+                    eligible=info.isPermissionable()&&missed.get(name)=='Read'&&!grants.fields.contains((objectName+'.'+name).toLowerCase());
+                }
+            }catch(System.SObjectException ex){eligible=false;}
+            result.fields.add(new Item(display,display,eligible,eligible?'Missing Read grant':reason+'; review licensing or existing access.'));
+            hasFix=hasFix||eligible;
+        }
+        result.needsObjectRead=(hasFix||result.objectOnlyAllowed)&&!grants.objects.contains(objectName.toLowerCase());
+        return result;
+    }
+    public static UpdateResult applyReadAccess(String objectName,List<String> fieldNames,Boolean includeObjectRead,Id runId){
+        if(!canManage()||!discover().detected)throw new AuraHandledException('Industry access changes require an authorised administrator in a supported Industry Cloud org.');
+        requireLatest(runId);
+        Field_Usage_Run__c run=latest();
+        if(run.Status__c=='Running'||run.Status__c=='Queued')throw new AuraHandledException('Wait for the scan to finish before applying fixes.');
+        ObjectReview approved=getObjectReview(objectName,runId);
         Schema.DescribeSObjectResult info=Schema.getGlobalDescribe().get(objectName).getDescribe();PermissionSet p=target();
         if(fieldNames==null)fieldNames=new List<String>();
         if(fieldNames.size()>100)throw new AuraHandledException('Select at most 100 fields per update batch.');
@@ -185,7 +231,9 @@ public with sharing class IndustryAccessController {
         if(needsRead&&includeObjectRead!=true)throw new AuraHandledException('Object Read is required for the selected fields. Include Object Read in the review.');
         if(needsRead){
             ObjectPermissions row=ops.isEmpty()?new ObjectPermissions(ParentId=p.Id,SobjectType=objectName,PermissionsRead=true,PermissionsCreate=false,PermissionsEdit=false,PermissionsDelete=false,PermissionsViewAllRecords=false,PermissionsModifyAllRecords=false):new ObjectPermissions(Id=ops[0].Id,PermissionsRead=true);
-            Database.SaveResult saved=row.Id==null?Database.insert(row,AccessLevel.USER_MODE):Database.update(row,AccessLevel.USER_MODE);
+            List<ObjectPermissions> change=new List<ObjectPermissions>{row};
+            List<Database.SaveResult> outcomes=row.Id==null?Database.insert(change,false,AccessLevel.USER_MODE):Database.update(change,false,AccessLevel.USER_MODE);
+            Database.SaveResult saved=outcomes[0];
             if(!saved.isSuccess()){result.results.add(new Item(objectName,objectName,false,saved.getErrors()[0].getMessage()));return result;}
         }
         result.objectSuccess=true;

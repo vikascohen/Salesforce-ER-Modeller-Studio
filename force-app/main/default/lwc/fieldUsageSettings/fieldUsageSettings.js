@@ -49,7 +49,12 @@ export default class FieldUsageSettings extends LightningElement {
         return 'Scan '+(this.scanRunning?'has errors':state==='Not scanned'?this.jobStatus:state)+'. '+detail;
     }
     get visibleScanAlert(){return this.scanAlert||this.scanFailure;}
+    skipLogRun='';
     captureScanFailure(){
+        if(!this.scanRunning&&this.run?.Id&&this.skipLogRun!==this.run.Id&&this.progressLog.includes('SCAN_SKIP:'+this.run.Id)){
+            this.skipLogRun=this.run.Id;
+            this.dispatchEvent(new CustomEvent('scancoverage',{detail:{runId:this.run.Id},bubbles:true,composed:true}));
+        }
         const message=this.scanFailure;if(!message)return;
         const key=(this.run?.Id||this.field(this.run,'Job_Id__c')||'latest')+'|'+this.runStatus+'|'+this.jobStatus+'|'+this.errorCount+'|'+this.jobErrors+'|'+message;
         if(this.observedFailures.has(key))return;

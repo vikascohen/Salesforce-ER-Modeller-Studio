@@ -15,7 +15,7 @@ public with sharing class FieldUsageOrchestrator {
         // "uncommitted work pending".
         FieldUsageToolingApiClient.assertConnectionReady();
         ensureNoActiveRun();
-        Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Object_Scan_Version__c=5, Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
+        Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Tracks_Skips__c=true, Object_Scan_Version__c=5, Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
         insert run;
         Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
         // Database.executeBatch() returns the authoritative AsyncApexJob Id.

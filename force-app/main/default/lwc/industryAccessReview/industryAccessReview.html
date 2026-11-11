@@ -1,18 +1,18 @@
 <template>
-    <template if:false={open}><button onclick={handleOpen}>Review Access</button></template>
+    <template if:false={open}><button onclick={handleOpen}>Review skipped objects</button></template>
     <template if:true={open}>
         <section class="review" aria-label="Industry Read access review">
             <h3>Read access for Diagram Studio User</h3>
-            <p>Select objects. Apply Fix adds missing Object Read and Read Access for every configurable field on those objects.</p>
+            <p>Select objects and click Review selected objects to see the fields skipped by the latest scan. Apply Fix adds eligible Read grants to Diagram Studio User.</p>
             <p class="notice">Users assigned this set may see field values on records they can already access through sharing. Existing permissions are preserved.</p>
-            <template if:true={noAdmin}><p>Applying changes requires Manage Profiles and Permission Sets and Customize Application.</p></template>
+            <template if:true={noAdmin}><p>Fixes are available after scan completion to authorised Industry Cloud administrators.</p></template>
             <fieldset disabled={busy}>
                 <legend>Objects</legend>
                 <input type="search" aria-label="Search industry objects" placeholder="Search objects" value={search} oninput={handleSearch}/>
-                <div class="actions"><button onclick={handleAllObjects}>Select all detected objects</button><button onclick={handleClearObjects}>Clear selection</button></div>
+                <div class="actions"><button onclick={handleAllObjects}>Select all skipped objects</button><button onclick={handleClearObjects}>Clear selection</button></div>
                 <div class="object-list"><template for:each={visibleOptions} for:item="item"><label key={item.name}><input type="checkbox" checked={item.selected} data-name={item.name} onchange={handleObject}/>{item.name}</label></template></div>
                 <strong>{selectionCount} objects selected</strong>
-                <div class="actions"><button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button><button class="primary" disabled={noApply} onclick={handleApply}>{applyButtonLabel}</button></div>
+                <div class="actions"><button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button><template if:true={showApply}><button class="primary" disabled={noApply} onclick={handleApply}>{applyButtonLabel}</button></template></div>
             </fieldset>
             <template if:true={working}>
                 <div class="review-progress">
