@@ -138,7 +138,7 @@ public with sharing class StudioDiagnosticsController {
         CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',
             scanAccess.totalGaps>0||scanAccess.partial?'Attention':scanAccess.detected?'Passed':'Information',
             scanAccess.detected?'Industry Cloud capability metadata detected. Checked '+scanAccess.objects+' available objects and '+scanAccess.fields+' fields against Diagram Studio User. '+scanAccess.eligibleGaps+' missing Read permissions.':scanAccess.partial?'Industry Cloud availability could not be verified.':'No supported Industry Cloud capabilities detected; industry access review is not applicable.',
-            scanAccess.totalGaps>0?'Diagram Studio User is missing Read permissions. Click Review Access, select items or Select all eligible, then click Apply Fix.':null);
+            scanAccess.totalGaps>0?'Diagram Studio User is missing Read permissions. Click Review Access, choose objects, then click Apply Fix to add all missing configurable Read permissions for those objects.':null);
         accessCheck.canReviewAccess=scanAccess.eligibleGaps>0;
         if(scanAccess.totalGaps>0&&!accessCheck.canReviewAccess)accessCheck.remediation='No configurable Read changes are available for the reported gaps. Review licence or metadata availability.';
         accessCheck.accessGaps=scanAccess.gaps;

@@ -2,44 +2,27 @@
     <template if:false={open}><button onclick={handleOpen}>Review Access</button></template>
     <template if:true={open}>
         <section class="review" aria-label="Industry Read access review">
-            <h3>Read access review</h3>
-            <p><strong>Target permission set: Diagram Studio User</strong></p>
-            <p>Select individual objects and fields or all eligible items. Only Read permissions missing from this permission set are added. Existing permissions are preserved.</p>
-            <p class="notice">This adds no editing permissions and does not change record sharing. It may make existing records and field values readable to everyone assigned Diagram Studio User. The diagnostic itself reads metadata only.</p>
-            <template if:true={noAdmin}><p class="notice">An administrator with Manage Profiles and Permission Sets and Customize Application must apply updates.</p></template>
-            <p role="status">{status}</p>
-            <template if:true={otherBusy}><lightning-progress-bar value={progress} size="large"></lightning-progress-bar><p>{progressLabel}</p><button onclick={handleCancel}>Stop after current request</button></template>
+            <h3>Read access for Diagram Studio User</h3>
+            <p>Select objects. Apply Fix adds missing Object Read and Read Access for every configurable field on those objects.</p>
+            <p class="notice">Users assigned this set may see field values on records they can already access through sharing. Existing permissions are preserved.</p>
+            <template if:true={noAdmin}><p>Applying changes requires Manage Profiles and Permission Sets and Customize Application.</p></template>
             <fieldset disabled={busy}>
-                <legend>1. Choose objects</legend>
+                <legend>Objects</legend>
                 <input type="search" aria-label="Search industry objects" placeholder="Search objects" value={search} oninput={handleSearch}/>
-                <div class="actions"><button onclick={handleAllObjects}>Select all detected objects</button><button onclick={handleClearObjects}>Clear objects</button></div>
+                <div class="actions"><button onclick={handleAllObjects}>Select all detected objects</button><button onclick={handleClearObjects}>Clear selection</button></div>
                 <div class="object-list"><template for:each={visibleOptions} for:item="item"><label key={item.name}><input type="checkbox" checked={item.selected} data-name={item.name} onchange={handleObject}/>{item.name}</label></template></div>
-                <button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button>
+                <strong>{selectionCount} objects selected</strong>
+                <div class="actions"><button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button><button class="primary" disabled={noApply} onclick={handleApply}>{applyButtonLabel}</button></div>
             </fieldset>
-            <template if:true={reviewing}>
+            <template if:true={working}>
                 <div class="review-progress">
-                    <div role="status" aria-live="polite" aria-atomic="true"><span class="activity-spinner" aria-hidden="true"></span>{reviewActivity} <strong>{reviewFinished} of {reviewTotal} finished</strong></div>
-                    <progress aria-label="Selected objects checked" value={reviewFinished} max={reviewTotal}></progress>
-                    <button disabled={cancelled} onclick={handleCancel}>Stop after current object</button>
+                    <div role="status" aria-live="polite" aria-atomic="true"><span class="activity-spinner" aria-hidden="true"></span>{activity} <strong>{finished} of {total} objects finished</strong></div>
+                    <progress aria-label="Selected objects finished" value={finished} max={total}></progress>
+                    <button disabled={stopDisabled} onclick={handleCancel}>Stop after current object</button>
                 </div>
             </template>
-            <template if:true={reviewSummary}><p class="review-outcome" role="status">{reviewSummary}</p></template>
-            <fieldset disabled={busy}>
-                <template if:true={hasReviews}>
-                    <h4>2. Select Read permissions</h4>
-                    <p>Only Read grants missing from Diagram Studio User are included. Unavailable metadata is not selectable. Selecting a field also selects its required Object Read if missing.</p>
-                    <div class="actions"><button onclick={handleSelectAll}>Select all eligible</button><button onclick={handleClear}>Clear selection</button></div>
-                    <div class="field-list"><template for:each={reviews} for:item="obj">
-                        <details key={obj.objectName} open><summary>{obj.objectName}</summary><p>{obj.message}</p>
-                            <template if:true={obj.needsObjectRead}><label><input type="checkbox" data-object={obj.objectName} disabled={obj.objectReadLocked} checked={obj.selected} onchange={handleObjectRead}/>Object Permissions → Read</label></template>
-                            <template for:each={obj.fields} for:item="field"><label key={field.key}><input type="checkbox" disabled={field.disabled} checked={field.selected} data-object={obj.objectName} data-field={field.name} onchange={handleField}/><span>{field.label} ({field.name}) — {field.message}</span></label></template>
-                        </details>
-                    </template></div>
-                    <p><strong>{selectedCount} Read permissions selected for Diagram Studio User.</strong></p>
-                    <button class="primary" disabled={noApply} onclick={handleApply}>Apply Fix</button>
-                </template>
-            </fieldset>
-            <template if:true={hasResults}><h4>Results</h4><div class="result-list"><template for:each={results} for:item="item"><p key={item.key} class={item.css}><strong>{item.name}</strong>: {item.message}</p></template></div></template>
+            <template if:true={status}><p class="review-outcome" role="status">{status}</p></template>
+            <template if:true={hasResults}><h4>Object results</h4><div class="result-list"><template for:each={results} for:item="item"><p key={item.name}><strong>{item.name}</strong> — {item.summary} {item.detail}</p></template></div></template>
             <button disabled={busy} onclick={handleClose}>Close and refresh Health Check</button>
         </section>
     </template>

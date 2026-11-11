@@ -5,122 +5,121 @@ import applyReadAccess from '@salesforce/apex/StudioDiagnosticsController.applyI
 import runDiagnostics from '@salesforce/apex/StudioDiagnosticsController.runDiagnostics';
 
 export default class IndustryAccessReview extends LightningElement {
-    open=false; busy=false; canUpdate=false; options=[]; reviews=[]; results=[]; search=''; status=''; progress=0; partial=false; cancelled=false;
-    get visibleOptions(){const q=this.search.toLowerCase();return this.options.filter(o=>o.name.toLowerCase().includes(q));}
-    get hasReviews(){return this.reviews.length>0;}
-    get hasResults(){return this.results.length>0;}
-    get noObjects(){return !this.options.some(o=>o.selected)||this.busy;}
-    get noApply(){return this.busy||!this.canUpdate||!this.reviews.some(o=>o.selected||o.fields.some(f=>f.selected));}
-    get noAdmin(){return !this.canUpdate;}
-    get selectedCount(){return this.reviews.reduce((n,o)=>n+(o.selected?1:0)+o.fields.filter(f=>f.selected).length,0);}
-    get progressLabel(){return this.status+' ('+this.progress+'%)';}
+    open = false;
+    canUpdate = false;
+    options = [];
+    results = [];
+    search = '';
+    status = '';
+    phase = '';
+    total = 0;
+    finished = 0;
+    activity = '';
+    stopped = false;
+
+    get busy(){return Boolean(this.phase);}
+    get loading(){return this.phase === 'loading';}
+    get working(){return this.phase === 'review' || this.phase === 'apply' || this.phase === 'recheck';}
+    get stopDisabled(){return this.stopped || this.phase === 'recheck';}
+    get reviewButtonLabel(){return this.phase === 'review' ? 'Reviewing objects…' : 'Review selected objects';}
+    get applyButtonLabel(){return this.phase === 'apply' ? 'Applying Read permissions…' : 'Apply Fix';}
+    get visibleOptions(){return this.options.filter(o=>o.name.toLowerCase().includes(this.search.toLowerCase()));}
+    get selected(){return this.options.filter(o=>o.selected);}
+    get selectionCount(){return this.selected.length;}
+    get noObjects(){return this.busy || !this.selectionCount;}
+    get noApply(){return !this.canUpdate || this.noObjects;}
+    get noAdmin(){return !this.loading && !this.canUpdate;}
+    get hasResults(){return this.results.length > 0;}
+
     async handleOpen(){
-        this.reviewSummary='';this.open=true;this.busy=true;this.status='Detecting Industry Cloud capabilities…';
+        this.open=true;
+        this.phase='loading';
+        this.results=[];
+        this.options=[];
+        this.search='';
+        this.status='Checking industry capabilities…';
         try{
-            const d=await getReview();this.canUpdate=!!d.canUpdate;this.partial=!!d.partial;
+            const d=await getReview();
+            this.canUpdate=Boolean(d.canUpdate);
             this.options=(d.objects||[]).map(name=>({name,selected:false}));
-            this.status=d.detected?'Choose objects to review. No permissions have changed.':'No supported Industry Cloud capabilities detected.';
-            if(d.partial)this.status+=' Detection is partial; only verified objects are listed.';
-        }catch(e){this.fail(e);}finally{this.busy=false;}
+            this.status=d.partial ? 'Partial inventory. Choose from the verified objects below.' : '';
+        }catch(e){this.status=this.errorText(e);}
+        finally{this.phase='';}
     }
     handleSearch(e){this.search=e.target.value;}
-    handleObject(e){const name=e.target.dataset.name;this.options=this.options.map(o=>o.name===name?{...o,selected:e.target.checked}:o);}
-    handleAllObjects(){this.options=this.options.map(o=>({...o,selected:true}));}
-    handleClearObjects(){this.options=this.options.map(o=>({...o,selected:false}));}
-    handleCancel(){this.cancelled=true;}
-    reviewing = false;
-    reviewTotal = 0;
-    reviewFinished = 0;
-    currentObject = '';
-    reviewSummary = '';
-    get otherBusy(){return this.busy && !this.reviewing;}
-    get reviewButtonLabel(){return this.reviewing ? 'Reviewing selected objects…' : 'Review selected objects';}
-    get reviewActivity(){
-        return this.cancelled ? 'Stopping after '+this.currentObject+'…' : 'Checking Read permissions for '+this.currentObject+'…';
+    handleObject(e){
+        this.options=this.options.map(o=>o.name===e.target.dataset.name?{...o,selected:e.target.checked}:o);
+        this.clearOutcome();
     }
-    async handleReview(){
-        if(this.noObjects)return;
-        const names=this.options.filter(o=>o.selected).map(o=>o.name);
-        const reviewed=[], errors=[];
-        this.reviewTotal=names.length;
-        this.reviewFinished=0;
-        this.reviewSummary='';
-        this.reviews=[];
-        this.results=[];
-        this.progress=0;
-        this.cancelled=false;
-        this.busy=true;
-        this.reviewing=true;
+    handleAllObjects(){this.options=this.options.map(o=>({...o,selected:true}));this.clearOutcome();}
+    handleClearObjects(){this.options=this.options.map(o=>({...o,selected:false}));this.clearOutcome();}
+    clearOutcome(){this.status='';this.results=[];}
+    handleCancel(){this.stopped=true;}
+    handleReview(){return this.processObjects(false);}
+    handleApply(){return this.processObjects(true);}
+
+    async processObjects(apply){
+        if(this.noObjects || (apply && !this.canUpdate))return;
+        const selected=this.selected;
+        this.clearOutcome();
+        this.phase=apply?'apply':'review';
+        this.total=selected.length;
+        this.finished=0;
+        this.stopped=false;
+        let failures=0;
         try{
-            for(const name of names){
-                if(this.cancelled)break;
-                this.currentObject=name;
+            for(const {name} of selected){
+                if(this.stopped)break;
+                this.activity='Checking Read permissions for '+name+'…';
                 try{
-                    const row=await getObjectReview({objectName:name});
-                    reviewed.push({...row,selected:false,objectReadLocked:!row.objectOnlyAllowed,
-                        fields:(row.fields||[]).map(f=>({...f,key:name+'.'+f.name,selected:false,disabled:!f.eligible}))});
-                }catch(error){
-                    errors.push({key:'review-'+name,name,message:this.errorText(error),css:'failure'});
+                    const review=await getObjectReview({objectName:name});
+                    const fields=(review.fields||[]).filter(f=>f.eligible).map(f=>f.name);
+                    const skipped=(review.fields||[]).filter(f=>!f.eligible).map(f=>f.name);
+                    const result=apply ? await this.applyObject(name,fields,review.needsObjectRead)
+                        : {summary:(review.needsObjectRead?'Object Read missing. ':'')+fields.length+' missing field Read grants.',errors:[]};
+                    if(result.errors.length)failures++;
+                    const notes=[...result.errors];
+                    if(skipped.length)notes.push('Unavailable: '+skipped.join(', ')+'.');
+                    if(review.partial)notes.push('Partial review. Some fields were not inspected.');
+                    this.results=[...this.results,{name,summary:result.summary,detail:notes.join(' ')}];
+                }catch(e){
+                    failures++;
+                    this.results=[...this.results,{name,summary:'Could not finish this object.',detail:this.errorText(e)}];
                 }
-                this.reviewFinished++;
-                this.progress=Math.round(this.reviewFinished*100/this.reviewTotal);
+                this.finished++;
             }
-            this.reviews=reviewed;
-            this.results=errors;
-            const outcome=this.cancelled && this.reviewFinished<this.reviewTotal ? 'Review stopped.' : 'Review complete.';
-            this.reviewSummary=outcome+' '+reviewed.length+' of '+this.reviewTotal+' objects reviewed.'+
-                (errors.length?' '+errors.length+' failed. See Results.':'');
-            this.status=this.reviewSummary;
-        }finally{
-            this.reviewing=false;
-            this.busy=false;
-        }
+            const outcome=this.stopped && this.finished<this.total?'Stopped. ':apply?'Update complete. ':'Review complete. ';
+            this.status=outcome+this.finished+' of '+this.total+' objects checked.'+(failures?' '+failures+' with errors.':'');
+            if(apply){
+                if(failures)this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Diagnostic Settings',severity:'ERROR',message:'Industry Read update: '+failures+' object(s) with errors. '+this.results.filter(r=>r.detail).map(r=>r.name+' '+r.detail).join(' | ').slice(0,2200)},bubbles:true,composed:true}));
+                this.phase='recheck';
+                this.activity='Rechecking Diagram Studio User…';
+                try{
+                    const health=await runDiagnostics();
+                    this.status+=' '+((health.checks||[]).find(c=>c.key==='scanAccess')?.detail||health.summary||'');
+                }catch(e){this.status+=' Recheck failed: '+this.errorText(e);}
+            }
+        }finally{this.phase='';}
     }
-    handleObjectRead(e){const name=e.target.dataset.object;this.reviews=this.reviews.map(o=>o.objectName===name?{...o,selected:e.target.checked,fields:o.fields.map(f=>({...f,selected:!e.target.checked&&o.needsObjectRead?false:f.selected}))}:o);}
-    handleField(e){
-        const {object,field}=e.target.dataset;
-        this.reviews=this.reviews.map(row=>{
-            if(row.objectName!==object)return row;
-            const fields=row.fields.map(item=>item.name===field?{...item,selected:item.eligible&&e.target.checked}:item);
-            return {...row,fields,selected:row.needsObjectRead&&(fields.some(item=>item.selected)||(row.objectOnlyAllowed&&row.selected))};
-        });
-    }
-    handleSelectAll(){this.reviews=this.reviews.map(o=>({...o,selected:o.needsObjectRead,fields:o.fields.map(f=>({...f,selected:!!f.eligible}))}));}
-    handleClear(){this.reviews=this.reviews.map(o=>({...o,selected:false,fields:o.fields.map(f=>({...f,selected:false}))}));}
-    async handleApply(){
-        if(this.noApply)return;
-        this.reviewSummary='';
-        const work=[];
-        for(const o of this.reviews){
-            const fields=o.fields.filter(f=>f.selected&&f.eligible).map(f=>f.name);
-            if(!o.selected&&!fields.length)continue;
-            if(!fields.length)work.push({objectName:o.objectName,fieldNames:[],includeObjectRead:o.selected});
-            for(let i=0;i<fields.length;i+=100)work.push({objectName:o.objectName,fieldNames:fields.slice(i,i+100),includeObjectRead:o.selected});
-        }
-        this.busy=true;this.cancelled=false;this.progress=0;this.results=[];
-        let completed=0,failures=0;
-        for(const request of work){
-            if(this.cancelled)break;
-            this.status='Updating '+request.objectName+' · '+(completed+1)+' of '+work.length+' batches';
+    async applyObject(name,fields,objectRead){
+        if(!objectRead && !fields.length)return {summary:'No missing configurable Read permissions.',errors:[]};
+        let granted=0, addedObject=false;
+        const errors=[];
+        for(let offset=0;offset<Math.max(1,fields.length);offset+=100){
+            const batch=fields.slice(offset,offset+100);
+            this.activity=batch.length?'Updating '+name+' · fields '+(offset+1)+'–'+(offset+batch.length)+' of '+fields.length:'Adding Object Read for '+name+'…';
             try{
-                const r=await applyReadAccess(request);
-                for(const item of r.results||[]){
-                    if(!item.eligible)failures++;
-                    this.results=[...this.results,{key:String(this.results.length),name:item.name,message:item.message,css:item.eligible?'success':'failure'}];
+                const response=await applyReadAccess({objectName:name,fieldNames:batch,includeObjectRead:objectRead});
+                for(const row of response.results||[]){
+                    if(!row.eligible)errors.push(row.name+': '+row.message);
+                    else if(row.name===name)addedObject=addedObject||row.message==='Object Read added.';
+                    else if(row.message==='Read Access added.')granted++;
                 }
-            }catch(e){failures++;this.results=[...this.results,{key:String(this.results.length),name:request.objectName,message:this.errorText(e),css:'failure'}];}
-            completed++;this.progress=Math.round(completed*100/work.length);
+                if(response.objectSuccess===false)break;
+            }catch(e){errors.push(this.errorText(e));break;}
         }
-        this.status=(this.cancelled?'Stopped after ':'Finished ')+completed+' of '+work.length+' batches. '+failures+' item(s) could not be applied. Completed changes remain saved.';
-        if(failures)this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Diagnostic Settings',severity:'ERROR',message:'Industry Read access update: '+failures+' item(s) failed. '+this.results.filter(r=>r.css==='failure').map(r=>r.name+': '+r.message).join(' | ').slice(0,3000)},bubbles:true,composed:true}));
-        try{
-            const health=await runDiagnostics();
-            const check=(health.checks||[]).find(c=>c.key==='scanAccess');
-            this.status+=' Recheck: '+(check?.detail||health.summary);
-        }catch(e){this.status+=' Recheck failed: '+this.errorText(e);}
-        this.reviews=[];this.busy=false;
+        return {summary:(addedObject?'Object Read added. ':'')+granted+' field Read grants added.',errors};
     }
-    handleClose(){if(this.busy)return;this.open=false;this.dispatchEvent(new CustomEvent('reviewclosed'));}
-    fail(e){this.status=this.errorText(e);}
+    handleClose(){if(!this.busy){this.open=false;this.dispatchEvent(new CustomEvent('reviewclosed'));}}
     errorText(e){return e?.body?.message||e?.message||'Unable to complete the access review.';}
 }
