@@ -8,13 +8,23 @@
             <p class="notice">This adds no editing permissions and does not change record sharing. It may make existing records and field values readable to everyone assigned Diagram Studio User. The diagnostic itself reads metadata only.</p>
             <template if:true={noAdmin}><p class="notice">An administrator with Manage Profiles and Permission Sets and Customize Application must apply updates.</p></template>
             <p role="status">{status}</p>
-            <template if:true={busy}><lightning-progress-bar value={progress} size="large"></lightning-progress-bar><p>{progressLabel}</p><button onclick={handleCancel}>Stop after current request</button></template>
+            <template if:true={otherBusy}><lightning-progress-bar value={progress} size="large"></lightning-progress-bar><p>{progressLabel}</p><button onclick={handleCancel}>Stop after current request</button></template>
             <fieldset disabled={busy}>
                 <legend>1. Choose objects</legend>
                 <input type="search" aria-label="Search industry objects" placeholder="Search objects" value={search} oninput={handleSearch}/>
                 <div class="actions"><button onclick={handleAllObjects}>Select all detected objects</button><button onclick={handleClearObjects}>Clear objects</button></div>
                 <div class="object-list"><template for:each={visibleOptions} for:item="item"><label key={item.name}><input type="checkbox" checked={item.selected} data-name={item.name} onchange={handleObject}/>{item.name}</label></template></div>
-                <button onclick={handleReview} disabled={noObjects}>Review selected objects</button>
+                <button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button>
+            </fieldset>
+            <template if:true={reviewing}>
+                <div class="review-progress">
+                    <div role="status" aria-live="polite" aria-atomic="true"><span class="activity-spinner" aria-hidden="true"></span>{reviewActivity} <strong>{reviewFinished} of {reviewTotal} finished</strong></div>
+                    <progress aria-label="Selected objects checked" value={reviewFinished} max={reviewTotal}></progress>
+                    <button disabled={cancelled} onclick={handleCancel}>Stop after current object</button>
+                </div>
+            </template>
+            <template if:true={reviewSummary}><p class="review-outcome" role="status">{reviewSummary}</p></template>
+            <fieldset disabled={busy}>
                 <template if:true={hasReviews}>
                     <h4>2. Select Read permissions</h4>
                     <p>Only Read grants missing from Diagram Studio User are included. Unavailable metadata is not selectable. Selecting a field also selects its required Object Read if missing.</p>

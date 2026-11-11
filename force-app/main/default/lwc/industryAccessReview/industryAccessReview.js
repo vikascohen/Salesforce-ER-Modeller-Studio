@@ -15,7 +15,7 @@ export default class IndustryAccessReview extends LightningElement {
     get selectedCount(){return this.reviews.reduce((n,o)=>n+(o.selected?1:0)+o.fields.filter(f=>f.selected).length,0);}
     get progressLabel(){return this.status+' ('+this.progress+'%)';}
     async handleOpen(){
-        this.open=true;this.busy=true;this.status='Detecting Industry Cloud capabilities…';
+        this.reviewSummary='';this.open=true;this.busy=true;this.status='Detecting Industry Cloud capabilities…';
         try{
             const d=await getReview();this.canUpdate=!!d.canUpdate;this.partial=!!d.partial;
             this.options=(d.objects||[]).map(name=>({name,selected:false}));
@@ -28,21 +28,53 @@ export default class IndustryAccessReview extends LightningElement {
     handleAllObjects(){this.options=this.options.map(o=>({...o,selected:true}));}
     handleClearObjects(){this.options=this.options.map(o=>({...o,selected:false}));}
     handleCancel(){this.cancelled=true;}
+    reviewing = false;
+    reviewTotal = 0;
+    reviewFinished = 0;
+    currentObject = '';
+    reviewSummary = '';
+    get otherBusy(){return this.busy && !this.reviewing;}
+    get reviewButtonLabel(){return this.reviewing ? 'Reviewing selected objects…' : 'Review selected objects';}
+    get reviewActivity(){
+        return this.cancelled ? 'Stopping after '+this.currentObject+'…' : 'Checking Read permissions for '+this.currentObject+'…';
+    }
     async handleReview(){
+        if(this.noObjects)return;
         const names=this.options.filter(o=>o.selected).map(o=>o.name);
-        this.busy=true;this.cancelled=false;this.reviews=[];this.results=[];this.progress=0;
+        const reviewed=[], errors=[];
+        this.reviewTotal=names.length;
+        this.reviewFinished=0;
+        this.reviewSummary='';
+        this.reviews=[];
+        this.results=[];
+        this.progress=0;
+        this.cancelled=false;
+        this.busy=true;
+        this.reviewing=true;
         try{
-            for(let i=0;i<names.length;i++){
+            for(const name of names){
                 if(this.cancelled)break;
-                this.status='Reviewing '+names[i]+' · '+(i+1)+' of '+names.length;
+                this.currentObject=name;
                 try{
-                    const r=await getObjectReview({objectName:names[i]});
-                    this.reviews=[...this.reviews,{...r,selected:false,objectReadLocked:!r.objectOnlyAllowed,fields:(r.fields||[]).map(f=>({...f,key:names[i]+'.'+f.name,selected:false,disabled:!f.eligible}))}];
-                }catch(e){this.results=[...this.results,{key:'review-'+names[i],name:names[i],message:this.errorText(e),css:'failure'}];}
-                this.progress=Math.round((i+1)*100/names.length);
+                    const row=await getObjectReview({objectName:name});
+                    reviewed.push({...row,selected:false,objectReadLocked:!row.objectOnlyAllowed,
+                        fields:(row.fields||[]).map(f=>({...f,key:name+'.'+f.name,selected:false,disabled:!f.eligible}))});
+                }catch(error){
+                    errors.push({key:'review-'+name,name,message:this.errorText(error),css:'failure'});
+                }
+                this.reviewFinished++;
+                this.progress=Math.round(this.reviewFinished*100/this.reviewTotal);
             }
-            this.status=this.cancelled?'Review stopped. Only loaded objects can be selected.':'Review complete. Select eligible Read permissions below. Nothing has been applied.';
-        }finally{this.busy=false;}
+            this.reviews=reviewed;
+            this.results=errors;
+            const outcome=this.cancelled && this.reviewFinished<this.reviewTotal ? 'Review stopped.' : 'Review complete.';
+            this.reviewSummary=outcome+' '+reviewed.length+' of '+this.reviewTotal+' objects reviewed.'+
+                (errors.length?' '+errors.length+' failed. See Results.':'');
+            this.status=this.reviewSummary;
+        }finally{
+            this.reviewing=false;
+            this.busy=false;
+        }
     }
     handleObjectRead(e){const name=e.target.dataset.object;this.reviews=this.reviews.map(o=>o.objectName===name?{...o,selected:e.target.checked,fields:o.fields.map(f=>({...f,selected:!e.target.checked&&o.needsObjectRead?false:f.selected}))}:o);}
     handleField(e){
@@ -57,6 +89,7 @@ export default class IndustryAccessReview extends LightningElement {
     handleClear(){this.reviews=this.reviews.map(o=>({...o,selected:false,fields:o.fields.map(f=>({...f,selected:false}))}));}
     async handleApply(){
         if(this.noApply)return;
+        this.reviewSummary='';
         const work=[];
         for(const o of this.reviews){
             const fields=o.fields.filter(f=>f.selected&&f.eligible).map(f=>f.name);

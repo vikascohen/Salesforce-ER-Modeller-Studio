@@ -32,3 +32,21 @@ it('does not allow a non-administrator to apply updates',async()=>{
  button(el,'Review Access').click();await flush();button(el,'Select all detected objects').click();await flush();button(el,'Review selected objects').click();await flush();button(el,'Select all eligible').click();await flush();
  expect(button(el,'Apply Fix').disabled).toBe(true);expect(applyReadAccess).not.toHaveBeenCalled();
 });
+
+it('shows the active object while a request is pending and advances only after a response',async()=>{
+ getReview.mockResolvedValue({detected:true,canUpdate:true,objects:['Benefit','Program','Visit']});
+ let releaseFirst,releaseSecond;
+ getObjectReview.mockImplementationOnce(()=>new Promise(resolve=>{releaseFirst=resolve;}))
+   .mockImplementationOnce(()=>new Promise(resolve=>{releaseSecond=resolve;}));
+ const el=createElement('c-industry-access-review',{is:Review});document.body.appendChild(el);
+ button(el,'Review Access').click();await flush();button(el,'Select all detected objects').click();await flush();
+ button(el,'Review selected objects').click();await flush();
+ const panel=()=>el.shadowRoot.querySelector('.review-progress');
+ expect(panel().textContent).toContain('for Benefit');expect(panel().textContent).toContain('0 of 3 finished');
+ releaseFirst({objectName:'Benefit',fields:[]});await flush();
+ expect(panel().textContent).toContain('for Program');expect(panel().textContent).toContain('1 of 3 finished');
+ button(el,'Stop after current object').click();await flush();expect(panel().textContent).toContain('Stopping after Program');
+ releaseSecond({objectName:'Program',fields:[]});await flush();expect(getObjectReview).toHaveBeenCalledTimes(2);
+ expect(el.shadowRoot.querySelector('.review-outcome').textContent).toContain('Review stopped. 2 of 3 objects reviewed.');
+ expect(applyReadAccess).not.toHaveBeenCalled();
+});
