@@ -90,7 +90,7 @@ public with sharing class IndustryAccessController {
 
         return d;
     }
-    private static Boolean canManage(){
+    public static Boolean canManage(){
         Profile p=[SELECT PermissionsManageProfilesPermissionsets,PermissionsCustomizeApplication FROM Profile WHERE Id=:UserInfo.getProfileId()];
         Boolean manage=p.PermissionsManageProfilesPermissionsets,customize=p.PermissionsCustomizeApplication;
         for(PermissionSetAssignment a:[SELECT PermissionSet.PermissionsManageProfilesPermissionsets,PermissionSet.PermissionsCustomizeApplication FROM PermissionSetAssignment WHERE AssigneeId=:UserInfo.getUserId()]){

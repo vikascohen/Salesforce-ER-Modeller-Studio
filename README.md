@@ -29,6 +29,9 @@ The DSL editor and canvas work without an org scan. App-based generation require
 
 We recommend that only Salesforce administrators test **Apply Fix**, in a sandbox. Avoid using it in production. Reviewing scan gaps is read-only. Applying a fix adds supported object and field Read grants to **Diagram Studio User**, which can expose field values on records available to anyone assigned that permission set. You can leave gaps unresolved: the scan continues, but field usage and relationships that depend on skipped metadata may be missing from the model.
 
+**Run Scan Now** automatically reviews recorded Read gaps when a permission administrator runs it in a supported Industry Cloud sandbox, Developer Edition, or active trial. The background job adds eligible Read grants to Diagram Studio User and starts one verification scan if it added grants and completed without a repair error. The verification pass ends the workflow. Scheduled scans and manual Health Check are independent. Health Check lists remaining skips as coverage limits and reports actual scan, connection, or repair failures separately.
+
+
 ## What is included in V5?
 
 The branch also contains an app-page field discovery enhancement tested in Crius. It requires a newer package build; installer 5.0.0.1 remains unchanged.

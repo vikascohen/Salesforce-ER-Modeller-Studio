@@ -9,22 +9,50 @@ public with sharing class FieldUsageOrchestrator {
     @TestVisible private static Boolean asyncJobActiveOverride;
 
     public static Id start(String runType) {
+        return startRun(runType, null);
+    }
+
+    public static Id startVerification(Id parentId) {
+        return startRun('Verification', parentId);
+    }
+
+    private static Id startRun(String runType, Id parentId) {
         // Callouts must happen before any DML in this transaction. The
         // concurrency guard may recover a stale/aborted run by updating it,
         // which would otherwise make the Named Credential preflight fail with
         // "uncommitted work pending".
         FieldUsageToolingApiClient.assertConnectionReady();
+        List<Field_Usage_Run__c> latest = [SELECT Id, Progress_Phase__c, Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC, Id DESC LIMIT 1];
+        if (!latest.isEmpty()) {
+            Id currentId = latest[0].Id;
+            // Serialize launches against the same snapshot before checking for a newer run.
+            Field_Usage_Run__c anchor = [SELECT Id FROM Field_Usage_Run__c WHERE Id = :currentId FOR UPDATE];
+            latest = [SELECT Id, Progress_Phase__c, Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC, Id DESC LIMIT 1];
+        }
+        if (parentId != null && (latest.isEmpty() || latest[0].Id != parentId || latest[0].Progress_Phase__c != FieldUsageReadRepairBatch.ACTIVE))
+            throw new ScanAlreadyRunningException('The repair scan has been superseded.');
+        if (parentId == null && !latest.isEmpty() && latest[0].Progress_Phase__c == FieldUsageReadRepairBatch.ACTIVE) {
+            Id repairJob = (Id)latest[0].Job_Id__c;
+            if ([SELECT COUNT() FROM AsyncApexJob WHERE Id = :repairJob AND Status IN ('Holding','Queued','Preparing','Processing')] > 0)
+                throw new ScanAlreadyRunningException('Read access review is running. Wait for it to finish.');
+        }
         ensureNoActiveRun();
         Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Queued', Tracks_Skips__c=true, Object_Scan_Version__c=5, Run_Type__c=runType, Error_Count__c=0, Dependency_Count__c=0);
-        insert run;
-        Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
-        // Database.executeBatch() returns the authoritative AsyncApexJob Id.
-        // Persist it immediately so a newly opened console can attach to the
-        // real Salesforce job even before the batch start() transaction runs.
-        run.Job_Id__c = String.valueOf(jobId);
-        run.Progress_Phase__c = 'Queued for Batch Apex';
-        update run;
-        return run.Id;
+        Savepoint checkpoint = Database.setSavepoint();
+        try {
+            insert run;
+            Id jobId = Database.executeBatch(new FieldUsageDiscoveryBatch(run.Id),1);
+            // Database.executeBatch() returns the authoritative AsyncApexJob Id.
+            // Persist it immediately so a newly opened console can attach to the
+            // real Salesforce job even before the batch start() transaction runs.
+            run.Job_Id__c = String.valueOf(jobId);
+            run.Progress_Phase__c = 'Queued for Batch Apex';
+            update run;
+            return run.Id;
+        } catch (Exception ex) {
+            Database.rollback(checkpoint);
+            throw ex;
+        }
     }
 
     @TestVisible

@@ -43,6 +43,7 @@ export default class FieldUsageSettings extends LightningElement {
     async jobAction(fn,id,success){this.busy=true;try{await fn({scheduleId:id});this.message=success;await this.refresh(false);}catch(e){this.message=this.reportError(e,'Unable to update scheduled job.');}finally{this.busy=false;}}
     get scanFailure(){
         const run=this.run, state=this.runStatus;
+        if(this.field(run,'Progress_Phase__c')==='Read repair needs attention')return 'Read repair needs attention. '+this.progressLog;
         const failed=['Failed','Completed With Errors','Aborted'].includes(state)||['Failed','Aborted'].includes(this.jobStatus)||this.errorCount>0||this.jobErrors>0;
         if(!failed)return '';
         const detail=this.field(run,'Errors__c')||this.status?.jobError||this.progressLog||'Salesforce reported a scan error without further detail. Review Apex Jobs and the scan history.';
@@ -69,7 +70,7 @@ export default class FieldUsageSettings extends LightningElement {
     get run(){return this.status?.run||null;}
     get runStatus(){return this.field(this.run,'Status__c')||'Not scanned';}
     get asyncJobTerminal(){return ['Aborted','Failed','Completed'].includes(this.jobStatus);}
-    get scanRunning(){const runClaimsActive=['Queued','Running','Holding','Preparing','Processing'].includes(this.runStatus);if(!runClaimsActive)return false;const hasAsyncJob=!!this.field(this.run,'Job_Id__c');return !(hasAsyncJob&&this.asyncJobTerminal);}
+    get scanRunning(){if(this.field(this.run,'Progress_Phase__c')==='Reviewing skipped Read permissions')return !this.asyncJobTerminal;const runClaimsActive=['Queued','Running','Holding','Preparing','Processing'].includes(this.runStatus);if(!runClaimsActive)return false;const hasAsyncJob=!!this.field(this.run,'Job_Id__c');return !(hasAsyncJob&&this.asyncJobTerminal);}
     get snapshotState(){return this.field(this.run,'Is_Current__c')&&this.runStatus==='Completed'?'Current':(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus)?this.jobStatus:this.runStatus);}
     get healthState(){if(this.scanFailure)return 'Attention';return this.scanRunning?'Processing':(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus)?'Attention':(Number(this.field(this.run,'Error_Count__c')||0)>0?'Attention':(this.field(this.run,'Is_Current__c')?'Healthy':'Not scanned')));}
     get dependencyCount(){return Number(this.field(this.run,'Dependency_Count__c')||0);} get objectsProcessed(){return Number(this.field(this.run,'Objects_Processed__c')||0);} get objectsTotal(){return Number(this.field(this.run,'Objects_Total__c')||0);} get progressLog(){return this.field(this.run,'Progress_Log__c')||'';} get hasProgressLog(){return !!this.progressLog;} get errorCount(){return Number(this.field(this.run,'Error_Count__c')||0);} get jobTotal(){return Number(this.status?.jobTotal||0);} get jobProcessed(){return Number(this.status?.jobProcessed||0);} get jobErrors(){return Number(this.status?.jobErrors||0);} get jobStatus(){return this.status?.jobStatus||'';}

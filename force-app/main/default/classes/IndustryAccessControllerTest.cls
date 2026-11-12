@@ -68,4 +68,33 @@
             System.assert(denied);System.assertEquals(writes,Limits.getDmlStatements());
         }
     }
+    @IsTest static void repairUsesOnlyRecordedReadGapsAndIsIdempotent() {
+        PermissionSet destination = setupTarget();
+        Field_Usage_Skip__c skip = [SELECT Id, Entries__c FROM Field_Usage_Skip__c WHERE Run__c = :scanId];
+        System.runAs(new User(Id=UserInfo.getUserId())) {
+            skip.Entries__c = 'phone|Read\nwebsite|Metadata\n';
+            skip.Entry_Count__c = 2;
+            update skip;
+        }
+        FieldUsageReadRepairBatch batch = new FieldUsageReadRepairBatch(scanId);
+        List<String> pages = new List<String>();
+        for (String page : batch.start(null)) pages.add(page);
+        System.assertEquals(1,pages.size());
+        batch.execute(null, pages);
+        System.assertEquals(2, batch.changed, 'One object and one field grant');
+        batch.execute(null, pages);
+        System.assertEquals(2, batch.changed, 'Repeated work adds no grants');
+        System.assertEquals(0, [SELECT COUNT() FROM FieldPermissions WHERE ParentId = :destination.Id AND Field = 'Account.Website']);
+    }
+    @IsTest static void verificationSkipsNeverLaunchAnotherScanOrRepair() {
+        Field_Usage_Run__c run = new Field_Usage_Run__c(Status__c='Running',Run_Type__c='Verification',Tracks_Skips__c=true);
+        insert run;
+        insert new Field_Usage_Skip__c(Run__c=run.Id,Object_Name__c='Account',Entries__c='phone|Read\n',Entry_Count__c=1,Skip_Key__c=run.Id+'|Account|0');
+        FieldUsageSnapshotFinalizer.finish(run.Id,0,new List<String>());
+        StudioDiagnosticsController.DiagnosticDTO health = StudioDiagnosticsController.runDiagnostics();
+        for (StudioDiagnosticsController.CheckDTO check : health.checks)
+            if (check.key == 'scanAccess') System.assertEquals('Information',check.status);
+        System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Run__c]);
+        System.assertEquals(0,[SELECT COUNT() FROM AsyncApexJob WHERE JobType='BatchApex']);
+    }
 }

@@ -59,7 +59,7 @@ public with sharing class StudioDiagnosticsController {
 
         d.snapshotAvailable=false; d.snapshotStatus='Not scanned'; d.dependencyCount=0; d.snapshotErrors=0; d.scanRunning=false; d.scanProgressPercent=0; d.enabledSchedules=0;
         try {
-            List<Field_Usage_Run__c> runs=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Percent__c,Progress_Phase__c,Is_Current__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
+            List<Field_Usage_Run__c> runs=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Percent__c,Progress_Phase__c,Is_Current__c,Objects_Total__c,Objects_Processed__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC, Id DESC LIMIT 1];
             if(!runs.isEmpty()){
                 Field_Usage_Run__c r=runs[0];
                 d.snapshotStatus=r.Status__c; d.snapshotCompletedAt=r.Completed_At__c; d.dependencyCount=r.Dependency_Count__c==null?0:r.Dependency_Count__c.intValue(); d.snapshotErrors=r.Error_Count__c==null?0:r.Error_Count__c.intValue();
@@ -105,7 +105,7 @@ public with sharing class StudioDiagnosticsController {
         d.checks.add(new CheckDTO('runtime','Studio Runtime','Passed','ER Modeller Studio Version '+STUDIO_VERSION+' diagnostics are running successfully.',null));
         Boolean readable=Schema.sObjectType.Field_Usage_Run__c.isAccessible()&&Schema.sObjectType.Field_Usage_Evidence__c.isAccessible()&&Schema.sObjectType.Field_Usage_Schedule__c.isAccessible();
         d.checks.add(readable?new CheckDTO('data','Field Usage Data Model','Passed','Required Field Usage objects are accessible to the running user.',null):new CheckDTO('data','Field Usage Data Model','Failed','One or more required Field Usage objects are not accessible.','Review the Diagram Studio permission set and Field Usage object access.'));
-        List<Field_Usage_Run__c> latest=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Log__c,Errors__c,Job_Id__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC LIMIT 1];
+        List<Field_Usage_Run__c> latest=[SELECT Id,Status__c,Completed_At__c,Dependency_Count__c,Error_Count__c,Progress_Log__c,Errors__c,Job_Id__c,Progress_Phase__c FROM Field_Usage_Run__c ORDER BY CreatedDate DESC, Id DESC LIMIT 1];
         if(latest.isEmpty()) d.checks.add(new CheckDTO('snapshot','Field Usage Snapshot','Information','No Field Usage run exists yet.','Run the first Field Usage scan.'));
         else {
             Field_Usage_Run__c run=latest[0];
@@ -125,7 +125,7 @@ public with sharing class StudioDiagnosticsController {
             }
             Boolean limited=run.Progress_Log__c!=null&&run.Progress_Log__c.contains('[Schema coverage]');
             Boolean completed=run.Status__c=='Completed';
-            d.checks.add(new CheckDTO('snapshot','Field Usage Snapshot',failed||limited?'Attention':completed?'Passed':'Information',
+            d.checks.add(new CheckDTO('snapshot','Field Usage Snapshot',failed?'Attention':completed?'Passed':'Information',
                 'Latest run: '+run.Status__c+jobDetail+(failed?'. Scan errors need review.':limited?'. Some field metadata was skipped.':!completed?'. Scan completion has not been verified.':''),
                 failed||limited?'Open Settings > Field Usage > Operational Console for the recorded scan details.':null));
         }
@@ -142,11 +142,15 @@ public with sharing class StudioDiagnosticsController {
             if(counts.get('entries')!=null)skipped=(Decimal)counts.get('entries');
         }
         Boolean running=tracked&&(latestScan.Status__c=='Queued'||latestScan.Status__c=='Running');
-        CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',skipped>0?'Attention':tracked&&latestScan.Status__c=='Completed'?'Passed':'Information',
-            !tracked?'Run a new scan to collect skipped objects and fields.':skipped>0?'SCAN_SKIP:'+latestScan.Id+' · '+skipped.intValue()+' skipped object or field entries in the latest scan.':running?'Scan in progress. No skips recorded so far.':'Latest scan recorded no metadata skips.',
+        CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',skipped>0?'Information':tracked&&latestScan.Status__c=='Completed'?'Passed':'Information',
+            !tracked?'Run a new scan to collect skipped objects and fields.':skipped>0?'SCAN_SKIP:'+latestScan.Id+' · '+skipped.intValue()+' skipped object or field entries. Model coverage is limited for these entries.':running?'Scan in progress. No skips recorded so far.':'Latest scan recorded no metadata skips.',
             skipped>0?'We recommend that only Salesforce administrators test these Read changes, in a sandbox. Avoid using Apply Fix in production. Skipped metadata can leave gaps in the model.':null);
         accessCheck.canReviewAccess=skipped>0;
         d.checks.add(accessCheck);
+        if (!latest.isEmpty() && latest[0].Progress_Phase__c == 'Read repair needs attention') {
+            d.checks.add(new CheckDTO('readRepair','Read access repair','Attention',
+                latest[0].Progress_Log__c, 'Review the repair errors in the Field Usage console.'));
+        }
         Integer failed=0,attention=0; for(CheckDTO c:d.checks){if(c.status=='Failed')failed++;else if(c.status=='Attention')attention++;}
         d.overallStatus=failed>0?'Configuration Required':attention>0?'Attention Required':'Preflight Checks Passed';
         d.summary=failed>0?failed+' diagnostic check(s) failed.':attention>0?attention+' item(s) need attention.':'Available preflight checks passed.';

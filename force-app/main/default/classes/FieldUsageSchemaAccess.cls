@@ -63,6 +63,7 @@ public without sharing class FieldUsageSchemaAccess {
                 if(current==null||current.Entries__c.length()>125000){
                     current=new Field_Usage_Skip__c(Run__c=runId,Object_Name__c=name,Skip_Key__c=runId+'|'+name+'|'+String.valueOf(chunkIndex++).leftPad(5,'0'),Entries__c='',Entry_Count__c=0);writes.add(current);
                 }
+                if(String.isNotEmpty(current.Entries__c)&&!current.Entries__c.endsWith('\n'))current.Entries__c+='\n';
                 current.Entries__c+=f+'|'+fresh.get(f)+'\n';current.Entry_Count__c++;
                 if(message.length()>2700){messages.add(message);message='';}
                 message+=(message==''?'':', ')+name+'.'+f;
