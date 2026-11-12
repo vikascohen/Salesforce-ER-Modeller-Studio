@@ -19,6 +19,7 @@ export default class IndustryAccessReview extends LightningElement {
     activity = '';
     stopped = false;
 
+    coverageDetail='';
     get busy(){return Boolean(this.phase);}
     get loading(){return this.phase === 'loading';}
     get working(){return this.phase === 'review' || this.phase === 'apply' || this.phase === 'recheck';}
@@ -39,11 +40,12 @@ export default class IndustryAccessReview extends LightningElement {
         this.phase='loading';
         this.results=[];
         this.options=[];this.reviewed=null;
-        this.search='';
+        this.search='';this.coverageDetail='';
         this.status='Checking industry capabilities…';
         try{
             const d=await getReview();
             this.canUpdate=Boolean(d.canUpdate);this.runId=d.runId;
+            if(d.detected&&d.runId)this.coverageDetail=(d.recordedObjectCount??0)+' objects skipped in the last scan. '+(d.objects||[]).length+' objects still have proposed Read changes.';
             this.options=(d.objects||[]).map(name=>({name,selected:false}));
             this.status=this.runId?'Latest scan · SCAN_SKIP:'+this.runId:'Run a new scan to collect skips.';
         }catch(e){this.status=this.errorText(e);}

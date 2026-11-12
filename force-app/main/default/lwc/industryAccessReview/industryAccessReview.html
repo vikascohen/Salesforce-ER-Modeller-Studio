@@ -8,8 +8,9 @@
             <template if:true={noAdmin}><p>Fixes are available after scan completion to authorised Industry Cloud administrators.</p></template>
             <fieldset disabled={busy}>
                 <legend>Objects</legend>
+                <template if:true={coverageDetail}><p>{coverageDetail}</p></template>
                 <input type="search" aria-label="Search industry objects" placeholder="Search objects" value={search} oninput={handleSearch}/>
-                <div class="actions"><button onclick={handleAllObjects}>Select all skipped objects</button><button onclick={handleClearObjects}>Clear selection</button></div>
+                <div class="actions"><button onclick={handleAllObjects}>Select all listed objects</button><button onclick={handleClearObjects}>Clear selection</button></div>
                 <div class="object-list"><template for:each={visibleOptions} for:item="item"><label key={item.name}><input type="checkbox" checked={item.selected} data-name={item.name} onchange={handleObject}/>{item.name}</label></template></div>
                 <strong>{selectionCount} objects selected</strong>
                 <div class="actions"><button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button><template if:true={showApply}><button class="primary" disabled={noApply} onclick={handleApply}>{applyButtonLabel}</button></template></div>

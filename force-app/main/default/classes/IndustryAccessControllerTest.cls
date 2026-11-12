@@ -33,12 +33,14 @@
         insert new FieldPermissions(ParentId=other.Id,SobjectType='Account',Field='Account.Phone',PermissionsRead=true,PermissionsEdit=true);
         Integer writes=Limits.getDmlStatements();
         IndustryAccessController.ObjectReview review=IndustryAccessController.getObjectReview('Account',scanId);
-        System.assert(review.needsObjectRead);System.assertEquals(writes,Limits.getDmlStatements());
+        System.assert(IndustryAccessController.getReview().objects.contains('Account'));System.assert(review.needsObjectRead);System.assertEquals(writes,Limits.getDmlStatements());
         Set<String> missing=new Set<String>();for(IndustryAccessController.Item item:review.fields)if(item.eligible)missing.add(item.name);
         System.assert(missing.contains('Phone'),'A grant in another permission set cannot satisfy Diagram Studio User.');
 
         IndustryAccessController.UpdateResult result=IndustryAccessController.applyReadAccess('Account',new List<String>{'Phone'},true,scanId);
         System.assert(result.objectSuccess);
+        IndustryAccessController.Discovery refreshed=IndustryAccessController.getReview();
+        System.assertEquals(1,refreshed.recordedObjectCount);System.assertEquals(0,refreshed.objects.size());
         ObjectPermissions op=[SELECT PermissionsRead,PermissionsCreate,PermissionsEdit,PermissionsDelete,PermissionsViewAllRecords,PermissionsModifyAllRecords FROM ObjectPermissions WHERE ParentId=:p.Id AND SobjectType='Account'];
         System.assert(op.PermissionsRead);System.assert(!op.PermissionsCreate&&!op.PermissionsEdit&&!op.PermissionsDelete&&!op.PermissionsViewAllRecords&&!op.PermissionsModifyAllRecords);
         List<FieldPermissions> fields=[SELECT Field,PermissionsRead,PermissionsEdit FROM FieldPermissions WHERE ParentId=:p.Id];

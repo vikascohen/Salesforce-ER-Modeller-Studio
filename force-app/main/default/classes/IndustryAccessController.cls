@@ -6,6 +6,7 @@ public with sharing class IndustryAccessController {
     public class Discovery {
         @AuraEnabled public Id runId;
         @AuraEnabled public Boolean detected=false;
+        @AuraEnabled public Integer recordedObjectCount=0;
         @AuraEnabled public Boolean partial=false;
         @AuraEnabled public Boolean canUpdate=false;
         @AuraEnabled public List<String> clouds=new List<String>();
@@ -165,7 +166,21 @@ public with sharing class IndustryAccessController {
         if(run==null||!run.Tracks_Skips__c)return discovery;
         Set<String> names=new Set<String>();
         for(Field_Usage_Skip__c row:[SELECT Object_Name__c FROM Field_Usage_Skip__c WHERE Run__c=:run.Id])names.add(row.Object_Name__c);
-        discovery.objects.addAll(names);discovery.objects.sort();
+        discovery.recordedObjectCount=names.size();
+        if(!names.isEmpty()&&discovery.detected){
+            Grants grants=grantsFor(names);
+            Map<String,Schema.SObjectType> schemaTypes=Schema.getGlobalDescribe();
+            Set<String> pending=new Set<String>();
+            for(Field_Usage_Skip__c row:[SELECT Object_Name__c,Entries__c FROM Field_Usage_Skip__c WHERE Run__c=:run.Id]){
+                String name=row.Object_Name__c;
+                if(pending.contains(name)||!supportsObjectRead(name))continue;
+                ObjectReview review=reviewSkips(name,FieldUsageSchemaAccess.unpack(row.Entries__c),grants,schemaTypes.get(name));
+                if(review.needsObjectRead){pending.add(name);continue;}
+                for(Item item:review.fields)if(item.eligible){pending.add(name);break;}
+            }
+            discovery.objects.addAll(pending);
+        }else discovery.objects.addAll(names);
+        discovery.objects.sort();
         discovery.canUpdate=discovery.detected&&canManage()&&run.Status__c!='Running'&&run.Status__c!='Queued';
         return discovery;
     }
@@ -178,9 +193,10 @@ public with sharing class IndustryAccessController {
         Map<String,String> missed=new Map<String,String>();
         for(Field_Usage_Skip__c row:[SELECT Entries__c FROM Field_Usage_Skip__c WHERE Run__c=:runId AND Object_Name__c=:objectName])missed.putAll(FieldUsageSchemaAccess.unpack(row.Entries__c));
         if(missed.isEmpty())throw new AuraHandledException('This object has no recorded skip in the selected scan.');
-        Grants grants=grantsFor(new Set<String>{objectName});
+        return reviewSkips(objectName,missed,grantsFor(new Set<String>{objectName}),Schema.getGlobalDescribe().get(objectName));
+    }
+    private static ObjectReview reviewSkips(String objectName,Map<String,String> missed,Grants grants,Schema.SObjectType token){
         ObjectReview result=new ObjectReview();result.objectName=objectName;
-        Schema.SObjectType token=Schema.getGlobalDescribe().get(objectName);
         Boolean supported=token!=null&&supportsObjectRead(objectName);
         Map<String,Schema.SObjectField> fields=new Map<String,Schema.SObjectField>();
         try{if(supported)fields=token.getDescribe().fields.getMap();}catch(System.SObjectException ex){supported=false;}

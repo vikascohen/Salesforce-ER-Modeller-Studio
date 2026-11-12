@@ -33,7 +33,7 @@ it('does not allow a non-administrator to apply updates',async()=>{
  getReview.mockResolvedValue({detected:true,canUpdate:false,objects:['Account']});
  getObjectReview.mockResolvedValue({objectName:'Account',needsObjectRead:true,fields:[]});
  const el=createElement('c-industry-access-review',{is:Review});document.body.appendChild(el);
- button(el,'Review skipped objects').click();await flush();button(el,'Select all skipped objects').click();await flush();button(el,'Review selected objects').click();await flush();
+ button(el,'Review skipped objects').click();await flush();button(el,'Select all listed objects').click();await flush();button(el,'Review selected objects').click();await flush();
  expect(button(el,'Apply Fix')).toBeUndefined();expect(applyReadAccess).not.toHaveBeenCalled();
 });
 
@@ -43,7 +43,7 @@ it('shows the active object while a request is pending and advances only after a
  getObjectReview.mockImplementationOnce(()=>new Promise(resolve=>{releaseFirst=resolve;}))
    .mockImplementationOnce(()=>new Promise(resolve=>{releaseSecond=resolve;}));
  const el=createElement('c-industry-access-review',{is:Review});document.body.appendChild(el);
- button(el,'Review skipped objects').click();await flush();button(el,'Select all skipped objects').click();await flush();
+ button(el,'Review skipped objects').click();await flush();button(el,'Select all listed objects').click();await flush();
  button(el,'Review selected objects').click();await flush();
  const panel=()=>el.shadowRoot.querySelector('.review-progress');
  expect(panel().textContent).toContain('for Benefit');expect(panel().textContent).toContain('0 of 3 objects finished');
@@ -66,10 +66,10 @@ it('invalidates review after object selection changes and retries only a selecte
  });
  runDiagnostics.mockResolvedValue({summary:'done'});
  const el=createElement('c-industry-access-review',{is:Review});document.body.appendChild(el);
- button(el,'Review skipped objects').click();await flush();button(el,'Select all skipped objects').click();await flush();
+ button(el,'Review skipped objects').click();await flush();button(el,'Select all listed objects').click();await flush();
  button(el,'Review selected objects').click();await flush();expect(button(el,'Apply Fix')).toBeDefined();
  button(el,'Clear selection').click();await flush();expect(button(el,'Apply Fix')).toBeUndefined();
- button(el,'Select all skipped objects').click();await flush();expect(button(el,'Apply Fix')).toBeUndefined();
+ button(el,'Select all listed objects').click();await flush();expect(button(el,'Apply Fix')).toBeUndefined();
  button(el,'Review selected objects').click();await flush();button(el,'Apply Fix').click();await flush();
  expect(applyReadAccess.mock.calls.map(([request])=>request.objectName)).toEqual(['Child','Parent','Child']);
 });
