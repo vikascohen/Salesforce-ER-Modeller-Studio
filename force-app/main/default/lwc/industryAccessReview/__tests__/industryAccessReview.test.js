@@ -73,3 +73,19 @@ it('invalidates review after object selection changes and retries only a selecte
  button(el,'Review selected objects').click();await flush();button(el,'Apply Fix').click();await flush();
  expect(applyReadAccess.mock.calls.map(([request])=>request.objectName)).toEqual(['Child','Parent','Child']);
 });
+
+it('refreshes remaining objects while retaining the last field rejection', async()=>{
+ const initial={runId:'run',detected:true,canUpdate:true,recordedObjectCount:2,objects:['Benefit','Visit']};
+ getReview.mockResolvedValueOnce(initial).mockResolvedValueOnce({...initial,objects:['Benefit']});
+ getObjectReview.mockImplementation(async({objectName})=>({objectName,needsObjectRead:true,fields:[]}));
+ applyReadAccess.mockImplementation(async({objectName})=>({objectSuccess:objectName==='Visit',results:objectName==='Visit'?[]:[{name:'Benefit',eligible:false,message:'Read denied'}]}));
+ runDiagnostics.mockResolvedValue({checks:[]});
+ const el=createElement('c-industry-access-review',{is:Review});document.body.appendChild(el);
+ button(el,'Review skipped objects').click();await flush();button(el,'Select all listed objects').click();await flush();
+ button(el,'Review selected objects').click();await flush();button(el,'Apply Fix').click();await flush();
+ button(el,'Refresh remaining objects').click();await flush();
+ expect(el.shadowRoot.querySelectorAll('input[type=checkbox]')).toHaveLength(1);
+ expect(el.shadowRoot.textContent).toContain('Read denied');
+ expect(button(el,'Apply Fix')).toBeUndefined();
+ expect(applyReadAccess).toHaveBeenCalledTimes(2);
+});

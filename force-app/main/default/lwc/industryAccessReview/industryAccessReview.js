@@ -35,16 +35,23 @@ export default class IndustryAccessReview extends LightningElement {
     get noAdmin(){return !this.loading && !this.canUpdate;}
     get hasResults(){return this.results.length > 0;}
 
-    async handleOpen(){
+    lastApplyRun=null;
+    lastFailures=[];
+    get hasApplyOutcome(){return Boolean(this.lastApplyRun)&&this.lastApplyRun===this.runId;}
+    get hasFailures(){return this.lastFailures.length>0;}
+    handleOpen(){return this.loadReview(false);}
+    handleRefresh(){return this.loadReview(true);}
+    async loadReview(refresh){
         this.open=true;
         this.phase='loading';
         this.results=[];
         this.options=[];this.reviewed=null;
         this.search='';this.coverageDetail='';
-        this.status='Checking industry capabilities…';
+        this.status=refresh?'Refreshing remaining objects…':'Checking industry capabilities…';
         try{
             const d=await getReview();
             this.canUpdate=Boolean(d.canUpdate);this.runId=d.runId;
+            if(this.lastApplyRun!==d.runId){this.lastApplyRun=null;this.lastFailures=[];}
             if(d.detected&&d.runId)this.coverageDetail=(d.recordedObjectCount??0)+' objects skipped in the last scan. '+(d.objects||[]).length+' objects still have proposed Read changes.';
             this.options=(d.objects||[]).map(name=>({name,selected:false}));
             this.status=this.runId?'Latest scan · SCAN_SKIP:'+this.runId:'Run a new scan to collect skips.';
@@ -74,6 +81,7 @@ export default class IndustryAccessReview extends LightningElement {
         this.finished=0;
         this.stopped=false;
         let failures=0;
+        const failedRows=[];
         try{
             const queue=selected.map(o=>o.name);
             const deferred=[];
@@ -94,7 +102,7 @@ export default class IndustryAccessReview extends LightningElement {
                     if(waiting.length&&queue.length&&waiting.some(dep=>queue.includes(dep)||deferred.some(d=>d.name===dep))){
                         deferred.push({name,waiting,result});continue;
                     }
-                    if(result.errors.length)failures++;
+                    if(result.errors.length){failures++;failedRows.push({name,detail:result.errors.join(' · ')});}
                     else if(apply)ready.add(name);
                     const notes=[...result.errors];
                     if(!apply && fields.length)notes.push('Skipped fields eligible for Read: '+fields.join(', ')+'.');
@@ -102,7 +110,7 @@ export default class IndustryAccessReview extends LightningElement {
                     if(review.partial)notes.push('Partial review. Some fields were not inspected.');
                     this.results=[...this.results,{name,summary:result.summary,detail:notes.join(' ')}];
                 }catch(e){
-                    failures++;
+                    failures++;failedRows.push({name,detail:this.errorText(e)});
                     this.results=[...this.results,{name,summary:'Could not finish this object.',detail:this.errorText(e)}];
                 }
                 this.finished++;
@@ -112,7 +120,7 @@ export default class IndustryAccessReview extends LightningElement {
             }
             if(!this.stopped){
                 for(const row of deferred){
-                    failures++;this.finished++;
+                    failures++;this.finished++;failedRows.push({name:row.name,detail:row.result.errors.join(' · ')});
                     this.results=[...this.results,{name:row.name,summary:'Prerequisite Read access is missing.',detail:row.result.errors.join(' ')}];
                 }
             }
@@ -120,7 +128,8 @@ export default class IndustryAccessReview extends LightningElement {
             const outcome=this.stopped && this.finished<this.total?'Stopped. ':apply?'Update complete. ':'Review complete. ';
             this.status=outcome+this.finished+' of '+this.total+' objects checked.'+(failures?' '+failures+' with errors.':'');
             if(apply){
-                if(failures)this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Diagnostic Settings',severity:'ERROR',message:'Industry Read update: '+failures+' object(s) with errors. '+this.results.filter(r=>r.detail).map(r=>r.name+' '+r.detail).join(' | ').slice(0,2200)},bubbles:true,composed:true}));
+                this.lastApplyRun=this.runId;this.lastFailures=failedRows;
+                if(failures)this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Diagnostic Settings',severity:'ERROR',message:'Industry Read update: '+failures+' object(s) with errors. '+failedRows.map(r=>r.name+' '+r.detail).join(' | ').slice(0,2200)},bubbles:true,composed:true}));
                 this.phase='recheck';
                 this.activity='Rechecking Diagram Studio User…';
                 try{

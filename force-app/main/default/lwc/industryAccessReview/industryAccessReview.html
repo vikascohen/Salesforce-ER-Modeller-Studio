@@ -23,6 +23,11 @@
                 </div>
             </template>
             <template if:true={status}><p class="review-outcome" role="status">{status}</p></template>
+            <template if:true={hasApplyOutcome}>
+                <button disabled={busy} onclick={handleRefresh}>Refresh remaining objects</button>
+                <template if:true={hasFailures}><h4>Errors from last Apply Fix</h4><div class="result-list"><template for:each={lastFailures} for:item="failure"><p key={failure.name}><strong>{failure.name}</strong> — {failure.detail}</p></template></div></template>
+                <template if:false={hasFailures}><p>Last Apply Fix reported no errors.</p></template>
+            </template>
             <template if:true={hasResults}><h4>Object results</h4><div class="result-list"><template for:each={results} for:item="item"><p key={item.name}><strong>{item.name}</strong> — {item.summary} {item.detail}</p></template></div></template>
             <button disabled={busy} onclick={handleClose}>Close and refresh Health Check</button>
         </section>
