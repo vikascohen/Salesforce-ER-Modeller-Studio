@@ -3,7 +3,7 @@
     <template if:true={open}>
         <section class="review" aria-label="Industry Read access review">
             <h3>Read access for Diagram Studio User</h3>
-            <p>Select objects and click Review selected objects to see the fields skipped by the latest scan. Apply Fix adds eligible Read grants to Diagram Studio User.</p>
+            <p>Select objects and click Review selected objects to see the fields skipped by the latest scan. Apply Fix adds eligible Read grants and any required parent Object Read to Diagram Studio User.</p>
             <p class="notice">Users assigned this set may see field values on records they can already access through sharing. Existing permissions are preserved.</p>
             <template if:true={noAdmin}><p>Fixes are available after scan completion to authorised Industry Cloud administrators.</p></template>
             <fieldset disabled={busy}>

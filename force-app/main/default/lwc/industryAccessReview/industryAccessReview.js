@@ -131,12 +131,14 @@ export default class IndustryAccessReview extends LightningElement {
     async applyObject(name,fields,objectRead){
         if(!objectRead && !fields.length)return {summary:'No missing configurable Read permissions.',errors:[]};
         let granted=0, addedObject=false;
+        const prerequisites=new Set();
         const errors=[],blockedBy=[];
         for(let offset=0;offset<Math.max(1,fields.length);offset+=100){
             const batch=fields.slice(offset,offset+100);
             this.activity=batch.length?'Updating '+name+' · fields '+(offset+1)+'–'+(offset+batch.length)+' of '+fields.length:'Adding Object Read for '+name+'…';
             try{
                 const response=await applyReadAccess({objectName:name,fieldNames:batch,includeObjectRead:objectRead,runId:this.runId});
+                for(const parent of response.addedPrerequisites||[])prerequisites.add(parent);
                 for(const row of response.results||[]){
                     if(!row.eligible)errors.push(row.name+': '+row.message);
                     else if(row.name===name)addedObject=addedObject||row.message==='Object Read added.';
@@ -151,7 +153,7 @@ export default class IndustryAccessReview extends LightningElement {
                 }
             }catch(e){errors.push(this.errorText(e));break;}
         }
-        return {summary:(addedObject?'Object Read added. ':'')+granted+' field Read grants added.',errors,blockedBy};
+        return {summary:(addedObject?'Object Read added. ':'')+granted+' field Read grants added.'+(prerequisites.size?' Required Object Read added: '+[...prerequisites].join(', ')+'.':''),errors,blockedBy};
     }
     handleClose(){if(!this.busy){this.open=false;this.dispatchEvent(new CustomEvent('reviewclosed'));}}
     errorText(e){

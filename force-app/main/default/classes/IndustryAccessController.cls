@@ -31,6 +31,7 @@ public with sharing class IndustryAccessController {
     public class UpdateResult {
         @AuraEnabled public String objectName;
         @AuraEnabled public Boolean objectSuccess=false;
+        @AuraEnabled public List<String> addedPrerequisites=new List<String>();
         @AuraEnabled public List<Item> results=new List<Item>();
     }
     @TestVisible private static Set<String> objectsOverride;
@@ -205,6 +206,49 @@ public with sharing class IndustryAccessController {
         result.needsObjectRead=(hasFix||result.objectOnlyAllowed)&&!grants.objects.contains(objectName.toLowerCase());
         return result;
     }
+    private class DependencyException extends Exception {}
+    @TestVisible private static List<String> requiredObjectReads(String message){
+        Matcher rule=Pattern.compile('(?i)^Permission Read [A-Za-z][A-Za-z0-9_]* depends on permission\\(s\\): (.+)$').matcher(message);
+        List<String> names=new List<String>();
+        if(!rule.matches())return names;
+        for(String term:rule.group(1).split(',')){
+            Matcher item=Pattern.compile('(?i)^Read ([A-Za-z][A-Za-z0-9_]*)$').matcher(term.trim());
+            if(!item.matches()||!supportsObjectRead(item.group(1)))return new List<String>();
+            names.add(item.group(1));
+        }
+        return names;
+    }
+    private static void ensureRead(Id setId,String name,Set<String> visiting,List<String> added){
+        if(visiting.contains(name.toLowerCase()))throw new DependencyException('Circular Object Read prerequisite for '+name+'.');
+        if(Limits.getQueries()>=Limits.getLimitQueries()-5)throw new DependencyException('Too many prerequisites to resolve for '+name+'.');
+        visiting.add(name.toLowerCase());
+        List<ObjectPermissions> rows=[SELECT Id,PermissionsRead FROM ObjectPermissions WHERE ParentId=:setId AND SobjectType=:name];
+        if(rows.isEmpty()||!rows[0].PermissionsRead){
+            ObjectPermissions row=rows.isEmpty()?new ObjectPermissions(ParentId=setId,SobjectType=name):new ObjectPermissions(Id=rows[0].Id);
+            row.PermissionsRead=true;
+            Set<String> attempted=new Set<String>();
+            while(true){
+                if(Limits.getDmlStatements()>=Limits.getLimitDmlStatements()-5)throw new DependencyException('Too many prerequisite updates for '+name+'.');
+                Database.SaveResult saved=row.Id==null?Database.insert(row,false,AccessLevel.USER_MODE):Database.update(row,false,AccessLevel.USER_MODE);
+                if(saved.isSuccess()){added.add(name);break;}
+                List<String> required=new List<String>();
+                for(Database.Error error:saved.getErrors()){
+                    List<String> parents=requiredObjectReads(error.getMessage());
+                    if(error.getStatusCode()!=StatusCode.FIELD_INTEGRITY_EXCEPTION||parents.isEmpty())throw new DependencyException(error.getMessage());
+                    required.addAll(parents);
+                }
+                Boolean advanced=false;
+                for(String parent:required){
+                    if(attempted.add(parent.toLowerCase())){
+                        ensureRead(setId,parent,visiting,added);
+                        advanced=true;
+                    }
+                }
+                if(!advanced)throw new DependencyException(saved.getErrors()[0].getMessage());
+            }
+        }
+        visiting.remove(name.toLowerCase());
+    }
     public static UpdateResult applyReadAccess(String objectName,List<String> fieldNames,Boolean includeObjectRead,Id runId){
         if(!canManage()||!discover().detected)throw new AuraHandledException('Industry access changes require an authorised administrator in a supported Industry Cloud org.');
         requireLatest(runId);
@@ -230,11 +274,16 @@ public with sharing class IndustryAccessController {
         Boolean needsRead=ops.isEmpty()||!ops[0].PermissionsRead;
         if(needsRead&&includeObjectRead!=true)throw new AuraHandledException('Object Read is required for the selected fields. Include Object Read in the review.');
         if(needsRead){
-            ObjectPermissions row=ops.isEmpty()?new ObjectPermissions(ParentId=p.Id,SobjectType=objectName,PermissionsRead=true,PermissionsCreate=false,PermissionsEdit=false,PermissionsDelete=false,PermissionsViewAllRecords=false,PermissionsModifyAllRecords=false):new ObjectPermissions(Id=ops[0].Id,PermissionsRead=true);
-            List<ObjectPermissions> change=new List<ObjectPermissions>{row};
-            List<Database.SaveResult> outcomes=row.Id==null?Database.insert(change,false,AccessLevel.USER_MODE):Database.update(change,false,AccessLevel.USER_MODE);
-            Database.SaveResult saved=outcomes[0];
-            if(!saved.isSuccess()){result.results.add(new Item(objectName,objectName,false,saved.getErrors()[0].getMessage()));return result;}
+            Savepoint checkpoint=Database.setSavepoint();
+            try{
+                ensureRead(p.Id,objectName,new Set<String>(),result.addedPrerequisites);
+                if(!result.addedPrerequisites.isEmpty())result.addedPrerequisites.remove(result.addedPrerequisites.size()-1);
+            }catch(DependencyException ex){
+                Database.rollback(checkpoint);
+                result.addedPrerequisites.clear();
+                result.results.add(new Item(objectName,objectName,false,ex.getMessage()));
+                return result;
+            }
         }
         result.objectSuccess=true;
         result.results.add(new Item(objectName,objectName,true,needsRead?'Object Read added.':'Object Read already present.'));

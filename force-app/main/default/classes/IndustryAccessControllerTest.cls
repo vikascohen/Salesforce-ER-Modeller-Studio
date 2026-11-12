@@ -11,6 +11,11 @@
         }
         return p;
     }
+    @IsTest static void acceptsOnlyExplicitObjectReadDependencies(){
+        System.assertEquals(new List<String>{'Account','Contact'},IndustryAccessController.requiredObjectReads('Permission Read Child depends on permission(s): Read Account, Read Contact'));
+        System.assertEquals(0,IndustryAccessController.requiredObjectReads('Permission Read Child depends on permission(s): Read Account, Edit Contact').size());
+        System.assertEquals(0,IndustryAccessController.requiredObjectReads('Permission Read Child depends on permission(s): Read Account.Phone').size());
+    }
     @IsTest static void noIndustryHasNoAccessReview(){
         IndustryAccessController.objectsOverride=new Set<String>();
         Integer writes=Limits.getDmlStatements();IndustryAccessController.Discovery d=IndustryAccessController.getReview();
