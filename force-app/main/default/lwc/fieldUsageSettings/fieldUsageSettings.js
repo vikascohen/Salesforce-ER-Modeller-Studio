@@ -75,7 +75,47 @@ export default class FieldUsageSettings extends LightningElement {
     get healthState(){if(this.scanFailure)return 'Attention';return this.scanRunning?'Processing':(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus)?'Attention':(Number(this.field(this.run,'Error_Count__c')||0)>0?'Attention':(this.field(this.run,'Is_Current__c')?'Healthy':'Not scanned')));}
     get dependencyCount(){return Number(this.field(this.run,'Dependency_Count__c')||0);} get objectsProcessed(){return Number(this.field(this.run,'Objects_Processed__c')||0);} get objectsTotal(){return Number(this.field(this.run,'Objects_Total__c')||0);} get progressLog(){return this.field(this.run,'Progress_Log__c')||'';} get hasProgressLog(){return !!this.progressLog;} get errorCount(){return Number(this.field(this.run,'Error_Count__c')||0);} get jobTotal(){return Number(this.status?.jobTotal||0);} get jobProcessed(){return Number(this.status?.jobProcessed||0);} get jobErrors(){return Number(this.status?.jobErrors||0);} get jobStatus(){return this.status?.jobStatus||'';}
     updateDisplayedProgress(){const runId=this.run?.Id||this.activeRunId||null;if(runId!==this.progressRunId){this.progressRunId=runId;this.displayedProgress=0;}const persisted=Math.max(0,Math.min(this.scanRunning?99:100,Number(this.field(this.run,'Progress_Percent__c')||0)));let candidate=!this.scanRunning&&/Completed/i.test(this.runStatus)?100:persisted;const phase=String(this.field(this.run,'Progress_Phase__c')||'');if(this.scanRunning&&/Discovering scan work/i.test(phase)&&this.jobTotal>0){const realBatchPercent=Math.floor((Math.max(0,this.jobProcessed)/this.jobTotal)*100);candidate=Math.max(candidate,Math.max(1,Math.min(99,realBatchPercent)));}this.displayedProgress=Math.max(this.displayedProgress,candidate);}
-    get progress(){return Math.max(0,Math.min(100,Number(this.displayedProgress||0)));}
+    get reviewingAccess() {
+        return this.field(this.run,'Progress_Phase__c') === 'Reviewing skipped Read permissions';
+    }
+    get workflowStage() {
+        const type = this.field(this.run,'Run_Type__c');
+        const verification = type === 'Verification';
+        if (this.scanFailure) return verification ? 'Verification needs attention' : 'Scan workflow needs attention';
+        if (this.reviewingAccess && this.scanRunning) return 'Reviewing skips and applying eligible Read grants to Diagram Studio User';
+        if (this.scanRunning) {
+            if (verification) return 'Verification scan · Pass 2 of 2';
+            if (type === 'Manual') return 'Field Usage scan · Pass 1';
+            return 'Field Usage scan';
+        }
+        if (this.runStatus === 'Completed') {
+            if (verification) return 'Verification complete · Pass 2 of 2';
+            if (this.phase === 'Read access review complete') return 'Scan and Read access review complete';
+            if (this.phase === 'Read repair complete; verification queued') return 'Read access updated · Verification queued';
+            return 'Scan complete';
+        }
+        return this.phase;
+    }
+    get workflowDetail() {
+        if (this.scanFailure) return '';
+        if (this.reviewingAccess && this.scanRunning) {
+            if (!this.jobTotal) return 'Preparing the access review…';
+            if (this.status.oneBatchPerObject && this.jobTotal === this.status.repairObjects)
+                return `${this.jobProcessed} of ${this.jobTotal} objects processed`;
+            return `${this.jobProcessed} of ${this.jobTotal} review batches processed`;
+        }
+        if (this.scanRunning) return this.phase;
+        if (this.runStatus === 'Completed' && this.status.skippedEntries != null)
+            return this.status.skippedEntries ? `Coverage limits · ${this.status.skippedEntries} skipped object or field entries in this scan` : 'No object or field skips recorded';
+        return '';
+    }
+    get backgroundRunning() {
+        return this.scanRunning && Boolean(this.field(this.run,'Job_Id__c'));
+    }
+    get showProgressPercent() {
+        return !this.reviewingAccess || this.jobTotal > 0;
+    }
+    get progress(){if(this.reviewingAccess)return this.jobTotal ? Math.min(100,Math.floor(100*this.jobProcessed/this.jobTotal)) : 0;return Math.max(0,Math.min(100,Number(this.displayedProgress||0)));}
     get progressStyle(){return `width:${this.progress}%;`;}
     get phase(){if(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus))return `Previous async job ${this.jobStatus.toLowerCase()} · ready to start a new scan`;const persisted=this.field(this.run,'Progress_Phase__c');if(persisted)return persisted;if(this.scanRunning)return this.jobStatus?`Pipeline running · current batch ${this.jobStatus}`:'Pipeline running';return 'Idle';}
     get lastCompleted(){return this.formatDate(this.field(this.run,'Completed_At__c'));} get hasJobs(){return this.jobs.length>0;} get hasSchedules(){return this.schedules.length>0;} get hasHistory(){return this.history.length>0;}

@@ -32,3 +32,19 @@ it('makes launch errors visible and emits them even if the status refresh succee
  [...el.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Run Scan Now').click();await flush();
  expect(el.shadowRoot.querySelector('[role=alert]').textContent).toContain('Tooling credential is unavailable');expect(handler).toHaveBeenCalledTimes(1);
 });
+it('restores repair progress on opening and follows the verification run to its result',async()=>{
+ jest.useFakeTimers();
+ const repair={Id:'first',Job_Id__c:'repair',Status__c:'Completed',Progress_Phase__c:'Reviewing skipped Read permissions',Progress_Percent__c:100};
+ getStatus.mockResolvedValue({run:repair,jobStatus:'Processing',jobProcessed:8,jobTotal:21,repairObjects:21,oneBatchPerObject:true});
+ const el=createElement('c-field-usage-settings',{is:Settings});document.body.appendChild(el);await flush();
+ const notice=()=>el.shadowRoot.querySelector('.workflow').textContent;
+ expect(notice()).toContain('8 of 21 objects processed');expect(notice()).toContain('close this tab');
+ expect(el.shadowRoot.querySelector('.progressPercent').textContent).toBe('38%');
+ getStatus.mockResolvedValue({run:repair,jobStatus:'Processing',jobProcessed:8,jobTotal:23,repairObjects:21,oneBatchPerObject:false});
+ jest.advanceTimersByTime(3000);await flush();expect(notice()).toContain('8 of 23 review batches');
+ const verify={Id:'second',Job_Id__c:'scan',Run_Type__c:'Verification',Status__c:'Running'};
+ getStatus.mockResolvedValue({run:verify,jobStatus:'Processing'});jest.advanceTimersByTime(3000);await flush();
+ expect(notice()).toContain('Pass 2 of 2');
+ getStatus.mockResolvedValue({run:{...verify,Status__c:'Completed'},jobStatus:'Completed',skippedEntries:3});jest.advanceTimersByTime(3000);await flush();
+ expect(notice()).toContain('Verification complete');expect(notice()).toContain('3 skipped');expect(notice()).not.toContain('close this tab');
+});

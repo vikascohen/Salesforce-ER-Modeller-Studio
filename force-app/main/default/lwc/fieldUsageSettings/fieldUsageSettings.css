@@ -2,3 +2,7 @@
 .exclusionAdd{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.exclusionAdd input{flex:1;min-width:210px;padding:10px;border:1px solid #bbc5d3;border-radius:6px}.exclusionList{max-height:320px;overflow-y:auto;border:1px solid #d8dee8;border-radius:6px}.exclusionItem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid #e6eaf0;overflow-wrap:anywhere}.exclusionItem:last-child{border-bottom:none}
 
 .scanFailure{border:2px solid #f05252;border-left:8px solid #f05252;border-radius:8px;padding:16px;margin:14px 0;background:#3b171b;color:#fff}.scanFailure h3{font-size:20px;margin:0 0 10px}.scanFailure pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;color:#ffd7d7}.scanFailure p{color:#fff;line-height:1.5}
+
+.workflow { padding: .8rem 1rem; border-inline-start: 3px solid #477ad1; }
+.workflow strong, .workflow small { display: block; }
+.workflow small { margin-top: .25rem; }
