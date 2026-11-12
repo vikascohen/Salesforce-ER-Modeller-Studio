@@ -25,6 +25,10 @@ The beta cannot be installed in production until promoted. V5 is a separate pack
 
 The DSL editor and canvas work without an org scan. App-based generation requires readable scoped object/field evidence. Small Developer Edition storage limits can constrain scan size and history.
 
+### Health Check and Apply Fix
+
+We recommend that only Salesforce administrators test **Apply Fix**, in a sandbox. Avoid using it in production. Reviewing scan gaps is read-only. Applying a fix adds supported object and field Read grants to **Diagram Studio User**, which can expose field values on records available to anyone assigned that permission set. You can leave gaps unresolved: the scan continues, but field usage and relationships that depend on skipped metadata may be missing from the model.
+
 ## What is included in V5?
 
 The branch also contains an app-page field discovery enhancement tested in Crius. It requires a newer package build; installer 5.0.0.1 remains unchanged.

@@ -144,7 +144,7 @@ public with sharing class StudioDiagnosticsController {
         Boolean running=tracked&&(latestScan.Status__c=='Queued'||latestScan.Status__c=='Running');
         CheckDTO accessCheck=new CheckDTO('scanAccess','Scan Metadata Access',skipped>0?'Attention':tracked&&latestScan.Status__c=='Completed'?'Passed':'Information',
             !tracked?'Run a new scan to collect skipped objects and fields.':skipped>0?'SCAN_SKIP:'+latestScan.Id+' · '+skipped.intValue()+' skipped object or field entries in the latest scan.':running?'Scan in progress. No skips recorded so far.':'Latest scan recorded no metadata skips.',
-            skipped>0?'Review the recorded skips. Select objects to apply supported Read fixes, then run a new scan to verify coverage.':null);
+            skipped>0?'We recommend that only Salesforce administrators test these Read changes, in a sandbox. Avoid using Apply Fix in production. Skipped metadata can leave gaps in the model.':null);
         accessCheck.canReviewAccess=skipped>0;
         d.checks.add(accessCheck);
         Integer failed=0,attention=0; for(CheckDTO c:d.checks){if(c.status=='Failed')failed++;else if(c.status=='Attention')attention++;}
