@@ -224,13 +224,18 @@ public with sharing class IndustryAccessController {
     }
     private class DependencyException extends Exception {}
     @TestVisible private static List<String> requiredObjectReads(String message){
-        Matcher rule=Pattern.compile('(?i)^Permission Read [A-Za-z][A-Za-z0-9_]* depends on permission\\(s\\): (.+)$').matcher(message);
-        List<String> names=new List<String>();
-        if(!rule.matches())return names;
-        for(String term:rule.group(1).split(',')){
-            Matcher item=Pattern.compile('(?i)^Read ([A-Za-z][A-Za-z0-9_]*)$').matcher(term.trim());
-            if(!item.matches()||!supportsObjectRead(item.group(1)))return new List<String>();
-            names.add(item.group(1));
+        Pattern rule = Pattern.compile('(?i)^Permission Read [A-Za-z][A-Za-z0-9_]* depends on permission\\(s\\): (.+)$');
+        Pattern read = Pattern.compile('(?i)^Read ([A-Za-z][A-Za-z0-9_]*)$');
+        List<String> names = new List<String>();
+        if (String.isBlank(message)) return names;
+        for (String clause : message.split(';')) {
+            Matcher requirement = rule.matcher(clause.trim());
+            if (!requirement.matches()) return new List<String>();
+            for (String term : requirement.group(1).split(',')) {
+                Matcher item = read.matcher(term.trim());
+                if (!item.matches() || !supportsObjectRead(item.group(1))) return new List<String>();
+                if (!names.contains(item.group(1))) names.add(item.group(1));
+            }
         }
         return names;
     }

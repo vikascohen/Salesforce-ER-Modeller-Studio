@@ -13,6 +13,10 @@
     }
     @IsTest static void acceptsOnlyExplicitObjectReadDependencies(){
         System.assertEquals(new List<String>{'Account','Contact'},IndustryAccessController.requiredObjectReads('Permission Read Child depends on permission(s): Read Account, Read Contact'));
+        String required = 'Permission Read Child depends on permission(s): Read Account; ';
+        System.assertEquals(new List<String>{'Account','Contact'}, IndustryAccessController.requiredObjectReads(required+'Permission Read Child depends on permission(s): Read Contact'));
+        System.assertEquals(0, IndustryAccessController.requiredObjectReads(required+'Permission Read Child depends on permission(s): Edit Contact').size());
+        System.assertEquals(0, IndustryAccessController.requiredObjectReads(required+'Read on Child requires Read on at least one of these objects: Account, Contact').size());
         System.assertEquals(0,IndustryAccessController.requiredObjectReads('Permission Read Child depends on permission(s): Read Account, Edit Contact').size());
         System.assertEquals(0,IndustryAccessController.requiredObjectReads('Permission Read Child depends on permission(s): Read Account.Phone').size());
     }
