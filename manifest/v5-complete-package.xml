@@ -78,7 +78,9 @@
     <members>StudioDiagnosticsControllerTest</members>
     <members>AppPageFieldService</members>
     <members>AppPageFieldServiceTest</members>
-    <name>ApexClass</name>
+    <members>IndustryAccessController</members>
+        <members>IndustryAccessControllerTest</members>
+        <name>ApexClass</name>
   </types>
   <types>
     <members>Diagram_File__c.Import_Bindings__c</members>
@@ -132,6 +134,12 @@
     <members>MCP_Settings__c.Scan_Enabled__c</members>
     <members>MCP_Settings__c.Status_Enabled__c</members>
     <members>MCP_Settings__c.Usage_Enabled__c</members>
+    <members>Field_Usage_Run__c.Tracks_Skips__c</members>
+    <members>Field_Usage_Skip__c.Entries__c</members>
+    <members>Field_Usage_Skip__c.Entry_Count__c</members>
+    <members>Field_Usage_Skip__c.Object_Name__c</members>
+    <members>Field_Usage_Skip__c.Run__c</members>
+    <members>Field_Usage_Skip__c.Skip_Key__c</members>
     <name>CustomField</name>
   </types>
   <types>
@@ -144,6 +152,7 @@
     <members>Field_Usage_Schedule__c</members>
     <members>Field_Usage_Work_Unit__c</members>
     <members>MCP_Settings__c</members>
+    <members>Field_Usage_Skip__c</members>
     <name>CustomObject</name>
   </types>
   <types>
@@ -176,7 +185,8 @@
     <members>objectArchitectureHealth</members>
     <members>studioHelp</members>
     <members>toolingApiConfigurationHelp</members>
-    <name>LightningComponentBundle</name>
+    <members>industryAccessReview</members>
+        <name>LightningComponentBundle</name>
   </types>
   <types>
     <members>Diagram_Studio_User</members>

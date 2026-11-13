@@ -1,0 +1,36 @@
+<template>
+    <template if:false={open}><button onclick={handleOpen}>Review skipped objects</button></template>
+    <template if:true={open}>
+        <section class="review" aria-label="Industry Read access review">
+            <h3>Read access for Diagram Studio User</h3>
+            <p class="notice">We recommend that only Salesforce administrators run this test, in a sandbox. Avoid using Apply Fix in production.</p>
+            <p>Select objects and click Review selected objects to see the fields skipped by the latest scan. Apply Fix adds eligible Read grants and any required parent Object Read to Diagram Studio User.</p>
+            <p class="notice">Users assigned this set may see field values on records they can already access through sharing. Existing permissions are preserved.</p>
+            <template if:true={noAdmin}><p>Fixes are available after scan completion to authorised Industry Cloud administrators.</p></template>
+            <fieldset disabled={busy}>
+                <legend>Objects</legend>
+                <template if:true={coverageDetail}><p>{coverageDetail}</p></template>
+                <input type="search" aria-label="Search industry objects" placeholder="Search objects" value={search} oninput={handleSearch}/>
+                <div class="actions"><button onclick={handleAllObjects}>Select all listed objects</button><button onclick={handleClearObjects}>Clear selection</button></div>
+                <div class="object-list"><template for:each={visibleOptions} for:item="item"><label key={item.name}><input type="checkbox" checked={item.selected} data-name={item.name} onchange={handleObject}/>{item.name}</label></template></div>
+                <strong>{selectionCount} objects selected</strong>
+                <div class="actions"><button onclick={handleReview} disabled={noObjects}>{reviewButtonLabel}</button><template if:true={showApply}><button class="primary" disabled={noApply} onclick={handleApply}>{applyButtonLabel}</button></template></div>
+            </fieldset>
+            <template if:true={working}>
+                <div class="review-progress">
+                    <div role="status" aria-live="polite" aria-atomic="true"><span class="activity-spinner" aria-hidden="true"></span>{activity} <strong>{finished} of {total} objects finished</strong></div>
+                    <progress aria-label="Selected objects finished" value={finished} max={total}></progress>
+                    <button disabled={stopDisabled} onclick={handleCancel}>Stop after current object</button>
+                </div>
+            </template>
+            <template if:true={status}><p class="review-outcome" role="status">{status}</p></template>
+            <template if:true={hasApplyOutcome}>
+                <button disabled={busy} onclick={handleRefresh}>Refresh remaining objects</button>
+                <template if:true={hasFailures}><h4>Errors from last Apply Fix</h4><div class="result-list"><template for:each={lastFailures} for:item="failure"><p key={failure.name}><strong>{failure.name}</strong> — {failure.detail}</p></template></div></template>
+                <template if:false={hasFailures}><p>Last Apply Fix reported no errors.</p></template>
+            </template>
+            <template if:true={hasResults}><h4>Object results</h4><div class="result-list"><template for:each={results} for:item="item"><p key={item.name}><strong>{item.name}</strong> — {item.summary} {item.detail}</p></template></div></template>
+            <button disabled={busy} onclick={handleClose}>Close and refresh Health Check</button>
+        </section>
+    </template>
+</template>

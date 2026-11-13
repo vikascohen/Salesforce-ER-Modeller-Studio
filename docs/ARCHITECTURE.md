@@ -139,7 +139,7 @@ The optional standard OmniStudio scanner probes object/field availability before
 
 `FieldUsageSchemaAccess` guards field metadata inspection across discovery and reference scanners. Individual `SObjectException` failures skip unavailable metadata while retaining readable evidence; unrelated errors remain failures. Bounded schema-coverage warnings are persisted to the Studio run log and surfaced in generated-model coverage. A completed readable snapshot can therefore have explicitly limited schema coverage.
 
-`ScanMetadataAccessCheck` uses setup licence/permission metadata and dynamic schema probes, with no static dependency on PSS objects. Health Check reports object/field Read gaps separately from unavailable metadata. Limits of 50 objects, 8,000 fields, 100 displayed gaps and a CPU budget prevent unbounded diagnostics; partial results are identified. It performs no business-record queries or permission writes.
+`ScanMetadataAccessCheck` uses industry licence metadata, recognised managed namespaces and dynamic schema probes. Field Usage records unique skipped object and field names under their scan run. The skip records inherit run sharing and retention. A compact SCAN_SKIP marker links the session and configured diagnostic logs back to that run. Health Check reads the latest run and compares only recorded skips with explicit Read grants on Diagram Studio User. It validates the run identity, administrator authority, reviewed field scope and configurability before updating grants in user mode.
 
 ## Stored state
 

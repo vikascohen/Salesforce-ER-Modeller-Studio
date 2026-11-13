@@ -1,0 +1,1 @@
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Run__c</fullName><label>Run</label><type>MasterDetail</type><referenceTo>Field_Usage_Run__c</referenceTo><relationshipName>Scan_Skips</relationshipName><relationshipLabel>Scan Skips</relationshipLabel></CustomField>

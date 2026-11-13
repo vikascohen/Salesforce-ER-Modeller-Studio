@@ -91,7 +91,7 @@
                 <main class="settings-content">
                     <template if:true={settingsMcpSectionOpen}><c-er-mcp-settings onstudioerror={handleStudioDiagnostic}></c-er-mcp-settings></template>
                     <template if:true={settingsScheduleSectionOpen}>
-                        <c-field-usage-settings onstudioerror={handleStudioDiagnostic}></c-field-usage-settings>
+                        <c-field-usage-settings onscancoverage={handleScanCoverage} onstudioerror={handleStudioDiagnostic} onopenerrorlog={handleOpenDiagnosticCentre}></c-field-usage-settings>
                     </template>
                     <template if:true={settingsSystemSectionOpen}>
                         <div class="settings-title"><div><h2>System Information</h2><p>Read-only Studio, Salesforce environment, architecture and Field Usage health information.</p></div><button class="arch-action-btn" onclick={loadSystemInfo}>Refresh</button></div>
@@ -214,7 +214,7 @@
     <template if:true={diagnosticsOpen}>
         <section class="diagnostics-page">
             <header class="diagnostics-head">
-                <div><span class="settings-kicker">ER MODELLER STUDIO · SYSTEM DIAGNOSTICS</span><h1>Application Health Check</h1><p>Live self-test of the Studio installation. No Field Usage scan is started.</p></div>
+                <div><span class="settings-kicker">ER MODELLER STUDIO · SYSTEM DIAGNOSTICS</span><h1>ER Modeller Studio Health Check</h1><p>Limited preflight checks. A passed check does not guarantee a complete scan. No scan is started.</p></div>
                 <button class="arch-action-btn" disabled={diagnosticsRunning} onclick={handleCloseDiagnostics}>Back to Settings</button>
             </header>
             <div class="diagnostics-body">
@@ -228,14 +228,14 @@
                     <template for:each={diagnosticsChecks} for:item="check">
                         <article class={check.cssClass} key={check.key}>
                             <div class="diag-status-mark">{check.status}</div>
-                            <div><h3>{check.label}</h3><template if:true={check.diagnosis}><div class="diag-likely-cause"><strong>Diagnosis</strong><span>{check.diagnosis}</span></div></template><p>{check.detail}</p><template if:true={check.hasAccessGaps}><div class="diag-access-table"><table><thead><tr><th>Object</th><th>Field</th><th>Finding</th><th>Read-only action</th></tr></thead><tbody><template for:each={check.accessGaps} for:item="gap"><tr key={gap.key}><td>{gap.objectName}</td><td>{gap.fieldName}</td><td>{gap.issue}</td><td>{gap.action}</td></tr></template></tbody></table></div></template><template if:true={check.remediation}><div class="diag-remediation"><strong>Recommended action</strong><span>{check.remediation}</span><template if:true={check.hasActions}><ul class="diag-remediation-list"><template for:each={check.actions} for:item="action"><li key={action.key}>{action.label}</li></template></ul></template></div></template></div>
+                            <div><h3>{check.label}</h3><template if:true={check.diagnosis}><div class="diag-likely-cause"><strong>Diagnosis</strong><span>{check.diagnosis}</span></div></template><p>{check.detail}</p><template if:true={check.hasRestrictions}><details><summary>Unavailable metadata</summary><ul><template for:each={check.restrictions} for:item="gap"><li key={gap.key}>{gap.objectName} · {gap.fieldName}</li></template></ul><p>Review licence and metadata availability for these items.</p></details></template><template if:true={check.canReviewAccess}><c-industry-access-review onstudioerror={handleStudioDiagnostic} onreviewclosed={handleRunDiagnostics}></c-industry-access-review></template><template if:true={check.remediation}><div class="diag-remediation"><strong>Recommended action</strong><span>{check.remediation}</span><template if:true={check.hasActions}><ul class="diag-remediation-list"><template for:each={check.actions} for:item="action"><li key={action.key}>{action.label}</li></template></ul></template></div></template></div>
                         </article>
                     </template>
                 </div>
                 <template if:true={diagnosticsHasResults}>
                     <section class={diagnosticsOverallClass}><span>Overall application state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Completed {diagnosticsCompletedAt}</small></section>
                 </template>
-                <div class="diag-safety-note"><strong>Diagnostic scope</strong><span>This self-test is read-only except for the authenticated Tooling API preflight. It does not launch scans, alter schedules, modify credentials or expose OAuth tokens and secrets.</span></div>
+                <div class="diag-safety-note"><strong>Diagnostic scope</strong><span>Running Health Check reads metadata only and does not start a scan. Permission changes occur only when an authorised administrator selects items and clicks Apply Fix.</span></div>
             </div>
         </section>
     </template>

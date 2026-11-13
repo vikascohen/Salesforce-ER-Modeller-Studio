@@ -28,4 +28,24 @@
         System.assertNotEquals(null,FieldUsageFormulaScanner.scan(run.Id,'Account'));
         FieldUsageSchemaAccess.persistWarnings(run.Id);
     }
+    @IsTest static void latestScanOnlyAndPersistentSkipsAreDeduplicated(){
+        Field_Usage_Run__c first=new Field_Usage_Run__c(Status__c='Completed',Tracks_Skips__c=true);
+        insert first;
+        FieldUsageSchemaAccess.unavailableForTest.add(String.valueOf(Account.Phone));
+        for(Integer i=0;i<2;i++){
+            FieldUsageSchemaAccess.describeField(Account.Phone,'Account','Phone');
+            FieldUsageSchemaAccess.skipObject('Account','Read');
+            FieldUsageSchemaAccess.persistWarnings(first.Id);
+        }
+        Field_Usage_Skip__c row=[SELECT Entries__c,Entry_Count__c FROM Field_Usage_Skip__c WHERE Run__c=:first.Id];
+        System.assertEquals(2,row.Entry_Count__c);
+        System.assertEquals('Read',FieldUsageSchemaAccess.unpack(row.Entries__c).get('phone'));
+        StudioDiagnosticsController.SkipLogPage page=StudioDiagnosticsController.getScanSkipLogPage(first.Id,null);
+        System.assert(page.messages[0].contains('SCAN_SKIP:'+first.Id));System.assert(page.messages[0].contains('Account.phone'));
+        Test.setCreatedDate(first.Id,System.now().addDays(-1));
+        Field_Usage_Run__c latest=new Field_Usage_Run__c(Status__c='Completed',Tracks_Skips__c=true);insert latest;
+        System.assertEquals(0,IndustryAccessController.getReview().objects.size());
+        System.assertEquals(0,StudioDiagnosticsController.getScanSkipLogPage(first.Id,null).messages.size());
+        Boolean denied=false;try{IndustryAccessController.getObjectReview('Account',first.Id);}catch(AuraHandledException ex){denied=true;}System.assert(denied);
+    }
 }

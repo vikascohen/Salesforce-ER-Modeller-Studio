@@ -4,7 +4,8 @@
 public without sharing class FieldUsageSnapshotFinalizer {
  public static void finish(Id runId,Integer failures,List<String> errors){
   Savepoint sp=Database.setSavepoint();try{
-   Field_Usage_Run__c run=[SELECT Id,Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId FOR UPDATE];
+   Field_Usage_Run__c run=[SELECT Id,Status__c,Run_Type__c,Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId FOR UPDATE];
+   if(run.Status__c=='Completed')return;
    Integer evidence=[SELECT COUNT() FROM Field_Usage_Evidence__c WHERE Run__c=:runId];
    List<Field_Usage_Work_Unit__c> completedUnits=[SELECT Id FROM Field_Usage_Work_Unit__c WHERE Run__c=:runId AND Status__c='Completed' LIMIT 9000];
    if(!completedUnits.isEmpty())delete completedUnits;
@@ -19,6 +20,20 @@ public without sharing class FieldUsageSnapshotFinalizer {
    }
    List<Field_Usage_Run__c> old=[SELECT Id,Is_Current__c FROM Field_Usage_Run__c WHERE Is_Current__c=true AND Id!=:runId];for(Field_Usage_Run__c r:old)r.Is_Current__c=false;if(!old.isEmpty())update old;
    run.Status__c='Completed';run.Is_Current__c=true;run.Error_Count__c=0;run.Dependency_Count__c=evidence;run.Completed_At__c=System.now();run.Heartbeat_At__c=System.now();run.Progress_Percent__c=100;run.Progress_Phase__c='Snapshot ready';run.Errors__c=null;update run;
+   if (run.Run_Type__c == 'Manual' && [SELECT COUNT() FROM Field_Usage_Skip__c WHERE Run__c=:runId] > 0) {
+       try {
+           if (FieldUsageReadRepairBatch.supportedEnvironment() && IndustryAccessController.canManage() && IndustryAccessController.discover().detected) {
+               run.Job_Id__c = String.valueOf(Database.executeBatch(new FieldUsageReadRepairBatch(runId), 1));
+               run.Progress_Phase__c = FieldUsageReadRepairBatch.ACTIVE;
+               update run;
+           }
+       } catch (Exception ex) {
+           run.Progress_Phase__c = 'Read repair needs attention';
+           run.Progress_Log__c = ('Read review could not start: ' + ex.getMessage() + '\n' + String.valueOf(run.Progress_Log__c)).left(32000);
+           update run;
+           ErStudioDiagnosticService.exception('Field Usage','Start Read repair',ex);
+       }
+   }
    // V4: successful snapshots must remain available for five-run change history.
    // A dedicated bounded retention batch will prune snapshots beyond the last ten.
    // Never delete evidence from inside the promotion transaction.
