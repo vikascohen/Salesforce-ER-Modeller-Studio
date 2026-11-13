@@ -101,4 +101,10 @@
         System.assertEquals(1,[SELECT COUNT() FROM Field_Usage_Run__c]);
         System.assertEquals(0,[SELECT COUNT() FROM AsyncApexJob WHERE JobType='BatchApex']);
     }
+    @IsTest static void confirmsReadOnlyAgainstReturnedAliases() {
+        Set<String> found=new Set<String>{'opportunity.source','contactprofile.locationid'};
+        System.assert(IndustryAccessController.confirmedFieldAlias('Opportunity.SourceId',found));
+        System.assert(IndustryAccessController.confirmedFieldAlias('ContactProfile.Location',found));
+        System.assert(!IndustryAccessController.confirmedFieldAlias('Other.Location',found));
+    }
 }

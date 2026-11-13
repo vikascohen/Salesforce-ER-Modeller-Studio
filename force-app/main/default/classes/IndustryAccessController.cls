@@ -318,8 +318,32 @@ public with sharing class IndustryAccessController {
             else result.results.add(new Item(field,field,true,'Read Access already present.'));
         }
         List<Database.SaveResult> inserted=Database.insert(inserts,false,AccessLevel.USER_MODE),updated=Database.update(updates,false,AccessLevel.USER_MODE);
-        for(Integer i=0;i<inserts.size();i++)result.results.add(new Item(inserts[i].Field,inserts[i].Field,inserted[i].isSuccess(),inserted[i].isSuccess()?'Read Access added.':inserted[i].getErrors()[0].getMessage()));
+        Set<String> duplicates = new Set<String>();
+        for (Integer i=0; i<inserts.size(); i++) {
+            if (!inserted[i].isSuccess() && inserted[i].getErrors().size()==1 &&
+                inserted[i].getErrors()[0].getStatusCode()==StatusCode.DUPLICATE_VALUE)
+                duplicates.add(inserts[i].Field);
+        }
+        Set<String> readable = new Set<String>();
+        if (!duplicates.isEmpty()) {
+            for (FieldPermissions grant : [SELECT Field FROM FieldPermissions WHERE ParentId=:p.Id
+                    AND SobjectType=:objectName AND PermissionsRead=true AND Field IN :duplicates])
+                readable.add(grant.Field.toLowerCase());
+        }
+        for (Integer i=0; i<inserts.size(); i++) {
+            String name=inserts[i].Field;
+            Boolean present=duplicates.contains(name) && confirmedFieldAlias(name,readable);
+            Boolean success=inserted[i].isSuccess();
+            String message=success?'Read Access added.':present?'Read Access already present.':inserted[i].getErrors()[0].getMessage();
+            result.results.add(new Item(name,name,success||present,message));
+        }
         for(Integer i=0;i<updates.size();i++)result.results.add(new Item(updates[i].Field,updates[i].Field,updated[i].isSuccess(),updated[i].isSuccess()?'Read Access added.':updated[i].getErrors()[0].getMessage()));
         return result;
+    }
+    @TestVisible private static Boolean confirmedFieldAlias(String field, Set<String> readable) {
+        // Salesforce can return Source for SourceId, or LocationId for Location.
+        String key=field.toLowerCase();
+        String alternate=key.endsWith('id')?key.substring(0,key.length()-2):key+'id';
+        return readable.contains(key)||readable.contains(alternate);
     }
 }
