@@ -184,6 +184,7 @@
     <members>mcpConfigurationHelp</members>
     <members>objectArchitectureHealth</members>
     <members>studioHelp</members>
+    <members>diagramLanguageReference</members>
     <members>toolingApiConfigurationHelp</members>
     <members>industryAccessReview</members>
         <name>LightningComponentBundle</name>

@@ -13,8 +13,10 @@
                         <button class={mcpTopicClass} onclick={showMcpConfiguration}>MCP Server Configuration</button>
                     </template>
                     <button class={manualClass} onclick={showManual}>User Manual</button>
+                    <button class={languageClass} onclick={showLanguage}>Diagram Language Reference</button>
                 </nav>
                 <main class="help-content">
+                    <template if:true={languageOpen}><c-diagram-language-reference></c-diagram-language-reference></template>
                     <template if:true={configurationOpen}>
                         <template if:true={toolingConfigurationOpen}><c-tooling-api-configuration-help></c-tooling-api-configuration-help></template>
                         <template if:true={mcpConfigurationOpen}><c-mcp-configuration-help></c-mcp-configuration-help></template>

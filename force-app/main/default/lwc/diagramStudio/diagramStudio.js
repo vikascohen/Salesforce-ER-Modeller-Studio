@@ -1845,6 +1845,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get settingsMenuOpen(){ return this.openMenu === 'settings'; }
     get helpMenuOpen(){ return this.openMenu === 'help'; }
     handleMenuHelpConfiguration(){ this.openMenu=null; this.helpSection='configuration'; this.helpOpen=true; }
+    handleMenuHelpLanguage(){ this.openMenu=null; this.helpSection='language'; this.helpOpen=true; }
     handleMenuHelpUserManual(){ this.openMenu=null; this.helpSection='manual'; this.helpOpen=true; }
     handleCloseHelp(){ this.helpOpen=false; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }

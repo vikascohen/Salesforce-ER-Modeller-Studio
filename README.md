@@ -15,6 +15,10 @@ Build Salesforce ER diagrams with a visual canvas and DSL editor. Generate app-s
 
 The beta cannot be installed in production until promoted. V5 is a separate package from V4; installing alongside an older package or migrating existing data needs a tested plan. See [setup and package details](docs/SETUP.md).
 
+## Diagram language reference
+
+Open **Help → Diagram Language Reference** for an illustrated lookup, field annotations, all three relationship operators, component cards and a two-file module example. For compiler limits and import resolution, see the [compiler reference](Compiler.md).
+
 ## Get started
 
 1. Install in a clean test org, initially for admins only.

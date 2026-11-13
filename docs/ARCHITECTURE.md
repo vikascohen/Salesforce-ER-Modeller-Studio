@@ -1,8 +1,14 @@
 # Salesforce ER Modeller Studio V5 architecture
 
-**Crius Consulting · Vikas Cohen, Lead Architect and System Designer · Updated: 8 November 2026**
+**Crius Consulting · Vikas Cohen, Lead Architect and System Designer · Updated: 14 November 2026**
 
 This document describes the current `v5-Beta` source: visual modelling, the DSL compiler, app discovery, live page configuration, persisted scan evidence, analysis and optional Salesforce Hosted MCP. Installer **5.0.0.1** predates the new app-page field enhancement; it remains a separate, unpromoted beta build. See [setup](SETUP.md) and [validation](VALIDATION.md).
+
+## V5 scan and Read repair
+
+Field Usage persists evidence and skipped fields against a run ID. In a supported Industry Cloud test environment, a successful administrator-initiated manual run can enqueue an access review. The repair job checks the recorded Read gaps against Diagram Studio User. It applies supported Read prerequisites and leaves alternative prerequisites for an administrator to choose. Each work item processes at most 100 recorded entries. After a successful repair that added grants, one verification scan creates a fresh snapshot. A verification run cannot start another repair. Scheduled scans and manual Health Check remain independent.
+
+The Operational Console reads the saved run and its Apex job to show the active stage after a browser session ends. Unavailable metadata is reported as a coverage limit. Scan failures and unresolved repair errors remain visible.
 
 ## System architecture
 
@@ -26,6 +32,7 @@ The application is native LWC/Apex. There is no application-owned external backe
 | Responsibility | Current implementation |
 | --- | --- |
 | Editor, tabs, canvas and app generation | `diagramStudio` |
+| In-app Help navigation and illustrated diagram language reference | `studioHelp`, `diagramLanguageReference` |
 | Saved/imported file composition and completion index | `dslModules` |
 | ER parser, semantic model and geometry | `erDiagramLogic` |
 | App scope, strict field selection and component-card source | `appModelLogic` |
