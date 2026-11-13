@@ -55,12 +55,32 @@ public with sharing class FieldUsageReadRepairBatch implements Database.Batchabl
                 if (item.eligible) {
                     if (item.message == 'Read Access added.' || item.message == 'Object Read added.') changed++;
                 } else {
-                    if (item.message != null && item.message.containsIgnoreCase('Cannot find Field')) limitsFound++;
+                    if (isCoverageLimit(item.name, item.message)) limitsFound++;
                     else failures++;
                     if (details.size() < 40) details.add(item.name + ' — ' + item.message);
                 }
             }
         }
+    }
+
+    @TestVisible private static Boolean isCoverageLimit(String name, String message) {
+        if (String.isBlank(message)) return false;
+        if (name.contains('.')) {
+            return message.startsWithIgnoreCase('Cannot find Field ' + name + ' for SobjectType ') ||
+                message.equalsIgnoreCase('Field Name: bad value for restricted picklist field: ' + name);
+        }
+        // Salesforce can return a required Read followed by a choice of Read prerequisites.
+        // Leave that choice to the admin. Unknown or non-Read clauses still need attention.
+        Boolean hasChoice = false;
+        for (String clause : message.split(';')) {
+            String part = clause.trim();
+            if (Pattern.matches('(?i)Read on [A-Za-z0-9_]+ requires Read on at least one of these objects: [A-Za-z0-9_]+(, [A-Za-z0-9_]+)+', part)) {
+                hasChoice = true;
+            } else if (!Pattern.matches('(?i)Permission Read [A-Za-z0-9_]+ depends on permission\\(s\\): Read [A-Za-z0-9_]+(, Read [A-Za-z0-9_]+)*', part)) {
+                return false;
+            }
+        }
+        return hasChoice;
     }
 
     public void finish(Database.BatchableContext context) {

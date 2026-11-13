@@ -1,5 +1,13 @@
 @IsTest
 private class FieldUsageReadRepairBatchTest {
+    @IsTest static void distinguishesPlatformLimitsFromRepairFailures() {
+        String choice = 'Read on Consent requires Read on at least one of these objects: Phone, Email';
+        System.assert(FieldUsageReadRepairBatch.isCoverageLimit('Consent',choice));
+        System.assert(FieldUsageReadRepairBatch.isCoverageLimit('Timing','Permission Read Consent depends on permission(s): Read Channel; '+choice));
+        System.assert(!FieldUsageReadRepairBatch.isCoverageLimit('Timing','Unexpected DML failure; '+choice));
+        System.assert(FieldUsageReadRepairBatch.isCoverageLimit('Idea.AttachmentName','Field Name: bad value for restricted picklist field: Idea.AttachmentName'));
+        System.assert(!FieldUsageReadRepairBatch.isCoverageLimit('Idea.AttachmentName','Insufficient access rights'));
+    }
     @TestSetup static void prepareCompletedScan() {
         insert new Field_Usage_Run__c(Status__c='Completed', Run_Type__c='Manual',
             Tracks_Skips__c=true, Progress_Phase__c=FieldUsageReadRepairBatch.ACTIVE);
