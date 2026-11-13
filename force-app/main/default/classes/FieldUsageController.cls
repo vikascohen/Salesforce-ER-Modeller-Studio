@@ -46,7 +46,42 @@ public with sharing class FieldUsageController {
     }
     private static void populateJobStatus(StatusDTO dto){if(dto==null||dto.run==null||String.isBlank(dto.run.Job_Id__c))return;try{Id asyncId=(Id)dto.run.Job_Id__c;List<AsyncApexJob> jobs=[SELECT Id,Status,JobType,TotalJobItems,JobItemsProcessed,NumberOfErrors,ExtendedStatus FROM AsyncApexJob WHERE Id=:asyncId LIMIT 1];if(!jobs.isEmpty())copyJobStatus(dto,jobs[0]);}catch(Exception ignored){}}
     private static void copyJobStatus(StatusDTO dto,AsyncApexJob job){dto.jobTotal=job.TotalJobItems==null?0:job.TotalJobItems;dto.jobProcessed=job.JobItemsProcessed==null?0:job.JobItemsProcessed;dto.jobErrors=job.NumberOfErrors==null?0:job.NumberOfErrors;dto.jobStatus=job.Status;dto.jobType=job.JobType;dto.jobError=job.ExtendedStatus;}
-    @AuraEnabled public static List<ScheduledJobDTO> getScheduledJobs(){List<ScheduledJobDTO> out=new List<ScheduledJobDTO>();for(Field_Usage_Schedule__c s:[SELECT Id,Name,Enabled__c,Hour__c,Minute__c,Cron_Job_Name__c FROM Field_Usage_Schedule__c ORDER BY Hour__c,Minute__c]){ScheduledJobDTO d=new ScheduledJobDTO();d.scheduleId=s.Id;d.scheduleName=s.Name;d.enabled=s.Enabled__c;d.hour=s.Hour__c;d.minute=s.Minute__c;d.jobName=s.Cron_Job_Name__c;if(!String.isBlank(s.Cron_Job_Name__c)){List<CronTrigger> jobs=[SELECT Id,State,NextFireTime,PreviousFireTime,CronExpression FROM CronTrigger WHERE CronJobDetail.Name=:s.Cron_Job_Name__c ORDER BY CreatedDate DESC LIMIT 1];if(!jobs.isEmpty()){CronTrigger c=jobs[0];d.cronTriggerId=c.Id;d.state=c.State;d.nextFireTime=c.NextFireTime;d.previousFireTime=c.PreviousFireTime;d.cronExpression=c.CronExpression;}}out.add(d);}return out;}
+    @AuraEnabled public static List<ScheduledJobDTO> getScheduledJobs() {
+        List<Field_Usage_Schedule__c> schedules = [SELECT Id, Name, Enabled__c, Hour__c, Minute__c, Cron_Job_Name__c
+            FROM Field_Usage_Schedule__c ORDER BY Hour__c, Minute__c];
+        Set<String> names = new Set<String>();
+        for (Field_Usage_Schedule__c schedule : schedules) {
+            if (String.isNotBlank(schedule.Cron_Job_Name__c)) names.add(schedule.Cron_Job_Name__c);
+        }
+        Map<String,CronTrigger> latest = new Map<String,CronTrigger>();
+        if (!names.isEmpty()) {
+            for (CronTrigger job : [SELECT Id, State, NextFireTime, PreviousFireTime, CronExpression, CronJobDetail.Name
+                    FROM CronTrigger WHERE CronJobDetail.Name IN :names ORDER BY CreatedDate DESC, Id DESC]) {
+                String key = job.CronJobDetail.Name.toLowerCase();
+                if (!latest.containsKey(key)) latest.put(key,job);
+            }
+        }
+        List<ScheduledJobDTO> result = new List<ScheduledJobDTO>();
+        for (Field_Usage_Schedule__c schedule : schedules) {
+            ScheduledJobDTO row = new ScheduledJobDTO();
+            row.scheduleId = schedule.Id;
+            row.scheduleName = schedule.Name;
+            row.enabled = schedule.Enabled__c;
+            row.hour = schedule.Hour__c;
+            row.minute = schedule.Minute__c;
+            row.jobName = schedule.Cron_Job_Name__c;
+            CronTrigger job = String.isBlank(row.jobName) ? null : latest.get(row.jobName.toLowerCase());
+            if (job != null) {
+                row.cronTriggerId = job.Id;
+                row.state = job.State;
+                row.nextFireTime = job.NextFireTime;
+                row.previousFireTime = job.PreviousFireTime;
+                row.cronExpression = job.CronExpression;
+            }
+            result.add(row);
+        }
+        return result;
+    }
     @AuraEnabled public static void saveSchedules(List<Field_Usage_Schedule__c> schedules){if(schedules==null)return;List<Field_Usage_Schedule__c> existing=[SELECT Id,Cron_Job_Name__c FROM Field_Usage_Schedule__c];for(Field_Usage_Schedule__c old:existing)if(!String.isBlank(old.Cron_Job_Name__c))FieldUsageScheduleService.abortJob(old.Cron_Job_Name__c);upsert schedules;FieldUsageScheduleService.rescheduleEnabled();}
     @AuraEnabled public static void deleteSchedule(Id scheduleId){if(scheduleId==null)return;Field_Usage_Schedule__c row=[SELECT Id,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1];if(!String.isBlank(row.Cron_Job_Name__c))FieldUsageScheduleService.abortJob(row.Cron_Job_Name__c);delete row;}
     @AuraEnabled public static void pauseSchedule(Id scheduleId){if(scheduleId==null)return;Field_Usage_Schedule__c row=[SELECT Id,Cron_Job_Name__c FROM Field_Usage_Schedule__c WHERE Id=:scheduleId LIMIT 1];if(!String.isBlank(row.Cron_Job_Name__c))FieldUsageScheduleService.abortJob(row.Cron_Job_Name__c);row.Enabled__c=false;update row;}
