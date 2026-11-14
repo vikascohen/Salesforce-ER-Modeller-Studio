@@ -16,55 +16,17 @@ npm install   # for the Jest test suite -- see "Before opening a PR" below
 
 ## Project layout
 
-See the [Architecture diagram](README.md#architecture) and
-[Components table](README.md#components) in the README for how the pieces
-fit together. The short version: `diagramStudio` and `diagramViewer` are
-thin UI shells — almost all of the interesting logic (DSL parsing, layout,
-the export legend) lives in `erDiagramLogic.js`, which has zero LWC/Apex
-dependencies. If you're fixing a rendering or parsing bug, that's almost
-always the right file — see
-[docs/dsl-compiler-architecture.md](docs/dsl-compiler-architecture.md)
-for a full walkthrough of what that file actually does, stage by stage,
-plus a "where to make a change" map at the end.
-
-
+See the [V5 architecture](docs/ARCHITECTURE.md) for the scanner, model-generation and persistence components. The [compiler reference](Compiler.md) identifies the parser and module-resolution entry points.
 
 ## Security
 
-See [docs/SECURITY.md](docs/SECURITY.md) before touching anything
-related to schema visibility or `Diagram_File__c` access — in
-particular, the deliberate decision that object/field metadata is shown
-to every user of the tool regardless of their own FLS/object permissions
-elsewhere in the org. If you're adding a new describe-based feature,
-match that existing behavior (no `isAccessible()`-style filtering on
-schema metadata) rather than introducing per-user filtering
-inconsistently with the rest of the app.
+Follow the [security guide](docs/SECURITY.md) when changing schema discovery, field access, credentials or saved diagrams. Check the permission requirements for the feature you change.
 
 ## Before opening a PR
 
-- **JS syntax** — every `.js` file in this repo happens to parse cleanly
-  with plain Node (`node --check path/to/file.js`), which catches typos
-  and syntax errors fast without needing a full LWC build. Run it against
-  any file you touch.
-- **LWC tests (Jest)** — there's a real `@salesforce/sfdx-lwc-jest` setup
-  (`npm install && npm test`), 49 tests across all four LWC bundles. If
-  you're touching `erDiagramLogic.js` specifically, that file is pure,
-  dependency-free JS (it only reaches for the DOM in `buildLegendGroup`,
-  for the export legend), so its tests run as plain function calls with
-  no component mounting needed — by far the fastest feedback loop in this
-  repo, and the right place to add coverage for a parsing or layout fix.
-  `diagramStudio`'s suite covers representative core flows, not every
-  feature — Sharing View, Heatmap, Data Dictionary, and Compare with Org
-  don't have dedicated tests yet, which is a good first contribution if
-  you're looking for one.
-- **Apex tests** — `DiagramFileControllerTest`, `SchemaMetadataControllerTest`,
-  and `DiagramPreferenceControllerTest` cover the CRUD, describe/dictionary,
-  and preference paths. Run `sf apex run test --code-coverage --synchronous`
-  in your org before opening a PR that touches Apex.
-- **Manual check** — deploy to a real org and click through the flow your
-  change touches (type DSL, drag-drop from the palette, import from org,
-  export a PNG, etc.) — there's no CI here to catch a broken template
-  binding for you.
+- Run the JavaScript suite with `npm test`.
+- For Apex changes, run the relevant Apex tests in a development org and review the results and coverage.
+- Exercise the changed workflow in the Studio. Include the steps and results in the pull request.
 
 ## Code style
 
