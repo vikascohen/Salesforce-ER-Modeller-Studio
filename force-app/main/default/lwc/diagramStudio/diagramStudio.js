@@ -1878,7 +1878,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         finally{this.systemInfoBusy=false;}
     }
     get systemNamespace(){return this.systemInfo?.namespacePrefix||'—';}
-    get systemStudioVersion(){return this.systemInfo?.studioVersion||'—';}
+    get systemStudioVersion() {
+        const version = this.systemInfo?.studioVersion;
+        return version ? `V${version}` : '—';
+    }
     get systemToolingVersion(){return this.systemInfo?.toolingApiVersion||'—';}
     get systemSalesforceApiVersion(){return this.systemInfo?.salesforceApiVersion||'—';}
     get systemEnvironment(){return this.systemInfo?.environmentType||'—';}

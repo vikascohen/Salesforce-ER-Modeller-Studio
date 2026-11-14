@@ -4,11 +4,11 @@
 
 Build Salesforce ER diagrams with a visual canvas and DSL editor. Generate app-scoped models from scan evidence, inspect dependencies, and reuse model definitions across saved files.
 
-## Install the beta
+## Install V5
 
-**V5 beta 5.0.0.2** · [Install in a sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qMHNAA2) · [Install in Developer Edition](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qMHNAA2)
+**V5 release 5.0.0.4** · [Install in production or Developer Edition](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qN5NAAU) · [Install in a sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qN5NAAU)
 
-Use a clean Salesforce sandbox or Developer Edition org. The [setup guide](docs/SETUP.md) lists the available installer, required permission set and Tooling API configuration.
+Open **Settings → System Information** after installation to confirm the app displays **V5**. The [setup guide](docs/SETUP.md) lists the available installer, required permission set and Tooling API configuration.
 
 ## Draw your first diagram
 

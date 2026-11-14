@@ -4,6 +4,16 @@
 
 This page records current results. Detailed earlier runs remain in Git history; installer and source validation are distinct.
 
+## Production release 5.0.0.4
+
+| Check | Verified result |
+| --- | --- |
+| Dev Hub | Released, 91% package Apex coverage, coverage gate passed |
+| Build / subscriber version | `08caj000000JavpAAC` / `04taj000000qN5NAAU` |
+| Clean Developer scratch org | Installed successfully. Assigned Diagram Studio User, verified the System Information version, saved and reopened a diagram through the installed Apex controllers. |
+| UI regressions | 36 suites and 293 tests passed, 10 skipped, with a 30-second per-test timeout. Earlier runs timed out at five seconds. |
+| PSS source scan before packaging | Manual and verification scans each processed 104 work units, recorded 405 evidence rows and finished with zero scan errors. |
+
 ## Beta 5.0.0.2
 
 Salesforce built and validated the unlocked beta with 91% package Apex coverage. Build request `08caj000000JanlAAC`, subscriber version `04taj000000qMHNAA2`. Source deployment tests in the two existing orgs are listed below. Clean-org installation of this build is unverified.

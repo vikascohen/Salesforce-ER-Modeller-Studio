@@ -1,10 +1,16 @@
-# V5 beta 5.0.0.2 release notes
+# V5 release 5.0.0.4
 
 **Crius Consulting · Maintainer Vikas Cohen · Updated 14 November 2026**
 
 See [Setup](SETUP.md) for installers and [Validation](VALIDATION.md) for package coverage and org test results.
 
-## Changes since 5.0.0.1
+## Changes since 5.0.0.2
+
+- System Information displays **V5**. MCP Help and Settings use the current release name.
+- The User Manual covers scan launch, source coverage, automatic Read repair and the verification pass.
+- The released unlocked package supports production installation.
+
+## Earlier changes in 5.0.0.2
 
 - **Diagram Language Reference** under Help explains the three relationship operators and how imports, inheritance and activation compose a model. Four illustrated examples accompany the syntax.
 - **Field Usage** shows background scan and repair progress when users return to the console, including the verification pass and remaining coverage limits.

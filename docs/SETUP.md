@@ -6,15 +6,15 @@
 
 | Distribution | When to use it |
 | --- | --- |
-| Validated beta installer | Install a packaged version in a clean test org. See the [build results](VALIDATION.md) for its coverage and build ID. |
+| Released unlocked 2GP installer | Install V5 in production, Developer Edition or a sandbox. See the [build results](VALIDATION.md) for its coverage and build ID. |
 | v5-Beta source | Deploy an exact revision to a development org using the complete manifest. |
 
-**Beta 5.0.0.2** · [Sandbox installer](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qMHNAA2) · [Developer Edition installer](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qMHNAA2). Use the [release notes](V5_RELEASE_NOTES.md) to check what changed since 5.0.0.1.
+**V5 release 5.0.0.4** · [Install in production or Developer Edition](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qN5NAAU) · [Install in a sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qN5NAAU)
 
 ## First installation
 
-1. Install in a clean test org, initially for admins only.
-2. In **Setup → Permission Sets**, assign **Diagram Studio User** to the testing user.
+1. Choose the installer for the target environment, confirm the org and version, and install for admins only.
+2. In **Setup → Permission Sets**, assign **Diagram Studio User** to the Studio user.
 3. Open the **ER Modeller** tab. Verify a simple diagram can be created, saved and reopened.
 4. For scanning, complete **Help → Configuration → Tooling API**, grant External Credential Principal Access, and run **Settings → Diagnostics**.
 5. Run **Org Scan** and wait for a successful snapshot before app-based generation. Check storage first in small Developer Edition orgs.
