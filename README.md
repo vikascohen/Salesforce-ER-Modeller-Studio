@@ -6,6 +6,8 @@ Build Salesforce ER diagrams with a visual canvas and DSL editor. Generate app-s
 
 ## Install V5
 
+Salesforce ER Modeller Studio V5 is distributed as a namespace-free, second-generation (2GP) unlocked package.
+
 **V5 release 5.0.0.4** · [Install in production or Developer Edition](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qN5NAAU) · [Install in a sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qN5NAAU)
 
 Open **Settings → System Information** after installation to confirm the app displays **V5**. The [setup guide](docs/SETUP.md) lists the available installer, required permission set and Tooling API configuration.
