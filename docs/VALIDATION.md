@@ -1,10 +1,24 @@
 # V5 validation
 
-**Crius Consulting · Updated: 8 November 2026**
+**Crius Consulting · Updated: 14 November 2026**
 
 This page records current results. Detailed earlier runs remain in Git history; installer and source validation are distinct.
 
-## Installer 5.0.0.1
+## Beta 5.0.0.2
+
+Salesforce built and validated the unlocked beta with 91% package Apex coverage. Build request `08caj000000JanlAAC`, subscriber version `04taj000000qMHNAA2`. Source deployment tests in the two existing orgs are listed below. Clean-org installation of this build is unverified.
+
+## Illustrated Help validation
+
+| Check | Result |
+| --- | --- |
+| UI regression suite | 36 suites passed, 293 tests passed, 10 existing skips |
+| New diagram reference component | 100% measured JavaScript line, statement, function and branch coverage |
+| Worked examples | Tested with the Studio parser and module compiler, including a two-file import and inheritance |
+| Final PSS deployment | 215 Apex tests passed · `0AfQE00000BMm9J0AT` |
+| Final Crius deployment | 257 Apex tests passed · `0Afaj00000rX6svCAC` |
+
+## Earlier installer 5.0.0.1
 
 | Check | Result |
 | --- | --- |
@@ -19,7 +33,7 @@ This page records current results. Detailed earlier runs remain in Git history; 
 
 The packaging test user is assigned `Diagram_Studio_User` through `apexTestAccess`. The initial two user-mode import test failures were resolved without removing tests or bypassing field security. This installer predates the app-page enhancement below.
 
-## Current source: app-page field discovery
+## Earlier validation of app-page field discovery
 
 | Check | Result |
 | --- | --- |

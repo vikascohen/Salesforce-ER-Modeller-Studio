@@ -2,7 +2,7 @@
 
 **Crius Consulting · Vikas Cohen, Lead Architect and System Designer · Updated: 14 November 2026**
 
-This document describes the current `v5-Beta` source: visual modelling, the DSL compiler, app discovery, live page configuration, persisted scan evidence, analysis and optional Salesforce Hosted MCP. Installer **5.0.0.1** predates the new app-page field enhancement; it remains a separate, unpromoted beta build. See [setup](SETUP.md) and [validation](VALIDATION.md).
+The V5 application combines an in-browser DSL compiler and canvas with Salesforce services for app discovery, saved diagrams and background scans. Use [Setup](SETUP.md) for installation and [Validation](VALIDATION.md) for build-specific results.
 
 ## V5 scan and Read repair
 

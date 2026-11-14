@@ -1,18 +1,15 @@
 # V5 installation and administration
 
-**Crius Consulting · Updated: 8 November 2026**
+**Crius Consulting · Updated 14 November 2026**
 
-## Choose the version
+## Choose the distribution
 
-| Distribution | State |
+| Distribution | When to use it |
 | --- | --- |
-| Installer `5.0.0.1` | 2GP unlocked beta; 91% packaging Apex coverage; subscriber ID `04taj000000pMsvAAE` |
-| Current `v5-Beta` source | Also includes app-page field discovery tested in Crius; requires a newer installer build for subscriber orgs |
+| Validated beta installer | Install a packaged version in a clean test org. See the [build results](VALIDATION.md) for its coverage and build ID. |
+| v5-Beta source | Deploy an exact revision to a development org using the complete manifest. |
 
-- [Install beta 5.0.0.1 in a sandbox](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000pMsvAAE)
-- [Install beta 5.0.0.1 in Developer Edition](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000pMsvAAE)
-
-The login.salesforce.com domain also serves Developer Edition; it does not allow beta installation in production. Promotion is separate from building or merging GitHub source. V5 is a separate package from older distributions: do not assume coexistence or an in-place migration. Use the corresponding [stable branch](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/branches) for older installers.
+**Beta 5.0.0.2** · [Sandbox installer](https://test.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qMHNAA2) · [Developer Edition installer](https://login.salesforce.com/packaging/installPackage.apexp?p0=04taj000000qMHNAA2). Use the [release notes](V5_RELEASE_NOTES.md) to check what changed since 5.0.0.1.
 
 ## First installation
 

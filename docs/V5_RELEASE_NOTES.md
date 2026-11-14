@@ -1,8 +1,16 @@
-# V5 release notes — beta 5.0.0.1
+# V5 beta 5.0.0.2 release notes
 
-**Updated: 8 November 2026. Maintainer: Vikas Cohen.**
+**Crius Consulting · Maintainer Vikas Cohen · Updated 14 November 2026**
 
-V5 source is on [`v5-Beta`](https://github.com/vikascohen/Salesforce-ER-Modeller-Studio/tree/v5-Beta). Installer **5.0.0.1** is a 2GP unlocked beta built with **91% Apex coverage**. The newer app-page enhancement below requires a subsequent package build. See [Setup](SETUP.md) for installation and [Architecture](ARCHITECTURE.md) for current diagrams and design.
+See [Setup](SETUP.md) for installers and [Validation](VALIDATION.md) for package coverage and org test results.
+
+## Changes since 5.0.0.1
+
+- **Diagram Language Reference** under Help explains the three relationship operators and how imports, inheritance and activation compose a model. Four illustrated examples accompany the syntax.
+- **Field Usage** shows background scan and repair progress when users return to the console, including the verification pass and remaining coverage limits.
+- **Read repair** uses recorded skips, handles mandatory Read prerequisites and recognises existing grants under Salesforce field aliases. Alternative prerequisite choices remain visible for administrator review.
+- **OmniStudio coverage** displays evidence recorded by the scan. The coverage counter counts source types with evidence.
+- **App generation** can include fields configured on readable app pages. The generated model records why each item was included.
 
 ## V5 feature inventory
 
@@ -19,13 +27,11 @@ V5 source is on [`v5-Beta`](https://github.com/vikascohen/Salesforce-ER-Modeller
 
 The detailed sections below define each feature's scope and limits. Existing ER modelling, data dictionary, architecture analysis, field-usage and optional Hosted MCP feature families remain available. For compiler documentation, visit [Compiler.md](../Compiler.md).
 
-## App page field discovery — source enhancement after beta 5.0.0.1
+## App page field discovery
 
 Salesforce app generation now offers **Include fields configured on app pages**, enabled by default in app mode. It adds explicit field items from readable app-assigned Lightning record pages and Dynamic Forms. Where applicable it reads navigation objects' View/Large page layouts for the Tooling API principal and default record type. These layouts can be shared by apps; fields are configuration evidence, not runtime observations. Provenance records the live read separately from the scan timestamp.
 
 Turn the option off for scoped component field references alone. Standalone LWC/Aura mode is unchanged. No object-info field collection or full-schema fallback is used. Unreadable assignment metadata does not trigger assumed default layouts; unsupported layouts are warnings. A successful existing V5 scan remains required, but this UI configuration is fetched on demand rather than persisted by a new scan.
-
-This source enhancement is deployed for testing in Crius. It is **not included in installer 5.0.0.1**; another package version is required for installed orgs.
 
 ## App-scoped ER generation
 
