@@ -1,0 +1,60 @@
+<template>
+    <article>
+        <h2>Diagram language reference</h2>
+        <p>Use the Studio DSL to describe the objects, fields, relationships and component cards on a diagram. You can try the first example in an empty editor without running a scan.</p>
+        <section><h3>From source to canvas</h3>
+            <pre><code>{model}</code></pre>
+            <figure>
+                <div class="model" aria-hidden="true">
+                    <div class="entity"><strong>Contact</strong><span>LastName *</span><span>Email</span><b>AccountId</b></div>
+                    <div class="edge"><span>lookup</span><i></i></div>
+                    <div class="entity"><strong>Account</strong><span>Name *</span></div>
+                </div>
+                <figcaption>Contact.AccountId points to Account. Many contacts can reference the same account. The asterisk marks a required field.</figcaption>
+            </figure>
+            <p><code>entity</code> introduces an object by API name. After the colon, list fields separated by commas. An entity can also be declared with its name alone. The canvas supplies Id. A relationship introduces its child reference field even when you omit that field from the entity line.</p>
+            <p>Use brackets for display metadata. <code>Amount[Currency]</code> records a type, <code>Name[Required]</code> marks a required field, and <code>Total__c[Number(16, 2), rollup]</code> combines precision with a roll-up marker. These declarations describe the diagram. Editing one leaves Salesforce metadata untouched.</p>
+        </section>
+        <section><h3>Choose a relationship</h3>
+            <dl>
+                <dt>Lookup · <code>-&gt;</code></dt><dd><code>Contact.AccountId -&gt; Account</code> draws a blue reference from the child field to its parent.</dd>
+                <dt>Master-detail · <code>=&gt;</code></dt><dd><code>InvoiceLine__c.Invoice__c =&gt; Invoice__c</code> draws a purple detail-to-master relationship. Use it when the field is defined as master-detail.</dd>
+                <dt>Polymorphic lookup · <code>~&gt;</code></dt><dd><code>Task.WhoId ~&gt; Contact</code> and <code>Task.WhoId ~&gt; Lead</code> draw two dashed red paths. Declare each supported target on its own line.</dd>
+            </dl>
+            <figure>
+                <div class="model master" aria-hidden="true">
+                    <div class="entity"><strong>InvoiceLine__c</strong><b>Invoice__c</b></div>
+                    <div class="edge"><span>detail to master</span><i></i></div>
+                    <div class="entity"><strong>Invoice__c</strong><span>Id</span></div>
+                </div>
+                <figcaption>The Invoice__c field on an invoice line identifies its master invoice.</figcaption>
+            </figure>
+            <figure>
+                <div class="model poly" aria-hidden="true">
+                    <div class="entity"><strong>Task</strong><b>WhoId</b></div>
+                    <div class="fork"><div class="target"><div class="edge"><i></i></div><strong>Contact</strong></div>
+                        <div class="target"><div class="edge"><i></i></div><strong>Lead</strong></div></div>
+                </div>
+                <figcaption>One WhoId field has two possible targets. Each task references one record through this field.</figcaption>
+            </figure>
+        </section>
+        <section><h3>Reuse a model across files</h3>
+            <h4>1. Save the definition in customer.dsl</h4><pre><code>{library}</code></pre>
+            <p><code>export module</code> names a reusable group of declarations. Saving that definition alone produces an empty canvas until a file activates the module.</p>
+            <h4>2. Open another file and activate Sales</h4><pre><code>{consumer}</code></pre>
+            <p><code>import</code> makes saved definitions available. The named form above imports Customer. Use <code>import customer.dsl</code> to expose all exports from that file. <code>extends</code> includes the base declarations before the child adds its own. <code>use Sales</code> draws Account, Opportunity, their lookup and the Customer service card.</p>
+            <figure>
+                <ol class="composition">
+                    <li><strong>customer.dsl</strong><span>Exports Customer with Account and CustomerService.</span></li>
+                    <li><strong>sales.dsl</strong><span>Imports Customer. Sales extends it with Opportunity and a lookup.</span></li>
+                    <li><strong>use Sales</strong><span>Activates the composed model on the canvas.</span></li>
+                </ol>
+                <figcaption>Import makes a definition available, inheritance combines declarations, and use renders them.</figcaption>
+            </figure>
+        </section>
+        <section><h3>Component cards</h3><p>Write <code>component</code>, its type and an identifier. An optional double-quoted <code>label</code> supplies the display name.</p>
+            <dl><dt>ApexClass and Flow</dt><dd>Identify a class or automation by name.</dd><dt>PermissionSet</dt><dd>Identify a named collection of access grants.</dd><dt>PermissionSetLicense, UserLicense and PackageLicense</dt><dd>Represent a permission-set entitlement, a user licence type or a package licence respectively. A manually drawn card is a modelling annotation. Verify assignments in the org.</dd></dl>
+        </section>
+        <section><h3>When an example does not render</h3><p>Put each statement on its own line. Start whole-line comments with <code>#</code>. For an unknown module, check the saved filename, exported name and activation line. After changing the library, save it and choose <strong>Refresh imports</strong>. Resolve conflicting active field types or circular module references at the reported source line.</p></section>
+    </article>
+</template>

@@ -24,7 +24,7 @@
                     <span class="hover-card-value">{hoverCard.recordCountText}</span>
                 </template>
                 <template if:false={hoverCard.hasRecordData}>
-                    <span class="hover-card-hint">Turn on Heatmap to see this</span>
+                    <span class="hover-card-hint">{hoverCard.recordDataHint}</span>
                 </template>
             </div>
             <template if:true={hoverCard.recordFreshnessText}>
@@ -40,7 +40,7 @@
                     <span class="hover-card-value">{hoverCard.internalSharingText}</span>
                 </template>
                 <template if:false={hoverCard.hasSharingData}>
-                    <span class="hover-card-hint">Turn on Sharing View to see this</span>
+                    <span class="hover-card-hint">{hoverCard.sharingDataHint}</span>
                 </template>
             </div>
             <template if:true={hoverCard.hasSharingData}>
@@ -91,7 +91,7 @@
                 <main class="settings-content">
                     <template if:true={settingsMcpSectionOpen}><c-er-mcp-settings onstudioerror={handleStudioDiagnostic}></c-er-mcp-settings></template>
                     <template if:true={settingsScheduleSectionOpen}>
-                        <c-field-usage-settings onstudioerror={handleStudioDiagnostic}></c-field-usage-settings>
+                        <c-field-usage-settings onscancoverage={handleScanCoverage} onstudioerror={handleStudioDiagnostic} onopenerrorlog={handleOpenDiagnosticCentre}></c-field-usage-settings>
                     </template>
                     <template if:true={settingsSystemSectionOpen}>
                         <div class="settings-title"><div><h2>System Information</h2><p>Read-only Studio, Salesforce environment, architecture and Field Usage health information.</p></div><button class="arch-action-btn" onclick={loadSystemInfo}>Refresh</button></div>
@@ -99,7 +99,7 @@
                         <section class="settings-panel system-info-panel">
                             <div class="settings-panel-head"><div><h3>Application &amp; Environment</h3><p>Useful when identifying the Studio build or raising a support issue.</p></div></div>
                             <div class="system-info-grid">
-                                <div><span>ER Modeller Studio</span><strong>Version {systemStudioVersion}</strong></div>
+                                <div><span>ER Modeller Studio</span><strong>{systemStudioVersion}</strong></div>
                                 <div><span>Tooling API</span><strong>{systemToolingVersion}</strong></div>
                                 <div><span>Salesforce API baseline</span><strong>v{systemSalesforceApiVersion}</strong></div>
                                 <div><span>Environment</span><strong>{systemEnvironment}</strong></div>
@@ -136,7 +136,7 @@
                     <template if:true={settingsDiagnosticsSectionOpen}>
                         <div class="settings-title"><div><h2>Diagnostics</h2><p>Verify whether this installation is in a good state to work. Diagnostics do not start a Field Usage scan.</p></div></div>
                         <section class="settings-panel diagnostics-launch-panel">
-                            <div class="diag-launch-copy"><span class="diag-eyebrow">APPLICATION SELF-TEST</span><h3>ER Modeller Studio Health Check</h3><p>Checks Studio runtime, Field Usage data access, snapshot state, Batch Apex, scheduler configuration and the authenticated Salesforce Tooling API connection.</p><p class="diag-api-note">Opening Settings consumes no Tooling API request. Clicking Run Diagnostics deliberately performs one lightweight Tooling API preflight so authentication can be proven.</p></div>
+                            <div class="diag-launch-copy"><span class="diag-eyebrow">APPLICATION SELF-TEST</span><h3>ER Modeller Studio Health Check</h3><p>Checks Studio runtime, scan metadata access (including available Public Sector objects), snapshot state, Batch Apex, scheduler configuration and Tooling API authentication.</p><p class="diag-api-note">Opening Settings consumes no Tooling API request. Clicking Run Diagnostics deliberately performs one lightweight Tooling API preflight so authentication can be proven.</p></div>
                             <button class="arch-action-btn arch-export-btn diag-run-button" onclick={handleRunDiagnostics}>{diagnosticsButtonLabel}</button>
                             <div class={diagnosticsOverallClass}><span>Current diagnostic state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Last completed: {diagnosticsCompletedAt}</small></div>
                         </section>
@@ -214,7 +214,7 @@
     <template if:true={diagnosticsOpen}>
         <section class="diagnostics-page">
             <header class="diagnostics-head">
-                <div><span class="settings-kicker">ER MODELLER STUDIO · SYSTEM DIAGNOSTICS</span><h1>Application Health Check</h1><p>Live self-test of the Studio installation. No Field Usage scan is started.</p></div>
+                <div><span class="settings-kicker">ER MODELLER STUDIO · SYSTEM DIAGNOSTICS</span><h1>ER Modeller Studio Health Check</h1><p>Limited preflight checks. A passed check does not guarantee a complete scan. No scan is started.</p></div>
                 <button class="arch-action-btn" disabled={diagnosticsRunning} onclick={handleCloseDiagnostics}>Back to Settings</button>
             </header>
             <div class="diagnostics-body">
@@ -228,14 +228,14 @@
                     <template for:each={diagnosticsChecks} for:item="check">
                         <article class={check.cssClass} key={check.key}>
                             <div class="diag-status-mark">{check.status}</div>
-                            <div><h3>{check.label}</h3><template if:true={check.diagnosis}><div class="diag-likely-cause"><strong>Diagnosis</strong><span>{check.diagnosis}</span></div></template><p>{check.detail}</p><template if:true={check.remediation}><div class="diag-remediation"><strong>Recommended action</strong><span>{check.remediation}</span><template if:true={check.hasActions}><ul class="diag-remediation-list"><template for:each={check.actions} for:item="action"><li key={action.key}>{action.label}</li></template></ul></template></div></template></div>
+                            <div><h3>{check.label}</h3><template if:true={check.diagnosis}><div class="diag-likely-cause"><strong>Diagnosis</strong><span>{check.diagnosis}</span></div></template><p>{check.detail}</p><template if:true={check.hasRestrictions}><details><summary>Unavailable metadata</summary><ul><template for:each={check.restrictions} for:item="gap"><li key={gap.key}>{gap.objectName} · {gap.fieldName}</li></template></ul><p>Review licence and metadata availability for these items.</p></details></template><template if:true={check.canReviewAccess}><c-industry-access-review onstudioerror={handleStudioDiagnostic} onreviewclosed={handleRunDiagnostics}></c-industry-access-review></template><template if:true={check.remediation}><div class="diag-remediation"><strong>Recommended action</strong><span>{check.remediation}</span><template if:true={check.hasActions}><ul class="diag-remediation-list"><template for:each={check.actions} for:item="action"><li key={action.key}>{action.label}</li></template></ul></template></div></template></div>
                         </article>
                     </template>
                 </div>
                 <template if:true={diagnosticsHasResults}>
                     <section class={diagnosticsOverallClass}><span>Overall application state</span><strong>{diagnosticsOverallStatus}</strong><p>{diagnosticsSummary}</p><small>Completed {diagnosticsCompletedAt}</small></section>
                 </template>
-                <div class="diag-safety-note"><strong>Diagnostic scope</strong><span>This self-test is read-only except for the authenticated Tooling API preflight. It does not launch scans, alter schedules, modify credentials or expose OAuth tokens and secrets.</span></div>
+                <div class="diag-safety-note"><strong>Diagnostic scope</strong><span>Running Health Check reads metadata only and does not start a scan. Permission changes occur only when an authorised administrator selects items and clicks Apply Fix.</span></div>
             </div>
         </section>
     </template>
@@ -261,6 +261,80 @@
                 <div class="mimic-rel-help"><strong>Relationship fields live with the object.</strong><span>Choose Lookup, Master Detail or Polymorphic as a field type. Then select another mimicked object. Relationships always target that object's Salesforce Id, so you cannot accidentally link to Name, Email or another non ID field.</span></div>
             </main>
             <footer class="mimic-footer"><div><strong>No Salesforce metadata is created.</strong><span>Generate uses the ER Modeller Studio DSL and existing parser/compiler.</span></div><button class="mimic-generate" onclick={handleGenerateMimic}>Generate Model</button></footer>
+        </div>
+    </template>
+
+    <!-- APP MODEL GENERATION -->
+    <template if:true={appModelModalOpen}>
+        <div class="modal-backdrop app-model-backdrop" onclick={handleCloseAppModel}>
+            <section class="modal-box app-model-dialog" role="dialog" aria-modal="true" aria-labelledby="appModelTitle" tabindex="-1" onclick={stopProp} onkeydown={handleAppDialogKeyDown}>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="appModelTitle">Generate ER Model from App</h2>
+                    <button class="modal-close" aria-label="Close app generation" onclick={handleCloseAppModel} disabled={appModelBusy}>×</button>
+                </div>
+                <div class="modal-body">
+                    <p class="app-model-intro">Create a new diagram and editable DSL from a Salesforce app or a standalone Lightning component. Save your current diagram first.</p>
+                    <lightning-combobox class="app-model-source" label="Model source" value={appModelSource} options={appSourceOptions} onchange={handleAppSourceChange} disabled={appModelBusy}></lightning-combobox>
+                    <template if:true={isSalesforceAppSource}><lightning-combobox class="app-model-type-filter" label="App type" value={appTypeFilter} options={appTypeOptions} onchange={handleAppTypeFilterChange} disabled={appModelBusy}></lightning-combobox></template>
+                    <p class="app-model-type-summary">{appTypeSummary}</p>
+                    <lightning-combobox class="app-model-select" label={appRootSelectLabel} placeholder={appRootPlaceholder} options={appOptions} value={selectedSalesforceApp} onchange={handleAppChange} disabled={appModelBusy} dropdown-alignment="auto"></lightning-combobox>
+                    <button class="app-model-reload" onclick={handleLoadSalesforceApps} disabled={appModelBusy}>Refresh source list</button>
+                    <div class="app-used-fields"><strong>{appFieldsLabel}</strong><lightning-helptext content={appUsedFieldsHelp}></lightning-helptext><p>Based on scoped field evidence. Name needs evidence; Id remains the key.</p></div>
+                    <div class="app-model-options">
+                        <p class="app-model-intro">Requires a successful org scan of Flow, LWC and Apex usage.</p>
+                        <lightning-input class="app-components-toggle" type="checkbox" label="Show Apex class and Flow names as component cards" field-level-help="Adds reached Apex classes and Flows as named component cards, separate from sObject entities. Saved in the DSL. These are potential dependencies, not proof of execution." checked={appIncludeComponents} onchange={handleAppComponentsChange} disabled={appModelBusy}></lightning-input>
+                        <lightning-input class="app-platform-toggle" type="checkbox" label="Show permission set and licence names as access cards" field-level-help={appPlatformHelp} checked={appIncludePlatform} onchange={handleAppPlatformChange} disabled={appAccessUnavailable}></lightning-input>
+                        <template if:true={isLightningSource}><p class="app-model-intro">Named access cards require a Salesforce app source. Component mode follows the selected LWC/Aura bundle, not every app containing it.</p></template>
+                        <template if:false={isLightningSource}>
+                            <lightning-input type="checkbox" label="Include fields configured on app pages" checked={appUiFieldsEnabled} onchange={handleAppUiFieldsChange} disabled={appModelBusy} field-level-help="Adds explicit app-assigned page fields and readable navigation layouts. Default layouts use the Tooling API principal and its default record type, may be shared across apps, and are configuration evidence rather than runtime observations."></lightning-input>
+                        </template>
+                        <lightning-input type="checkbox" label="Include object-triggered automation" checked={appAutomationEnabled} onchange={handleAppAutomationChange} disabled={appModelBusy}></lightning-input>
+                    </div>
+                    <template if:true={appModelError}>
+                        <div class="app-model-error" role="alert" tabindex="-1" title={appModelErrorHelp}>
+                            <div class="app-model-error-heading"><strong>{appModelError}</strong><lightning-helptext content={appModelErrorHelp}></lightning-helptext></div>
+                            <p>{appModelErrorHelp}</p>
+                            <template if:true={appModelScanRequired}><button class="app-model-open-scan" onclick={handleAppModelOpenScan}>Open Org Scan</button></template>
+                        </div>
+                    </template>
+                    <template if:false={appModelBusy}><p class="app-model-status" role="status" aria-live="polite">{appModelStatus}</p></template>
+                </div>
+                <div class="modal-footer app-model-controls">
+                    <template if:true={appModelBusy}><div class="app-generation-progress" role="status" aria-live="polite"><span class="er-wait-spinner" aria-hidden="true"></span><span><strong>Please wait…</strong><span class="er-wait-detail">{appModelStatus}</span></span></div></template>
+                    <button class="app-model-cancel" onclick={handleCloseAppModel} disabled={appModelBusy}>Cancel</button>
+                    <span class="app-model-generate-hint" title={appGenerateHint}><button class="app-model-generate" title={appGenerateHint} onclick={handleGenerateAppModel} disabled={appGenerateDisabled}>Generate ER Model</button></span>
+                </div>
+            </section>
+        </div>
+    </template>
+    <template if:true={appModelDetailsOpen}>
+        <div class="modal-backdrop app-model-backdrop" onclick={handleCloseAppModelDetails}>
+            <section class="modal-box app-model-dialog" role="dialog" aria-modal="true" aria-labelledby="appModelDetailsTitle" tabindex="-1" onclick={stopProp} onkeydown={handleAppDialogKeyDown}>
+                <div class="modal-header">
+                    <h2 class="modal-title" id="appModelDetailsTitle">Model Details</h2>
+                    <button class="modal-close" aria-label="Close model details" onclick={handleCloseAppModelDetails}>×</button>
+                </div>
+                <div class="modal-body">
+                    <p class="app-model-status">{appModelDetailSummary}</p>
+                    <template if:true={appModelDetailsMatch}>
+                        <template if:true={appHasObjectDetails}>
+                            <p class="app-model-intro">Object dependencies and their inclusion evidence. Permission-set and licence record names are not inferred from these references.</p>
+                            <div class="app-object-details-scroll"><table class="app-object-details-table"><thead><tr><th>Object</th><th>Category</th><th>Model scope</th><th>Evidence</th></tr></thead><tbody>
+                                <template for:each={appModelObjectDetails} for:item="object"><tr key={object.apiName}><td>{object.apiName}</td><td>{object.category}</td><td><span class={object.scopeClass}>{object.status}</span></td><td><details><summary>Show references</summary><p>{object.fieldSummary}</p><template for:each={object.evidence} for:item="evidence"><p key={evidence.key}>{evidence.message}</p></template></details></td></tr></template>
+                            </tbody></table></div>
+                        </template>
+                        <template if:true={appHasWarnings}><details class="app-model-details" open><summary>Coverage and limitations</summary><template for:each={appModelWarnings} for:item="warning"><p key={warning.key}>{warning.message}</p></template></details></template>
+                        <template if:true={appHasEvidence}>
+                            <details class="app-model-details" open>
+                                <summary>Why objects and cards were included</summary>
+                                <template for:each={appModelInclusionEvidence} for:item="evidence"><p class="app-model-reason" key={evidence.key}>{evidence.message}</p></template>
+                                <template if:true={appHasDependencyEvidence}><details class="app-model-details"><summary>{appDependencySummary}</summary><template for:each={appModelDependencyEvidence} for:item="evidence"><p key={evidence.key}>{evidence.message}</p></template></details></template>
+                            </details>
+                        </template>
+                    </template>
+                </div>
+                <div class="modal-footer"><button class="app-model-cancel" onclick={handleCloseAppModelDetails}>Close</button></div>
+            </section>
         </div>
     </template>
 
@@ -417,6 +491,7 @@
                     <div class="dd-menu-item" onclick={handleMenuSave}>Save <span class="dd-menu-shortcut">Ctrl+S</span></div>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item" onclick={handleMenuImport}>Import from Org</div>
+                    <button class="dd-menu-item app-model-menu-item" onclick={handleOpenAppModel}>Generate ER Model from App…</button>
                     <div class="dd-menu-item" onclick={handleMenuExport}>Export...</div>
                 </div>
             </template>
@@ -429,6 +504,7 @@
                 <div class="dd-menu-dropdown" onclick={stopProp}>
                     <div class="dd-menu-item" onclick={handleMenuMimic}>Mimic New ER</div>
                     <div class="dd-menu-item" onclick={handleMenuCompareOrg}>Compare with Org</div>
+                    <button class="dd-menu-item app-model-menu-item" onclick={handleOpenAppModelDetails}>Model Details…</button>
                     <div class="dd-menu-divider"></div>
                     <div class="dd-menu-item dd-menu-item-danger" onclick={handleMenuClearCanvas}>Clear Canvas</div>
                 </div>
@@ -468,6 +544,7 @@
                 <div class="dd-menu-dropdown" onclick={stopProp}>
                     <div class="dd-menu-item" onclick={handleMenuHelpConfiguration}>Configuration</div>
                     <div class="dd-menu-item" onclick={handleMenuHelpUserManual}>User Manual</div>
+                    <div class="dd-menu-item" onclick={handleMenuHelpLanguage}>Diagram Language Reference</div>
                 </div>
             </template>
         </div>
@@ -506,6 +583,9 @@
         <button class="tab-new-btn" onclick={handleNew}>+</button>
     </div>
 
+    <template if:true={appCardResultNotice}>
+        <div class="app-card-results" role="status" aria-live="polite"><span>{appCardResultNotice}</span><button onclick={handleOpenAppModelDetails}>Model Details</button><button onclick={handleDismissCardResults} aria-label="Dismiss card discovery result">×</button></div>
+    </template>
     <!-- MAIN BODY -->
     <div class="studio-body">
 
@@ -553,6 +633,9 @@
 
             <div class="sidebar-section palette-section">
                 <div class="sidebar-sec-head">DRAG TO CANVAS</div>
+                <select class="palette-search palette-type" aria-label="Object type" onchange={handlePaletteTypeChange}>
+                    <option value="all">All object types</option><option value="standard">Standard objects</option><option value="custom">Custom objects</option><option value="events">Platform events (__e)</option><option value="metadata">Custom metadata (__mdt)</option>
+                </select>
                 <input class="palette-search" type="text"
                        placeholder="Search objects"
                        value={paletteFilter}
@@ -572,7 +655,7 @@
         <!-- DSL EDITOR PANEL -->
         <div class={dslPanelClass} style={dslPanelStyle}>
             <div class="dsl-panel-head">
-                <span>DSL EDITOR</span>
+                <span>DSL EDITOR</span><template if:true={hasDslImports}><button class="dsl-head-btn" onclick={handleRefreshDslImports}>Refresh imports</button></template>
                 <div class="dsl-panel-head-actions">
                     <button class="dsl-head-btn" onclick={handleToggleDslWrap} title="Toggle editor word wrapping without changing the DSL">{dslWrapLabel}</button>
                     <button class="dsl-head-btn" onclick={handleToggleDslMaximise} title="Maximise or restore the editor without changing the DSL">{dslMaximiseLabel}</button>
@@ -583,6 +666,8 @@
             </div>
             <input type="file" class="dsl-file-input" accept=".dsl,.txt" onchange={handleImportDslFile} />
             <p class="dsl-hint">Type entity / relationship lines directly — the canvas updates as you type. Suggestions appear at the cursor; use up/down then Enter or Tab to accept, Esc to dismiss.</p>
+
+            <template if:true={dslValidationMessage}><div class="dsl-validation" role="status" aria-live="polite" title={dslValidationMessage}><strong>DSL needs attention</strong><span>{dslValidationMessage}</span><small>The canvas keeps the last valid model until this text is corrected.</small></div></template>
 
             <template if:true={missingRelationshipSuggestions.length}>
                 <div class="rel-suggest-banner">
@@ -648,7 +733,7 @@
 
 
             <!-- Zoom controls -->
-            <div class="zoom-controls">
+            <div class="zoom-controls" role="toolbar" aria-label="Canvas zoom and layout">
                 <button class="zoom-btn zoom-btn-wide" onclick={handleToggleCanvasMaximise} title="Maximise or restore canvas">{canvasMaximiseLabel}</button>
                 <template if:true={canvasHasModel}><button class="zoom-btn zoom-btn-wide" onclick={handleFitModel} title="Fit the complete model into the visible canvas">Fit Model</button></template>
                 <template lwc:if={showCanvasFitExport}><button class="zoom-btn zoom-btn-wide" onclick={handleOpenExport} title="Export the current diagram">Export</button></template>
@@ -676,7 +761,8 @@
             </div>
 
             <!-- Scrollable canvas -->
-            <div class="canvas-wrap" ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
+            <template if:true={diagramBusy}><div class="diagram-load-progress" role="status" aria-live="polite"><span class="er-wait-spinner" aria-hidden="true"></span><span>{diagramBusyMessage}</span></div></template>
+            <div class="canvas-wrap" aria-busy={diagramBusy} ondragover={handleCanvasDragOver} ondrop={handleCanvasDrop}>
               <div class="svg-scale-wrap" style={svgScaleWrapStyle}>
                 <svg data-role="er-svg"
                      viewBox={svgViewBox}
@@ -692,9 +778,11 @@
 
                     <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#f4f6f9" onclick={handleCanvasBackgroundClick}></rect>
 
+                    <template for:each={canvasSectionHeadings} for:item="section"><text key={section.key} x={section.x} y={section.y} class="canvas-section-heading">{section.label}</text></template>
                     <!-- Connectors rendered under boxes -->
                     <template for:each={connectorsView} for:item="c">
                         <g key={c.key} opacity={c.connOpacity} class="conn-group">
+                            <title>{c.title}</title>
                             <path d={c.d} fill="none" stroke="rgba(0,0,0,0)" stroke-width="10"></path>
                             <path d={c.d} fill="none" stroke={c.stroke} stroke-width={c.strokeWidth} stroke-dasharray={c.dashArray} marker-end={c.markerEnd}></path>
                             <text x={c.midX} y={c.midY} text-anchor="middle" font-size="10" class="conn-label" fill={c.stroke}>{c.label}</text>
@@ -713,6 +801,7 @@
                            class="entity-group"
                            onmouseenter={handleBoxMouseEnter}
                            onmouseleave={handleBoxMouseLeave}>
+                            <title>{b.title}</title>
 
                             <!-- Shadow -->
                             <rect x={b.shadowX} y={b.shadowY} width={b.width} height={b.height} rx="7" fill="#c8cdd6"></rect>
@@ -723,7 +812,7 @@
                             <!-- Header bottom strip (covers rounded corners gap) -->
                             <rect x={b.x} y={b.headerBodyY} width={b.width} height="10" fill={b.headerFill}></rect>
                             <!-- Entity name -->
-                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.name}</text>
+                            <text x={b.x} y={b.y} dx="12" dy="24" font-size="13" font-weight="bold" fill="#ffffff">{b.displayTitle}</text>
                             <!-- Delete button -->
                             <g data-name={b.name} class="delete-btn" onclick={handleDeleteEntity} transform={b.deleteTransform}>
                                 <circle cx="0" cy="0" r="10" fill="#c23934"></circle>
@@ -995,7 +1084,7 @@
                 <section class="arch-section arch-workspace arch-workspace-relationships">
                     <div class="arch-section-head"><span>Relationship Analysis</span><span class="arch-section-hint">How objects depend on each other</span></div>
                     <div class="arch-rel-explain"><h3>How to read this view</h3><p>{architectureRelationshipExplanation}</p><div class="arch-rel-type-guide"><div><strong>Lookup</strong><span>A reference from one object to another. Review it when understanding dependency, reporting joins and change impact.</span></div><div><strong>Master Detail</strong><span>A stronger parent child relationship. The parent participates in ownership semantics and can influence lifecycle behaviour.</span></div><div><strong>Polymorphic</strong><span>A relationship whose target can vary across supported object types. Treat it as a broader dependency when reasoning about the model.</span></div></div></div>
-                    <div class="arch-rel-graph-scroll"><div class="arch-rel-graph" style={architectureRelationshipGraphStyle}><template for:each={architectureRelationshipGraphEdges} for:item="e"><div key={e.key} class={e.className} style={e.style} title={e.title}></div></template><template for:each={architectureRelationshipGraphNodes} for:item="n"><button key={n.key} class="arch-rel-graph-node" style={n.style} data-name={n.name} onclick={handleArchitectureObjectSelect}><strong>{n.name}</strong><small>{n.degree} relationships</small></button></template></div></div>
+                    <div class="arch-rel-graph-scroll"><div class="arch-rel-graph" style={architectureRelationshipGraphStyle}><svg class="arch-rel-graph-svg" width={architectureRelationshipGraphWidth} height={architectureRelationshipGraphHeight} aria-label="Relationship dependency graph"><template for:each={architectureRelationshipGraphEdges} for:item="e"><g key={e.key}><title>{e.title}</title><path class={e.className} d={e.d} stroke={e.stroke} stroke-dasharray={e.dash} data-kind={e.kind} data-field={e.field} aria-label={e.title}></path></g></template></svg><template for:each={architectureRelationshipGraphNodes} for:item="n"><button key={n.key} class="arch-rel-graph-node" style={n.style} data-name={n.name} onclick={handleArchitectureObjectSelect}><strong>{n.name}</strong><small>{n.degree} relationships</small></button></template></div></div>
                     <div class="arch-rel-legend"><span class="arch-rel-lookup">Lookup</span><span class="arch-rel-master">Master Detail</span><span class="arch-rel-poly">Polymorphic</span></div>
                     <div class="arch-rel-deep-summary">
                         <div class="arch-section-head"><span>Relationship Detail</span><span class="arch-section-hint">Every relationship represented by the current ER file</span></div>

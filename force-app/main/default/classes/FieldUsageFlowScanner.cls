@@ -133,7 +133,7 @@ public without sharing class FieldUsageFlowScanner {
         if(fields.containsKey(token)){
             addIfValid(objectName,token,counts,locations,location);
             if(index+1<parts.size()){
-                Schema.DescribeFieldResult d=fields.get(token).getDescribe();
+                Schema.DescribeFieldResult d=FieldUsageSchemaAccess.describeField(fields.get(token));if(d==null)return;
                 List<Schema.SObjectType> refs=d.getReferenceTo();
                 if(refs.size()==1)resolvePath(refs[0].getDescribe().getName(),parts,index+1,counts,locations,location);
             }
@@ -141,7 +141,7 @@ public without sharing class FieldUsageFlowScanner {
         }
         // Relationship name (Account -> AccountId, Parent__r -> Parent__c). Emit the lookup field and continue when unambiguous.
         for(String fieldApi:fields.keySet()){
-            Schema.DescribeFieldResult d=fields.get(fieldApi).getDescribe();
+            Schema.DescribeFieldResult d=FieldUsageSchemaAccess.describeField(fields.get(fieldApi));if(d==null)continue;
             String rel=d.getRelationshipName();
             if(!String.isBlank(rel)&&rel.equalsIgnoreCase(token)){
                 addIfValid(objectName,fieldApi,counts,locations,location+' · relationship '+token);
@@ -168,7 +168,7 @@ public without sharing class FieldUsageFlowScanner {
     private static void addIfValid(String objectName,String fieldName,Map<String,Integer> counts,Map<String,Set<String>> locations,String location){
         if(String.isBlank(objectName)||String.isBlank(fieldName)||!isObject(objectName))return;
         Map<String,Schema.SObjectField> fields=globalDescribe.get(objectName).getDescribe().fields.getMap();if(!fields.containsKey(fieldName))return;
-        String canonicalObject=globalDescribe.get(objectName).getDescribe().getName(),canonicalField=fields.get(fieldName).getDescribe().getName(),key=canonicalObject+'.'+canonicalField;
+        String canonicalObject=globalDescribe.get(objectName).getDescribe().getName(),canonicalField=FieldUsageSchemaAccess.fieldName(fields.get(fieldName));if(canonicalField==null)return;String key=canonicalObject+'.'+canonicalField;
         counts.put(key,(counts.containsKey(key)?counts.get(key):0)+1);if(!locations.containsKey(key))locations.put(key,new Set<String>());if(!String.isBlank(location))locations.get(key).add(location);
     }
 }

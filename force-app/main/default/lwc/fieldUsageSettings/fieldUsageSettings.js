@@ -18,7 +18,8 @@ import getErrorDetail from '@salesforce/apex/FieldUsageErrorController.getErrorD
 
 export default class FieldUsageSettings extends LightningElement {
     excludedClassNames=''; excludedClasses=[]; newExcludedClass=''; exclusionsLoaded=false;
-    status; jobs=[]; sourceTypes=[]; scannerCounts={}; coverageRunId=null; schedules=[]; history=[]; busy=false; message=''; scheduleSeq=0; poller=null; activeRunId=null; expandedRunId=null; errorDetails={}; errorLoadingId=null; displayedProgress=0; progressRunId=null;
+    status; jobs=[]; sourceTypes=[]; scannerCounts={}; coverageRunId=null; coverageRunStatus=null; pollInFlight=false; schedules=[]; history=[]; busy=false; message=''; scheduleSeq=0; poller=null; activeRunId=null; expandedRunId=null; errorDetails={}; errorLoadingId=null; displayedProgress=0; progressRunId=null;
+    scanAlert=''; observedFailures=new Set();
     connectedCallback(){this.refresh();this.loadExclusions();this.startPolling();}
     async loadExclusions(){try{this.excludedClassNames=await getExcludedClassNames();this.excludedClasses=this.parseExcludedClasses(this.excludedClassNames);this.exclusionsLoaded=true;}catch(e){this.message=this.reportError(e,'Unable to load Apex exclusions.');}}
     parseExcludedClasses(names){return [...new Set(String(names||'').split(/[,;\n]/).map(n=>n.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(name=>({name,key:name.toLowerCase()}));}
@@ -28,10 +29,10 @@ export default class FieldUsageSettings extends LightningElement {
 
     async handleSaveExclusions(){this.busy=true;try{await saveExcludedClassNames({names:this.excludedClasses.map(c=>c.name).join('\n')});this.message='Apex exclusions saved. They apply to future scans.';await this.loadExclusions();}catch(e){this.message=this.reportError(e,'Unable to save Apex exclusions.');}finally{this.busy=false;}}
     disconnectedCallback(){this.stopPolling();}
-    startPolling(){this.stopPolling();this.poller=window.setInterval(async()=>{try{await this.refresh(false);}catch(_){/* retry next poll */}},3000);}
+    startPolling(){this.stopPolling();this.poller=window.setInterval(async()=>{if(this.pollInFlight||this.busy)return;this.pollInFlight=true;try{await this.refresh(false);}finally{this.pollInFlight=false;}},3000);}
     stopPolling(){if(this.poller){window.clearInterval(this.poller);this.poller=null;}}
-    async refresh(showBusy=true){if(showBusy)this.busy=true;try{const requestedRunId=this.activeRunId;const [status,jobs,sourceTypes,history]=await Promise.all([getStatus({runId:requestedRunId}),getScheduledJobs(),getSourceTypes(),getRecentRuns({rowLimit:10})]);const returnedRun=status?.run||null;const returnedRunning=['Queued','Running','Holding','Preparing','Processing'].includes(this.field(returnedRun,'Status__c'));if(requestedRunId&&returnedRun&&!returnedRunning){this.activeRunId=null;const latest=await getStatus({runId:null});this.status=latest;this.schedules=(latest?.schedules||[]).map(r=>({...r,_key:r.Id||`new-${++this.scheduleSeq}`}));}else{this.status=status;this.schedules=(status?.schedules||[]).map(r=>({...r,_key:r.Id||`new-${++this.scheduleSeq}`}));}this.updateDisplayedProgress();this.jobs=jobs||[];this.sourceTypes=sourceTypes||[];this.history=(history||[]).slice(0,10);const currentId=this.run?.Id||null;if(currentId!==this.coverageRunId||(!this.scanRunning&&this.runStatus==='Completed')){this.scannerCounts=currentId?await getScannerCoverage({runId:currentId}):{};this.coverageRunId=currentId;}if(showBusy)this.message='';}catch(e){this.message=this.reportError(e,'Unable to load Field Usage operations.');}finally{if(showBusy)this.busy=false;}}
-    async handleRunNow(){if(this.scanRunning)return;this.busy=true;this.message='Starting Field Usage scan...';this.displayedProgress=0;this.progressRunId=null;this.status={...(this.status||{}),run:{Status__c:'Queued',Progress_Percent__c:0,Progress_Phase__c:'Waiting for background scan to start',Objects_Processed__c:0,Objects_Total__c:0,Dependency_Count__c:0,Error_Count__c:0}};try{const runId=await runNow();this.activeRunId=runId;this.message='Field Usage scan queued.';this.startPolling();await this.refresh(false);}catch(e){this.message=this.reportError(e,'Unable to start Field Usage scan.');this.activeRunId=null;await this.refresh(false);}finally{this.busy=false;}}
+    async refresh(showBusy=true){if(showBusy)this.busy=true;try{const requestedRunId=this.activeRunId;const [status,jobs,sourceTypes,history]=await Promise.all([getStatus({runId:requestedRunId}),getScheduledJobs(),getSourceTypes(),getRecentRuns({rowLimit:10})]);const returnedRun=status?.run||null;const returnedRunning=['Queued','Running','Holding','Preparing','Processing'].includes(this.field(returnedRun,'Status__c'));if(requestedRunId&&returnedRun&&!returnedRunning){this.status=status;this.captureScanFailure();this.activeRunId=null;const latest=await getStatus({runId:null});this.status=latest;this.schedules=(latest?.schedules||[]).map(r=>({...r,_key:r.Id||`new-${++this.scheduleSeq}`}));}else{this.status=status;this.schedules=(status?.schedules||[]).map(r=>({...r,_key:r.Id||`new-${++this.scheduleSeq}`}));}this.updateDisplayedProgress();this.captureScanFailure();this.jobs=jobs||[];this.sourceTypes=sourceTypes||[];this.history=(history||[]).slice(0,10);const currentId=this.run?.Id||null;if(currentId!==this.coverageRunId||this.runStatus!==this.coverageRunStatus){this.scannerCounts=currentId?await getScannerCoverage({runId:currentId}):{};this.coverageRunId=currentId;this.coverageRunStatus=this.runStatus;}if(showBusy)this.message='';}catch(e){this.message=this.reportError(e,'Unable to load Field Usage operations.');}finally{if(showBusy)this.busy=false;}}
+    async handleRunNow(){if(this.scanRunning)return;this.busy=true;this.scanAlert='';this.message='Starting Field Usage scan...';this.displayedProgress=0;this.progressRunId=null;this.status={...(this.status||{}),run:{Status__c:'Queued',Progress_Percent__c:0,Progress_Phase__c:'Waiting for background scan to start',Objects_Processed__c:0,Objects_Total__c:0,Dependency_Count__c:0,Error_Count__c:0}};try{const runId=await runNow();this.activeRunId=runId;this.message='Field Usage scan queued.';this.startPolling();await this.refresh(false);}catch(e){this.scanAlert='Could not start scan: '+this.errorText(e,'Unknown launch error.');this.message=this.reportError(e,'Unable to start Field Usage scan.');this.activeRunId=null;await this.refresh(false);}finally{this.busy=false;}}
     async handleHistoryToggle(e){const id=e.currentTarget.dataset.id;if(this.expandedRunId===id){this.expandedRunId=null;return;}this.expandedRunId=id;if(this.errorDetails[id])return;this.errorLoadingId=id;try{const detail=await getErrorDetail({runId:id});this.errorDetails={...this.errorDetails,[id]:detail};}catch(err){this.errorDetails={...this.errorDetails,[id]:{errors:this.reportError(err,'Unable to load persisted scan error detail.')}};}finally{this.errorLoadingId=null;}}
     handleAddSchedule(){this.schedules=[...this.schedules,{_key:`new-${++this.scheduleSeq}`,Name:'Field Usage Schedule',Enabled__c:true,Hour__c:3,Minute__c:0}];}
     changeSchedule(key,patch){this.schedules=this.schedules.map(r=>r._key===key?{...r,...patch}:r);}
@@ -40,6 +41,28 @@ export default class FieldUsageSettings extends LightningElement {
     async handleDeleteSchedule(e){const key=e.currentTarget.dataset.key,row=this.schedules.find(r=>r._key===key);this.busy=true;try{if(row?.Id)await deleteSchedule({scheduleId:row.Id});this.schedules=this.schedules.filter(r=>r._key!==key);this.message='Schedule deleted.';await this.refresh(false);}catch(err){this.message=this.reportError(err,'Unable to delete schedule.');}finally{this.busy=false;}}
     async handlePause(e){await this.jobAction(pauseSchedule,e.currentTarget.dataset.id,'Schedule paused.');} async handleResume(e){await this.jobAction(resumeSchedule,e.currentTarget.dataset.id,'Schedule resumed.');} async handleDeleteJob(e){await this.jobAction(deleteSchedule,e.currentTarget.dataset.id,'Schedule deleted.');}
     async jobAction(fn,id,success){this.busy=true;try{await fn({scheduleId:id});this.message=success;await this.refresh(false);}catch(e){this.message=this.reportError(e,'Unable to update scheduled job.');}finally{this.busy=false;}}
+    get scanFailure(){
+        const run=this.run, state=this.runStatus;
+        if(this.field(run,'Progress_Phase__c')==='Read repair needs attention')return 'Read repair needs attention. '+this.progressLog;
+        const failed=['Failed','Completed With Errors','Aborted'].includes(state)||['Failed','Aborted'].includes(this.jobStatus)||this.errorCount>0||this.jobErrors>0;
+        if(!failed)return '';
+        const detail=this.field(run,'Errors__c')||this.status?.jobError||this.progressLog||'Salesforce reported a scan error without further detail. Review Apex Jobs and the scan history.';
+        return 'Scan '+(this.scanRunning?'has errors':state==='Not scanned'?this.jobStatus:state)+'. '+detail;
+    }
+    get visibleScanAlert(){return this.scanAlert||this.scanFailure;}
+    skipLogRun='';
+    captureScanFailure(){
+        if(!this.scanRunning&&this.run?.Id&&this.skipLogRun!==this.run.Id&&this.progressLog.includes('SCAN_SKIP:'+this.run.Id)){
+            this.skipLogRun=this.run.Id;
+            this.dispatchEvent(new CustomEvent('scancoverage',{detail:{runId:this.run.Id},bubbles:true,composed:true}));
+        }
+        const message=this.scanFailure;if(!message)return;
+        const key=(this.run?.Id||this.field(this.run,'Job_Id__c')||'latest')+'|'+this.runStatus+'|'+this.jobStatus+'|'+this.errorCount+'|'+this.jobErrors+'|'+message;
+        if(this.observedFailures.has(key))return;
+        this.observedFailures.add(key);
+        this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Field Usage',severity:'ERROR',message:'Run '+(this.run?.Id||'unknown')+': '+message},bubbles:true,composed:true}));
+    }
+    handleOpenErrorLog(){this.dispatchEvent(new CustomEvent('openerrorlog',{bubbles:true,composed:true}));}
     reportError(error,context){const message=this.errorText(error,context);this.dispatchEvent(new CustomEvent('studioerror',{detail:{source:'Field Usage / '+context,message,severity:'ERROR'},bubbles:true,composed:true}));return message;}
     errorText(e,fallback){const body=e?.body;if(typeof body==='string'&&body.trim())return body;if(body?.message)return body.message;const pageErrors=body?.pageErrors||body?.output?.errors;if(Array.isArray(pageErrors)&&pageErrors.length){const messages=pageErrors.map(x=>x?.message||String(x)).filter(Boolean);if(messages.length)return messages.join(' | ');}const fieldErrors=body?.fieldErrors||body?.output?.fieldErrors;if(fieldErrors&&typeof fieldErrors==='object'){const messages=Object.values(fieldErrors).flat().map(x=>x?.message||String(x)).filter(Boolean);if(messages.length)return messages.join(' | ');}if(Array.isArray(body)){const messages=body.map(x=>x?.message||x?.errorCode||String(x)).filter(Boolean);if(messages.length)return messages.join(' | ');}if(e?.message)return e.message;try{const serialised=JSON.stringify(body||e);if(serialised&&serialised!=='{}')return serialised;}catch(_){/* use fallback */}return fallback;}
     field(row,apiName){if(!row)return undefined;if(Object.prototype.hasOwnProperty.call(row,apiName))return row[apiName];const key=Object.keys(row).find(k=>k.endsWith(apiName));return key?row[key]:undefined;}
@@ -47,12 +70,52 @@ export default class FieldUsageSettings extends LightningElement {
     get run(){return this.status?.run||null;}
     get runStatus(){return this.field(this.run,'Status__c')||'Not scanned';}
     get asyncJobTerminal(){return ['Aborted','Failed','Completed'].includes(this.jobStatus);}
-    get scanRunning(){const runClaimsActive=['Queued','Running','Holding','Preparing','Processing'].includes(this.runStatus);if(!runClaimsActive)return false;const hasAsyncJob=!!this.field(this.run,'Job_Id__c');return !(hasAsyncJob&&this.asyncJobTerminal);}
+    get scanRunning(){if(this.field(this.run,'Progress_Phase__c')==='Reviewing skipped Read permissions')return !this.asyncJobTerminal;const runClaimsActive=['Queued','Running','Holding','Preparing','Processing'].includes(this.runStatus);if(!runClaimsActive)return false;const hasAsyncJob=!!this.field(this.run,'Job_Id__c');return !(hasAsyncJob&&this.asyncJobTerminal);}
     get snapshotState(){return this.field(this.run,'Is_Current__c')&&this.runStatus==='Completed'?'Current':(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus)?this.jobStatus:this.runStatus);}
-    get healthState(){return this.scanRunning?'Processing':(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus)?'Attention':(Number(this.field(this.run,'Error_Count__c')||0)>0?'Attention':(this.field(this.run,'Is_Current__c')?'Healthy':'Not scanned')));}
+    get healthState(){if(this.scanFailure)return 'Attention';return this.scanRunning?'Processing':(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus)?'Attention':(Number(this.field(this.run,'Error_Count__c')||0)>0?'Attention':(this.field(this.run,'Is_Current__c')?'Healthy':'Not scanned')));}
     get dependencyCount(){return Number(this.field(this.run,'Dependency_Count__c')||0);} get objectsProcessed(){return Number(this.field(this.run,'Objects_Processed__c')||0);} get objectsTotal(){return Number(this.field(this.run,'Objects_Total__c')||0);} get progressLog(){return this.field(this.run,'Progress_Log__c')||'';} get hasProgressLog(){return !!this.progressLog;} get errorCount(){return Number(this.field(this.run,'Error_Count__c')||0);} get jobTotal(){return Number(this.status?.jobTotal||0);} get jobProcessed(){return Number(this.status?.jobProcessed||0);} get jobErrors(){return Number(this.status?.jobErrors||0);} get jobStatus(){return this.status?.jobStatus||'';}
     updateDisplayedProgress(){const runId=this.run?.Id||this.activeRunId||null;if(runId!==this.progressRunId){this.progressRunId=runId;this.displayedProgress=0;}const persisted=Math.max(0,Math.min(this.scanRunning?99:100,Number(this.field(this.run,'Progress_Percent__c')||0)));let candidate=!this.scanRunning&&/Completed/i.test(this.runStatus)?100:persisted;const phase=String(this.field(this.run,'Progress_Phase__c')||'');if(this.scanRunning&&/Discovering scan work/i.test(phase)&&this.jobTotal>0){const realBatchPercent=Math.floor((Math.max(0,this.jobProcessed)/this.jobTotal)*100);candidate=Math.max(candidate,Math.max(1,Math.min(99,realBatchPercent)));}this.displayedProgress=Math.max(this.displayedProgress,candidate);}
-    get progress(){return Math.max(0,Math.min(100,Number(this.displayedProgress||0)));}
+    get reviewingAccess() {
+        return this.field(this.run,'Progress_Phase__c') === 'Reviewing skipped Read permissions';
+    }
+    get workflowStage() {
+        const type = this.field(this.run,'Run_Type__c');
+        const verification = type === 'Verification';
+        if (this.scanFailure) return verification ? 'Verification needs attention' : 'Scan workflow needs attention';
+        if (this.reviewingAccess && this.scanRunning) return 'Reviewing skips and applying eligible Read grants to Diagram Studio User';
+        if (this.scanRunning) {
+            if (verification) return 'Verification scan · Pass 2 of 2';
+            if (type === 'Manual') return 'Field Usage scan · Pass 1';
+            return 'Field Usage scan';
+        }
+        if (this.runStatus === 'Completed') {
+            if (verification) return 'Verification complete · Pass 2 of 2';
+            if (this.phase === 'Read access review complete') return 'Scan and Read access review complete';
+            if (this.phase === 'Read repair complete; verification queued') return 'Read access updated · Verification queued';
+            return 'Scan complete';
+        }
+        return this.phase;
+    }
+    get workflowDetail() {
+        if (this.scanFailure) return '';
+        if (this.reviewingAccess && this.scanRunning) {
+            if (!this.jobTotal) return 'Preparing the access review…';
+            if (this.status.oneBatchPerObject && this.jobTotal === this.status.repairObjects)
+                return `${this.jobProcessed} of ${this.jobTotal} objects processed`;
+            return `${this.jobProcessed} of ${this.jobTotal} review batches processed`;
+        }
+        if (this.scanRunning) return this.phase;
+        if (this.runStatus === 'Completed' && this.status.skippedEntries != null)
+            return this.status.skippedEntries ? `Coverage limits · ${this.status.skippedEntries} skipped object or field entries in this scan` : 'No object or field skips recorded';
+        return '';
+    }
+    get backgroundRunning() {
+        return this.scanRunning && Boolean(this.field(this.run,'Job_Id__c'));
+    }
+    get showProgressPercent() {
+        return !this.reviewingAccess || this.jobTotal > 0;
+    }
+    get progress(){if(this.reviewingAccess)return this.jobTotal ? Math.min(100,Math.floor(100*this.jobProcessed/this.jobTotal)) : 0;return Math.max(0,Math.min(100,Number(this.displayedProgress||0)));}
     get progressStyle(){return `width:${this.progress}%;`;}
     get phase(){if(this.asyncJobTerminal&&['Queued','Running'].includes(this.runStatus))return `Previous async job ${this.jobStatus.toLowerCase()} · ready to start a new scan`;const persisted=this.field(this.run,'Progress_Phase__c');if(persisted)return persisted;if(this.scanRunning)return this.jobStatus?`Pipeline running · current batch ${this.jobStatus}`:'Pipeline running';return 'Idle';}
     get lastCompleted(){return this.formatDate(this.field(this.run,'Completed_At__c'));} get hasJobs(){return this.jobs.length>0;} get hasSchedules(){return this.schedules.length>0;} get hasHistory(){return this.history.length>0;}

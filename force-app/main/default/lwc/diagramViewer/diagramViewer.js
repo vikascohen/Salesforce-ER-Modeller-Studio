@@ -1,3 +1,5 @@
+import resolveDslImports from '@salesforce/apex/DslFileService.resolveImports';
+import { importStatements } from 'c/dslModules';
 import { LightningElement, api, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import getFile from '@salesforce/apex/DiagramFileController.getFile';
@@ -66,7 +68,8 @@ export default class DiagramViewer extends NavigationMixin(LightningElement) {
     @wire(getFile, { fileId: '$diagramId' })
     wiredFile({ data, error }) {
         if (data) {
-            this.record = data;
+            this.record = {...data,Id:data.id||data.Id,Name:data.name||data.Name,Diagram_Type__c:data.diagramType||data.Diagram_Type__c,Source_Code__c:data.sourceCode==null?data.Source_Code__c:data.sourceCode};
+            this._importSource='';
             this.errorMessage = '';
             this.renderDiagram();
         } else if (error) {
@@ -90,12 +93,24 @@ export default class DiagramViewer extends NavigationMixin(LightningElement) {
         return `0 0 ${this.svgWidth} ${this.svgHeight}`;
     }
 
+    importsLoading=false;
+    _importBundle={files:{},edges:{}};
+    _importSource='';
+    _importPending='';
+    _importToken=0;
+    async loadImports(source,id){
+        const token=++this._importToken;this._importPending=source;this.importsLoading=true;
+        try{const bundle=JSON.parse(await resolveDslImports({fileId:id,sourceCode:source}));if(token!==this._importToken||!this.record||this.record.Id!==id||this.record.Source_Code__c!==source)return;this._importBundle=bundle;this._importSource=source;this.renderDiagram();}
+        catch(error){if(this.record?.Id===id)this.errorMessage=this.reduceError(error);}
+        finally{if(token===this._importToken){this._importPending='';this.importsLoading=false;}}
+    }
     renderDiagram() {
         if (!this.record) {
             return;
         }
+        if(importStatements(this.record.Source_Code__c).length&&this._importSource!==this.record.Source_Code__c){if(this._importPending!==this.record.Source_Code__c)this.loadImports(this.record.Source_Code__c,this.record.Id);return;}
         try {
-            const model = parseEr(this.record.Source_Code__c);
+            const model = parseEr(this.record.Source_Code__c,{rootId:this.record.Id,fileName:this.record.Name,resolveImport:(owner,name)=>this._importBundle.files[this._importBundle.edges[owner+'|'+name]]});
             const geo = buildErGeometry(model, {});
             this.erBoxes = geo.boxes;
             this.erConnectors = geo.connectors;

@@ -7,6 +7,7 @@ public without sharing class FieldUsageLwcScanner {
     private static final Pattern QUALIFIED_LITERAL=Pattern.compile('(?i)[\'\"]([A-Za-z_][A-Za-z0-9_]*(?:__c|__e|__mdt)?)\\.([A-Za-z_][A-Za-z0-9_]*(?:__c)?)[\'\"]');
 
     public static List<Field_Usage_Evidence__c> scan(Id runId,String componentName,String componentId,String body){
+        ObjectUsageScanner.lwc(runId,componentName,componentId,body);
         return scanPatterns(runId,componentName,componentId,body,new List<Pattern>{SCHEMA_IMPORT,QUALIFIED_LITERAL});
     }
     private static List<Field_Usage_Evidence__c> scanPatterns(Id runId,String componentName,String componentId,String body,List<Pattern> patterns){
@@ -24,5 +25,5 @@ public without sharing class FieldUsageLwcScanner {
     private static String formatLines(List<Integer> lines){if(lines==null||lines.isEmpty())return '';List<String> s=new List<String>();for(Integer n:lines)s.add(String.valueOf(n));return ' · line'+(lines.size()>1?'s ':' ')+String.join(s,', ');}
     private static String snippets(String body,List<Integer> lines){List<String> source=body.split('\\n',-1),out=new List<String>();for(Integer i=0;i<Math.min(8,lines.size());i++){Integer n=lines[i];if(n>0&&n<=source.size())out.add('Line '+n+': '+source[n-1].trim());}return String.join(out,'\n').left(32000);}
     private static String canonicalObject(Map<String,Schema.SObjectType> gd,String candidate){for(String n:gd.keySet())if(n.equalsIgnoreCase(candidate))return gd.get(n).getDescribe().getName();return null;}
-    private static String canonicalField(Map<String,Schema.SObjectField> fields,String candidate){for(String n:fields.keySet())if(n.equalsIgnoreCase(candidate))return fields.get(n).getDescribe().getName();return null;}
+    private static String canonicalField(Map<String,Schema.SObjectField> fields,String candidate){for(String n:fields.keySet())if(n.equalsIgnoreCase(candidate))return FieldUsageSchemaAccess.fieldName(fields.get(n));return null;}
 }

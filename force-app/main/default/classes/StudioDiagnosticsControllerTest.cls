@@ -8,7 +8,7 @@ private class StudioDiagnosticsControllerTest {
 
     @IsTest static void systemInfoIsReadOnlyAndOperationallyUseful(){
         Test.startTest();StudioDiagnosticsController.SystemInfoDTO dto=StudioDiagnosticsController.getSystemInfo();Test.stopTest();
-        System.assertEquals('4',dto.studioVersion);System.assertEquals('v60.0',dto.toolingApiVersion);System.assertEquals('60.0',dto.salesforceApiVersion);
+        System.assertEquals('5',dto.studioVersion);System.assertEquals('v60.0',dto.toolingApiVersion);System.assertEquals('60.0',dto.salesforceApiVersion);
         System.assertEquals(UserInfo.getOrganizationId(),dto.organisationId);System.assertEquals(UserInfo.getUserName(),dto.runningUser);
         System.assertNotEquals(null,dto.organisationName);System.assertNotEquals(null,dto.organisationType);System.assertNotEquals(null,dto.environmentType);
         System.assertNotEquals(null,dto.runningUserName);System.assertNotEquals(null,dto.userType);System.assertNotEquals(null,dto.profileName);
@@ -22,8 +22,9 @@ private class StudioDiagnosticsControllerTest {
         System.assertEquals(true,dto.snapshotAvailable);System.assertEquals('Completed',dto.snapshotStatus);System.assertEquals(4,dto.dependencyCount);System.assertEquals(1,dto.snapshotErrors);System.assertEquals(100,dto.scanProgressPercent);System.assertEquals('Snapshot ready',dto.scanPhase);System.assertEquals(1,dto.enabledSchedules);
     }
     @IsTest static void healthyDiagnosticsProveToolingConnection(){
+        ScanMetadataAccessCheck.objectsOverride=new Set<String>();
         Test.setMock(HttpCalloutMock.class,new ToolingOkMock());Test.startTest();StudioDiagnosticsController.DiagnosticDTO dto=StudioDiagnosticsController.runDiagnostics();Test.stopTest();
-        System.assertEquals('Application Ready',dto.overallStatus);System.assert(dto.checks.size()>=6);Boolean toolingPassed=false;for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='tooling'&&c.status=='Passed')toolingPassed=true;System.assert(toolingPassed,'Tooling API must be proven by an authenticated preflight.');System.assert(dto.summary.contains('passed'));System.assertNotEquals(null,dto.completedAt);
+        System.assertEquals('Preflight Checks Passed',dto.overallStatus);System.assert(dto.checks.size()>=6);Boolean toolingPassed=false;for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='tooling'&&c.status=='Passed')toolingPassed=true;System.assert(toolingPassed,'Tooling API must be proven by an authenticated preflight.');System.assert(dto.summary.contains('passed'));System.assertNotEquals(null,dto.completedAt);
     }
     @IsTest static void failedToolingConnectionIsActionable(){
         Test.setMock(HttpCalloutMock.class,new ToolingErrorMock());Test.startTest();StudioDiagnosticsController.DiagnosticDTO dto=StudioDiagnosticsController.runDiagnostics();Test.stopTest();
@@ -35,5 +36,13 @@ private class StudioDiagnosticsControllerTest {
         Boolean snapshotAttention=false;for(StudioDiagnosticsController.CheckDTO c:dto.checks)if(c.key=='snapshot'&&c.status=='Attention')snapshotAttention=true;
         System.assert(snapshotAttention,'A failed snapshot must be surfaced as an attention item.');
         System.assert(new Set<String>{'Attention Required','Configuration Required'}.contains(dto.overallStatus),'The overall status may also report configuration because Salesforce blocks the mocked Tooling callout after this test inserts the failed run.');
+    }
+    @IsTest static void incompleteSnapshotCannotPassHealthCheck(){
+        insert new Field_Usage_Run__c(Status__c='Completed With Errors',Error_Count__c=2,Errors__c='Source unavailable',Is_Current__c=false);
+        ScanMetadataAccessCheck.objectsOverride=new Set<String>();
+        Test.setMock(HttpCalloutMock.class,new ToolingOkMock());
+        StudioDiagnosticsController.DiagnosticDTO d=StudioDiagnosticsController.runDiagnostics();
+        for(StudioDiagnosticsController.CheckDTO check:d.checks)if(check.key=='snapshot')System.assertEquals('Attention',check.status);
+        System.assert(d.summary.contains('not a full scan'));
     }
 }

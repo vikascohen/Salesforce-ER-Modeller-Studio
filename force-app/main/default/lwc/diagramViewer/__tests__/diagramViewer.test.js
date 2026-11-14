@@ -6,6 +6,7 @@ import { registerApexTestWireAdapter } from '@salesforce/sfdx-lwc-jest';
 import getFile from '@salesforce/apex/DiagramFileController.getFile';
 import DiagramViewer from 'c/diagramViewer';
 
+jest.mock('@salesforce/apex/DslFileService.resolveImports',()=>({default:jest.fn(()=>Promise.resolve('{\"files\":{},\"edges\":{}}'))}),{virtual:true});
 jest.mock(
     '@salesforce/apex/DiagramFileController.saveDiagramAsFile',
     () => ({ default: jest.fn() }),
@@ -129,4 +130,12 @@ describe('c-diagram-viewer', () => {
             expect.objectContaining({ diagramFileId: 'a00xx0000001', pageSize: 'PNG' })
         );
     });
+});
+
+
+it('renders only used exported modules from saved-file imports',async()=>{
+    require('@salesforce/apex/DslFileService.resolveImports').default.mockResolvedValue(JSON.stringify({files:{lib:{id:'lib',name:'customer.dsl',sourceCode:'export module Customer {\nentity Account : Name\n}'}},edges:{'a00xx0000001|customer.dsl':'lib'}}));
+    const el=createElement('c-diagram-viewer',{is:DiagramViewer});el.diagramId='a00xx0000001';document.body.appendChild(el);
+    getFileAdapter.emit({...SAMPLE_RECORD,Source_Code__c:'import customer.dsl\nuse Customer'});await flushPromises();await flushPromises();
+    expect(el.shadowRoot.querySelector('svg[data-role="viewer-svg"]').textContent).toContain('Account');
 });

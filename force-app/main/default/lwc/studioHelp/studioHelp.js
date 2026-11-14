@@ -4,7 +4,10 @@
 import { LightningElement, api } from 'lwc';
 export default class StudioHelp extends LightningElement {
     @api initialSection='configuration'; section='configuration'; configurationTopic='tooling'; searchText='';
-    connectedCallback(){this.section=this.initialSection==='manual'?'manual':'configuration';}
+    connectedCallback(){this.section=['manual','language'].includes(this.initialSection)?this.initialSection:'configuration';}
+    get languageOpen(){return this.section==='language';}
+    get languageClass(){return this.languageOpen?'help-nav-item help-nav-item-active':'help-nav-item';}
+    showLanguage(){this.section='language';}
     get configurationOpen(){return this.section==='configuration';} get manualOpen(){return this.section==='manual';}
     get toolingConfigurationOpen(){return this.configurationTopic==='tooling';} get mcpConfigurationOpen(){return this.configurationTopic==='mcp';}
     get toolingTopicClass(){return this.toolingConfigurationOpen?'help-nav-item help-nav-subitem help-nav-item-active':'help-nav-item help-nav-subitem';}

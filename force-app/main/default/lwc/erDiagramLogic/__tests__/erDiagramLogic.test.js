@@ -337,3 +337,66 @@ describe('buildLegendGroup', () => {
         expect(g.querySelectorAll('text').length).toBeGreaterThanOrEqual(4); // title + 3 rows
     });
 });
+
+describe('V5 typed app component cards', () => {
+    it('keeps Apex, Flow and sObject identities separate, without fake primary keys', () => {
+        const model=parseEr('entity Logger : Name\ncomponent ApexClass Logger\ncomponent Flow Logger\ncomponent ApexClass logger');
+        expect(model.entities).toHaveLength(1);
+        expect(model.components).toHaveLength(2);
+        const geo=buildErGeometry(model,{});
+        expect(geo.boxes).toHaveLength(3);
+        for(const box of geo.boxes.filter(b=>b.componentType)) {
+            expect(box.title).toBeTruthy();expect(box.fields).toHaveLength(1);
+            expect(box.fields.some(f=>f.isPrimaryKey)).toBe(false);
+            expect(box.headerFill).toBe('#137c70');
+        }
+        expect(buildDrawioXml(model,geo.boxes)).toContain('Apex class');
+        expect(buildMermaidErDiagram(model)).toContain('component card; omitted from ER-only export');
+    });
+    it('colours custom objects, platform events and custom metadata consistently', () => {
+        const boxes=buildErGeometry(parseEr('entity Custom__c\nentity pkg__Event__e\nentity Config__mdt\nentity Account'),{}).boxes;
+        expect(boxes.slice(0,3).map(b=>b.headerFill)).toEqual(['#5c2d91','#5c2d91','#5c2d91']);
+        expect(boxes[3].isCustom).toBe(false);
+    });
+    it('rejects malformed component declarations rather than creating fake sObjects', () => {
+        expect(()=>parseEr('component ApexClass bad-name')).toThrow();
+        expect(()=>parseEr('component ApexTrigger Trigger')).toThrow();
+        expect(parseEr('component Flow MyFlow').entities).toHaveLength(0);
+    });
+});
+
+
+describe('connector visibility and direction',()=>{
+    const source='entity Account : Name, Description\nentity Contact : Name, Email\nentity Opportunity : Name, Amount, CloseDate\nContact.AccountId -> Account\nOpportunity.AccountId -> Account';
+    it('keeps horizontal and vertical arrow tips clear of parent borders, badges and labels',()=>{
+        const model=parseEr(source), geo=buildErGeometry(model);
+        expect(parseEr(source)).toEqual(model);
+        for(const c of geo.connectors){
+            const child=geo.boxes.find(b=>b.name===c.childEntity),parent=geo.boxes.find(b=>b.name===c.parentEntity);
+            const coordinates=c.d.match(/-?\d+(?:\.\d+)?/g).map(Number),[endX,endY]=coordinates.slice(-2);
+            expect(coordinates).toHaveLength(4); // aligned cards use a straight route
+            if(child.x===parent.x){expect(endY).toBe(parent.y+parent.height+12);expect(c.cardEndX-endX).toBe(19);expect(c.midX).toBeLessThan(endX);}
+            else{expect(endX).toBe(parent.x+parent.width+12);expect(endY-c.cardEndY).toBe(19);expect(c.midY).toBeGreaterThan(endY);}
+            expect(Math.hypot(c.cardEndX-endX,c.cardEndY-endY)).toBeGreaterThan(20);
+            expect(c.title).toContain(c.childEntity+'.AccountId → Account');
+            expect(c.markerEnd).toBe('url(#er-arrow)');
+        }
+    });
+    it.each([{x:500,y:60},{x:0,y:60},{x:60,y:500},{x:60,y:0}])('keeps arrow tips outside targets in either direction: %j',(parentPosition)=>{
+        const geo=buildErGeometry(parseEr('entity Child : Name\nentity Parent : Name\nChild.ParentId -> Parent'),{Child:{x:260,y:260},Parent:parentPosition});
+        const c=geo.connectors[0],p=geo.boxes.find(b=>b.name==='Parent');
+        const [x,y]=c.d.match(/-?\d+(?:\.\d+)?/g).map(Number).slice(-2);
+        expect(x<p.x||x>p.x+p.width||y<p.y||y>p.y+p.height).toBe(true);
+        expect(c.title).toContain('arrow points to referenced parent');
+    });
+});
+
+
+it('renders named access cards with labels as components, never schema objects',()=>{
+ const source='export module Access {\ncomponent PermissionSet Access_1 label "Logger Admin {Core}"\ncomponent PermissionSetLicense Access_2 label "Salesforce CRM"\ncomponent UserLicense Access_3 label "Salesforce"\ncomponent PackageLicense Access_4 label "Example Package"\n}\nuse Access\nentity Account : Name';
+ const model=parseEr(source),geo=buildErGeometry(model);
+ expect(model.entities.map(e=>e.name)).toEqual(['Account']);expect(model.components).toHaveLength(4);
+ expect(model.components[0].title).toBe('Logger Admin {Core}');
+ for(const box of geo.boxes.filter(b=>b.componentType)){expect(box.fields).toHaveLength(1);expect(box.fields[0].text).toMatch(/licence|Permission set/);expect(box.fields[0].text).not.toBe('Apex class');}
+ expect(buildDrawioXml(model,geo.boxes)).toContain('Permission set licence');
+});

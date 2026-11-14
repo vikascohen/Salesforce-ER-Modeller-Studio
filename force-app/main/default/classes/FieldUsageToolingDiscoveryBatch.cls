@@ -14,17 +14,25 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
         // Page Layout and Record Type metadata deliberately do not belong to the
         // persisted Field Usage snapshot. They are configuration metadata and are
         // loaded on demand by Data Dictionary for the selected object/field.
-        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule'};
+        return new List<String>{'ApexClass','ApexTrigger','Flow','LWC','Aura','ValidationRule','OmniStudio'};
     }
 
     public void execute(Database.BatchableContext context,List<String> sourceTypes){
         List<Field_Usage_Work_Unit__c> allUnits=new List<Field_Usage_Work_Unit__c>();
         for(String sourceType:sourceTypes){
             List<String> ids=new List<String>(); String scannerType; Integer chunkSize=CHUNK_SIZE;
+            if(sourceType=='OmniStudio'){
+                for(String target:FieldUsageOmniScanner.discover())allUnits.add(new Field_Usage_Work_Unit__c(Run__c=runId,Work_Key__c=String.valueOf(runId)+'|OmniStudio|'+target,Scanner_Type__c='OmniStudio',Target_Key__c=target,Status__c='Pending'));
+                Field_Usage_Run__c omniRun=[SELECT Progress_Log__c FROM Field_Usage_Run__c WHERE Id=:runId];
+                omniRun.Progress_Log__c=((omniRun.Progress_Log__c==null?'':omniRun.Progress_Log__c+'\n')+FieldUsageOmniScanner.capabilitySummary()).right(32000);update omniRun;
+                continue;
+            }
             if(sourceType=='LWC'||sourceType=='Aura'){
                 List<FieldUsageUiToolingClient.UiComponent> components=sourceType=='LWC'?FieldUsageUiToolingClient.getLwcBundleIndex():FieldUsageUiToolingClient.getAuraBundleIndex();
                 for(FieldUsageUiToolingClient.UiComponent c:components)ids.add(c.id);
                 scannerType=sourceType=='LWC'?'LWC Bulk':'Aura Bulk';
+                // UI bundles can contain large generated sources: isolate their regex budget.
+                chunkSize=1;
             } else if(sourceType=='ValidationRule'){
                 for(FieldUsageUiToolingClient.UiComponent c:FieldUsageUiToolingClient.getValidationRuleIndex())ids.add(c.id);
                 scannerType='Validation Rule Bulk'; chunkSize=VALIDATION_CHUNK_SIZE;
@@ -45,6 +53,7 @@ public without sharing class FieldUsageToolingDiscoveryBatch implements Database
             }
         }
         if(!allUnits.isEmpty()){Database.SaveResult[] results=Database.insert(allUnits,false);for(Database.SaveResult result:results)if(!result.isSuccess())throw new FieldUsageToolingApiClient.ToolingApiException('Could not checkpoint bulk Tooling API discovery: '+result.getErrors()[0].getMessage());}
+        FieldUsageSchemaAccess.persistWarnings(runId);
         update new Field_Usage_Run__c(Id=runId,Heartbeat_At__c=System.now(),Progress_Phase__c='Discovered dependency metadata');
     }
 

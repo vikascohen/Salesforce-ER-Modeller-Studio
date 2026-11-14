@@ -2,6 +2,15 @@
  * @author Vikas Cohen
  */
 @IsTest private class FieldUsageControllerTest {
+ @IsTest static void pollingSchedulesUsesTwoQueries() {
+     List<Field_Usage_Schedule__c> schedules = new List<Field_Usage_Schedule__c>();
+     for (Integer i=0; i<105; i++) schedules.add(new Field_Usage_Schedule__c(
+         Name='Schedule '+i, Hour__c=1, Minute__c=0, Enabled__c=false, Cron_Job_Name__c='Unscheduled '+i));
+     insert schedules;
+     Integer before = Limits.getQueries();
+     System.assertEquals(105,FieldUsageController.getScheduledJobs().size());
+     System.assertEquals(2,Limits.getQueries()-before);
+ }
  @IsTest static void scannerCoverageReflectsPersistedEvidence(){
   System.assertEquals(0,FieldUsageController.getScannerCoverage(null).size());
   Field_Usage_Run__c run=new Field_Usage_Run__c(Status__c='Completed');insert run;
@@ -32,7 +41,7 @@
   FieldUsageController.EvidenceDetailPageDTO afterLast=FieldUsageController.getEvidenceDetail('Account','Name','Apex Class',500,detail.nextCursor);System.assertEquals(0,afterLast.rows.size());
   System.assertEquals(0,FieldUsageController.getEvidenceDetail('Account','Industry','Apex Class',500,null).rows.size());
   System.assertEquals(1,FieldUsageController.searchEvidence('Current','Formula Field',50).size());
-  System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','LWC','Aura','Validation Rule','Formula Field'},FieldUsageController.getSourceTypes());
+  System.assertEquals(new List<String>{'Apex Class','Apex Trigger','Flow','LWC','Aura','Validation Rule','Formula Field','OmniScript','Integration Procedure','Omni Data Mapper'},FieldUsageController.getSourceTypes());
   System.assertEquals(2,FieldUsageController.getRecentRuns(20).size());
  }
  @IsTest static void coversSearchPagingAndEmptyInputBranches(){

@@ -3,6 +3,16 @@
  */
 import { LightningElement, track, wire, api } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
+import listSalesforceApps from '@salesforce/apex/AppModelController.listApps';
+import listLightningSources from '@salesforce/apex/AppModelController.listLightningSources';
+import getLightningScope from '@salesforce/apex/AppModelController.getLightningScopeJson';
+import getAppScope from '@salesforce/apex/AppModelController.getAppScopeJson';
+import discoverAppAccess from '@salesforce/apex/AppAccessService.discover';
+import expandAppScope from '@salesforce/apex/AppModelController.expandScopeJson';
+import { collectAppScope, describeInChunks, selectAppObjects, prepareAppSchema, appCardResults } from 'c/appModelLogic';
+import resolveDslImports from '@salesforce/apex/DslFileService.resolveImports';
+import listDslComponentNames from '@salesforce/apex/AppModelController.listDslComponentNames';
+import { importStatements, exportedModuleNames, dslFileKey, DSL_COMPONENT_TYPES, componentDeclarations } from 'c/dslModules';
 import persistDiagnosticEvent from '@salesforce/apex/ErDiagnosticConfigController.recordEvent';
 import recentDiagnosticHistory from '@salesforce/apex/ErDiagnosticConfigController.recentHistory';
 import {classifyDiagnostic,appendDiagnostic,filterDiagnostics} from 'c/erDiagnosticModel';
@@ -29,6 +39,7 @@ import getSchemaReferences from '@salesforce/apex/SchemaMetadataController.getSc
 import getTheme  from '@salesforce/apex/DiagramPreferenceController.getTheme';
 import saveTheme from '@salesforce/apex/DiagramPreferenceController.saveTheme';
 import getStudioSystemInfo from '@salesforce/apex/StudioDiagnosticsController.getSystemInfo';
+import getScanSkipLogPage from '@salesforce/apex/StudioDiagnosticsController.getScanSkipLogPage';
 import runStudioDiagnostics from '@salesforce/apex/StudioDiagnosticsController.runDiagnostics';
 import fieldUsageGetObjects from '@salesforce/apex/FieldUsageController.getObjects';
 import fieldUsageGetFields from '@salesforce/apex/FieldUsageController.getFields';
@@ -112,13 +123,32 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         this.recordDiagnostic(value,isValidation?'Model validation':'Studio',isValidation?'WARN':'ERROR');
     }
     errorCallback(error,stack){this.recordDiagnostic((error?.message||String(error))+(stack?' | Component: '+stack:''),'Studio component','ERROR');}
+    _importingSkipRun='';
+    _finishedSkipLog='';
+    async importScanSkips(runId,terminal){
+        if(!runId||this._importingSkipRun||this._finishedSkipLog===runId)return;
+        this._importingSkipRun=runId;
+        try{
+            let afterId=null;
+            do{
+                const page=await getScanSkipLogPage({runId,afterId});
+                for(const message of page?.messages||[]){
+                    if(!this.diagnosticEvents.some(e=>e.message===message))this.recordDiagnostic(message,'Field Usage','WARN',false);
+                }
+                afterId=page?.more?page.cursorId:null;
+            }while(afterId);
+            if(terminal)this._finishedSkipLog=runId;
+        }catch(error){this.recordDiagnostic('Could not load scan skips: '+this.reduceError(error),'Field Usage','WARN',false);}
+        finally{this._importingSkipRun='';}
+    }
+    handleScanCoverage(event){this.importScanSkips(event.detail.runId,true);}
     handleStudioDiagnostic(event){const detail=event.detail||{};this.recordDiagnostic(detail.message||'Component operation failed.',detail.source||'Studio component',detail.severity||'ERROR');}
-    recordDiagnostic(message,source='Studio',severity='ERROR'){
+    recordDiagnostic(message,source='Studio',severity='ERROR',persist=true){
         const event=classifyDiagnostic(message,source,severity);
         const alreadyRecorded=this.diagnosticEvents.some(e=>e.message===event.message&&e.source===source&&e.severity===severity);
         this.diagnosticEvents=appendDiagnostic(this.diagnosticEvents,event);
         this.pendingDiagnosticCount+=1;
-        if(!alreadyRecorded) {
+        if(!alreadyRecorded && persist) {
             const prefix=/mcp/i.test(source)?'ER_STUDIO_MODELLER_MCP':'ER_STUDIO_MODELLER';
             persistDiagnosticEvent({message:prefix+' ['+source+'] ['+severity+'] '+event.message,severity}).catch(()=>{});
         }
@@ -141,7 +171,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get selectedDiagnostic(){return this.displayedDiagnosticEvents.find(e=>e.id===this.selectedDiagnosticId)||null;}
     get hasSelectedDiagnostic(){return Boolean(this.selectedDiagnostic);}
     get errorLogBackLabel(){return this.errorLogOrigin==='settings'?'Back to Settings':'Back to Diagram';}
-    get diagnosticNotificationLabel(){return this.pendingDiagnosticCount+' new diagnostic event'+(this.pendingDiagnosticCount===1?'':'s')+'. Open Error Log.';}
+    get diagnosticNotificationLabel(){return this.pendingDiagnosticCount+' unread recorded diagnostic event'+(this.pendingDiagnosticCount===1?'':'s')+'. History is separate from current DSL validation. Open Error Log.';}
     get hasPendingDiagnosticNotifications(){return this.pendingDiagnosticCount>0;}
     get hasNoPendingDiagnosticNotifications(){return this.pendingDiagnosticCount===0;}
     handleDismissDiagnosticNotifications(){this.pendingDiagnosticCount=0;}
@@ -222,6 +252,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     @track importObjectNames = '';
     @track importPanelOpen   = false;
 
+    paletteType = 'all';
+    handlePaletteTypeChange(event) { this.paletteType = event.target.value; }
     @track paletteFilter  = '';
     @track paletteObjects = [];
 
@@ -267,6 +299,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     resizeStartWidth  = 0;
     draggedObjectName = null;
     renderTimer       = null;
+    diagramLoading = false;
+    diagramLoadingMessage = '';
     _fileLoadToken    = 0;
     _sharingRequestToken = 0;
     _heatmapRequestToken = 0;
@@ -508,7 +542,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get filteredPaletteObjects() {
         const f = (this.paletteFilter || '').toLowerCase();
         const list = f ? this.paletteObjects.filter((n) => n.toLowerCase().includes(f)) : this.paletteObjects;
-        return list.slice(0, 80);
+        return list.filter(name => {
+            const value=name.toLowerCase();
+            if(this.paletteType==='events')return value.endsWith('__e');
+            if(this.paletteType==='metadata')return value.endsWith('__mdt');
+            if(this.paletteType==='custom')return value.endsWith('__c');
+            if(this.paletteType==='standard')return !/__(c|e|mdt)$/.test(value);
+            return true;
+        }).slice(0, 80);
     }
 
     get svgViewBox() { return `0 0 ${this.svgWidth} ${this.svgHeight}`; }
@@ -538,7 +579,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const badgeY = b.y - 10;
             let bodyFill = '#ffffff';
 
-            if (this.heatmapOn) {
+            const eventObject=b.name.toLowerCase().endsWith('__e');
+            const noSharing=eventObject||b.name.toLowerCase().endsWith('__mdt');
+            if (this.heatmapOn && eventObject) {
+                badges.push({id:b.name+'-heat-na',cx:badgeX,cy:badgeY,fillColor:'#667085',strokeColor:'#667085',textColor:'#ffffff',filled:true,code:'N/A',title:'Platform events do not support ordinary SOQL record counts.'});badgeX+=32;
+            }
+            if (this.heatmapOn && !eventObject) {
                 const rc = this.recordCounts[b.name.toLowerCase()];
                 if (rc != null) {
                     const heatColor = this.heatColorFor(rc);
@@ -551,15 +597,18 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                         strokeColor: '#1e1e2e',
                         textColor: '#ffffff',
                         filled: true,
-                        code: this.formatCount(rc.count),
-                        title: `${rc.count.toLocaleString()} record${rc.count === 1 ? '' : 's'}`
+                        code: (rc.countIsLowerBound ? '≥' : '') + this.formatCount(rc.count),
+                        title: `${rc.countIsLowerBound ? 'At least ' : ''}${rc.count.toLocaleString()} record${rc.count === 1 ? '' : 's'}`
                             + (staleText ? ` — ${staleText}` : '')
                     });
                     badgeX += 32;
                 }
             }
 
-            if (this.sharingViewOn) {
+            if (this.sharingViewOn && noSharing) {
+                badges.push({id:b.name+'-sharing-na',cx:badgeX,cy:badgeY,fillColor:'#667085',strokeColor:'#667085',textColor:'#ffffff',filled:true,code:'N/A',title:'Record sharing does not apply to platform events or custom metadata.'});
+            }
+            if (this.sharingViewOn && !noSharing) {
                 const sm = this.sharingModels[b.name.toLowerCase()];
                 if (sm && sm.internal) {
                     const ib = this.sharingBadgeFor(sm.internal);
@@ -587,8 +636,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 }
             }
 
+            const titleLimit=Math.max(8,Math.floor((b.width-36)/7));
             return {
                 ...b,
+                displayTitle:(b.title||b.name).length>titleLimit?(b.title||b.name).slice(0,titleLimit-1)+'…':(b.title||b.name),
                 pkFields,
                 relFields,
                 plainFields,
@@ -1387,12 +1438,14 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     handleFitModel(){
         if(!this.canvasHasModel){ this.canvasFitActive=false; return; }
         this.canvasFitActive=true;
-        // Relationship-aware presentation layout only. DSL/parser/compiler remain untouched.
+        // Relationship-aware object layout, followed by a separate component-card section.
         const wrap=this.template.querySelector('.canvas-wrap');
         if(!wrap||!this.sourceText?.trim()) return;
         try {
-            const model=parseEr(this.sourceText), entities=model.entities||[], rels=model.relationships||[];
-            if(!entities.length) return;
+            const model=this.parseCurrentModel(), allEntities=model.entities||[], rels=model.relationships||[], appCards=model.components||[];
+            const entities=allEntities.filter(entity=>!/__(e|mdt)$/i.test(entity.name));
+            const schemaSections=[allEntities.filter(entity=>/__e$/i.test(entity.name)),allEntities.filter(entity=>/__mdt$/i.test(entity.name))];
+            if(!allEntities.length&&!appCards.length) return;
             const byName=new Map(entities.map(e=>[e.name,e])), adj=new Map(entities.map(e=>[e.name,new Set()]));
             rels.forEach(r=>{
                 if(r.childEntity!==r.parentEntity&&adj.has(r.childEntity)&&adj.has(r.parentEntity)){
@@ -1407,10 +1460,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 components.push(comp);
             }
             components.sort((a,b)=>b.length-a.length);
-            const dense=entities.length>=16, veryDense=entities.length>=32;
+            const dense=allEntities.length>=16, veryDense=allEntities.length>=32;
             const cardW=veryDense?150:dense?170:205, visibleRows=veryDense?4:dense?5:7;
-            const positions={},widths={},heights={}; let componentTop=70, maxRight=0;
-            components.forEach(comp=>{
+            const positions={},widths={},heights={}; let componentTop=110, maxRight=0;
+            components.filter(comp=>comp.length>1).forEach(comp=>{
                 const root=[...comp].sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b))[0];
                 const levels=[[root]],seen=new Set([root]);
                 for(let li=0;li<levels.length;li++){
@@ -1436,12 +1489,68 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 });
                 componentTop=levelTop+90;
             });
+            // Pack disconnected objects together instead of allocating a whole
+            // vertical relationship section to every singleton.
+            const islands=components.filter(comp=>comp.length===1).map(comp=>comp[0]).sort((a,b)=>a.localeCompare(b));
+            const layoutWidth=Math.max(wrap.clientWidth,900),islandGap=60;
+            const islandCols=Math.max(1,Math.min(6,islands.length||1,Math.floor((layoutWidth-110)/(cardW+islandGap))));
+            const islandSpan=islandCols*cardW+(islandCols-1)*islandGap;
+            const islandLeft=Math.max(55,(layoutWidth-islandSpan)/2);
+            const islandHeight=Math.max(108,...islands.map(n=>52+Math.min(visibleRows,(byName.get(n)?.fields?.length||0)+1)*22));
+            islands.forEach((name,index)=>{
+                positions[name]={x:Math.round(islandLeft+(index%islandCols)*(cardW+islandGap)),y:componentTop+Math.floor(index/islandCols)*(islandHeight+60)};
+                widths[name]=cardW;heights[name]=Math.max(108,52+Math.min(visibleRows,(byName.get(name)?.fields?.length||0)+1)*22);
+            });
+            // Events and custom metadata remain real schema entities, with their
+            // fields and declared relationships; only their presentation changes.
+            let schemaTop=entities.length?Math.max(...entities.map(e=>positions[e.name].y+heights[e.name]))+120:110;
+            for(const section of schemaSections){
+                if(!section.length)continue;
+                const sorted=[...section].sort((a,b)=>a.name.localeCompare(b.name));
+                const columns=Math.max(1,Math.min(6,sorted.length,Math.floor((layoutWidth-110)/(cardW+60))));
+                const rowHeight=Math.max(108,...sorted.map(entity=>52+Math.min(visibleRows,entity.fields.length+1)*22));
+                const span=columns*cardW+(columns-1)*60,left=Math.max(55,(layoutWidth-span)/2);
+                sorted.forEach((entity,index)=>{
+                    positions[entity.name]={x:Math.round(left+(index%columns)*(cardW+60)),y:schemaTop+Math.floor(index/columns)*(rowHeight+60)};
+                    widths[entity.name]=cardW;heights[entity.name]=Math.max(108,52+Math.min(visibleRows,entity.fields.length+1)*22);
+                });
+                schemaTop=Math.max(...sorted.map(entity=>positions[entity.name].y+heights[entity.name]))+120;
+            }
+            // Component cards must never fall back to the parser's initial grid:
+            // that can overlap objects or interleave them midway down the model.
+            const objectBottom=Math.max(0,...allEntities.map(e=>(positions[e.name]?.y||0)+(heights[e.name]||0)));
+            const cardTop=allEntities.length?objectBottom+120:110;
+            const cardGap=60,cardHeight=108;
+            const cardCols=Math.max(1,Math.min(6,Math.floor((Math.max(wrap.clientWidth,720)-110)/(cardW+cardGap))));
+            const technicalCards=appCards.filter(card=>['ApexClass','Flow'].includes(card.componentType));
+            const accessCards=appCards.filter(card=>!['ApexClass','Flow'].includes(card.componentType));
+            let sectionTop=cardTop;
+            for(const section of [technicalCards,accessCards]){
+            [...section].sort((a,b)=>a.componentType.localeCompare(b.componentType)||a.title.localeCompare(b.title)).forEach((card,index)=>{
+                positions[card.name]={x:Math.max(55,(layoutWidth-(cardCols*cardW+(cardCols-1)*cardGap))/2)+(index%cardCols)*(cardW+cardGap),y:sectionTop+Math.floor(index/cardCols)*(cardHeight+60)};
+                widths[card.name]=cardW;heights[card.name]=cardHeight;
+            });
+            if(section.length)sectionTop+=Math.ceil(section.length/cardCols)*(cardHeight+60)+60;
+            }
             this.erPositions=positions;this.boxWidthOverrides=widths;this.boxHeightOverrides=heights;this.zoomLevel=1;this.renderDiagram();
             requestAnimationFrame(()=>{
                 const fit=Math.min((wrap.clientWidth-30)/this.svgWidth,(wrap.clientHeight-30)/this.svgHeight,1);
                 this.zoomLevel=Math.max(0.65,Math.round(fit*20)/20);wrap.scrollLeft=0;wrap.scrollTop=0;
             });
         } catch(e){this.errorMessage=e?.message||'Could not fit the model.';}
+    }
+    get canvasSectionHeadings() {
+        if(!this.canvasFitActive)return [];
+        const boxes=this._erBoxes||[];
+        const sections=[
+            {key:'objects',label:'OBJECTS',boxes:boxes.filter(b=>!b.componentType&&!/__(e|mdt)$/i.test(b.name))},
+            {key:'events',label:'PLATFORM EVENTS',boxes:boxes.filter(b=>!b.componentType&&/__e$/i.test(b.name))},
+            {key:'metadata',label:'CUSTOM METADATA',boxes:boxes.filter(b=>!b.componentType&&/__mdt$/i.test(b.name))},
+            {key:'components',label:'APEX & FLOW COMPONENTS',boxes:boxes.filter(b=>['ApexClass','Flow'].includes(b.componentType))},
+            {key:'access',label:'PERMISSION SETS & LICENCES',boxes:boxes.filter(b=>b.componentType&&!['ApexClass','Flow'].includes(b.componentType))}
+        ].filter(section=>section.boxes.length);
+        if(sections.length===1&&sections[0].key==='objects')return [];
+        return sections.map(section=>({key:section.key,label:section.label+' · '+section.boxes.length,x:Math.min(...section.boxes.map(b=>b.x)),y:Math.max(30,Math.min(...section.boxes.map(b=>b.y))-22)}));
     }
     get dslToggleIcon() { return this.dslPanelOpen ? 'utility:chevronleft' : 'utility:chevronright'; }
     get computedSuggestions() {
@@ -1501,6 +1610,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     // An empty canvas is a valid, error-free state — not something to parse.
     resetEmptyCanvas() {
+        this.setDslValidation('');
         this._erBoxes     = [];
         this.erConnectors = [];
         this.svgWidth  = 800;
@@ -1613,9 +1723,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // eslint-disable-next-line no-alert
             if (!window.confirm(`"${tab.name}" has unsaved changes. Close anyway?`)) return;
         }
+        const wasActive = this.activeTabId === tabId;
         const remaining = this.openTabs.filter((t) => t.id !== tabId);
         this.openTabs   = remaining;
-        if (this.activeTabId === tabId || !remaining.length) {
+        if (wasActive || !remaining.length) {
             if (remaining.length) {
                 const last = remaining[remaining.length - 1];
                 this._activateTabId(last.id);
@@ -1734,6 +1845,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get settingsMenuOpen(){ return this.openMenu === 'settings'; }
     get helpMenuOpen(){ return this.openMenu === 'help'; }
     handleMenuHelpConfiguration(){ this.openMenu=null; this.helpSection='configuration'; this.helpOpen=true; }
+    handleMenuHelpLanguage(){ this.openMenu=null; this.helpSection='language'; this.helpOpen=true; }
     handleMenuHelpUserManual(){ this.openMenu=null; this.helpSection='manual'; this.helpOpen=true; }
     handleCloseHelp(){ this.helpOpen=false; }
     get sharingViewMenuText() { return this.sharingViewOn ? 'Sharing View \u2713' : 'Sharing View'; }
@@ -1766,7 +1878,10 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         finally{this.systemInfoBusy=false;}
     }
     get systemNamespace(){return this.systemInfo?.namespacePrefix||'—';}
-    get systemStudioVersion(){return this.systemInfo?.studioVersion||'—';}
+    get systemStudioVersion() {
+        const version = this.systemInfo?.studioVersion;
+        return version ? `V${version}` : '—';
+    }
     get systemToolingVersion(){return this.systemInfo?.toolingApiVersion||'—';}
     get systemSalesforceApiVersion(){return this.systemInfo?.salesforceApiVersion||'—';}
     get systemEnvironment(){return this.systemInfo?.environmentType||'—';}
@@ -1793,7 +1908,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     get systemEnabledSchedules(){return this.systemInfo?.enabledSchedules??0;}
     get diagnosticsOverallClass(){
         const s=this.diagnosticsResult?.overallStatus||'';
-        return 'diag-overall '+(s==='Application Ready'?'diag-ready':s==='Attention Required'?'diag-attention':'diag-required');
+        return 'diag-overall '+((s==='Application Ready'||s==='Preflight Checks Passed')?'diag-ready':s==='Attention Required'?'diag-attention':'diag-required');
     }
     get diagnosticsOverallStatus(){return this.diagnosticsResult?.overallStatus||'Not run yet';}
     get diagnosticsSummary(){return this.diagnosticsResult?.summary||'Run diagnostics to verify whether ER Modeller Studio is ready to work in this Salesforce org.';}
@@ -1809,9 +1924,11 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const result=await runStudioDiagnostics();
             this.diagnosticsStage='Building diagnostic report…';
             const rows=result?.checks||[];
+            const coverage=rows.find(row=>row.key==='scanAccess'&&row.detail?.includes('SCAN_SKIP:'));
+            if(coverage)this.importScanSkips(coverage.detail.split('SCAN_SKIP:')[1].split(' ')[0],false);
             this.diagnosticsChecks=[];
             for(const row of rows){
-                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,actions:(row.actions||[]).map((label,index)=>({key:String(row.key||'check')+'-'+index,label})),hasActions:(row.actions||[]).length>0,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
+                this.diagnosticsChecks=[...this.diagnosticsChecks,{...row,accessGaps:(row.accessGaps||[]).map((gap,index)=>({...gap,key:String(row.key)+'-gap-'+index})),restrictions:(row.accessGaps||[]).filter(g=>g.issue==='Metadata unavailable').map((g,i)=>({...g,key:'restriction-'+i})),hasRestrictions:(row.accessGaps||[]).some(g=>g.issue==='Metadata unavailable'),actions:(row.actions||[]).map((label,index)=>({key:String(row.key||'check')+'-'+index,label})),hasActions:(row.actions||[]).length>0,cssClass:'diag-check diag-'+String(row.status||'information').toLowerCase()}];
                 await new Promise(resolve=>setTimeout(resolve,90));
             }
             this.diagnosticsResult=result;
@@ -2018,6 +2135,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.fieldUsageRun = null;
             this.fieldUsageBatchRunning = false;
             this.stopFieldUsagePolling();
+            this.recordDiagnostic('Could not start Field Usage scan: '+message,'Field Usage','ERROR');
             this.fieldUsageConsoleLines = [
                 ...(this.fieldUsageConsoleLines || []),
                 { key: 'launch-error-' + Date.now(), text: '[error] Could not start Field Usage scan: ' + message },
@@ -2627,7 +2745,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             layer.sort((x,y)=>((incoming.get(y.name)||0)+(outgoing.get(y.name)||0))-((incoming.get(x.name)||0)+(outgoing.get(x.name)||0))||x.name.localeCompare(y.name));
             for(let i=0;i<layer.length;i+=maxPerRow)balanced.push(layer.slice(i,i+maxPerRow));
         });
-        const cellW=230,cellH=155,padX=80,padY=65,nodeW=170,nodeH=58;
+        const cellW=230,cellH=220,padX=80,padY=65,nodeW=170,nodeH=58;
         const widest=Math.max(...balanced.map(x=>x.length),1);
         const width=Math.max(900,padX*2+(widest-1)*cellW+nodeW);
         const nodes=[];
@@ -2640,30 +2758,41 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             });
         });
         const pos=new Map(nodes.map(n=>[n.name.toLowerCase(),n])),edges=[];
+        const incident=new Map(nodes.map(n=>[n.name.toLowerCase(),[]]));
+        relationships.forEach((rel,index)=>{for(const name of [rel.childEntity,rel.parentEntity])incident.get((name||'').toLowerCase())?.push(index);});
+        const port=(node,index)=>{const slots=incident.get(node.name.toLowerCase())||[],slot=slots.indexOf(index)+1;return node.x+14+(nodeW-28)*slot/(slots.length+1);};
         relationships.forEach((rel,i)=>{
             const child=pos.get((rel.childEntity||'').toLowerCase()),parent=pos.get((rel.parentEntity||'').toLowerCase());
             if(!child||!parent||child===parent)return;
-            const raw=(rel.kind||'Lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
-            // Anchor vertically between layers where possible, falling back to side
-            // anchors for same-row relationships.
-            let sx,sy,tx,ty;
-            if(Math.abs(child.y-parent.y)>20){
-                const childBelow=child.y>parent.y;
-                sx=child.x+nodeW/2;sy=childBelow?child.y:child.y+nodeH;
-                tx=parent.x+nodeW/2;ty=childBelow?parent.y+nodeH:parent.y;
+            const raw=(rel.kind||'lookup').toLowerCase(),kind=raw.includes('master')?'Master Detail':raw.includes('poly')?'Polymorphic':'Lookup';
+            const sx=port(child,i),tx=port(parent,i),sameRow=child.y===parent.y,childBelow=child.y>parent.y;
+            const sy=sameRow?child.y+nodeH:childBelow?child.y:child.y+nodeH;
+            const ty=sameRow?parent.y+nodeH:childBelow?parent.y+nodeH:parent.y;
+            let d;
+            if(sameRow){
+                const bend=Math.max(sy,ty)+44+Math.min(i,10)*8;
+                d=`M ${sx} ${sy} C ${sx} ${bend}, ${tx} ${bend}, ${tx} ${ty}`;
+            }else if(Math.abs(child.y-parent.y)>cellH+1){
+                const direction=childBelow?-1:1,gutter=width+24+i*12;
+                const exit=sy+direction*(20+(i%5)*6),entry=ty-direction*(20+((i+2)%5)*6);
+                d=`M ${sx} ${sy} V ${exit} H ${gutter} V ${entry} H ${tx} V ${ty}`;
             }else{
-                const childRight=child.x>parent.x;
-                sx=childRight?child.x:child.x+nodeW;sy=child.y+nodeH/2;
-                tx=childRight?parent.x+nodeW:parent.x;ty=parent.y+nodeH/2;
+                const mid=(sy+ty)/2;
+                d=`M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`;
             }
-            const dx=tx-sx,dy=ty-sy,len=Math.max(24,Math.sqrt(dx*dx+dy*dy)),angle=Math.atan2(dy,dx)*180/Math.PI;
-            edges.push({key:'re-'+i,kind,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),style:'left:'+sx+'px;top:'+sy+'px;width:'+len+'px;transform:rotate('+angle+'deg)',title:child.name+' → '+parent.name+' · '+kind});
+            const arrowUp=sameRow||childBelow,wingY=ty+(arrowUp?7:-7);
+            d+=` M ${tx-4} ${wingY} L ${tx} ${ty} L ${tx+4} ${wingY}`;
+            const field=rel.childField||rel.fieldName||rel.field||'';
+            edges.push({key:'re-'+i,kind,field,d,className:'arch-rel-graph-edge arch-rel-graph-'+(kind==='Master Detail'?'master':kind==='Polymorphic'?'poly':'lookup'),stroke:kind==='Master Detail'?'#c65cff':kind==='Polymorphic'?'#ff4f70':'#4aa3ff',dash:kind==='Polymorphic'?'7 5':'',title:child.name+'.'+field+' → '+parent.name+' · '+kind});
         });
-        const height=Math.max(430,padY*2+(balanced.length-1)*cellH+nodeH);
-        return {nodes,edges,style:'width:'+width+'px;height:'+height+'px'};
+        const height=Math.max(430,padY*2+(balanced.length-1)*cellH+nodeH+130);
+        const graphWidth=width+(edges.some(edge=>edge.d.includes(' H '))?48+relationships.length*12:0);
+        return {nodes,edges,width:graphWidth,height,style:'width:'+graphWidth+'px;height:'+height+'px'};
     }
     get architectureRelationshipGraphNodes(){return this.architectureRelationshipGraph.nodes;}
     get architectureRelationshipGraphEdges(){return this.architectureRelationshipGraph.edges;}
+    get architectureRelationshipGraphWidth(){return this.architectureRelationshipGraph.width||900;}
+    get architectureRelationshipGraphHeight(){return this.architectureRelationshipGraph.height||430;}
     get architectureRelationshipGraphStyle(){return this.architectureRelationshipGraph.style;}
     get architectureRelationshipExplanation(){
         const a=this.architectureAnalysis;if(!a)return '';
@@ -2821,7 +2950,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         if(!source.trim()){ this._architectureSource=''; this._architectureAnalysis=null; return; }
         if(!force && this._architectureSource===source && this._architectureAnalysis) return;
         try {
-            const parsed=parseEr(source);
+            const parsed=this.parseCurrentModel();
             this._architectureAnalysis=analyseArchitecture(parsed);
             this._architectureSource=source;
         } catch (e) {
@@ -3076,6 +3205,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
             await refreshApex(this.wiredFilesResult);
             this.refreshFileList();
+            if(this.hasDslImports){this._dslImportSignature='';this._dslImportFailure='';this.renderDiagram();}
         } catch (e) {
             this.errorMessage = this.reduceError(e);
         }
@@ -3094,6 +3224,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async loadById(id) {
         const myToken = ++this._fileLoadToken;
+        this.diagramLoading = true;
+        this.diagramLoadingMessage = 'Please wait — loading ER diagram…';
         try {
             const rec = await getFile({ fileId: id });
             if (myToken !== this._fileLoadToken || this._isDisconnected) return;
@@ -3101,6 +3233,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.currentId  = rec.id;
                 this.fileName   = rec.name;
                 this.sourceText = rec.sourceCode || '';
+                this._dslImportSignature='';this._dslImportFailure='';
                 this.erPositions = {};
                 this.boxHeightOverrides = {};
                 this.boxWidthOverrides  = {};
@@ -3108,6 +3241,9 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 this.errorMessage = '';
                 this.dismissedSuggestionKeys = new Set();
                 this.focusedEntity = null;
+                this.diagramLoadingMessage = 'Please wait — preparing diagram and canvas…';
+                await new Promise(resolve => setTimeout(resolve, 0));
+                if (myToken !== this._fileLoadToken || this._isDisconnected) return;
                 this.renderDiagram();
                 this._addTab({ id: rec.id, name: rec.name, dirty: false, isUnsaved: false });
                 this._activateTabId(rec.id);
@@ -3117,6 +3253,8 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             }
         } catch (e) {
             if (myToken === this._fileLoadToken && !this._isDisconnected) this.errorMessage = this.reduceError(e);
+        } finally {
+            if (myToken === this._fileLoadToken) this.diagramLoading = false;
         }
     }
 
@@ -3197,6 +3335,267 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleImportNamesChange(event) {
         this.importObjectNames = event.target.value;
+    }
+
+    appModelModalOpen = false;
+    appModelDetailsOpen = false;
+    appModelGeneratedSource = '';
+    appModelSummary = '';
+    appCardResultsHidden = false;
+    get appCardResultNotice() {
+        if (this.appCardResultsHidden) return '';
+        const notes = (this.sourceText || '').split('\n').filter(line => line.startsWith('# Card discovery: '));
+        if (!notes.length) return '';
+        return notes.some(note => /No (readable|explicit) /.test(note))
+            ? 'Model generated. Some requested cards were not found.'
+            : 'Model generated. Discovery results are available in Model Details.';
+    }
+    handleDismissCardResults() { this.appCardResultsHidden=true; }
+    get appModelDetailsMatch() { return !!this.appModelGeneratedSource && this.sourceText === this.appModelGeneratedSource; }
+    get appModelDetailSummary() {
+        if (this.appModelDetailsMatch) return this.appModelSummary;
+        const notes = (this.sourceText || '').split('\n').filter(line => /^# (V5 app model:|Source:|Snapshot:|Coverage:|Model scope:|Hidden platform objects:|Omitted audit fields:|Field scope:|Card discovery:)/.test(line));
+        return notes.length ? notes.map(line => line.substring(2)).join('\n') : 'No app-generation details are attached to the current diagram.';
+    }
+    async handleOpenAppModel() {
+        this.openMenu = null;
+        this.appModelModalOpen = true;
+        this.appModelDetailsOpen = false;
+        this.clearAppModelError();
+        this.appModelStatus = 'Select an app to create a new ER model and its DSL.';
+        requestAnimationFrame(() => this.template.querySelector('.app-model-dialog')?.focus());
+        if (!this.allAppOptions.length) await this.handleLoadSalesforceApps();
+    }
+    handleCloseAppModel() {
+        if (this.appModelBusy) return;
+        this.appModelModalOpen = false;
+        requestAnimationFrame(() => this.template.querySelector('button[data-menu="file"]')?.focus());
+    }
+    handleOpenAppModelDetails() {
+        this.openMenu = null;
+        this.appModelDetailsOpen = true;
+        requestAnimationFrame(() => this.template.querySelector('.app-model-dialog')?.focus());
+    }
+    handleCloseAppModelDetails() {
+        this.appModelDetailsOpen = false;
+        requestAnimationFrame(() => this.template.querySelector('button[data-menu="diagram"]')?.focus());
+    }
+    handleAppDialogKeyDown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            if (this.appModelDetailsOpen) this.handleCloseAppModelDetails();
+            else this.handleCloseAppModel();
+        }
+        if (event.key === 'Tab') {
+            const controls = [...event.currentTarget.querySelectorAll('button, lightning-combobox, lightning-input')].filter(control => !control.disabled);
+            const current = event.composedPath();
+            const first = controls[0], last = controls[controls.length - 1];
+            if (event.shiftKey && (current.includes(first) || event.target === event.currentTarget)) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && current.includes(last)) { event.preventDefault(); first?.focus(); }
+        }
+    }
+    allAppOptions = [];
+    appModelSource = 'app';
+    appSourceOptions = [{label:'Salesforce app',value:'app'},{label:'Lightning tab / component (LWC or Aura)',value:'lightning'}];
+    _appListRequest=0;
+    get isSalesforceAppSource(){return this.appModelSource==='app';}
+    get isLightningSource(){return this.appModelSource==='lightning';}
+    get appRootSelectLabel(){return this.isLightningSource?'Lightning tab / component':'Salesforce app';}
+    get appFieldsLabel(){return this.isLightningSource?'Fields used by this component only':this.appUiFieldsEnabled?'Fields from app components and configured pages':'Fields used by app components only';}
+    get appRootPlaceholder(){return this.isLightningSource?'Select a Lightning component':'Select a Salesforce app';}
+    get appAccessUnavailable(){return this.appModelBusy||this.isLightningSource;}
+    async handleAppSourceChange(event){
+        const value=event.detail.value;if(!['app','lightning'].includes(value)||value===this.appModelSource)return;
+        this.appModelSource=value;this.selectedSalesforceApp='';this.allAppOptions=[];this._appAccessCards=[];this.appIncludePlatform=false;this.clearAppModelError();
+        await this.handleLoadSalesforceApps();
+    }
+    appTypeFilter = 'all';
+    appTypeOptions = [{label:'All apps',value:'all'},{label:'Custom apps',value:'custom'},{label:'Standard apps',value:'standard'}];
+    get appOptions() { if(this.isLightningSource)return this.allAppOptions;return this.allAppOptions.filter(app => this.appTypeFilter === 'all' || app.appType === this.appTypeFilter); }
+    get appTypeSummary() {
+        if(this.isLightningSource)return `${this.allAppOptions.length} Lightning component sources available. Includes components backing standalone tabs.`;
+        const kind = this.appTypeFilter === 'all' ? 'apps' : this.appTypeFilter + ' apps';
+        const unknown = this.allAppOptions.filter(app => !app.appType || app.appType === 'unknown').length;
+        return `${this.appOptions.length} ${kind} available.` + (unknown ? ` ${unknown} with an unidentified type are shown under All apps only.` : '');
+    }
+    handleAppTypeFilterChange(event) {
+        this.appTypeFilter = event.detail.value;
+        if (!this.appOptions.some(app => app.value === this.selectedSalesforceApp)) this.selectedSalesforceApp = '';
+        this.clearAppModelError();
+        this.appModelStatus = this.appOptions.length ? 'Select an app, then generate its ER model.' : `No ${this.appTypeFilter} apps are available for the configured API user.`;
+    }
+    selectedSalesforceApp = '';
+    appUsedFieldsHelp = 'Only fields evidenced by reached components or enabled readable app-page configuration are shown. Name is not added automatically. Id remains the structural key. Dynamic or unresolved field references are not guessed.';
+    appAutomationEnabled = true;
+    appUiFieldsEnabled = true;
+    appIncludeComponents = false;
+    handleAppComponentsChange(event) { this.appIncludeComponents = event.target.checked; }
+    appIncludePlatform = false;
+    _appAccessCards = [];
+    appPlatformHelp = 'Show named permission sets granting app visibility or access to reached Apex classes, their bound user/permission-set licences, and the selected app package licence. These are access configuration cards, not sObjects or proof of mandatory user assignments. Coverage depends on readable metadata.';
+    appModelObjectDetails = [];
+    get appHasObjectDetails() { return this.appModelObjectDetails.length > 0; }
+    handleAppPlatformChange(event) { this.appIncludePlatform = event.target.checked; this.clearAppModelError(); }
+    appModelBusy = false;
+    appModelStatus = '';
+    appModelWarnings = [];
+    appModelEvidence = [];
+    appModelScannedAt = '';
+    appModelError = '';
+    appModelErrorHelp = '';
+    appModelScanRequired = false;
+    appScanHelp = 'Run an org scan to collect object references from Flow, LWC and Apex. Wait for it to complete successfully, then return here and generate the model. Logs alone do not provide this evidence.';
+    get appGenerateHint() {
+        if (this.appModelBusy) return 'Please wait for the current operation to finish.';
+        if (!this.selectedSalesforceApp) return this.isLightningSource?'Select a Lightning component first.':'Select a Salesforce app first.';
+        return 'Requires a successful V5 org scan to identify fields used by the selected app.';
+    }
+    clearAppModelError() { this.appModelError = ''; this.appModelErrorHelp = ''; this.appModelScanRequired = false; }
+    showAppModelError(error) {
+        const message = error ? this.reduceError(error) : 'Salesforce did not return an error description.';
+        this.appModelScanRequired = /successful V5 org scan|V5 scan required|V4 field snapshots|V5 snapshot|snapshot is no longer available|run the org scan/i.test(message);
+        this.appModelError = this.appModelScanRequired ? 'Please run the org scan first.' : 'Could not generate the ER model.';
+        this.appModelErrorHelp = this.appModelScanRequired
+            ? 'Open Org Scan, run a new scan and wait for it to complete successfully. Then return to File → Generate ER Model from App and try again. Only app-used fields will be generated; a successful scan is required.'
+            : /credential|HTTP 401|HTTP 403/i.test(message)
+                ? 'Ask your Salesforce administrator to check the Salesforce_Tooling_API credential and your access to its principal, then retry.'
+                : /no.*objects|no.*navigation/i.test(message)
+                    ? 'Select an app with object navigation items, or include Flow, LWC and Apex usage after completing an org scan.'
+                    : 'Review the error below, correct the indicated issue, then try again. Your current diagram and DSL have been preserved.';
+        if (/Save the current diagram before generating/i.test(message)) {
+            this.appModelError = 'Save or close the current diagram first.';
+            this.appModelErrorHelp = 'The active tab has unsaved changes. Cancel this dialog, save the diagram or close its tab and discard changes, then generate again. Clearing the canvas also creates unsaved changes.';
+        }
+        if (error?.code === 'APP_FIELDS_NOT_RESOLVED') {
+            this.appModelError = this.isLightningSource?'Component-used fields could not be established for this model.':'App-used fields could not be established for this model.';
+            this.appModelErrorHelp = 'The generator will not substitute every field on the object. Enable configured app-page fields, or check that the scan includes readable Flow, LWC or Apex references for the selected app. Dynamic references may not be resolvable.';
+            this.appModelScanRequired = false;
+        }
+        if (error?.code === 'DATA_CLOUD_FIELD_COVERAGE') {
+            this.appModelError = 'Data Cloud field discovery is not supported by this scan.';
+            this.appModelErrorHelp = 'The app navigation resolved, but no app-used fields were found. Modelling Data Cloud data model objects and relationships requires a dedicated Data Cloud metadata integration, which V5 does not currently implement. Rerunning the same org scan will not add that coverage. Your diagram and DSL have been preserved.';
+            this.appModelScanRequired = false;
+        }
+        if (error?.code === 'APP_PLATFORM_ONLY') {
+            this.appModelError = 'This app resolves only to Salesforce system objects in the selected scope.';
+            this.appModelErrorHelp = 'This scope contains no application data objects. Named access cards do not substitute for an app-used data model. Choose another app or review scanner coverage.';
+            this.appModelScanRequired = false;
+        }
+        if (error?.code === 'APP_OBJECTS_NOT_RESOLVED' && error.scanAvailable) {
+            this.appModelScanRequired = false;
+            this.appModelError = 'The scan completed, but this app’s object dependencies could not be resolved.';
+            this.appModelErrorHelp = 'This is an app-to-component discovery issue, not a missing scan. Check the app’s custom tabs and component dependencies. Your diagram and DSL have been preserved.';
+            const details = (error.coverageWarnings || []).filter(note => /unavailable|could not|could be resolved|limit/i.test(note));
+            if (!details.length) {
+                this.appModelError = `No data model could be resolved for ${error.appLabel || 'this app'}.`;
+                this.appModelErrorHelp = 'The scan is complete, but no object or field evidence was resolved from this app’s pages and components. Welcome-only apps and inaccessible managed components may not expose an ER model. Choose an app with resolvable data usage. Your diagram and DSL have been preserved.';
+            }
+            this.appModelStatus = [message, ...details].join('\n');
+        } else this.appModelStatus = message;
+        if(this.isLightningSource&&error?.code==='APP_OBJECTS_NOT_RESOLVED'&&error.scanAvailable){this.appModelError='No data model could be resolved for this Lightning component.';this.appModelErrorHelp='No object evidence was resolved from the selected bundle and its reached dependencies. Review static coverage, inaccessible source and scan exclusions. No other app scope was substituted; your diagram and DSL are preserved.';this.appModelScanRequired=false;}
+        requestAnimationFrame(() => this.template.querySelector('.app-model-error')?.focus());
+    }
+    handleAppModelOpenScan() {
+        if (this.appModelBusy) return;
+        this.appModelModalOpen = false;
+        this.handleMenuSettings();
+    }
+
+    get appGenerateDisabled() { return this.appModelBusy || !this.selectedSalesforceApp; }
+    get appHasWarnings() { return this.appModelWarnings.length > 0; }
+    get appHasEvidence() { return this.appModelEvidence.length > 0; }
+    get appModelInclusionEvidence() { return this.appModelEvidence.filter(row => !row.message.includes('(Salesforce metadata dependency)')); }
+    get appModelDependencyEvidence() { return this.appModelEvidence.filter(row => row.message.includes('(Salesforce metadata dependency)')); }
+    get appHasDependencyEvidence() { return this.appModelDependencyEvidence.length > 0; }
+    get appDependencySummary() { return 'Component references (' + this.appModelDependencyEvidence.length + ')'; }
+    handleAppChange(event) { this._appAccessCards=[];this.selectedSalesforceApp = event.detail.value; this.clearAppModelError(); this.appModelStatus = 'Ready to generate the selected app model.'; }
+    handleAppUiFieldsChange(event) { this.appUiFieldsEnabled = event.target.checked; }
+    handleAppAutomationChange(event) { this.appAutomationEnabled = event.target.checked; }
+    async handleLoadSalesforceApps() {
+        const request=++this._appListRequest,source=this.appModelSource;
+        this.appModelBusy = true;
+        this.clearAppModelError();
+        this.appModelStatus = source==='lightning'?'Loading Lightning components…':'Loading Salesforce apps…';
+        try {
+            const options=await (source==='lightning'?listLightningSources():listSalesforceApps());
+            if(request!==this._appListRequest||source!==this.appModelSource)return;
+            this.allAppOptions = (options||[]).sort((a,b) => a.label.localeCompare(b.label));
+            if (!this.appOptions.some(app => app.value === this.selectedSalesforceApp)) this.selectedSalesforceApp = '';
+            this.appModelStatus = this.appOptions.length ? 'Select a source, then generate its ER model.' : source==='lightning'?'No readable Lightning component sources were returned.':'No apps match this filter for the configured API user. Try All apps.';
+        } catch (error) { if(request===this._appListRequest){this.showAppModelError(error);this.appModelError=source==='lightning'?'Could not load Lightning components.':'Could not load Salesforce apps.';} }
+        finally { if(request===this._appListRequest)this.appModelBusy = false; }
+    }
+    async handleGenerateAppModel() {
+        if (this.appModelBusy) return;
+        this.clearAppModelError();
+        if (!this.selectedSalesforceApp) { this.showAppModelError(new Error('Select a source before generating an ER model.')); return; }
+        if (this.isDirty) { this.showAppModelError(new Error('Save the current diagram before generating an app model. Your diagram has been preserved.')); return; }
+        this.appModelBusy = true;
+        this.appModelWarnings = [];
+        this.appModelEvidence = [];
+        const originalTab = this.activeTabId;
+        const originalSource = this.sourceText;
+        const rootMode=this.appModelSource,rootValue=this.selectedSalesforceApp;
+        const progress = message => { this.appModelStatus = message; };
+        progress(rootMode==='lightning'?'Reading the selected Lightning component and org scan…':'Reading the selected app and org scan…');
+        try {
+            const scope = JSON.parse(await (rootMode==='lightning'?getLightningScope({sourceKey:rootValue}):getAppScope({ appId: rootValue, includeUsage: true, includeUiFields: this.appUiFieldsEnabled })));
+            const result = await collectAppScope(scope, async ({ components, ...params }) => JSON.parse(await expandAppScope({ ...params, componentsJson: JSON.stringify(components) })), { includeAutomation: this.appAutomationEnabled, onProgress: progress });
+            if (!result.objects.length) throw new Error('This app has no resolvable object navigation items.');
+            const selection = selectAppObjects(result, { includePlatform: false, navigationObjects: scope.components.filter(component => component.type === 'Object').map(component => component.name), appLabel: scope.appLabel });
+            const objects = await describeInChunks(selection.visible, describeObjects, progress);
+            let displayObjects;
+            try { displayObjects = prepareAppSchema(objects, { visibleNames: selection.visible, fieldUsage: result.fields }); }
+            catch (error) {
+                if (error.code === 'APP_FIELDS_NOT_RESOLVED' && scope.components.some(component => component.type === 'CustomApplication' && component.name === 'Audience360')) {
+                    error.code = 'DATA_CLOUD_FIELD_COVERAGE';
+                    error.message = `Data Cloud resolved ${selection.visible.length} navigation/configuration objects, but no app-used fields in this scope. V5 does not currently discover Data Cloud data model fields and relationships through its Flow, LWC and Apex scan.`;
+                }
+                throw error;
+            }
+            const comment = value => String(value || '').replace(/[\r\n]+/g, ' ');
+            const header = [`# V5 app model: ${comment(scope.appLabel)}`, `# Snapshot: ${scope.runId || 'navigation only'}; ${comment(scope.scannedAt)}`, `# Source: ${rootMode==='lightning'?'Lightning component':'Salesforce app'}`, `# Model scope: Application data objects${this.appIncludePlatform ? ' with named access configuration' : ''}`, ...(selection.hidden.length ? ['# Hidden platform objects: ' + selection.hidden.map(row => row.apiName).join(', ')] : []), '# Field scope: Scoped component field references'+(rootMode==='app'&&this.appUiFieldsEnabled?' and readable app-page configuration':'')+'; Id is the structural key', ...result.warnings.map(warning => '# Coverage: ' + comment(warning))].join('\n');
+            let access={cards:[],warnings:[],reasons:[]};
+            if(this.appIncludePlatform&&rootMode==='app'){progress('Reading named permission sets and licences…');access=JSON.parse(await discoverAppAccess({appId:this.selectedSalesforceApp,componentsJson:JSON.stringify(result.components)}));this._appAccessCards=access.cards;result.warnings.push(...access.warnings);result.reasons.push(...access.reasons);}
+            const cardResult = appCardResults({includeComponents:this.appIncludeComponents,components:result.components,includeAccess:this.appIncludePlatform&&rootMode==='app',accessCards:access.cards});
+            const componentSource = cardResult.source;
+            const source = header + cardResult.notes.map(note=>'\n# Card discovery: '+comment(note)).join('') + access.warnings.map(warning=>'\n# Access coverage: '+comment(warning)).join('') + access.cards.map(card=>'\n# '+card.type+' '+comment(card.label)+': '+comment(card.evidence)).join('') + '\n\n' + this.buildErSource(displayObjects) + (componentSource ? '\n\n# App component and access cards (configuration, not execution or required assignments)\n' + componentSource : '');
+            if (source.length > 131072) throw new Error('This model exceeds the saved diagram size limit. Use a narrower app model scope.');
+            // Let the progress message paint before synchronous DSL/layout work.
+            progress('Validating DSL and preparing the ER canvas…');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            // Validate the whole generated model before changing any editor state.
+            parseEr(source);
+            if (this.appModelSource!==rootMode||this.selectedSalesforceApp!==rootValue)throw new Error('The model source changed during discovery. Generate again for the selected source.');
+            if (this.activeTabId !== originalTab || this.sourceText !== originalSource) throw new Error('The active diagram changed during discovery. Generate again when you are ready.');
+            // Existing unsaved-tab handling does not retain its source. Save dirty
+            // work before creating a new tab instead of risking silent data loss.
+            if (this.isDirty) throw new Error('Save the current diagram before generating an app model. Your diagram has been preserved.');
+            this.openNewUnsaved();
+            this.fileName = (scope.appLabel || 'Salesforce App') + ' ER Model';
+            this._renameTabLabel(this.activeTabId, this.fileName);
+            this.sourceText = source;
+            this.dslPanelOpen = true;
+            this.dslMaximised = false;
+            this.canvasMaximised = false;
+            this.isDirty = true;
+            this._markTabDirty(this.activeTabId, true);
+            this.renderDiagram();
+            this.appModelScannedAt = scope.scannedAt || '';
+            this.appModelWarnings = result.warnings.map((message,index) => ({ key: String(index), message }));
+            this.appModelObjectDetails = selection.details.map(row => {
+                const used = (result.fields || []).filter(field => field.objectApiName.toLowerCase() === row.apiName.toLowerCase());
+                return {...row,fieldSummary: used.length ? 'App-used fields: ' + used.map(field => field.fieldApiName).sort().join(', ') : 'Primary key only; no resolved app field usage for this object.'};
+            });
+            this.appModelEvidence = result.reasons.map((message,index) => ({ key: String(index), message }));
+            this.appModelStatus = `Generated ${objects.length} objects. ${this.appIncludePlatform ? access.cards.length + ' named access cards. ' : ''}${selection.hidden.length ? selection.hidden.length + ' system objects hidden by scope. ' : ''}${scope.scannedAt ? 'Org scan: ' + new Date(scope.scannedAt).toLocaleString() : 'App navigation only.'}`;
+            this.appModelGeneratedSource = source;
+            this.appModelSummary = [this.appModelStatus,...cardResult.notes].join(' ' );
+            this.appCardResultsHidden=false;
+            this.appModelModalOpen = false;
+            requestAnimationFrame(() => { this.handleFitModel(); this.template.querySelector('.code-editor')?.focus(); });
+        } catch (error) { this.showAppModelError(error); }
+        finally { this.appModelBusy = false; }
     }
 
     async handleImportSchema() {
@@ -3319,7 +3718,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleCopyMermaid() {
         try {
-            const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
+            const mmd = buildMermaidErDiagram(this.parseCurrentModel());
             if (navigator.clipboard) navigator.clipboard.writeText(mmd).catch(() => {});
         } catch (e) {
             this.errorMessage = 'Could not build Mermaid diagram: ' + e.message;
@@ -3341,7 +3740,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async handleDownloadMermaid() {
         try {
-            const mmd = buildMermaidErDiagram(parseEr(this.sourceText));
+            const mmd = buildMermaidErDiagram(this.parseCurrentModel());
             await this.downloadDiagramText(mmd, 'mmd');
         } catch (e) {
             this.errorMessage = 'Could not download Mermaid diagram: ' + this.reduceError(e);
@@ -3350,7 +3749,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleCopyDrawio() {
         try {
-            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            const xml = buildDrawioXml(this.parseCurrentModel(), this._erBoxes);
             if (navigator.clipboard) navigator.clipboard.writeText(xml).catch(() => {});
         } catch (e) {
             this.errorMessage = 'Could not build draw.io diagram: ' + e.message;
@@ -3359,7 +3758,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     async handleDownloadDrawio() {
         try {
-            const xml = buildDrawioXml(parseEr(this.sourceText), this._erBoxes);
+            const xml = buildDrawioXml(this.parseCurrentModel(), this._erBoxes);
             await this.downloadDiagramText(xml, 'drawio');
         } catch (e) {
             this.errorMessage = 'Could not download draw.io diagram: ' + this.reduceError(e);
@@ -3452,7 +3851,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         try {
             let existingNames = [];
             if (this.sourceText.trim()) {
-                try { existingNames = parseEr(this.sourceText).entities.map((e) => e.name); } catch (_) {}
+                try { existingNames = this.parseCurrentModel().entities.map((e) => e.name); } catch (_) {}
             }
             if (existingNames.includes(name)) return;
 
@@ -3483,12 +3882,15 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
     handleDeleteEntity(event) {
         event.stopPropagation();
+        if (/^\s*(?:export\s+)?module\s|^\s*import\s/im.test(this.sourceText)) { this.errorMessage = 'Edit the DSL module definition to remove an entity or component. Shared module definitions are preserved.'; return; }
         this.hideHoverCard(); // the box under the cursor is about to disappear
         const name = event.currentTarget.dataset.name;
         try {
             const filtered = this.sourceText.split('\n').filter((line) => {
                 const t = line.trim();
                 if (!t || t.startsWith('#')) return true;
+                const cm = t.match(/^component\s+(ApexClass|Flow|PermissionSet|PermissionSetLicense|UserLicense|PackageLicense)\s+(\w+)(?:\s+label\s+.*)?$/i);
+                if (cm && (`@${cm[1]}:${cm[2]}`).toLowerCase() === name.toLowerCase()) return false;
                 const em = t.match(/^entity\s+(\w+)/i);
                 if (em && em[1].toLowerCase() === name.toLowerCase()) return false;
                 const rm = t.match(/^(\w+)\.(\w+)\s*(=>|~>|->)\s*(\w+)\s*$/);
@@ -3496,7 +3898,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 return true;
             });
             const remaining  = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-            const hasEntity  = /^\s*entity\s+\w+/im.test(remaining);
+            const hasEntity  = /^\s*(entity|component)\s+\w+/im.test(remaining);
             delete this.erPositions[name];
             delete this.boxHeightOverrides[name];
             delete this.boxWidthOverrides[name];
@@ -3778,7 +4180,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async fetchSharingModels() {
         if (!this.sharingViewOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._sharingRequestToken;
-        const names = this._erBoxes.map((b) => b.name);
+        const names = this._erBoxes.filter(b => !b.componentType).map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
             // OWD/sharing models are cheap metadata and are needed for every
@@ -3789,13 +4191,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const existingNames = await this.checkMissingModelObjects(names, 'Sharing View');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || this._isDisconnected) return;
             this._sharingModelCache = this._sharingModelCache || {};
-            const uncachedNames = existingNames.filter(name=>!Object.prototype.hasOwnProperty.call(this._sharingModelCache,name.toLowerCase()));
+            const uncachedNames = existingNames.filter(name=>!/__(e|mdt)$/i.test(name)&&!Object.prototype.hasOwnProperty.call(this._sharingModelCache,name.toLowerCase()));
             const fresh = uncachedNames.length ? await getSharingModels({ objectApiNames: uncachedNames }) : {};
             for (const name of uncachedNames) {
                 const match = Object.keys(fresh||{}).find(key=>key.toLowerCase()===name.toLowerCase());
                 this._sharingModelCache[name.toLowerCase()] = match ? fresh[match] : null;
             }
-            const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+            const currentKey = (this._erBoxes || []).filter(b => !b.componentType).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._sharingRequestToken || !this.sharingViewOn || modelKey !== currentKey || this._isDisconnected) return;
             const next = {};
             existingNames.forEach(name=>{
@@ -3873,7 +4275,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async fetchRecordCounts() {
         if (!this.heatmapOn || !this._erBoxes || !this._erBoxes.length) return;
         const myToken = ++this._heatmapRequestToken;
-        const names = this._erBoxes.map((b) => b.name);
+        const names = this._erBoxes.filter(b => !b.componentType).map((b) => b.name);
         const modelKey = names.map((n)=>n.toLowerCase()).sort().join('|');
         try {
             // Keep record counts for objects already fetched during this
@@ -3884,7 +4286,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const existingNames = await this.checkMissingModelObjects(names, 'Heatmap');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || this._isDisconnected) return;
             this._heatmapUnavailableNames = this._heatmapUnavailableNames || new Set();
-            const pendingNames = existingNames.filter((name) => next[name.toLowerCase()] == null && !this._heatmapUnavailableNames.has(name.toLowerCase()));
+            const pendingNames = existingNames.filter((name) => !/__e$/i.test(name) && next[name.toLowerCase()] == null && !this._heatmapUnavailableNames.has(name.toLowerCase()));
             const concurrency = 4;
             let cursor = 0;
 
@@ -3892,7 +4294,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 while (cursor < pendingNames.length) {
                     const name = pendingNames[cursor++];
                     const value = await getRecordCount({ objectApiName: name });
-                    const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+                    const currentKey = (this._erBoxes || []).filter(b => !b.componentType).map((b)=>b.name.toLowerCase()).sort().join('|');
                     if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
 
                     if (value == null) {
@@ -3912,7 +4314,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
                 Array.from({ length: Math.min(concurrency, pendingNames.length) }, () => worker())
             );
 
-            const currentKey = (this._erBoxes || []).map((b)=>b.name.toLowerCase()).sort().join('|');
+            const currentKey = (this._erBoxes || []).filter(b => !b.componentType).map((b)=>b.name.toLowerCase()).sort().join('|');
             if (myToken !== this._heatmapRequestToken || !this.heatmapOn || modelKey !== currentKey || this._isDisconnected) return;
             this.recordCounts = { ...next };
         } catch (e) {
@@ -3983,12 +4385,13 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     showHoverCard(name, clientX, clientY) {
         const box = this._erBoxes && this._erBoxes.find((b) => b.name === name);
         if (!box) return;
+        if (box.componentType) return;
         const key = name.toLowerCase();
 
         const recordCount = this.recordCounts[key];
         const sharing     = this.sharingModels[key];
         const signals     = this.sharingSignals[key];
-        if (this.sharingViewOn && !signals) this.fetchSharingSignalForObject(name);
+        if (this.sharingViewOn && !signals && !/__(e|mdt)$/i.test(name)) this.fetchSharingSignalForObject(name);
 
         this.hoverCard = {
             name,
@@ -4001,10 +4404,12 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             // entity actually has. box.hiddenCount (the rows that don't
             // currently fit) has to be added back in for the true total.
             fieldCount: box.fields.length + (box.hiddenCount || 0),
-            objectTypeText: name.endsWith('__c') ? 'Custom Object' : 'Standard Object',
+            objectTypeText: /__e$/i.test(name) ? 'Platform Event' : /__mdt$/i.test(name) ? 'Custom Metadata Type' : /__c$/i.test(name) ? 'Custom Object' : 'Standard Object',
+            recordDataHint: /__e$/i.test(name) ? 'Not applicable — event messages cannot be counted with SOQL.' : 'Turn on Heatmap to see this',
+            sharingDataHint: /__(e|mdt)$/i.test(name) ? 'Not applicable to this object type' : 'Turn on Sharing View to see this',
 
             hasRecordData: this.heatmapOn && recordCount != null,
-            recordCountText: recordCount != null ? recordCount.count.toLocaleString() : '',
+            recordCountText: recordCount != null ? (recordCount.countIsLowerBound ? 'At least ' : '') + recordCount.count.toLocaleString() : '',
             // Shown alongside the count, not instead of it, so the hover
             // card gives the same "is this actually being used" signal
             // the heatmap's own color already does, in words rather than
@@ -4419,7 +4824,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         const after  = value.substring(this.dslReplaceEnd);
         const insert = suggestion.insertText + (suggestion.appendText || '');
         const next   = before + insert + after;
-        const caretPos = before.length + insert.length;
+        const caretPos = before.length + (suggestion.cursorOffset == null ? insert.length : suggestion.cursorOffset);
 
         textareaEl.value = next;
         textareaEl.setSelectionRange(caretPos, caretPos);
@@ -4459,7 +4864,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             return;
         }
         this.dslReplaceStart      = ctx.replaceStart;
-        this.dslReplaceEnd        = caret;
+        this.dslReplaceEnd        = ctx.replaceEnd == null ? caret : ctx.replaceEnd;
         this.dslSuggestions       = ctx.items;
         this.dslSuggestActiveIndex = 0;
         this.dslSuggestStyle      = this.computeDslSuggestStyle(textareaEl, caret);
@@ -4532,7 +4937,40 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     detectDslContext(linePrefix, fullText, lineStart) {
+        const statementStart=lineStart;const lineEnd=fullText.indexOf('\n',statementStart);
+        const completionSource=fullText.slice(0,statementStart)+'\n'+(lineEnd<0?'':fullText.slice(lineEnd+1));
+        const indent=linePrefix.match(/^\s*/)[0].length;linePrefix=linePrefix.slice(indent);lineStart+=indent;
+        const caret=lineStart+linePrefix.length;let tokenEnd=caret;while(tokenEnd<fullText.length&&/[A-Za-z0-9_]/.test(fullText[tokenEnd]))tokenEnd++;
         let m;
+        const modules=this.moduleSuggestionNames(fullText);
+        m=linePrefix.match(/^(?:use\s+|(?:export\s+)?module\s+\w+\s+extends\s+)(\w*)$/i);
+        if(m)return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:modules.filter(name=>name.toLowerCase().startsWith(m[1].toLowerCase())).map(name=>({id:'mod-'+name,label:name,detail:'Exported module',insertText:name}))};
+        m=linePrefix.match(/^import\s+\w+\s+(f\w*)?$/i);
+        if(m&&'from'.startsWith((m[1]||'').toLowerCase()))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-(m[1]||'').length,items:[{id:'import-from',label:'from',detail:'Named module import',insertText:'from '}]};
+        m=linePrefix.match(/^import\s+(?:\w+\s+from\s+)?(.*)$/i);
+        if(m){const partial=m[1].toLowerCase();return {replaceEnd:lineEnd<0?fullText.length:lineEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:(this.files||[]).filter(file=>file.id!==this.currentId).map(file=>{let name;try{name=dslFileKey(file.name);}catch(_){return null;}return {id:'import-'+file.id,label:name,detail:'Saved DSL file',insertText:name};}).filter(item=>item&&item.label.startsWith(partial)).slice(0,50)};}
+        m=linePrefix.match(/^component\s+(\w*)$/i);
+        if(m)return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:DSL_COMPONENT_TYPES.filter(type=>type.toLowerCase().startsWith(m[1].toLowerCase())).map(type=>({id:'component-'+type,label:type,detail:'Component type',insertText:type+' '}))};
+        m=linePrefix.match(/^component\s+(ApexClass|Flow)\s+(\w*)$/i);
+        if(m){const type=m[1].toLowerCase()==='flow'?'Flow':'ApexClass';this.ensureDslComponentNames(type);const local=[...completionSource.matchAll(new RegExp('component\\s+'+type+'\\s+(\\w+)','gi'))].map(match=>match[1]);return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[2].length,items:[...new Set([...(this._dslComponentNames[type]||[]),...local])].filter(name=>name.toLowerCase().startsWith(m[2].toLowerCase())).map(name=>({id:'component-name-'+name,label:name,detail:type+' developer name',insertText:name}))};}
+        const importedDeclarations=Object.keys(this._dslImportBundle.files||{}).sort().flatMap(key=>componentDeclarations(this._dslImportBundle.files[key].sourceCode));
+        const declarations=componentDeclarations(completionSource);
+        const accessCandidates=[...new Map([...(this._appAccessCards||[]),...importedDeclarations,...declarations].map(c=>[(c.type+':'+c.name).toLowerCase(),c])).values()].sort((a,b)=>a.label.localeCompare(b.label)||a.name.localeCompare(b.name));
+        m=linePrefix.match(/^component\s+(PermissionSet|PermissionSetLicense|UserLicense|PackageLicense)\s+(\w*)$/i);
+        if(m){const type=DSL_COMPONENT_TYPES.find(t=>t.toLowerCase()===m[1].toLowerCase());return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[2].length,items:accessCandidates.filter(c=>c.type===type&&(c.name.toLowerCase().startsWith(m[2].toLowerCase())||c.label.toLowerCase().startsWith(m[2].toLowerCase()))).map(c=>({id:'access-'+c.name,label:c.label,detail:type+' declaration',insertText:c.name+(/^\s+label\s+"/i.test(fullText.slice(tokenEnd,lineEnd<0?fullText.length:lineEnd))?'':' label '+JSON.stringify(c.label))}))};}
+        m=linePrefix.match(/^component\s+(\w+)\s+(\w+)\s+label\s+"((?:[^"\\]|\\.)*)$/i);
+        if(m){const type=DSL_COMPONENT_TYPES.find(t=>t.toLowerCase()===m[1].toLowerCase());let prefix;try{prefix=JSON.parse('"'+m[3]+'"');}catch(_){return null;}let labelEnd=caret,escaped=false;for(let i=caret;i<(lineEnd<0?fullText.length:lineEnd);i++){const ch=fullText[i];if(ch==='"'&&!escaped){labelEnd=i+1;break;}escaped=ch==='\\'&&!escaped;}return {replaceEnd:labelEnd,replaceStart:lineStart+linePrefix.length-m[3].length-1,items:accessCandidates.filter(c=>c.type===type&&c.name.toLowerCase()===m[2].toLowerCase()&&c.label.toLowerCase().startsWith(prefix.toLowerCase())).map(c=>({id:'label-'+c.name,label:c.label,detail:'Saved display label',insertText:JSON.stringify(c.label)}))};}
+        m=linePrefix.match(/^component\s+\w+\s+\w+\s+([A-Za-z]*)$/i);
+        if(m&&'label'.startsWith(m[1].toLowerCase())){const existing=/^\s*"/.test(fullText.slice(tokenEnd,lineEnd<0?fullText.length:lineEnd));return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:[{id:'component-label',label:'label',detail:'Display a readable card name',insertText:existing?'label':'label ""',cursorOffset:existing?5:7}]};}
+        m=linePrefix.match(/^export\s+(m\w*)?$/i);
+        if(m&&'module'.startsWith((m[1]||'').toLowerCase()))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-(m[1]||'').length,items:[{id:'kw-module',label:'module',detail:'Export a reusable module',insertText:'module '}]};
+        m=linePrefix.match(/^(?:export\s+)?module\s+\w+\s+(e\w*)$/i);
+        if(m&&'extends'.startsWith(m[1].toLowerCase()))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length-m[1].length,items:[{id:'module-extends',label:'extends',detail:'Extend an exported module',insertText:'extends '}]};
+        if(/^(?:export\s+)?module\s+\w+\s+$/i.test(linePrefix))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body (rendered only through use)',insertText:'{\n  \n}',cursorOffset:4},{id:'module-extends',label:'extends',detail:'Extend an exported module',insertText:'extends '}]};
+        if(/^(?:export\s+)?module\s+\w+\s+extends\s+\w+\s+$/i.test(linePrefix))return {replaceEnd:tokenEnd,replaceStart:lineStart+linePrefix.length,items:[{id:'module-body',label:'{ … }',detail:'Module body',insertText:'{\n  \n}',cursorOffset:4}]};
+        m=linePrefix.match(/^([A-Za-z]+)$/);
+        if(m){const keywords=[['entity','Declare an entity'],['export module','Define an inert exported module'],['module','Define a private module'],['use','Render an exported module'],['import','Import exported modules from a saved file'],['component','Declare a named component or access card']];const items=keywords.filter(([word])=>word.startsWith(m[1].toLowerCase())).map(([word,detail])=>({id:'kw-'+word,label:word,detail,insertText:word+' '}));if(items.length)return {replaceEnd:tokenEnd,replaceStart:lineStart,items};}
+
 
         // 1) Partial "entity" keyword at the start of an otherwise-empty line.
         m = linePrefix.match(/^([A-Za-z]{0,6})$/);
@@ -4682,7 +5120,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             const items = names
                 .filter((n) => n.toLowerCase().startsWith(partial))
                 .slice(0, 50)
-                .map((n) => ({ id: 'target-' + n, label: n, detail: declared.includes(n) ? 'On canvas' : 'Object', insertText: n }));
+                .map((n) => ({ id: 'target-' + n, label: n, detail: declared.includes(n) ? 'Declared in DSL' : 'Object', insertText: n }));
             return { replaceStart: start, items };
         }
 
@@ -4728,7 +5166,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
             this.missingRelationshipSuggestions = [];
             return;
         }
-        const boxes = this._erBoxes;
+        const boxes = this._erBoxes.filter(b => !b.componentType);
         // Make sure every entity currently on canvas has its schema fetched
         // (a no-op for anything already cached, or anything that isn't a
         // real org object — that just resolves to an empty field list).
@@ -4736,7 +5174,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
 
         let model;
         try {
-            model = parseEr(this.sourceText);
+            model = this.parseCurrentModel();
         } catch (_) {
             return; // mid-typing / invalid DSL — leave whatever suggestions were showing
         }
@@ -4811,7 +5249,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     async checkSchemaDrift() {
         let model;
         try {
-            model = parseEr(this.sourceText);
+            model = this.parseCurrentModel();
         } catch (e) {
             this.driftModalOpen = false;
             this.errorMessage = e.message;
@@ -4910,6 +5348,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     addFieldToEntity(entityName, fieldName, skipRender, markerSuffix) {
+        if (/^\s*(?:export\s+)?module\s|^\s*import\s/im.test(this.sourceText)) { this.errorMessage = 'Edit fields in the DSL module definition. Shared module definitions are preserved.'; return; }
         const fieldText = fieldName + (markerSuffix || '');
         const lines = this.sourceText.split('\n');
         let found = false;
@@ -4930,6 +5369,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     }
 
     removeFieldFromEntity(entityName, fieldName) {
+        if (/^\s*(?:export\s+)?module\s|^\s*import\s/im.test(this.sourceText)) { this.errorMessage = 'Edit fields in the DSL module definition. Shared module definitions are preserved.'; return; }
         const lines = this.sourceText.split('\n').map((line) => {
             const m = line.match(/^(\s*entity\s+)([A-Za-z0-9_]+)(\s*:\s*)(.*)$/i);
             if (m && m[2].toLowerCase() === entityName.toLowerCase()) {
@@ -4953,7 +5393,7 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
     rerenderGeometry() {
         if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
         try {
-            const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            const geo = buildErGeometry(this.parseCurrentModel(), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
             this.erConnectors = geo.connectors;
             this.svgWidth     = geo.svgWidth;
@@ -4961,10 +5401,61 @@ export default class DiagramStudio extends NavigationMixin(LightningElement) {
         } catch (_) {}
     }
 
+    dslImportsLoading=false;
+    _dslImportBundle={files:{},edges:{}};
+    _dslImportSignature='';
+    _dslImportPending='';
+    _dslImportFailure='';
+    _dslImportError='';
+    _dslImportToken=0;
+    _dslComponentNames={};
+    _dslComponentPending={};
+    get hasDslImports(){return importStatements(this.sourceText).length>0;}
+    get diagramBusy(){return this.diagramLoading||this.dslImportsLoading;}
+    get diagramBusyMessage(){return this.dslImportsLoading?'Please wait — loading imported DSL modules…':this.diagramLoadingMessage;}
+    get currentImportSignature(){return (this.currentId||'@root')+'|'+importStatements(this.sourceText).map(imp=>(imp.module||'*').toLowerCase()+':'+imp.file.trim().toLowerCase()).join('|');}
+    parseCurrentModel(){
+        if(this.hasDslImports&&this._dslImportSignature!==this.currentImportSignature)throw new Error('Imported modules are loading. Please wait.');
+        return parseEr(this.sourceText,{fileName:this.fileName||'current.dsl',rootId:this.currentId||'@root',resolveImport:(owner,name)=>this._dslImportBundle.files[this._dslImportBundle.edges[owner+'|'+name]]});
+    }
+    async loadDslImports(signature){
+        const token=++this._dslImportToken;this._dslImportPending=signature;this.dslImportsLoading=true;
+        try{
+            const bundle=JSON.parse(await resolveDslImports({fileId:this.currentId,sourceCode:this.sourceText}));
+            if(token!==this._dslImportToken||signature!==this.currentImportSignature||this._isDisconnected)return;
+            this._dslImportBundle=bundle;this._dslImportSignature=signature;this._dslImportFailure='';this._architectureSource=null;this._architectureAnalysis=null;
+            this.renderDiagram();
+            const editor=this.template.querySelector('.code-editor');if(editor&&this.dslSuggestOpen)this.updateDslSuggestions(editor);
+        }catch(error){if(token===this._dslImportToken&&signature===this.currentImportSignature){this._dslImportFailure=signature;this._dslImportError=this.reduceError(error);this.setDslValidation(this._dslImportError);if(!/^Import [^\r\n]+ is missing, inaccessible or ambiguous\.|^Use a filename|^Use a saved filename|^DSL import graph|^Imported DSL exceeds/i.test(this._dslImportError))this.errorMessage=this._dslImportError;}}
+        finally{if(token===this._dslImportToken){this.dslImportsLoading=false;this._dslImportPending='';}}
+    }
+    handleRefreshDslImports(){this._dslImportSignature='';this._dslImportFailure='';this.renderDiagram();}
+    moduleSuggestionNames(text){
+        const imported=[];for(const imp of importStatements(text)){
+            let key;try{key=dslFileKey(imp.file);}catch(_){continue;}
+            const entry=this._dslImportBundle.files[this._dslImportBundle.edges[(this.currentId||'@root')+'|'+key]];
+            if(entry)imported.push(...exportedModuleNames(entry.sourceCode).filter(name=>!imp.module||name.toLowerCase()===imp.module.toLowerCase()));
+        }
+        return exportedModuleNames(text,imported);
+    }
+    ensureDslComponentNames(type){
+        if(this._dslComponentNames[type]||this._dslComponentPending[type])return;
+        this._dslComponentPending[type]=true;
+        listDslComponentNames({componentType:type}).then(names=>{this._dslComponentNames={...this._dslComponentNames,[type]:names||[]};const editor=this.template.querySelector('.code-editor');if(editor&&(this.dslSuggestOpen||this.template.activeElement===editor))this.updateDslSuggestions(editor);}).catch(()=>{this._dslComponentNames={...this._dslComponentNames,[type]:[]};}).finally(()=>{this._dslComponentPending[type]=false;});
+    }
+    dslValidationMessage = '';
+    setDslValidation(message){
+        const previous=this.dslValidationMessage;this.dslValidationMessage=message||'';
+        if(this.dslValidationMessage)this._errorMessage=this.dslValidationMessage;
+        else if(this._errorMessage===previous)this._errorMessage='';
+    }
     renderDiagram() {
+        if(this.hasDslImports){const signature=this.currentImportSignature;if(this._dslImportFailure===signature){this.setDslValidation(this._dslImportError);return;}if(this._dslImportSignature!==signature){if(this._dslImportPending!==signature)this.loadDslImports(signature);return;}}
         if (!this.sourceText || !this.sourceText.trim()) { this.resetEmptyCanvas(); return; }
+        let model;try{model=this.parseCurrentModel();}catch(error){this.setDslValidation(error.message||String(error));return;}
+        this.setDslValidation('');
         try {
-            const geo = buildErGeometry(parseEr(this.sourceText), this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
+            const geo = buildErGeometry(model, this.erPositions, this.boxHeightOverrides, this.boxWidthOverrides);
             this._erBoxes     = geo.boxes;
             this.erConnectors = geo.connectors;
             this.svgWidth     = geo.svgWidth;

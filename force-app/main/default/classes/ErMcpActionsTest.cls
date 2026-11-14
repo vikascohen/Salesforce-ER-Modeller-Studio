@@ -84,6 +84,39 @@ private class ErMcpActionsTest {
             ErMcpCore.logCall('Get Field Usage','Account.Name','Success',System.now().getTime(),null);
         }
     }
+    @IsTest static void recentCallsOnlyReturnsConfiguredMcpHistory() {
+        User u=integrationUser();
+        insert new PermissionSetAssignment(AssigneeId=u.Id,PermissionSetId=[SELECT Id FROM PermissionSet WHERE Name='Diagram_Studio_User' LIMIT 1].Id);
+        System.runAs(u) {
+            System.assertEquals(null,ErMcpSettingsController.getRecentCalls().configured);
+            ER_Diagnostic_Config__c config=new ER_Diagnostic_Config__c(Name='Default',Configuration__c='broken');insert config;
+            System.assertEquals(0,ErMcpSettingsController.getRecentCalls().rows.size());
+            config.Configuration__c='{"enabled":false}';update config;
+            System.assertEquals(0,ErMcpSettingsController.getRecentCalls().rows.size());
+            config.Configuration__c='{"enabled":true,"objectApi":"Missing_Object__c","messageField":"Name"}';update config;
+            System.assertEquals(0,ErMcpSettingsController.getRecentCalls().rows.size());
+            config.Configuration__c='{"enabled":true,"objectApi":"Account","messageField":"Missing__c"}';update config;
+            System.assertEquals(0,ErMcpSettingsController.getRecentCalls().rows.size());
+            config.Configuration__c='{"enabled":true,"objectApi":"ER_Diagnostic_Config__c","messageField":"Name"}';update config;
+            List<ER_Diagnostic_Config__c> rows=new List<ER_Diagnostic_Config__c>();
+            for(Integer i=0;i<7;i++)rows.add(new ER_Diagnostic_Config__c(Name='ER_STUDIO_MODELLER_MCP call '+i));
+            rows.add(new ER_Diagnostic_Config__c(Name='Unrelated Studio log'));insert rows;
+            ErMcpSettingsController.RecentCalls calls=ErMcpSettingsController.getRecentCalls();
+            System.assertEquals(true,calls.configured);System.assertEquals(5,calls.rows.size());
+            for(ErMcpSettingsController.RecentCall row:calls.rows){System.assert(row.message.startsWith('ER_STUDIO_MODELLER_MCP '));System.assertNotEquals(null,row.occurredAt);}
+        }
+    }
+    @IsTest static void exclusionSettingsNormalizeAndRejectInvalidNames() {
+        FieldUsageExclusionService.saveExcludedClassNames('Example;example, Other');
+        System.assertEquals(new Set<String>{'example','other'},FieldUsageExclusionService.excludedNames());
+        System.assert(FieldUsageExclusionService.shouldExclude('EXAMPLE',FieldUsageExclusionService.excludedNames()));
+        for(String invalid:new List<String>{'Class.Name','Example WHERE Id != null'}){
+            Boolean rejected=false;try{FieldUsageExclusionService.saveExcludedClassNames(invalid);}catch(AuraHandledException ex){rejected=true;}System.assert(rejected);
+        }
+        FieldUsageExclusionService.saveExcludedClassNames(null);
+        System.assertEquals('',FieldUsageExclusionService.getExcludedClassNames());
+        System.assertEquals(0,FieldUsageExclusionService.excludedNames().size());
+    }
     @IsTest static void scanOperatorBlockedByActiveRun() {
         User u=integrationUser();
         PermissionSet operatorSet=[SELECT Id FROM PermissionSet WHERE Name='Diagram_Studio_User' LIMIT 1];

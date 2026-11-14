@@ -5,7 +5,7 @@ public without sharing class FieldUsageExclusionService {
     @AuraEnabled(cacheable=true)
     public static String getExcludedClassNames(){
         List<ER_Diagnostic_Config__c> configs=[SELECT Configuration__c FROM ER_Diagnostic_Config__c WHERE Name=:CONFIG_NAME ORDER BY CreatedDate DESC LIMIT 1];
-        return configs.isEmpty()?DEFAULT_NAMES:configs[0].Configuration__c;
+        return configs.isEmpty()?DEFAULT_NAMES:(String.isBlank(configs[0].Configuration__c)?'':configs[0].Configuration__c);
     }
     @AuraEnabled
     public static void saveExcludedClassNames(String names){
